@@ -4,6 +4,7 @@
   "description": "HTTP server for openleash",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": ["dist", "LICENSE"],
   "scripts": {
     "build": "tsc -b"
   },
@@ -13,5 +14,14 @@
     "yaml": "^2.3.4",
     "zod": "^3.22.4"
   },
-  "license": "MIT"
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openleash/openleash.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/openleash/openleash/tree/main/packages/server",
+  "bugs": {
+    "url": "https://github.com/openleash/openleash/issues"
+  }
 }

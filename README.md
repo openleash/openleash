@@ -150,4 +150,4 @@ openleash stores all state in `./data/` relative to where you run the command. M
 
 ## License
 
-MIT
+Apache-2.0

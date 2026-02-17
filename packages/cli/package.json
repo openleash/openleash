@@ -6,6 +6,7 @@
   "bin": {
     "openleash": "./dist/index.js"
   },
+  "files": ["dist", "LICENSE"],
   "scripts": {
     "build": "tsc -b"
   },
@@ -18,5 +19,14 @@
   "devDependencies": {
     "@types/prompts": "^2.4.9"
   },
-  "license": "MIT"
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openleash/openleash.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/openleash/openleash/tree/main/packages/cli",
+  "bugs": {
+    "url": "https://github.com/openleash/openleash/issues"
+  }
 }

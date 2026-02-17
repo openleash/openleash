@@ -4,6 +4,7 @@
   "description": "TypeScript SDK for openleash",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": ["dist", "LICENSE"],
   "scripts": {
     "build": "tsc -b"
   },
@@ -11,5 +12,14 @@
     "json-canonicalize": "^1.0.6",
     "paseto": "^3.1.4"
   },
-  "license": "MIT"
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openleash/openleash.git",
+    "directory": "packages/sdk-ts"
+  },
+  "homepage": "https://github.com/openleash/openleash/tree/main/packages/sdk-ts",
+  "bugs": {
+    "url": "https://github.com/openleash/openleash/issues"
+  }
 }
