@@ -1,4 +1,4 @@
-FROM node:lts AS builder
+FROM node:22 AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,11 @@ COPY packages/ packages/
 
 RUN npm run build
 
-FROM node:lts-slim
+FROM node:22-slim
+
+LABEL org.opencontainers.image.source="https://github.com/openleash/openleash"
+LABEL org.opencontainers.image.description="OpenLeash — open-source authorization layer for AI agents"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
 
 WORKDIR /app
 
@@ -34,6 +38,8 @@ COPY --from=builder /app/packages/cli/dist packages/cli/dist/
 
 COPY playground/ playground/
 COPY templates/ templates/
+
+VOLUME /app/data
 
 EXPOSE 8787
 
