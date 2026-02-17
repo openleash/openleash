@@ -1,43 +1,44 @@
+<div align="center">
+
 # openleash
 
-Local-first authorization and proof sidecar for AI agents.
+**Local-first authorization and proof sidecar for AI agents.**
+
+[![CI](https://img.shields.io/github/actions/workflow/status/openleash/openleash/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/openleash/openleash/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@openleash/core?style=for-the-badge&label=npm)](https://www.npmjs.com/package/@openleash/core)
+[![License](https://img.shields.io/github/license/openleash/openleash?style=for-the-badge)](LICENSE)
+[![Discussions](https://img.shields.io/github/discussions/openleash/openleash?style=for-the-badge)](https://github.com/openleash/openleash/discussions)
+
+[Docs](docs/) &bull; [Getting Started](#quickstart) &bull; [npm](https://www.npmjs.com/org/openleash) &bull; [Discussions](https://github.com/openleash/openleash/discussions)
+
+</div>
+
+---
+
+## What is openleash?
 
 openleash runs locally next to your AI agent runtime. Before an agent takes a side-effectful action (purchases, bookings, sending messages, government submissions), it asks openleash:
 
 1. **Is this agent allowed to do this action right now?**
 2. **If allowed, can the agent get a cryptographic proof that others can verify?**
 
-openleash evaluates the request against a YAML policy and returns a decision (ALLOW, DENY, REQUIRE_APPROVAL, REQUIRE_STEP_UP, REQUIRE_DEPOSIT), a list of obligations, and optionally a short-lived proof token (PASETO v4.public) that counterparties can verify.
+openleash evaluates the request against a YAML policy and returns a decision (`ALLOW`, `DENY`, `REQUIRE_APPROVAL`, `REQUIRE_STEP_UP`, `REQUIRE_DEPOSIT`), a list of obligations, and optionally a short-lived proof token (PASETO v4.public) that counterparties can verify.
 
 ## Quickstart
 
-### 1. Install dependencies
-
 ```bash
-git clone <repo-url> && cd openleash
-npm install
-npm run build
-```
+# Clone and build
+git clone https://github.com/openleash/openleash.git && cd openleash
+npm install && npm run build
 
-### 2. Start the server
-
-```bash
+# Start the server (bootstraps ./data and config.yaml)
 npx openleash start
-```
 
-This bootstraps a `./data` directory and `config.yaml` with defaults, then starts an HTTP server on `http://127.0.0.1:8787`.
-
-### 3. Run the interactive wizard
-
-```bash
+# Run the interactive setup wizard
 npx openleash wizard
 ```
 
-The wizard walks you through creating an owner, generating an agent keypair, choosing a policy profile, and running demo authorizations.
-
-### 4. Run examples
-
-After the wizard, use the SDK to authorize actions:
+## SDK Usage
 
 ```typescript
 import { authorize } from '@openleash/sdk-ts';
@@ -60,7 +61,7 @@ const result = await authorize({
 console.log(result);
 ```
 
-### 5. Verify a proof offline
+Verify a proof offline:
 
 ```typescript
 import { verifyProofOffline } from '@openleash/sdk-ts';
@@ -148,6 +149,10 @@ Each nonce can only be used once per agent within the TTL window (default 600 se
 
 openleash stores all state in `./data/` relative to where you run the command. Make sure you run all commands from the same directory.
 
+## Contributing
+
+Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) before submitting a pull request.
+
 ## License
 
-Apache-2.0
+[Apache-2.0](LICENSE)
