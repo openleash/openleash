@@ -1,30 +1,32 @@
 <div align="center">
 
-# openleash
+<img src="https://openleash.ai/brand/openleash-mark.svg" alt="OpenLeash logo" width="80" />
 
-**Local-first authorization and proof sidecar for AI agents.**
+# OpenLeash
+
+🔐 **Local-first authorization and proof sidecar for AI agents.** 🦞
 
 [![CI](https://img.shields.io/github/actions/workflow/status/openleash/openleash/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/openleash/openleash/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@openleash/core?style=for-the-badge&label=npm)](https://www.npmjs.com/package/@openleash/core)
 [![License](https://img.shields.io/github/license/openleash/openleash?style=for-the-badge)](LICENSE)
 [![Discussions](https://img.shields.io/github/discussions/openleash/openleash?style=for-the-badge)](https://github.com/openleash/openleash/discussions)
 
-[Docs](docs/) &bull; [Getting Started](#quickstart) &bull; [npm](https://www.npmjs.com/org/openleash) &bull; [Discussions](https://github.com/openleash/openleash/discussions)
+[📖 Docs](docs/) &bull; [🚀 Getting Started](#quickstart) &bull; [📦 npm](https://www.npmjs.com/org/openleash) &bull; [💬 Discussions](https://github.com/openleash/openleash/discussions)
 
 </div>
 
 ---
 
-## What is openleash?
+## What is OpenLeash?
 
-openleash runs locally next to your AI agent runtime. Before an agent takes a side-effectful action (purchases, bookings, sending messages, government submissions), it asks openleash:
+OpenLeash runs locally next to your AI agent runtime. Before an agent takes a side-effectful action (purchases, bookings, sending messages, government submissions), it asks OpenLeash:
 
 1. **Is this agent allowed to do this action right now?**
 2. **If allowed, can the agent get a cryptographic proof that others can verify?**
 
-openleash evaluates the request against a YAML policy and returns a decision (`ALLOW`, `DENY`, `REQUIRE_APPROVAL`, `REQUIRE_STEP_UP`, `REQUIRE_DEPOSIT`), a list of obligations, and optionally a short-lived proof token (PASETO v4.public) that counterparties can verify.
+OpenLeash evaluates the request against a YAML policy and returns a decision (`ALLOW`, `DENY`, `REQUIRE_APPROVAL`, `REQUIRE_STEP_UP`, `REQUIRE_DEPOSIT`), a list of obligations, and optionally a short-lived proof token (PASETO v4.public) that counterparties can verify.
 
-## Quickstart
+## ⚡ Quickstart
 
 ```bash
 # Clone and build
@@ -38,7 +40,7 @@ npx openleash start
 npx openleash wizard
 ```
 
-## SDK Usage
+## 🔧 SDK Usage
 
 ```typescript
 import { authorize } from '@openleash/sdk-ts';
@@ -74,7 +76,7 @@ const result = await verifyProofOffline({
 console.log(result.valid, result.claims);
 ```
 
-## Playground
+## 🧪 Playground
 
 Run predefined scenarios to test policy behavior:
 
@@ -84,7 +86,7 @@ npx openleash playground run small_purchase_allowed
 npx openleash playground run large_purchase_requires_approval
 ```
 
-## CLI Commands
+## 📋 CLI Commands
 
 | Command | Description |
 |---|---|
@@ -100,7 +102,7 @@ npx openleash playground run large_purchase_requires_approval
 | `openleash keys rotate` | Rotate signing key |
 | `openleash testvectors` | Generate test vectors |
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 packages/
@@ -118,7 +120,7 @@ All state is stored in human-readable files:
 - `./data/keys/` — signing key JSON files
 - `./data/audit.log.jsonl` — append-only audit log
 
-## Troubleshooting
+## 🔍 Troubleshooting
 
 ### Clock skew errors
 
@@ -147,12 +149,12 @@ Each nonce can only be used once per agent within the TTL window (default 600 se
 
 ### Data folder location
 
-openleash stores all state in `./data/` relative to where you run the command. Make sure you run all commands from the same directory.
+OpenLeash stores all state in `./data/` relative to where you run the command. Make sure you run all commands from the same directory.
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) before submitting a pull request.
 
-## License
+## 📄 License
 
 [Apache-2.0](LICENSE)
