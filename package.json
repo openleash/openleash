@@ -1,0 +1,31 @@
+{
+  "name": "openleash",
+  "version": "0.1.0",
+  "description": "Local-first authorization + proof sidecar for AI agents",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "bin": {
+    "openleash": "./packages/cli/dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "dev": "tsx packages/cli/src/index.ts start",
+    "lint": "eslint 'packages/*/src/**/*.ts'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  }
+}

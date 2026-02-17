@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  openleash:
+    build: .
+    ports:
+      - "8787:8787"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production

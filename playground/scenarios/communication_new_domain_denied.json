@@ -1,0 +1,12 @@
+{
+  "action_id": "a0000000-0000-0000-0000-000000000006",
+  "action_type": "communication.send",
+  "requested_at": "2024-01-15T10:30:00.000Z",
+  "principal": { "agent_id": "demo-agent" },
+  "subject": { "principal_id": "b0000000-0000-0000-0000-000000000001" },
+  "relying_party": { "domain": "unknown.example", "trust_profile": "LOW" },
+  "payload": {
+    "domain": "unknown.example",
+    "message_type": "email"
+  }
+}

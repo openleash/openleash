@@ -1,0 +1,24 @@
+# Appointment rules template
+# Variables: ${ALLOW_HAIRDRESSER}, ${ALLOW_HEALTHCARE}, ${REQUIRE_STEPUP_HEALTHCARE}
+
+- id: appointment_hairdresser_allow
+  effect: allow
+  action: appointment.book
+  description: "Allow hairdresser bookings"
+  when:
+    match:
+      path: "$.payload.category"
+      op: eq
+      value: "hairdresser"
+
+- id: appointment_healthcare
+  effect: allow
+  action: appointment.book
+  description: "Healthcare appointments (may require step-up)"
+  when:
+    match:
+      path: "$.payload.category"
+      op: eq
+      value: "healthcare"
+  requirements:
+    min_assurance_level: "${HEALTHCARE_ASSURANCE_LEVEL}"

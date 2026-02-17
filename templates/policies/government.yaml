@@ -1,0 +1,11 @@
+# Government rules template
+# Variables: ${ALLOW_GOVERNMENT}, ${GOVERNMENT_ASSURANCE_LEVEL}
+
+- id: government_submit
+  effect: allow
+  action: "government.*"
+  description: "Government submissions (require step-up for high assurance)"
+  requirements:
+    min_assurance_level: "${GOVERNMENT_ASSURANCE_LEVEL}"
+  proof:
+    required: true

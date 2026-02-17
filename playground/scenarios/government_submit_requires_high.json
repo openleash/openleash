@@ -1,0 +1,12 @@
+{
+  "action_id": "a0000000-0000-0000-0000-000000000005",
+  "action_type": "government.submit_document",
+  "requested_at": "2024-01-15T10:30:00.000Z",
+  "principal": { "agent_id": "demo-agent" },
+  "subject": { "principal_id": "b0000000-0000-0000-0000-000000000001" },
+  "relying_party": { "trust_profile": "REGULATED" },
+  "payload": {
+    "document_type": "tax_return",
+    "assurance_level": "LOW"
+  }
+}

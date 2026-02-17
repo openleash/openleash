@@ -1,0 +1,14 @@
+# Communication rules template
+# Variables: ${ALLOWED_DOMAINS}
+
+- id: communication_allowed
+  effect: allow
+  action: "communication.*"
+  description: "Allow communication to allowlisted domains"
+  constraints:
+    allowed_domains: ${ALLOWED_DOMAINS}
+
+- id: communication_deny
+  effect: deny
+  action: "communication.*"
+  description: "Deny communication to non-allowlisted domains"

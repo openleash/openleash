@@ -1,0 +1,13 @@
+{
+  "action_id": "a0000000-0000-0000-0000-000000000001",
+  "action_type": "purchase",
+  "requested_at": "2024-01-15T10:30:00.000Z",
+  "principal": { "agent_id": "demo-agent" },
+  "subject": { "principal_id": "b0000000-0000-0000-0000-000000000001" },
+  "relying_party": { "domain": "amazon.com", "trust_profile": "LOW" },
+  "payload": {
+    "amount_minor": 5000,
+    "currency": "USD",
+    "merchant_domain": "amazon.com"
+  }
+}

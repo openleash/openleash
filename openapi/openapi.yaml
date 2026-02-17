@@ -1,0 +1,582 @@
+openapi: 3.1.0
+info:
+  title: openleash API
+  description: Local-first authorization + proof sidecar for AI agents
+  version: 0.1.0
+
+servers:
+  - url: http://127.0.0.1:8787
+    description: Local development
+
+paths:
+  /v1/health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags: [Public]
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, time, version]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  time:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+
+  /v1/public-keys:
+    get:
+      summary: Get server public signing keys
+      operationId: getPublicKeys
+      tags: [Public]
+      responses:
+        "200":
+          description: List of public keys
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PublicKey"
+
+  /v1/verify-proof:
+    post:
+      summary: Verify a proof token
+      operationId: verifyProof
+      tags: [Public]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                expected_action_hash:
+                  type: string
+                expected_agent_id:
+                  type: string
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [valid]
+                properties:
+                  valid:
+                    type: boolean
+                  reason:
+                    type: string
+                  claims:
+                    type: object
+
+  /v1/agents/registration-challenge:
+    post:
+      summary: Request an agent registration challenge
+      operationId: registrationChallenge
+      tags: [Agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_id, agent_pubkey_b64]
+              properties:
+                agent_id:
+                  type: string
+                agent_pubkey_b64:
+                  type: string
+                owner_principal_id:
+                  type: string
+                  format: uuid
+                agent_attributes_json:
+                  type: object
+      responses:
+        "200":
+          description: Challenge issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [challenge_id, challenge_b64, expires_at]
+                properties:
+                  challenge_id:
+                    type: string
+                    format: uuid
+                  challenge_b64:
+                    type: string
+                  expires_at:
+                    type: string
+                    format: date-time
+
+  /v1/agents/register:
+    post:
+      summary: Register an agent with signed challenge
+      operationId: registerAgent
+      tags: [Agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge_id, agent_id, agent_pubkey_b64, signature_b64, owner_principal_id]
+              properties:
+                challenge_id:
+                  type: string
+                  format: uuid
+                agent_id:
+                  type: string
+                agent_pubkey_b64:
+                  type: string
+                signature_b64:
+                  type: string
+                owner_principal_id:
+                  type: string
+                  format: uuid
+                agent_attributes_json:
+                  type: object
+      responses:
+        "200":
+          description: Agent registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRegistration"
+
+  /v1/authorize:
+    post:
+      summary: Authorize an action
+      operationId: authorize
+      tags: [Agent]
+      description: |
+        Requires signed headers:
+        - X-Agent-Id
+        - X-Timestamp (RFC3339 UTC)
+        - X-Nonce
+        - X-Body-Sha256 (sha256 hex of body)
+        - X-Signature (Ed25519 base64 signature)
+      parameters:
+        - name: X-Agent-Id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Nonce
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Body-Sha256
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionRequest"
+      responses:
+        "200":
+          description: Authorization decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizeResponse"
+        "401":
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/admin/owners:
+    post:
+      summary: Create an owner
+      operationId: createOwner
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [principal_type, display_name]
+              properties:
+                principal_type:
+                  type: string
+                  enum: [HUMAN, ORG]
+                display_name:
+                  type: string
+                attributes_json:
+                  type: object
+      responses:
+        "200":
+          description: Owner created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Owner"
+
+  /v1/admin/policies:
+    post:
+      summary: Create or update a policy
+      operationId: upsertPolicy
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [owner_principal_id, policy_yaml]
+              properties:
+                owner_principal_id:
+                  type: string
+                  format: uuid
+                applies_to_agent_principal_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                policy_yaml:
+                  type: string
+      responses:
+        "200":
+          description: Policy created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyEntry"
+
+  /v1/admin/audit:
+    get:
+      summary: Query audit log
+      operationId: getAuditLog
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEvent"
+                  next_cursor:
+                    type: string
+                    nullable: true
+
+  /v1/playground/run:
+    post:
+      summary: Run a playground evaluation
+      operationId: playgroundRun
+      tags: [Playground]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy_yaml, action]
+              properties:
+                policy_yaml:
+                  type: string
+                action:
+                  $ref: "#/components/schemas/ActionRequest"
+      responses:
+        "200":
+          description: Playground result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [action_hash, decision, debug]
+                properties:
+                  action_hash:
+                    type: string
+                  decision:
+                    $ref: "#/components/schemas/AuthorizeResponse"
+                  debug:
+                    type: object
+                    properties:
+                      trace:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RuleTrace"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+
+    PublicKey:
+      type: object
+      required: [kid, kty, alg, public_key_b64, created_at]
+      properties:
+        kid:
+          type: string
+        kty:
+          type: string
+          example: OKP
+        alg:
+          type: string
+          example: EdDSA
+        public_key_b64:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ActionRequest:
+      type: object
+      required: [action_id, action_type, requested_at, principal, subject, payload]
+      properties:
+        action_id:
+          type: string
+          format: uuid
+        action_type:
+          type: string
+        requested_at:
+          type: string
+          format: date-time
+        principal:
+          type: object
+          required: [agent_id]
+          properties:
+            agent_id:
+              type: string
+        subject:
+          type: object
+          required: [principal_id]
+          properties:
+            principal_id:
+              type: string
+              format: uuid
+        relying_party:
+          type: object
+          properties:
+            rp_id:
+              type: string
+              format: uuid
+            domain:
+              type: string
+            trust_profile:
+              type: string
+              enum: [LOW, MEDIUM, HIGH, REGULATED]
+        payload:
+          type: object
+
+    Obligation:
+      type: object
+      required: [obligation_id, type, status]
+      properties:
+        obligation_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [HUMAN_APPROVAL, STEP_UP_AUTH, DEPOSIT, COUNTERPARTY_ATTESTATION]
+        status:
+          type: string
+          enum: [PENDING, FULFILLED, WAIVED]
+        details_json:
+          type: object
+
+    AuthorizeResponse:
+      type: object
+      required: [decision_id, action_id, action_hash, result, matched_rule_id, reason, proof_token, proof_expires_at, obligations]
+      properties:
+        decision_id:
+          type: string
+          format: uuid
+        action_id:
+          type: string
+          format: uuid
+        action_hash:
+          type: string
+        result:
+          type: string
+          enum: [ALLOW, DENY, REQUIRE_APPROVAL, REQUIRE_STEP_UP, REQUIRE_DEPOSIT]
+        matched_rule_id:
+          type: string
+          nullable: true
+        reason:
+          type: string
+        proof_token:
+          type: string
+          nullable: true
+        proof_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        obligations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Obligation"
+
+    AgentRegistration:
+      type: object
+      required: [agent_principal_id, agent_id, owner_principal_id, status, created_at]
+      properties:
+        agent_principal_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+        owner_principal_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Owner:
+      type: object
+      required: [owner_principal_id, principal_type, display_name, status, created_at]
+      properties:
+        owner_principal_id:
+          type: string
+          format: uuid
+        principal_type:
+          type: string
+          enum: [HUMAN, ORG]
+        display_name:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PolicyEntry:
+      type: object
+      required: [policy_id, owner_principal_id, path]
+      properties:
+        policy_id:
+          type: string
+          format: uuid
+        owner_principal_id:
+          type: string
+          format: uuid
+        applies_to_agent_principal_id:
+          type: string
+          format: uuid
+          nullable: true
+        path:
+          type: string
+
+    AuditEvent:
+      type: object
+      required: [event_id, timestamp, event_type]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        event_type:
+          type: string
+        principal_id:
+          type: string
+          format: uuid
+          nullable: true
+        action_id:
+          type: string
+          format: uuid
+          nullable: true
+        decision_id:
+          type: string
+          format: uuid
+          nullable: true
+        metadata_json:
+          type: object
+
+    RuleTrace:
+      type: object
+      required: [rule_id, pattern_match, when_match, constraints_match, final_match]
+      properties:
+        rule_id:
+          type: string
+        pattern_match:
+          type: boolean
+        when_match:
+          type: boolean
+          nullable: true
+        constraints_match:
+          type: boolean
+          nullable: true
+        final_match:
+          type: boolean

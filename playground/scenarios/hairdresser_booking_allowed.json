@@ -1,0 +1,12 @@
+{
+  "action_id": "a0000000-0000-0000-0000-000000000003",
+  "action_type": "appointment.book",
+  "requested_at": "2024-01-15T10:30:00.000Z",
+  "principal": { "agent_id": "demo-agent" },
+  "subject": { "principal_id": "b0000000-0000-0000-0000-000000000001" },
+  "relying_party": { "trust_profile": "LOW" },
+  "payload": {
+    "category": "hairdresser",
+    "provider": "salon-example"
+  }
+}

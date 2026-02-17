@@ -1,1 +1,22 @@
 .idea
+node_modules
+dist
+*.tsbuildinfo
+data/
+config.yaml
+.env
+*.log
+
+# In-place tsc build artifacts (tests, examples, vitest config)
+packages/*/test/**/*.js
+packages/*/test/**/*.js.map
+packages/*/test/**/*.d.ts
+packages/*/test/**/*.d.ts.map
+examples/**/*.js
+examples/**/*.js.map
+examples/**/*.d.ts
+examples/**/*.d.ts.map
+vitest.config.js
+vitest.config.js.map
+vitest.config.d.ts
+vitest.config.d.ts.map

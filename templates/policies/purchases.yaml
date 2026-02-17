@@ -1,0 +1,22 @@
+# Purchase rules template
+# Variables: ${PURCHASE_MAX}, ${PURCHASE_APPROVAL_ABOVE}
+
+- id: purchase_small_allow
+  effect: allow
+  action: purchase
+  description: "Allow purchases up to ${PURCHASE_MAX} minor units"
+  constraints:
+    amount_max: ${PURCHASE_MAX}
+  proof:
+    required: true
+
+- id: purchase_large_approval
+  effect: allow
+  action: purchase
+  description: "Require approval for purchases above ${PURCHASE_APPROVAL_ABOVE}"
+  constraints:
+    amount_min: ${PURCHASE_APPROVAL_ABOVE}
+  obligations:
+    - type: HUMAN_APPROVAL
+      params:
+        reason: "Large purchase requires human approval"
