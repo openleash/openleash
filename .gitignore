@@ -20,3 +20,7 @@ vitest.config.js
 vitest.config.js.map
 vitest.config.d.ts
 vitest.config.d.ts.map
+
+# Claude Code local/personal files
+.claude/settings.local.json
+.claude/CLAUDE.local.md
