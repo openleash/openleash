@@ -2,7 +2,8 @@
 
 import { startCommand } from './commands/start.js';
 import { wizardCommand } from './commands/wizard.js';
-import { policyListCommand, policyShowCommand, policyUpsertCommand, policyValidateCommand } from './commands/policy.js';
+import { initCommand } from './commands/init.js';
+import { policyListCommand, policyShowCommand, policyUpsertCommand, policyValidateCommand, policyDeleteCommand, policyUnbindCommand } from './commands/policy.js';
 import { playgroundListCommand, playgroundRunCommand } from './commands/playground.js';
 import { keysListCommand, keysRotateCommand } from './commands/keys.js';
 import { testvectorsCommand } from './commands/testvectors.js';
@@ -20,6 +21,9 @@ async function main() {
       case 'wizard':
         await wizardCommand();
         break;
+      case 'init':
+        await initCommand(args.slice(1));
+        break;
       case 'policy':
         switch (subcommand) {
           case 'list':
@@ -34,8 +38,14 @@ async function main() {
           case 'validate':
             await policyValidateCommand(args.slice(2));
             break;
+          case 'delete':
+            await policyDeleteCommand(args.slice(2));
+            break;
+          case 'unbind':
+            await policyUnbindCommand(args.slice(2));
+            break;
           default:
-            console.log('Usage: openleash policy <list|show|upsert|validate>');
+            console.log('Usage: openleash policy <list|show|upsert|validate|delete|unbind>');
         }
         break;
       case 'playground':
@@ -81,10 +91,13 @@ openleash - Local-first authorization + proof sidecar for AI agents
 Commands:
   start [--gui|--no-gui]  Start the openleash server
   wizard               Interactive setup wizard
+  init                 Non-interactive setup (headless)
   policy list          List policies
   policy show <id>     Show policy YAML
   policy upsert        Create/update a policy
   policy validate      Validate a policy file
+  policy delete        Delete a policy and its bindings
+  policy unbind        Remove policy bindings
   playground list      List playground scenarios
   playground run <n>   Run a playground scenario
   keys list            List signing keys
