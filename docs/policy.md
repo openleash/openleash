@@ -18,6 +18,23 @@ Rules are evaluated in order. The first matching rule determines the decision. I
 
 Full JSON Schema: [docs/policy.schema.json](./policy.schema.json)
 
+## Binding Resolution
+
+Policies are connected to owners and agents through **bindings** stored in `state.md`. When the server receives an authorization request, it resolves the applicable policy as follows:
+
+1. The server iterates `state.bindings` **in array order** and finds the first binding where:
+   - `owner_principal_id` matches the request's `subject.principal_id`, AND
+   - `applies_to_agent_principal_id` matches the requesting agent, OR is `null` (meaning "all agents for this owner")
+2. **First match wins** — the policy referenced by that binding is used for evaluation. Later bindings are ignored.
+3. Agent-specific bindings (where `applies_to_agent_principal_id` is set) are more precise than owner-wide bindings (`null`), but **array order takes precedence**. If an owner-wide binding appears before an agent-specific one, the owner-wide binding wins.
+
+### Implications
+
+- `policy upsert` **appends** new bindings to the end of the array. If an earlier binding already matches the same owner/agent, the new policy will never be evaluated.
+- To replace a policy: first `policy unbind` the old one, then `policy upsert` the new one.
+- **Recommended practice:** maintain one binding per owner/agent pair. Use `policy unbind` to clean up stale bindings before adding new ones.
+- To update a policy's rules without changing bindings, use `policy upsert --policy-id <existing-id> --file <new-file>` — this overwrites the YAML file in place without creating a new binding.
+
 ## Rule Fields
 
 | Field | Required | Description |
