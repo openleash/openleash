@@ -2,6 +2,36 @@
 
 openleash is designed to work alongside AI agent runtimes like OpenClaw. The integration point is before any tool call, side effect, or external HTTP call.
 
+## Setup
+
+Install the openleash TypeScript SDK in your agent project:
+
+```bash
+npm install @openleash/sdk-ts
+```
+
+### Generate credentials
+
+The fastest way to get credentials is with the non-interactive `init` command:
+
+```bash
+cd /path/to/openleash
+npx openleash init --owner-name "My Name" --agent-id my-agent --output-env agent.env --policy-profile balanced
+```
+
+This creates an owner, agent keypair, and policy in one step, and writes the credentials to `agent.env`.
+
+### Environment variables
+
+| Variable | Description |
+|---|---|
+| `OPENLEASH_URL` | Server URL (default: `http://127.0.0.1:8787`) |
+| `OPENLEASH_AGENT_ID` | The agent's string identifier |
+| `OPENLEASH_AGENT_PRIVATE_KEY_B64` | Base64-encoded Ed25519 private key (PKCS8 DER) |
+| `OWNER_PRINCIPAL_ID` | UUID of the owner principal the agent acts on behalf of |
+
+Load these in your agent runtime before making authorization calls.
+
 ## Where to Hook In
 
 In your agent runtime, add an openleash authorization check **before**:
