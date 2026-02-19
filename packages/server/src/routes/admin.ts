@@ -4,6 +4,9 @@ import {
   readState,
   writeState,
   writeOwnerFile,
+  readOwnerFile,
+  readAgentFile,
+  readPolicyFile,
   writePolicyFile,
   parsePolicyYaml,
   appendAuditEvent,
@@ -114,5 +117,125 @@ export function registerAdminRoutes(app: FastifyInstance, dataDir: string, confi
     const limit = query.limit ? parseInt(query.limit, 10) : 50;
     const cursor = query.cursor ? parseInt(query.cursor, 10) : 0;
     return readAuditLog(dataDir, limit, cursor);
+  });
+
+  // GET /v1/admin/owners — list all owners with details
+  app.get('/v1/admin/owners', { preHandler: adminAuth }, async () => {
+    const state = readState(dataDir);
+    const owners = state.owners.map((entry) => {
+      try {
+        return readOwnerFile(dataDir, entry.owner_principal_id);
+      } catch {
+        return { owner_principal_id: entry.owner_principal_id, error: 'file_not_found' };
+      }
+    });
+    return { owners };
+  });
+
+  // GET /v1/admin/agents — list all agents with details
+  app.get('/v1/admin/agents', { preHandler: adminAuth }, async () => {
+    const state = readState(dataDir);
+    const agents = state.agents.map((entry) => {
+      try {
+        return readAgentFile(dataDir, entry.agent_principal_id);
+      } catch {
+        return { agent_principal_id: entry.agent_principal_id, agent_id: entry.agent_id, error: 'file_not_found' };
+      }
+    });
+    return { agents };
+  });
+
+  // GET /v1/admin/policies — list all policies with YAML content
+  app.get('/v1/admin/policies', { preHandler: adminAuth }, async () => {
+    const state = readState(dataDir);
+    const policies = state.policies.map((entry) => {
+      try {
+        const yaml = readPolicyFile(dataDir, entry.policy_id);
+        return { ...entry, policy_yaml: yaml };
+      } catch {
+        return { ...entry, error: 'file_not_found' };
+      }
+    });
+    return { policies };
+  });
+
+  // GET /v1/admin/policies/:policyId — get single policy
+  app.get('/v1/admin/policies/:policyId', { preHandler: adminAuth }, async (request, reply) => {
+    const { policyId } = request.params as { policyId: string };
+    const state = readState(dataDir);
+    const entry = state.policies.find((p) => p.policy_id === policyId);
+    if (!entry) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Policy not found' } });
+      return;
+    }
+    try {
+      const yaml = readPolicyFile(dataDir, policyId);
+      return { ...entry, policy_yaml: yaml };
+    } catch {
+      reply.code(404).send({ error: { code: 'FILE_NOT_FOUND', message: 'Policy file not found' } });
+    }
+  });
+
+  // PUT /v1/admin/policies/:policyId — update policy YAML
+  app.put('/v1/admin/policies/:policyId', { preHandler: adminAuth }, async (request, reply) => {
+    const { policyId } = request.params as { policyId: string };
+    const body = request.body as { policy_yaml: string };
+
+    const state = readState(dataDir);
+    const entry = state.policies.find((p) => p.policy_id === policyId);
+    if (!entry) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Policy not found' } });
+      return;
+    }
+
+    try {
+      parsePolicyYaml(body.policy_yaml);
+    } catch (e: unknown) {
+      reply.code(400).send({
+        error: { code: 'INVALID_POLICY', message: (e as Error).message },
+      });
+      return;
+    }
+
+    writePolicyFile(dataDir, policyId, body.policy_yaml);
+
+    appendAuditEvent(dataDir, 'POLICY_UPSERTED', {
+      policy_id: policyId,
+      owner_principal_id: entry.owner_principal_id,
+    });
+
+    return { policy_id: policyId, status: 'updated' };
+  });
+
+  // GET /v1/admin/config — return sanitized config
+  app.get('/v1/admin/config', { preHandler: adminAuth }, async () => {
+    return {
+      server: config.server,
+      admin: {
+        mode: config.admin.mode,
+        token_set: !!config.admin.token,
+        allow_remote_admin: config.admin.allow_remote_admin,
+      },
+      security: config.security,
+      tokens: config.tokens,
+      gui: config.gui,
+    };
+  });
+
+  // GET /v1/admin/state — return state summary
+  app.get('/v1/admin/state', { preHandler: adminAuth }, async () => {
+    const state = readState(dataDir);
+    return {
+      version: state.version,
+      created_at: state.created_at,
+      counts: {
+        owners: state.owners.length,
+        agents: state.agents.length,
+        policies: state.policies.length,
+        bindings: state.bindings.length,
+        keys: state.server_keys.keys.length,
+      },
+      active_kid: state.server_keys.active_kid,
+    };
   });
 }

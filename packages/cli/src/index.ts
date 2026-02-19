@@ -79,7 +79,7 @@ function printUsage() {
 openleash - Local-first authorization + proof sidecar for AI agents
 
 Commands:
-  start                Start the openleash server
+  start [--gui|--no-gui]  Start the openleash server
   wizard               Interactive setup wizard
   policy list          List policies
   policy show <id>     Show policy YAML

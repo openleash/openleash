@@ -10,6 +10,14 @@ export async function startCommand() {
   bootstrapState(rootDir);
   const config = loadConfig(rootDir);
 
+  // Parse --gui / --no-gui flags
+  const args = process.argv.slice(2);
+  if (args.includes('--gui')) {
+    config.gui = { enabled: true };
+  } else if (args.includes('--no-gui')) {
+    config.gui = { enabled: false };
+  }
+
   const [host, portStr] = config.server.bind_address.split(':');
   const port = parseInt(portStr, 10);
 
@@ -23,12 +31,14 @@ export async function startCommand() {
 
   const adminMode = config.admin.mode;
   const tokenRequired = adminMode === 'token' || (adminMode === 'localhost_or_token' && config.admin.token);
+  const guiEnabled = config.gui?.enabled !== false;
 
   console.log(`
 openleash running at http://${config.server.bind_address}
 
   Admin mode: ${adminMode}
   Admin token required: ${tokenRequired ? 'yes (for remote access)' : 'no'}
+  Web GUI: ${guiEnabled ? `http://${config.server.bind_address}/gui` : 'disabled'}
 
 Next steps:
   npx openleash wizard              # Interactive 5-minute setup

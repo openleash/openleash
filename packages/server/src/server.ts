@@ -8,6 +8,7 @@ import { registerAgentRoutes } from './routes/agents.js';
 import { registerAuthorizeRoutes } from './routes/authorize.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerPlaygroundRoutes } from './routes/playground.js';
+import { registerGuiRoutes } from './routes/gui.js';
 
 export interface CreateServerOptions {
   config: OpenleashConfig;
@@ -46,6 +47,10 @@ export function createServer(options: CreateServerOptions) {
   registerAuthorizeRoutes(app, dataDir, config, nonceCache);
   registerAdminRoutes(app, dataDir, config);
   registerPlaygroundRoutes(app, config);
+
+  if (config.gui?.enabled !== false) {
+    registerGuiRoutes(app, dataDir, config);
+  }
 
   return { app, nonceCache };
 }

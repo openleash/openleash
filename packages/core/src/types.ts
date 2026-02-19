@@ -269,6 +269,9 @@ export interface OpenleashConfig {
     default_ttl_seconds: number;
     max_ttl_seconds: number;
   };
+  gui?: {
+    enabled: boolean;
+  };
 }
 
 // ─── Registration types ──────────────────────────────────────────────

@@ -1,0 +1,15 @@
+server:
+  bind_address: 0.0.0.0:8787
+admin:
+  mode: localhost
+  token: ""
+  allow_remote_admin: true
+security:
+  nonce_ttl_seconds: 600
+  clock_skew_seconds: 120
+tokens:
+  format: paseto_v4_public
+  default_ttl_seconds: 120
+  max_ttl_seconds: 3600
+gui:
+  enabled: true

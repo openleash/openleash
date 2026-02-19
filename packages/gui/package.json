@@ -1,27 +1,20 @@
 {
-  "name": "@openleash/server",
+  "name": "@openleash/gui",
   "version": "0.1.0",
-  "description": "HTTP server for openleash",
+  "description": "Web GUI for openleash",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": ["dist", "LICENSE"],
   "scripts": {
     "build": "tsc -b"
   },
-  "dependencies": {
-    "@openleash/core": "0.1.0",
-    "@openleash/gui": "0.1.0",
-    "fastify": "^4.25.2",
-    "yaml": "^2.3.4",
-    "zod": "^3.22.4"
-  },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/openleash/openleash.git",
-    "directory": "packages/server"
+    "directory": "packages/gui"
   },
-  "homepage": "https://github.com/openleash/openleash/tree/main/packages/server",
+  "homepage": "https://github.com/openleash/openleash/tree/main/packages/gui",
   "bugs": {
     "url": "https://github.com/openleash/openleash/issues"
   }

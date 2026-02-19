@@ -21,6 +21,9 @@ export const DEFAULT_CONFIG: OpenleashConfig = {
     default_ttl_seconds: 120,
     max_ttl_seconds: 3600,
   },
+  gui: {
+    enabled: true,
+  },
 };
 
 export function loadConfig(rootDir: string): OpenleashConfig {
@@ -37,6 +40,7 @@ export function loadConfig(rootDir: string): OpenleashConfig {
     admin: { ...DEFAULT_CONFIG.admin, ...parsed.admin },
     security: { ...DEFAULT_CONFIG.security, ...parsed.security },
     tokens: { ...DEFAULT_CONFIG.tokens, ...parsed.tokens },
+    gui: { enabled: true, ...DEFAULT_CONFIG.gui, ...(parsed.gui ?? {}) },
   };
 }
 
