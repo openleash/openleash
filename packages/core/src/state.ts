@@ -88,3 +88,10 @@ function parseFrontmatter(content: string): Record<string, unknown> {
   }
   return parseYaml(match[1]) as Record<string, unknown>;
 }
+
+export function deletePolicyFile(dataDir: string, policyId: string): void {
+  const filePath = path.join(dataDir, "policies", `${policyId}.yaml`);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+}

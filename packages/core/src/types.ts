@@ -237,6 +237,9 @@ export const AuditEventType = z.enum([
   'PLAYGROUND_RUN',
   'KEY_ROTATED',
   'SERVER_STARTED',
+  'POLICY_UPDATED',
+  'POLICY_DELETED',
+  'POLICY_UNBOUND',
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 
