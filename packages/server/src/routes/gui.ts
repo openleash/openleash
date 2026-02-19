@@ -10,6 +10,7 @@ import type { OpenleashConfig } from '@openleash/core';
 import {
   renderDashboard,
   renderOwners,
+  renderOwnerDetail,
   renderAgents,
   renderPolicies,
   renderPolicyEditor,
@@ -17,6 +18,7 @@ import {
   renderAudit,
 } from '@openleash/gui';
 import { createAdminAuth } from '../middleware/admin-auth.js';
+import { getVersion } from '../version.js';
 
 export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config: OpenleashConfig) {
   const adminAuth = createAdminAuth(config);
@@ -44,7 +46,7 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
 
     const html = renderDashboard({
       state: stateData,
-      health: { status: 'ok', version: '0.1.0' },
+      health: { status: 'ok', version: getVersion() },
     });
     reply.type('text/html').send(html);
   });
@@ -63,6 +65,62 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
     reply.type('text/html').send(html);
   });
 
+  // Owner detail
+  app.get('/gui/owners/:ownerId', { preHandler: adminAuth }, async (request, reply) => {
+    const { ownerId } = request.params as { ownerId: string };
+    const state = readState(dataDir);
+    const entry = state.owners.find((o) => o.owner_principal_id === ownerId);
+
+    if (!entry) {
+      reply.code(404).type('text/html').send('<h1>Owner not found</h1>');
+      return;
+    }
+
+    try {
+      const owner = readOwnerFile(dataDir, ownerId);
+
+      // Agents belonging to this owner
+      const agents = state.agents
+        .filter((a) => a.owner_principal_id === ownerId)
+        .map((a) => {
+          try {
+            const agent = readAgentFile(dataDir, a.agent_principal_id);
+            return {
+              agent_id: agent.agent_id,
+              agent_principal_id: agent.agent_principal_id,
+              status: agent.status,
+              created_at: agent.created_at,
+            };
+          } catch {
+            return { agent_id: a.agent_id, agent_principal_id: a.agent_principal_id, status: 'UNKNOWN', created_at: '' };
+          }
+        });
+
+      // Policies for this owner
+      const policies = state.policies
+        .filter((p) => p.owner_principal_id === ownerId)
+        .map((p) => ({
+          policy_id: p.policy_id,
+          applies_to_agent_principal_id: p.applies_to_agent_principal_id,
+        }));
+
+      // Audit events related to this owner
+      const allAudit = readAuditLog(dataDir, 10000, 0);
+      const ownerAudit = allAudit.items
+        .filter((e) =>
+          e.principal_id === ownerId ||
+          (e.metadata_json && (e.metadata_json as Record<string, unknown>).owner_principal_id === ownerId)
+        )
+        .reverse()
+        .slice(0, 50);
+
+      const html = renderOwnerDetail({ owner, agents, policies, audit: ownerAudit });
+      reply.type('text/html').send(html);
+    } catch {
+      reply.code(404).type('text/html').send('<h1>Owner file not found</h1>');
+    }
+  });
+
   // Agents
   app.get('/gui/agents', { preHandler: adminAuth }, async (_request, reply) => {
     const state = readState(dataDir);
@@ -73,7 +131,15 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         return { agent_principal_id: entry.agent_principal_id, agent_id: entry.agent_id, error: 'file_not_found' } as { agent_principal_id: string; agent_id: string; error: string };
       }
     });
-    const html = renderAgents(agents);
+    const owners = state.owners.map((entry) => {
+      try {
+        const o = readOwnerFile(dataDir, entry.owner_principal_id);
+        return { owner_principal_id: o.owner_principal_id, display_name: o.display_name };
+      } catch {
+        return { owner_principal_id: entry.owner_principal_id, display_name: entry.owner_principal_id.slice(0, 8) };
+      }
+    });
+    const html = renderAgents(agents, owners);
     reply.type('text/html').send(html);
   });
 

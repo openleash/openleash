@@ -32,6 +32,7 @@ export function renderPage(title: string, content: string, activePath: string): 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)} - OpenLeash</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 120 120' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2334d399'/%3E%3Cstop offset='100%25' stop-color='%23065f46'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M60 10C32 10 18 30 18 48C18 66 32 80 46 84L46 88L54 88L54 84C54 84 60 86 66 84L66 88L74 88L74 84C88 80 102 66 102 48C102 30 88 10 60 10Z' fill='url(%23g)'/%3E%3Cpath d='M22 38C8 34 2 43 6 52C10 61 20 57 24 48C27 42 24 38 22 38Z' fill='url(%23g)'/%3E%3Cpath d='M98 38C112 34 118 43 114 52C110 61 100 57 96 48C93 42 96 38 98 38Z' fill='url(%23g)'/%3E%3Ccircle cx='45' cy='30' r='5.5' fill='%23050a0e'/%3E%3Ccircle cx='75' cy='30' r='5.5' fill='%23050a0e'/%3E%3Ccircle cx='46' cy='29' r='2' fill='%23fbbf24'/%3E%3Ccircle cx='76' cy='29' r='2' fill='%23fbbf24'/%3E%3Cpath d='M28 56C42 64 78 64 92 56' stroke='%23fbbf24' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3Cpath d='M60 62L60 98Q58 106 50 108' stroke='%23fbbf24' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Cellipse cx='45' cy='109' rx='8' ry='4.5' fill='none' stroke='%23fbbf24' stroke-width='3'/%3E%3C/svg%3E">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -91,20 +92,36 @@ export function renderPage(title: string, content: string, activePath: string): 
       padding: 0 20px 24px;
       border-bottom: 1px solid var(--border-subtle);
       margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
-    .sidebar-logo h1 {
-      font-size: 18px;
+    .sidebar-logo svg {
+      width: 38px;
+      height: 38px;
+      flex-shrink: 0;
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    .sidebar-logo-text h1 {
+      font-size: 16px;
       font-weight: 700;
       color: var(--green-bright);
       letter-spacing: -0.02em;
+      line-height: 1.2;
     }
 
-    .sidebar-logo span {
-      font-size: 11px;
+    .sidebar-logo-text span {
+      font-size: 10px;
       color: var(--text-muted);
       display: block;
-      margin-top: 2px;
+      margin-top: 1px;
     }
 
     .nav-item {
@@ -357,6 +374,113 @@ export function renderPage(title: string, content: string, activePath: string): 
 
     .hidden { display: none; }
 
+    /* Forms */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.25s var(--ease-out);
+    }
+
+    .form-input:focus, .form-select:focus {
+      border-color: var(--green-mid);
+    }
+
+    .form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238899aa' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    .form-help {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Key display */
+    .key-display {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--green-bright);
+      word-break: break-all;
+      line-height: 1.5;
+      user-select: all;
+    }
+
+    /* Accordion */
+    .accordion-row {
+      cursor: pointer;
+    }
+
+    .accordion-row:hover td {
+      color: var(--text-primary);
+      background: rgba(52, 211, 153, 0.03);
+    }
+
+    .accordion-detail {
+      display: none;
+    }
+
+    .accordion-detail.open {
+      display: table-row;
+    }
+
+    .accordion-detail td {
+      padding: 0 12px 16px;
+      border-bottom: 1px solid rgba(136, 153, 170, 0.08);
+    }
+
+    .accordion-content {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .chevron {
+      display: inline-block;
+      transition: transform 0.2s var(--ease-out);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .accordion-row.expanded .chevron {
+      transform: rotate(90deg);
+    }
+
     /* Config display */
     .config-block {
       background: var(--bg-deep);
@@ -389,9 +513,9 @@ export function renderPage(title: string, content: string, activePath: string): 
 
     @media (max-width: 768px) {
       .sidebar { width: 60px; }
-      .sidebar-logo h1 { font-size: 0; }
-      .sidebar-logo h1::first-letter { font-size: 18px; }
-      .sidebar-logo span { display: none; }
+      .sidebar-logo { justify-content: center; padding: 0 0 24px; }
+      .sidebar-logo svg { width: 32px; height: 32px; }
+      .sidebar-logo-text { display: none; }
       .nav-label { display: none; }
       .nav-item { justify-content: center; padding: 10px; }
       .main { margin-left: 60px; padding: 20px; }
@@ -401,8 +525,30 @@ export function renderPage(title: string, content: string, activePath: string): 
 <body>
   <nav class="sidebar">
     <div class="sidebar-logo">
-      <h1>OpenLeash</h1>
-      <span>Authorization GUI</span>
+      <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="OpenLeash logo">
+        <defs>
+          <linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#34d399"/>
+            <stop offset="100%" stop-color="#065f46"/>
+          </linearGradient>
+        </defs>
+        <path d="M60 10 C32 10 18 30 18 48 C18 66 32 80 46 84 L46 88 L54 88 L54 84 C54 84 60 86 66 84 L66 88 L74 88 L74 84 C88 80 102 66 102 48 C102 30 88 10 60 10Z" fill="url(#lg)"/>
+        <path d="M22 38 C8 34 2 43 6 52 C10 61 20 57 24 48 C27 42 24 38 22 38Z" fill="url(#lg)"/>
+        <path d="M98 38 C112 34 118 43 114 52 C110 61 100 57 96 48 C93 42 96 38 98 38Z" fill="url(#lg)"/>
+        <path d="M46 15 Q36 5 31 8" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M74 15 Q84 5 89 8" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="45" cy="30" r="5.5" fill="#050a0e"/>
+        <circle cx="75" cy="30" r="5.5" fill="#050a0e"/>
+        <circle cx="46" cy="29" r="2" fill="#fbbf24"/>
+        <circle cx="76" cy="29" r="2" fill="#fbbf24"/>
+        <path d="M28 56 C42 64 78 64 92 56" stroke="#fbbf24" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <path d="M60 62 L60 98 Q58 106 50 108" stroke="#fbbf24" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <ellipse cx="45" cy="109" rx="8" ry="4.5" fill="none" stroke="#fbbf24" stroke-width="3"/>
+      </svg>
+      <div class="sidebar-logo-text">
+        <h1>OpenLeash</h1>
+        <span>Authorization GUI</span>
+      </div>
     </div>
     ${navHtml}
   </nav>

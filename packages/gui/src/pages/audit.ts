@@ -28,15 +28,46 @@ function eventBadge(type: string): string {
   return `<span class="badge badge-muted">${escapeHtml(type)}</span>`;
 }
 
+function formatMetadata(meta: Record<string, unknown>): string {
+  const entries = Object.entries(meta);
+  if (entries.length === 0) return '<span style="color:var(--text-muted)">No metadata</span>';
+
+  return entries.map(([key, val]) => {
+    const valStr = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val);
+    return `<div style="margin-bottom:6px"><span style="color:var(--green-bright)">${escapeHtml(key)}</span>: <span style="color:var(--text-primary)">${escapeHtml(valStr)}</span></div>`;
+  }).join('');
+}
+
 export function renderAudit(data: AuditData, cursor: number): string {
-  const rows = data.items.map((e) => `
-    <tr>
-      <td class="mono" style="white-space:nowrap">${escapeHtml(e.timestamp.slice(0, 19).replace('T', ' '))}</td>
-      <td>${eventBadge(e.event_type)}</td>
-      <td class="mono truncate" title="${escapeHtml(e.principal_id ?? '')}">${e.principal_id ? escapeHtml(e.principal_id.slice(0, 8)) + '...' : '-'}</td>
-      <td class="mono" style="font-size:11px;color:var(--text-muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(JSON.stringify(e.metadata_json))}</td>
-    </tr>
-  `).join('');
+  // Reverse to show newest first
+  const items = [...data.items].reverse();
+
+  const rows = items.map((e, i) => {
+    const idx = cursor + data.items.length - 1 - i;
+    const hasExtra = e.principal_id || e.action_id || e.decision_id || Object.keys(e.metadata_json).length > 0;
+
+    const extraFields: string[] = [];
+    if (e.principal_id) extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">principal_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.principal_id)}</span></div>`);
+    if (e.action_id) extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">action_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.action_id)}</span></div>`);
+    if (e.decision_id) extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">decision_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.decision_id)}</span></div>`);
+
+    return `
+      <tr class="accordion-row" onclick="toggleAccordion(${idx})" id="row-${idx}">
+        <td style="width:20px"><span class="chevron">&#9654;</span></td>
+        <td class="mono" style="white-space:nowrap">${escapeHtml(e.timestamp.slice(0, 19).replace('T', ' '))}</td>
+        <td>${eventBadge(e.event_type)}</td>
+        <td class="mono truncate" title="${escapeHtml(e.event_id)}">${escapeHtml(e.event_id.slice(0, 8))}...</td>
+      </tr>
+      <tr class="accordion-detail" id="detail-${idx}">
+        <td colspan="4">
+          <div class="accordion-content">
+            ${extraFields.join('')}
+            ${formatMetadata(e.metadata_json)}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   const nextCursor = data.next_cursor;
   const loadMoreHtml = nextCursor
@@ -46,17 +77,17 @@ export function renderAudit(data: AuditData, cursor: number): string {
   const content = `
     <div class="page-header">
       <h2>Audit Log</h2>
-      <p>Authorization events${cursor > 0 ? ` (from offset ${cursor})` : ''}</p>
+      <p>Authorization events, newest first${cursor > 0 ? ` (from offset ${cursor})` : ''}</p>
     </div>
 
     <div class="card">
       <table>
         <thead>
           <tr>
+            <th style="width:20px"></th>
             <th>Timestamp</th>
             <th>Event</th>
-            <th>Principal</th>
-            <th>Metadata</th>
+            <th>Event ID</th>
           </tr>
         </thead>
         <tbody>
@@ -65,6 +96,21 @@ export function renderAudit(data: AuditData, cursor: number): string {
       </table>
       ${loadMoreHtml}
     </div>
+
+    <script>
+      function toggleAccordion(idx) {
+        const row = document.getElementById('row-' + idx);
+        const detail = document.getElementById('detail-' + idx);
+        const isOpen = detail.classList.contains('open');
+        if (isOpen) {
+          detail.classList.remove('open');
+          row.classList.remove('expanded');
+        } else {
+          detail.classList.add('open');
+          row.classList.add('expanded');
+        }
+      }
+    </script>
   `;
 
   return renderPage('Audit Log', content, '/gui/audit');

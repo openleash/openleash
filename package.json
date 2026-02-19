@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run",
-    "dev": "tsx packages/cli/src/index.ts start",
+    "dev": "tsx watch packages/cli/src/index.ts start --gui",
     "lint": "eslint 'packages/*/src/**/*.ts'"
   },
   "engines": {

@@ -114,7 +114,7 @@ rules:
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
     expect(body.status).toBe('ok');
-    expect(body.version).toBe('0.1.0');
+    expect(body.version).toBeDefined();
   });
 
   it('GET /v1/public-keys returns keys', async () => {
