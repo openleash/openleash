@@ -8,6 +8,7 @@ import {
   readAgentFile,
   readPolicyFile,
   writePolicyFile,
+  deletePolicyFile,
   parsePolicyYaml,
   appendAuditEvent,
   readAuditLog,
@@ -111,6 +112,68 @@ export function registerAdminRoutes(app: FastifyInstance, dataDir: string, confi
     };
   });
 
+  // DELETE /v1/admin/policies/:policyId
+  app.delete('/v1/admin/policies/:policyId', { preHandler: adminAuth }, async (request, reply) => {
+    const { policyId } = request.params as { policyId: string };
+    const state = readState(dataDir);
+    const policyIndex = state.policies.findIndex((p) => p.policy_id === policyId);
+
+    if (policyIndex === -1) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Policy not found' } });
+      return;
+    }
+
+    // Remove policy file from disk
+    deletePolicyFile(dataDir, policyId);
+
+    // Remove from state.policies
+    state.policies.splice(policyIndex, 1);
+
+    // Remove all bindings referencing this policy
+    state.bindings = state.bindings.filter((b) => b.policy_id !== policyId);
+
+    writeState(dataDir, state);
+
+    appendAuditEvent(dataDir, 'POLICY_DELETED', { policy_id: policyId });
+
+    return { policy_id: policyId, status: 'deleted' };
+  });
+
+  // POST /v1/admin/policies/:policyId/unbind
+  app.post('/v1/admin/policies/:policyId/unbind', { preHandler: adminAuth }, async (request, reply) => {
+    const { policyId } = request.params as { policyId: string };
+    const body = request.body as { owner_principal_id?: string } | null;
+
+    const state = readState(dataDir);
+    const entry = state.policies.find((p) => p.policy_id === policyId);
+    if (!entry) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Policy not found' } });
+      return;
+    }
+
+    const before = state.bindings.length;
+    const ownerId = body?.owner_principal_id;
+
+    if (ownerId) {
+      state.bindings = state.bindings.filter(
+        (b) => !(b.policy_id === policyId && b.owner_principal_id === ownerId)
+      );
+    } else {
+      state.bindings = state.bindings.filter((b) => b.policy_id !== policyId);
+    }
+
+    const removed = before - state.bindings.length;
+    writeState(dataDir, state);
+
+    appendAuditEvent(dataDir, 'POLICY_UNBOUND', {
+      policy_id: policyId,
+      owner_principal_id: ownerId ?? null,
+      bindings_removed: removed,
+    });
+
+    return { policy_id: policyId, bindings_removed: removed };
+  });
+
   // GET /v1/admin/audit
   app.get('/v1/admin/audit', { preHandler: adminAuth }, async (request) => {
     const query = request.query as { limit?: string; cursor?: string };
@@ -199,7 +262,7 @@ export function registerAdminRoutes(app: FastifyInstance, dataDir: string, confi
 
     writePolicyFile(dataDir, policyId, body.policy_yaml);
 
-    appendAuditEvent(dataDir, 'POLICY_UPSERTED', {
+    appendAuditEvent(dataDir, 'POLICY_UPDATED', {
       policy_id: policyId,
       owner_principal_id: entry.owner_principal_id,
     });

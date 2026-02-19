@@ -154,7 +154,27 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         return { ...entry, error: 'file_not_found' };
       }
     });
-    const html = renderPolicies(policies);
+
+    // Pass owners and agents for the create form
+    const owners = state.owners.map((entry) => {
+      try {
+        const o = readOwnerFile(dataDir, entry.owner_principal_id);
+        return { owner_principal_id: o.owner_principal_id, display_name: o.display_name };
+      } catch {
+        return { owner_principal_id: entry.owner_principal_id, display_name: entry.owner_principal_id.slice(0, 8) };
+      }
+    });
+
+    const agents = state.agents.map((entry) => {
+      try {
+        const a = readAgentFile(dataDir, entry.agent_principal_id);
+        return { agent_principal_id: a.agent_principal_id, agent_id: a.agent_id, owner_principal_id: a.owner_principal_id };
+      } catch {
+        return { agent_principal_id: entry.agent_principal_id, agent_id: entry.agent_id, owner_principal_id: entry.owner_principal_id };
+      }
+    });
+
+    const html = renderPolicies(policies, owners, agents);
     reply.type('text/html').send(html);
   });
 
@@ -176,7 +196,7 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         owner_principal_id: entry.owner_principal_id,
         applies_to_agent_principal_id: entry.applies_to_agent_principal_id,
         policy_yaml: yaml,
-      });
+      }, state.bindings);
       reply.type('text/html').send(html);
     } catch {
       reply.code(404).type('text/html').send('<h1>Policy file not found</h1>');
