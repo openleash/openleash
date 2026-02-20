@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"aidantwoods.dev/go-paseto"
+	"aidanwoods.dev/go-paseto"
 )
 
 // Keypair holds base64-encoded DER keys (SPKI for public, PKCS8 for private).
