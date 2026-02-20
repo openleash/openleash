@@ -1,6 +1,6 @@
 {
   "name": "@openleash/server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "HTTP server for openleash",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,8 +9,8 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@openleash/core": "0.1.0",
-    "@openleash/gui": "0.1.0",
+    "@openleash/core": "0.2.0",
+    "@openleash/gui": "0.2.0",
     "fastify": "^4.25.2",
     "yaml": "^2.3.4",
     "zod": "^3.22.4"

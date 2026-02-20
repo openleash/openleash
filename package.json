@@ -1,6 +1,6 @@
 {
   "name": "openleash",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local-first authorization + proof sidecar for AI agents",
   "private": true,
   "workspaces": [
