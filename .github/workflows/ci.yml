@@ -60,6 +60,10 @@ jobs:
     defaults:
       run:
         working-directory: packages/sdk-go
+    env:
+      GOPROXY: https://proxy.golang.org,off
+      GONOSUMDB: aidanwoods.dev/*
+      GONOSUMCHECK: aidanwoods.dev/*
     steps:
       - uses: actions/checkout@v6
 
@@ -70,7 +74,7 @@ jobs:
           cache: false
 
       - name: Download dependencies
-        run: go mod tidy
+        run: go mod download
 
       - name: Test
         run: go test -v ./...
