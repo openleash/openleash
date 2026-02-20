@@ -21,6 +21,15 @@ vitest.config.js.map
 vitest.config.d.ts
 vitest.config.d.ts.map
 
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.venv/
+packages/sdk-python/dist/
+packages/sdk-python/build/
+
 # Claude Code local/personal files
 .claude/settings.local.json
 .claude/CLAUDE.local.md

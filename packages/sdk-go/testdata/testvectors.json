@@ -1,0 +1,42 @@
+{
+  "action": {
+    "action_id": "00000000-0000-0000-0000-000000000001",
+    "action_type": "purchase",
+    "requested_at": "2024-01-15T10:30:00.000Z",
+    "principal": {
+      "agent_id": "test-agent"
+    },
+    "subject": {
+      "principal_id": "00000000-0000-0000-0000-000000000002"
+    },
+    "relying_party": {
+      "domain": "example.com",
+      "trust_profile": "LOW"
+    },
+    "payload": {
+      "amount_minor": 5000,
+      "currency": "USD",
+      "merchant_domain": "example.com"
+    }
+  },
+  "canonical_json": "{\"action_id\":\"00000000-0000-0000-0000-000000000001\",\"action_type\":\"purchase\",\"payload\":{\"amount_minor\":5000,\"currency\":\"USD\",\"merchant_domain\":\"example.com\"},\"principal\":{\"agent_id\":\"test-agent\"},\"relying_party\":{\"domain\":\"example.com\",\"trust_profile\":\"LOW\"},\"requested_at\":\"2024-01-15T10:30:00.000Z\",\"subject\":{\"principal_id\":\"00000000-0000-0000-0000-000000000002\"}}",
+  "action_hash": "5fed50d1afcf598480f64ca09edb042a8a09c6b33c8712e3faeeea2aa1d4297d",
+  "public_key_b64": "MCowBQYDK2VwAyEAO2onvM62pC1io6jQKm8Nc2UyFXcd4kOmOsBIoYtZ2ik=",
+  "private_key_b64": "MC4CAQAwBQYDK2VwBCIEIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "signing_input": "POST\n/v1/authorize\n2024-01-15T10:30:00.000Z\n00000000-0000-0000-0000-000000000099\na97d394c6e93281642c4474a76cccf45f3420890cd59a22ee92c44c37baa8f3a",
+  "body_sha256": "a97d394c6e93281642c4474a76cccf45f3420890cd59a22ee92c44c37baa8f3a",
+  "signature_b64": "HNHsMIwklM+UNzN4oYot/alSixP2Mw9HXAunmdftUfPJ3BYX/PFZcMvjh8u/aqWtCel5IxvmVmp5oq+xqLaFBw==",
+  "paseto_token": "v4.public.eyJpc3MiOiJvcGVubGVhc2giLCJraWQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwODgiLCJpYXQiOiIyMDI0LTAxLTE1VDEwOjMwOjAwLjAwMFoiLCJleHAiOiIyMDI0LTAxLTE1VDEwOjMyOjAwLjAwMFoiLCJkZWNpc2lvbl9pZCI6IjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDA3NyIsIm93bmVyX3ByaW5jaXBhbF9pZCI6IjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMiIsImFnZW50X2lkIjoidGVzdC1hZ2VudCIsImFjdGlvbl90eXBlIjoicHVyY2hhc2UiLCJhY3Rpb25faGFzaCI6IjVmZWQ1MGQxYWZjZjU5ODQ4MGY2NGNhMDllZGIwNDJhOGEwOWM2YjMzYzg3MTJlM2ZhZWVlYTJhYTFkNDI5N2QiLCJtYXRjaGVkX3J1bGVfaWQiOiJ0ZXN0LXJ1bGUifSqXHK3q2jC8fmLHanLCKJN98vOzGx-tUVWopvLkuRjvdDYN3nfPnBEp0Duh04CI-inPCxzmmIybweSqInaM0w4",
+  "paseto_claims": {
+    "iss": "openleash",
+    "kid": "00000000-0000-0000-0000-000000000088",
+    "iat": "2024-01-15T10:30:00.000Z",
+    "exp": "2024-01-15T10:32:00.000Z",
+    "decision_id": "00000000-0000-0000-0000-000000000077",
+    "owner_principal_id": "00000000-0000-0000-0000-000000000002",
+    "agent_id": "test-agent",
+    "action_type": "purchase",
+    "action_hash": "5fed50d1afcf598480f64ca09edb042a8a09c6b33c8712e3faeeea2aa1d4297d",
+    "matched_rule_id": "test-rule"
+  }
+}
