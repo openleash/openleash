@@ -12,4 +12,4 @@ export type { PolicyBuilderOptions } from './pages/policy-builder.js';
 export { renderConfig } from './pages/config.js';
 export type { ConfigData } from './pages/config.js';
 export { renderAudit } from './pages/audit.js';
-export type { AuditData, AuditEntry } from './pages/audit.js';
+export type { AuditData, AuditEntry, AuditNameMap } from './pages/audit.js';

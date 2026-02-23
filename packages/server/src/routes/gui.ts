@@ -288,7 +288,8 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
       catch { return [o.owner_principal_id, undefined] as const; }
     }));
     const agentNames = new Map(state.agents.map((a) => [a.agent_principal_id, a.agent_id]));
-    const html = renderAudit(data, cursor, { owners: ownerNames as Map<string, string>, agents: agentNames });
+    const eventTypes = [...new Set(data.items.map((e) => e.event_type))].sort();
+    const html = renderAudit(data, cursor, { owners: ownerNames as Map<string, string>, agents: agentNames, eventTypes });
     reply.type('text/html').send(html);
   });
 }

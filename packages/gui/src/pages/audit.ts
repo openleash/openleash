@@ -15,6 +15,12 @@ export interface AuditData {
   next_cursor: string | null;
 }
 
+export interface AuditNameMap {
+  owners: Map<string, string>;
+  agents: Map<string, string>;
+  eventTypes?: string[];
+}
+
 function eventBadge(type: string): string {
   if (type.includes('CREATED') || type.includes('REGISTERED') || type.includes('STARTED')) {
     return `<span class="badge badge-green">${escapeHtml(type)}</span>`;
@@ -28,17 +34,107 @@ function eventBadge(type: string): string {
   return `<span class="badge badge-muted">${escapeHtml(type)}</span>`;
 }
 
-function formatMetadata(meta: Record<string, unknown>): string {
+function resolveId(uuid: string, nameMap: AuditNameMap): string | undefined {
+  return nameMap.owners.get(uuid) ?? nameMap.agents.get(uuid);
+}
+
+function principalDisplay(principalId: string | null, nameMap?: AuditNameMap): string {
+  if (!principalId) return '<span style="color:var(--text-muted)">--</span>';
+  if (!nameMap) return `<span class="mono truncate" title="${escapeHtml(principalId)}">${escapeHtml(principalId.slice(0, 8))}...</span>`;
+  const name = resolveId(principalId, nameMap);
+  return formatNameWithId(name, principalId);
+}
+
+function resultBadge(result: string): string {
+  const escaped = escapeHtml(result);
+  if (result === 'ALLOW') return `<span class="badge badge-green">${escaped}</span>`;
+  if (result === 'DENY') return `<span class="badge badge-red">${escaped}</span>`;
+  if (result.startsWith('REQUIRE_')) return `<span class="badge badge-amber">${escaped}</span>`;
+  return `<span class="badge badge-muted">${escaped}</span>`;
+}
+
+function validBadge(valid: boolean): string {
+  return valid
+    ? '<span class="badge badge-green">VALID</span>'
+    : '<span class="badge badge-red">INVALID</span>';
+}
+
+function eventSummary(entry: AuditEntry, nameMap?: AuditNameMap): string {
+  const meta = entry.metadata_json;
+  switch (entry.event_type) {
+    case 'OWNER_CREATED':
+      return meta.display_name ? escapeHtml(String(meta.display_name)) : '';
+    case 'AGENT_CHALLENGE_ISSUED':
+    case 'AGENT_REGISTERED':
+      if (meta.agent_id) return `<span class="mono">${escapeHtml(String(meta.agent_id))}</span>`;
+      if (meta.agent_principal_id && nameMap) {
+        const name = resolveId(String(meta.agent_principal_id), nameMap);
+        return name ? escapeHtml(name) : `<span class="mono">${escapeHtml(String(meta.agent_principal_id).slice(0, 8))}...</span>`;
+      }
+      return '';
+    case 'POLICY_UPSERTED':
+    case 'POLICY_UPDATED':
+    case 'POLICY_DELETED':
+    case 'POLICY_UNBOUND':
+      if (meta.policy_id) {
+        const pid = String(meta.policy_id);
+        return `<a href="/gui/policies/${escapeHtml(pid)}" class="table-link mono">${escapeHtml(pid.slice(0, 8))}...</a>`;
+      }
+      return '';
+    case 'AUTHORIZE_CALLED':
+      return meta.action_type ? `<span class="mono">${escapeHtml(String(meta.action_type))}</span>` : '';
+    case 'DECISION_CREATED':
+      return meta.result ? resultBadge(String(meta.result)) : '';
+    case 'PROOF_VERIFIED':
+      if (typeof meta.valid === 'boolean') return validBadge(meta.valid);
+      return '';
+    case 'PLAYGROUND_RUN':
+      return meta.scenario ? escapeHtml(String(meta.scenario)) : '';
+    case 'KEY_ROTATED':
+      if (meta.new_kid) return `<span class="mono">${escapeHtml(String(meta.new_kid).slice(0, 12))}...</span>`;
+      return '';
+    case 'SERVER_STARTED':
+      return meta.bind_address ? escapeHtml(String(meta.bind_address)) : '';
+    default:
+      return '';
+  }
+}
+
+function formatMetadata(meta: Record<string, unknown>, nameMap?: AuditNameMap): string {
   const entries = Object.entries(meta);
   if (entries.length === 0) return '<span style="color:var(--text-muted)">No metadata</span>';
 
   return entries.map(([key, val]) => {
+    const keyHtml = `<span style="color:var(--green-bright)">${escapeHtml(key)}</span>`;
+
+    // Resolve owner/agent principal IDs to names
+    if ((key === 'owner_principal_id' || key === 'agent_principal_id') && typeof val === 'string' && nameMap) {
+      const name = resolveId(val, nameMap);
+      const display = formatNameWithId(name, val);
+      return `<div style="margin-bottom:6px">${keyHtml}: <span style="color:var(--text-primary)">${display}</span></div>`;
+    }
+
+    // Link policy_id to editor
+    if (key === 'policy_id' && typeof val === 'string') {
+      return `<div style="margin-bottom:6px">${keyHtml}: <a href="/gui/policies/${escapeHtml(val)}" class="table-link mono">${escapeHtml(val)}</a></div>`;
+    }
+
+    // Badge for result
+    if (key === 'result' && typeof val === 'string') {
+      return `<div style="margin-bottom:6px">${keyHtml}: ${resultBadge(val)}</div>`;
+    }
+
+    // Badge for valid
+    if (key === 'valid' && typeof val === 'boolean') {
+      return `<div style="margin-bottom:6px">${keyHtml}: ${validBadge(val)}</div>`;
+    }
+
     const valStr = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val);
-    return `<div style="margin-bottom:6px"><span style="color:var(--green-bright)">${escapeHtml(key)}</span>: <span style="color:var(--text-primary)">${escapeHtml(valStr)}</span></div>`;
+    return `<div style="margin-bottom:6px">${keyHtml}: <span style="color:var(--text-primary)">${escapeHtml(valStr)}</span></div>`;
   }).join('');
 }
 
-export function renderAudit(data: AuditData, cursor: number, nameMap?: { owners: Map<string, string>; agents: Map<string, string> }): string {
+export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditNameMap): string {
   // Reverse to show newest first
   const items = [...data.items].reverse();
 
@@ -49,26 +145,32 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: { owners:
     const extraFields: string[] = [];
     if (e.principal_id) {
       const resolvedName = nameMap?.owners.get(e.principal_id) ?? nameMap?.agents.get(e.principal_id);
-      const principalDisplay = resolvedName
+      const pDisplay = resolvedName
         ? `${escapeHtml(resolvedName)} <span class="mono" style="color:var(--text-muted);font-size:11px">(${escapeHtml(e.principal_id)})</span>`
         : escapeHtml(e.principal_id);
-      extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">principal_id</span>: <span style="color:var(--text-primary)">${principalDisplay}</span></div>`);
+      extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">principal_id</span>: <span style="color:var(--text-primary)">${pDisplay}</span></div>`);
     }
     if (e.action_id) extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">action_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.action_id)}</span></div>`);
     if (e.decision_id) extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">decision_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.decision_id)}</span></div>`);
 
+    const isoTimestamp = e.timestamp;
+    const displayTimestamp = e.timestamp.slice(0, 19).replace('T', ' ');
+    const summary = eventSummary(e, nameMap);
+
     return `
-      <tr class="accordion-row" onclick="toggleAccordion(${idx})" id="row-${idx}">
+      <tr class="accordion-row" onclick="toggleAccordion(${idx})" id="row-${idx}" data-event-type="${escapeHtml(e.event_type)}">
         <td style="width:20px"><span class="chevron">&#9654;</span></td>
-        <td class="mono" style="white-space:nowrap">${escapeHtml(e.timestamp.slice(0, 19).replace('T', ' '))}</td>
+        <td class="local-time" data-utc="${escapeHtml(isoTimestamp)}" title="UTC: ${escapeHtml(displayTimestamp)}" style="white-space:nowrap">${escapeHtml(displayTimestamp)}</td>
         <td>${eventBadge(e.event_type)}</td>
+        <td>${principalDisplay(e.principal_id, nameMap)}</td>
+        <td>${summary || '<span style="color:var(--text-muted)">--</span>'}</td>
         <td class="mono truncate" title="${escapeHtml(e.event_id)}">${escapeHtml(e.event_id.slice(0, 8))}...</td>
       </tr>
-      <tr class="accordion-detail" id="detail-${idx}">
-        <td colspan="4">
+      <tr class="accordion-detail" id="detail-${idx}" data-event-type="${escapeHtml(e.event_type)}">
+        <td colspan="6">
           <div class="accordion-content">
             ${extraFields.join('')}
-            ${formatMetadata(e.metadata_json)}
+            ${formatMetadata(e.metadata_json, nameMap)}
           </div>
         </td>
       </tr>
@@ -80,11 +182,29 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: { owners:
     ? `<div style="text-align:center;margin-top:16px"><a href="/gui/audit?cursor=${escapeHtml(nextCursor)}" class="btn btn-secondary">Load More</a></div>`
     : '';
 
+  // Build event type filter options
+  const eventTypes = nameMap?.eventTypes ?? [];
+  const filterOptions = eventTypes.map((t) =>
+    `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`
+  ).join('');
+
+  const filterHtml = eventTypes.length > 0
+    ? `<div class="toolbar">
+        <select id="event-filter" class="form-select" style="width:auto;min-width:220px" onchange="filterEvents()">
+          <option value="">All event types</option>
+          ${filterOptions}
+        </select>
+        <span id="filter-count" style="color:var(--text-muted);font-size:12px"></span>
+      </div>`
+    : '';
+
   const content = `
     <div class="page-header">
       <h2>Audit Log</h2>
       <p>Authorization events, newest first${cursor > 0 ? ` (from offset ${cursor})` : ''}</p>
     </div>
+
+    ${filterHtml}
 
     <div class="card">
       <table>
@@ -93,11 +213,13 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: { owners:
             <th style="width:20px"></th>
             <th>Timestamp</th>
             <th>Event</th>
+            <th>Principal</th>
+            <th>Detail</th>
             <th>Event ID</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:24px">No audit events</td></tr>'}
+          ${rows || '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:24px">No audit events</td></tr>'}
         </tbody>
       </table>
       ${loadMoreHtml}
@@ -105,15 +227,59 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: { owners:
 
     <script>
       function toggleAccordion(idx) {
-        const row = document.getElementById('row-' + idx);
-        const detail = document.getElementById('detail-' + idx);
-        const isOpen = detail.classList.contains('open');
+        var row = document.getElementById('row-' + idx);
+        var detail = document.getElementById('detail-' + idx);
+        var isOpen = detail.classList.contains('open');
         if (isOpen) {
           detail.classList.remove('open');
           row.classList.remove('expanded');
         } else {
           detail.classList.add('open');
           row.classList.add('expanded');
+        }
+      }
+
+      (function() {
+        try {
+          var cells = document.querySelectorAll('.local-time[data-utc]');
+          for (var i = 0; i < cells.length; i++) {
+            var utc = cells[i].getAttribute('data-utc');
+            var d = new Date(utc);
+            if (!isNaN(d.getTime())) {
+              cells[i].textContent = d.toLocaleString(undefined, {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false
+              });
+              cells[i].title = 'UTC: ' + utc.slice(0, 19).replace('T', ' ');
+            }
+          }
+        } catch(_) {}
+      })();
+
+      function filterEvents() {
+        var val = document.getElementById('event-filter').value;
+        var rows = document.querySelectorAll('tr[data-event-type]');
+        var visible = 0;
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var match = !val || row.getAttribute('data-event-type') === val;
+          row.style.display = match ? '' : 'none';
+          // Close hidden accordion details
+          if (!match && row.classList.contains('accordion-detail')) {
+            row.classList.remove('open');
+          }
+          if (!match && row.classList.contains('accordion-row')) {
+            row.classList.remove('expanded');
+          }
+          // Count visible main rows
+          if (match && row.classList.contains('accordion-row')) {
+            visible++;
+          }
+        }
+        var counter = document.getElementById('filter-count');
+        if (counter) {
+          counter.textContent = val ? visible + ' event' + (visible !== 1 ? 's' : '') : '';
         }
       }
     </script>
