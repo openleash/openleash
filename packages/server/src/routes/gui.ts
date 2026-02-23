@@ -5,6 +5,7 @@ import {
   readAgentFile,
   readPolicyFile,
   readAuditLog,
+  ACTION_TAXONOMY,
 } from '@openleash/core';
 import type { OpenleashConfig } from '@openleash/core';
 import {
@@ -14,6 +15,7 @@ import {
   renderAgents,
   renderPolicies,
   renderPolicyEditor,
+  renderPolicyBuilder,
   renderConfig,
   renderAudit,
 } from '@openleash/gui';
@@ -178,6 +180,56 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
     reply.type('text/html').send(html);
   });
 
+  // Policy builder (visual) — registered before :policyId to avoid param capture
+  app.get('/gui/policies/builder', { preHandler: adminAuth }, async (request, reply) => {
+    const state = readState(dataDir);
+    const query = request.query as { edit?: string };
+
+    const owners = state.owners.map((entry) => {
+      try {
+        const o = readOwnerFile(dataDir, entry.owner_principal_id);
+        return { owner_principal_id: o.owner_principal_id, display_name: o.display_name };
+      } catch {
+        return { owner_principal_id: entry.owner_principal_id, display_name: entry.owner_principal_id.slice(0, 8) };
+      }
+    });
+
+    const agents = state.agents.map((entry) => {
+      try {
+        const a = readAgentFile(dataDir, entry.agent_principal_id);
+        return { agent_principal_id: a.agent_principal_id, agent_id: a.agent_id, owner_principal_id: a.owner_principal_id };
+      } catch {
+        return { agent_principal_id: entry.agent_principal_id, agent_id: entry.agent_id, owner_principal_id: entry.owner_principal_id };
+      }
+    });
+
+    let existing: { policy_id: string; policy_yaml: string } | undefined;
+    if (query.edit) {
+      const entry = state.policies.find((p) => p.policy_id === query.edit);
+      if (entry) {
+        try {
+          const yaml = readPolicyFile(dataDir, query.edit);
+          existing = { policy_id: query.edit, policy_yaml: yaml };
+        } catch {
+          // Policy file not found; proceed without existing data
+        }
+      }
+    }
+
+    const html = renderPolicyBuilder({
+      taxonomy: ACTION_TAXONOMY,
+      owners,
+      agents,
+      existing,
+    });
+    reply.type('text/html').send(html);
+  });
+
+  // Taxonomy JSON endpoint (for client-side use)
+  app.get('/gui/taxonomy.json', { preHandler: adminAuth }, async (_request, reply) => {
+    reply.type('application/json').send(ACTION_TAXONOMY);
+  });
+
   // Policy editor
   app.get('/gui/policies/:policyId', { preHandler: adminAuth }, async (request, reply) => {
     const { policyId } = request.params as { policyId: string };
@@ -191,12 +243,17 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
 
     try {
       const yaml = readPolicyFile(dataDir, policyId);
+      const ownerNames = new Map(state.owners.map((o) => {
+        try { return [o.owner_principal_id, readOwnerFile(dataDir, o.owner_principal_id).display_name] as const; }
+        catch { return [o.owner_principal_id, undefined] as const; }
+      }));
+      const agentNames = new Map(state.agents.map((a) => [a.agent_principal_id, a.agent_id]));
       const html = renderPolicyEditor({
         policy_id: policyId,
         owner_principal_id: entry.owner_principal_id,
         applies_to_agent_principal_id: entry.applies_to_agent_principal_id,
         policy_yaml: yaml,
-      }, state.bindings);
+      }, state.bindings, { owners: ownerNames as Map<string, string>, agents: agentNames });
       reply.type('text/html').send(html);
     } catch {
       reply.code(404).type('text/html').send('<h1>Policy file not found</h1>');
@@ -225,7 +282,13 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
     const query = request.query as { cursor?: string };
     const cursor = query.cursor ? parseInt(query.cursor, 10) : 0;
     const data = readAuditLog(dataDir, 100, cursor);
-    const html = renderAudit(data, cursor);
+    const state = readState(dataDir);
+    const ownerNames = new Map(state.owners.map((o) => {
+      try { return [o.owner_principal_id, readOwnerFile(dataDir, o.owner_principal_id).display_name] as const; }
+      catch { return [o.owner_principal_id, undefined] as const; }
+    }));
+    const agentNames = new Map(state.agents.map((a) => [a.agent_principal_id, a.agent_id]));
+    const html = renderAudit(data, cursor, { owners: ownerNames as Map<string, string>, agents: agentNames });
     reply.type('text/html').send(html);
   });
 }

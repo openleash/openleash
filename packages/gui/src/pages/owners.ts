@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId } from '../layout.js';
 
 export interface OwnerData {
   owner_principal_id: string;
@@ -171,12 +171,14 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     </tr>
   `).join('');
 
+  const agentMap = new Map(agents.map((a) => [a.agent_principal_id, a.agent_id]));
+
   const policyRows = policies.map((p) => `
     <tr>
       <td class="mono truncate" title="${escapeHtml(p.policy_id)}">
         <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id.slice(0, 8))}...</a>
       </td>
-      <td class="mono">${p.applies_to_agent_principal_id ? escapeHtml(p.applies_to_agent_principal_id.slice(0, 8)) + '...' : '<span style="color:var(--text-muted)">all agents</span>'}</td>
+      <td>${p.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(p.applies_to_agent_principal_id), p.applies_to_agent_principal_id) : '<span style="color:var(--text-muted)">all agents</span>'}</td>
     </tr>
   `).join('');
 

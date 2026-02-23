@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId } from '../layout.js';
 
 export interface AuditEntry {
   event_id: string;
@@ -38,7 +38,7 @@ function formatMetadata(meta: Record<string, unknown>): string {
   }).join('');
 }
 
-export function renderAudit(data: AuditData, cursor: number): string {
+export function renderAudit(data: AuditData, cursor: number, nameMap?: { owners: Map<string, string>; agents: Map<string, string> }): string {
   // Reverse to show newest first
   const items = [...data.items].reverse();
 
@@ -47,7 +47,13 @@ export function renderAudit(data: AuditData, cursor: number): string {
     const hasExtra = e.principal_id || e.action_id || e.decision_id || Object.keys(e.metadata_json).length > 0;
 
     const extraFields: string[] = [];
-    if (e.principal_id) extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">principal_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.principal_id)}</span></div>`);
+    if (e.principal_id) {
+      const resolvedName = nameMap?.owners.get(e.principal_id) ?? nameMap?.agents.get(e.principal_id);
+      const principalDisplay = resolvedName
+        ? `${escapeHtml(resolvedName)} <span class="mono" style="color:var(--text-muted);font-size:11px">(${escapeHtml(e.principal_id)})</span>`
+        : escapeHtml(e.principal_id);
+      extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">principal_id</span>: <span style="color:var(--text-primary)">${principalDisplay}</span></div>`);
+    }
     if (e.action_id) extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">action_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.action_id)}</span></div>`);
     if (e.decision_id) extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">decision_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.decision_id)}</span></div>`);
 

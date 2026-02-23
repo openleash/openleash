@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId } from '../layout.js';
 
 export interface PolicyListEntry {
   policy_id: string;
@@ -26,13 +26,16 @@ export interface BindingEntry {
 }
 
 export function renderPolicies(policies: PolicyListEntry[], owners?: OwnerOption[], agents?: AgentOption[]): string {
+  const ownerMap = new Map((owners ?? []).map((o) => [o.owner_principal_id, o.display_name]));
+  const agentMap = new Map((agents ?? []).map((a) => [a.agent_principal_id, a.agent_id]));
+
   const rows = policies.map((p) => `
     <tr>
       <td class="mono truncate" title="${escapeHtml(p.policy_id)}">
         <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id.slice(0, 8))}...</a>
       </td>
-      <td class="mono truncate" title="${escapeHtml(p.owner_principal_id)}">${escapeHtml(p.owner_principal_id.slice(0, 8))}...</td>
-      <td class="mono">${p.applies_to_agent_principal_id ? escapeHtml(p.applies_to_agent_principal_id.slice(0, 8)) + '...' : '<span style="color:var(--text-muted)">all agents</span>'}</td>
+      <td>${formatNameWithId(ownerMap.get(p.owner_principal_id), p.owner_principal_id)}</td>
+      <td>${p.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(p.applies_to_agent_principal_id), p.applies_to_agent_principal_id) : '<span style="color:var(--text-muted)">all agents</span>'}</td>
       <td>
         <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="btn btn-secondary" style="padding:4px 10px;font-size:12px">Edit</a>
       </td>
@@ -53,7 +56,10 @@ export function renderPolicies(policies: PolicyListEntry[], owners?: OwnerOption
         <h2>Policies</h2>
         <p>${policies.length} configured polic${policies.length !== 1 ? 'ies' : 'y'}</p>
       </div>
-      <button class="btn btn-primary" onclick="toggleForm()">+ Create Policy</button>
+      <div style="display:flex;gap:8px">
+        <a href="/gui/policies/builder" class="btn btn-primary">Visual Builder</a>
+        <button class="btn btn-secondary" onclick="toggleForm()">+ Create from YAML</button>
+      </div>
     </div>
 
     <div id="alert-container"></div>
@@ -178,21 +184,26 @@ export interface PolicyDetail {
   policy_yaml: string;
 }
 
-export function renderPolicyEditor(policy: PolicyDetail, bindings?: BindingEntry[]): string {
+export function renderPolicyEditor(policy: PolicyDetail, bindings?: BindingEntry[], nameMap?: { owners: Map<string, string>; agents: Map<string, string> }): string {
   const policyBindings = (bindings ?? []).filter((b) => b.policy_id === policy.policy_id);
   const bindingCount = policyBindings.length;
+  const ownerMap = nameMap?.owners ?? new Map();
+  const agentMap = nameMap?.agents ?? new Map();
 
   const bindingRows = policyBindings.map((b) => `
     <tr>
-      <td class="mono truncate" title="${escapeHtml(b.owner_principal_id)}">${escapeHtml(b.owner_principal_id.slice(0, 8))}...</td>
-      <td class="mono">${b.applies_to_agent_principal_id ? escapeHtml(b.applies_to_agent_principal_id.slice(0, 8)) + '...' : '<span style="color:var(--text-muted)">all agents</span>'}</td>
+      <td>${formatNameWithId(ownerMap.get(b.owner_principal_id), b.owner_principal_id)}</td>
+      <td>${b.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(b.applies_to_agent_principal_id), b.applies_to_agent_principal_id) : '<span style="color:var(--text-muted)">all agents</span>'}</td>
     </tr>
   `).join('');
 
   const content = `
-    <div class="page-header">
-      <h2>Edit Policy</h2>
-      <p class="mono">${escapeHtml(policy.policy_id)}</p>
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h2>Edit Policy</h2>
+        <p class="mono">${escapeHtml(policy.policy_id)}</p>
+      </div>
+      <a href="/gui/policies/builder?edit=${escapeHtml(policy.policy_id)}" class="btn btn-secondary">Switch to Visual Builder</a>
     </div>
 
     <div id="alert-container"></div>
@@ -203,11 +214,11 @@ export function renderPolicyEditor(policy: PolicyDetail, bindings?: BindingEntry
         <tbody>
           <tr>
             <td style="width:160px;color:var(--text-muted)">Owner</td>
-            <td class="mono">${escapeHtml(policy.owner_principal_id)}</td>
+            <td>${formatNameWithId(ownerMap.get(policy.owner_principal_id), policy.owner_principal_id)}</td>
           </tr>
           <tr>
             <td style="color:var(--text-muted)">Applies To</td>
-            <td class="mono">${policy.applies_to_agent_principal_id ? escapeHtml(policy.applies_to_agent_principal_id) : 'All agents'}</td>
+            <td>${policy.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(policy.applies_to_agent_principal_id), policy.applies_to_agent_principal_id) : 'All agents'}</td>
           </tr>
         </tbody>
       </table>

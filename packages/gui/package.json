@@ -14,6 +14,9 @@
     "url": "git+https://github.com/openleash/openleash.git",
     "directory": "packages/gui"
   },
+  "dependencies": {
+    "@openleash/core": "0.2.0"
+  },
   "homepage": "https://github.com/openleash/openleash/tree/main/packages/gui",
   "bugs": {
     "url": "https://github.com/openleash/openleash/issues"

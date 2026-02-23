@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId } from '../layout.js';
 
 export interface AgentData {
   agent_principal_id: string;
@@ -25,11 +25,13 @@ function statusBadge(status?: string): string {
 }
 
 export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string {
+  const ownerMap = new Map(owners.map((o) => [o.owner_principal_id, o.display_name]));
+
   const rows = agents.map((a) => `
     <tr>
       <td class="mono">${escapeHtml(a.agent_id ?? '-')}</td>
       <td class="mono truncate" title="${escapeHtml(a.agent_principal_id)}">${escapeHtml(a.agent_principal_id.slice(0, 8))}...</td>
-      <td class="mono truncate" title="${escapeHtml(a.owner_principal_id ?? '')}">${escapeHtml((a.owner_principal_id ?? '-').slice(0, 8))}${a.owner_principal_id ? '...' : ''}</td>
+      <td>${a.owner_principal_id ? formatNameWithId(ownerMap.get(a.owner_principal_id), a.owner_principal_id) : '-'}</td>
       <td>${statusBadge(a.status)}</td>
       <td class="mono">${escapeHtml(a.created_at?.slice(0, 10) ?? '-')}</td>
       <td class="mono">${a.revoked_at ? escapeHtml(a.revoked_at.slice(0, 10)) : '-'}</td>

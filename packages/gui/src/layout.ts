@@ -17,6 +17,13 @@ function escapeHtml(str: string): string {
 
 export { escapeHtml };
 
+export function formatNameWithId(name: string | undefined, uuid: string): string {
+  if (name) {
+    return `${escapeHtml(name)} <span class="mono muted" title="${escapeHtml(uuid)}" style="color:var(--text-muted);font-size:11px">(${escapeHtml(uuid.slice(0, 8))}...)</span>`;
+  }
+  return `<span class="mono truncate" title="${escapeHtml(uuid)}">${escapeHtml(uuid.slice(0, 8))}...</span>`;
+}
+
 export function renderPage(title: string, content: string, activePath: string): string {
   const navHtml = NAV_ITEMS.map((item) => {
     const active = activePath === item.path || (item.path !== '/gui/dashboard' && activePath.startsWith(item.path));
@@ -510,6 +517,163 @@ export function renderPage(title: string, content: string, activePath: string): 
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    /* Policy Builder Tree */
+    .tree-node {
+      border-bottom: 1px solid rgba(136, 153, 170, 0.06);
+    }
+
+    .tree-node-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      transition: background 0.15s var(--ease-out);
+    }
+
+    .tree-node-row:hover {
+      background: rgba(52, 211, 153, 0.03);
+    }
+
+    .tree-toggle {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 10px;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s var(--ease-out);
+      flex-shrink: 0;
+    }
+
+    .tree-toggle:hover { color: var(--text-primary); }
+    .tree-toggle.expanded { transform: rotate(90deg); }
+
+    .tree-toggle-spacer { width: 18px; flex-shrink: 0; }
+
+    .tree-node-label {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tree-node-path {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .tree-node-inherited {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-style: italic;
+      white-space: nowrap;
+    }
+
+    .inherited-deny { color: rgba(248, 113, 113, 0.6); }
+    .inherited-allow { color: rgba(52, 211, 153, 0.6); }
+
+    .tree-node-controls {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .tree-btn {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-body);
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s var(--ease-out);
+      background: transparent;
+      color: var(--text-muted);
+    }
+
+    .tree-btn:hover { color: var(--text-primary); }
+
+    .tree-btn-deny { border-color: rgba(248, 113, 113, 0.2); }
+    .tree-btn-deny:hover { background: rgba(248, 113, 113, 0.1); color: var(--red-bright); }
+    .tree-btn-deny.active { background: rgba(248, 113, 113, 0.15); color: var(--red-bright); border-color: rgba(248, 113, 113, 0.4); }
+
+    .tree-btn-allow { border-color: rgba(52, 211, 153, 0.2); }
+    .tree-btn-allow:hover { background: rgba(52, 211, 153, 0.1); color: var(--green-bright); }
+    .tree-btn-allow.active { background: rgba(52, 211, 153, 0.15); color: var(--green-bright); border-color: rgba(52, 211, 153, 0.4); }
+
+    .tree-btn-custom { border-color: rgba(251, 191, 36, 0.2); }
+    .tree-btn-custom:hover { background: rgba(251, 191, 36, 0.1); color: var(--amber-bright); }
+    .tree-btn-custom.active { background: rgba(251, 191, 36, 0.15); color: var(--amber-bright); border-color: rgba(251, 191, 36, 0.4); }
+
+    .tree-btn-clear {
+      border-color: rgba(136, 153, 170, 0.15);
+      font-size: 12px;
+      padding: 2px 6px;
+    }
+    .tree-btn-clear:hover { background: rgba(136, 153, 170, 0.1); }
+
+    .tree-children { padding-left: 0; }
+
+    .tree-node-constraints { padding: 8px 12px 12px 50px; }
+
+    .constraint-panel {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .constraint-row label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .constraint-row .form-input,
+    .constraint-row .form-select {
+      font-size: 12px;
+      padding: 5px 8px;
+    }
+
+    /* Mode Toggle */
+    .mode-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .mode-btn {
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-body);
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s var(--ease-out);
+    }
+
+    .mode-btn:hover { color: var(--text-primary); background: rgba(52, 211, 153, 0.05); }
+    .mode-btn.active { background: var(--green-dark); color: var(--green-bright); }
 
     @media (max-width: 768px) {
       .sidebar { width: 60px; }

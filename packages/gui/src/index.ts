@@ -1,4 +1,4 @@
-export { renderPage, escapeHtml } from './layout.js';
+export { renderPage, escapeHtml, formatNameWithId } from './layout.js';
 export { renderDashboard } from './pages/dashboard.js';
 export type { DashboardData } from './pages/dashboard.js';
 export { renderOwners, renderOwnerDetail } from './pages/owners.js';
@@ -7,6 +7,8 @@ export { renderAgents } from './pages/agents.js';
 export type { AgentData, OwnerOption as AgentOwnerOption } from './pages/agents.js';
 export { renderPolicies, renderPolicyEditor } from './pages/policies.js';
 export type { PolicyListEntry, PolicyDetail, OwnerOption, AgentOption, BindingEntry } from './pages/policies.js';
+export { renderPolicyBuilder } from './pages/policy-builder.js';
+export type { PolicyBuilderOptions } from './pages/policy-builder.js';
 export { renderConfig } from './pages/config.js';
 export type { ConfigData } from './pages/config.js';
 export { renderAudit } from './pages/audit.js';
