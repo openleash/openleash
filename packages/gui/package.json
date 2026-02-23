@@ -15,7 +15,7 @@
     "directory": "packages/gui"
   },
   "dependencies": {
-    "@openleash/core": "0.2.0"
+    "@openleash/core": "0.3.0"
   },
   "homepage": "https://github.com/openleash/openleash/tree/main/packages/gui",
   "bugs": {
