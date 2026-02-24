@@ -16,7 +16,7 @@
     "lint": "eslint 'packages/*/src/**/*.ts'"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "license": "Apache-2.0",
   "repository": {
