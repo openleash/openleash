@@ -55,7 +55,7 @@ export const ActionRequestSchema = z.object({
     domain: z.string().optional(),
     trust_profile: TrustProfile.optional(),
   }).optional(),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
 });
 export type ActionRequest = z.infer<typeof ActionRequestSchema>;
 
@@ -64,7 +64,7 @@ export const ObligationSchema = z.object({
   obligation_id: z.string().uuid(),
   type: ObligationType,
   status: ObligationStatus,
-  details_json: z.record(z.unknown()).optional(),
+  details_json: z.record(z.string(), z.unknown()).optional(),
 });
 export type Obligation = z.infer<typeof ObligationSchema>;
 
