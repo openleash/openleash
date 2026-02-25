@@ -1,0 +1,448 @@
+import { describe, it, expect } from 'vitest';
+import {
+  ContactIdentitySchema,
+  GovernmentIdSchema,
+  CompanyIdSchema,
+  SignatorySchema,
+  SignatoryRuleSchema,
+  validateGovernmentIdValue,
+  validateGovernmentIds,
+  validateCompanyIdValue,
+  validateContactIdentities,
+  validateSignatories,
+  validateOwnerIdentity,
+  computeAssuranceLevel,
+} from '../src/identity.js';
+import type { OwnerFrontmatter } from '../src/types.js';
+
+// ─── Zod schema tests ───────────────────────────────────────────────
+
+describe('ContactIdentitySchema', () => {
+  it('parses valid email contact', () => {
+    const result = ContactIdentitySchema.parse({
+      contact_id: 'a0000000-0000-4000-8000-000000000001',
+      type: 'EMAIL',
+      value: 'test@example.com',
+      added_at: '2026-02-25T10:00:00.000Z',
+    });
+    expect(result.verified).toBe(false);
+    expect(result.verified_at).toBeNull();
+  });
+
+  it('parses contact with all optional fields', () => {
+    const result = ContactIdentitySchema.parse({
+      contact_id: 'a0000000-0000-4000-8000-000000000001',
+      type: 'INSTANT_MESSAGE',
+      value: '@user',
+      label: 'Personal Signal',
+      platform: 'SIGNAL',
+      verified: true,
+      verified_at: '2026-02-25T10:00:00.000Z',
+      added_at: '2026-02-25T10:00:00.000Z',
+    });
+    expect(result.label).toBe('Personal Signal');
+    expect(result.platform).toBe('SIGNAL');
+    expect(result.verified).toBe(true);
+  });
+
+  it('rejects missing required fields', () => {
+    expect(() => ContactIdentitySchema.parse({
+      type: 'EMAIL',
+      value: 'test@example.com',
+    })).toThrow();
+  });
+});
+
+describe('GovernmentIdSchema', () => {
+  it('parses valid government ID', () => {
+    const result = GovernmentIdSchema.parse({
+      country: 'SE',
+      id_type: 'PERSONNUMMER',
+      id_value: '811228-9874',
+      added_at: '2026-02-25T10:00:00.000Z',
+    });
+    expect(result.verification_level).toBe('UNVERIFIED');
+    expect(result.verified_at).toBeNull();
+  });
+
+  it('rejects invalid country code', () => {
+    expect(() => GovernmentIdSchema.parse({
+      country: 'XX',
+      id_type: 'PERSONNUMMER',
+      id_value: '811228-9874',
+      added_at: '2026-02-25T10:00:00.000Z',
+    })).toThrow();
+  });
+});
+
+describe('CompanyIdSchema', () => {
+  it('parses valid company ID', () => {
+    const result = CompanyIdSchema.parse({
+      id_type: 'VAT',
+      country: 'SE',
+      id_value: 'SE556123456701',
+      added_at: '2026-02-25T10:00:00.000Z',
+    });
+    expect(result.verification_level).toBe('UNVERIFIED');
+  });
+
+  it('allows LEI without country', () => {
+    const result = CompanyIdSchema.parse({
+      id_type: 'LEI',
+      id_value: '5493001KJTIIGC8Y1R12',
+      added_at: '2026-02-25T10:00:00.000Z',
+    });
+    expect(result.country).toBeUndefined();
+  });
+});
+
+describe('SignatorySchema', () => {
+  it('parses valid signatory', () => {
+    const result = SignatorySchema.parse({
+      signatory_id: 'a0000000-0000-4000-8000-000000000001',
+      human_owner_principal_id: 'b0000000-0000-4000-8000-000000000002',
+      role: 'CEO',
+      signing_authority: 'SOLE',
+      scope_description: 'All matters',
+      added_at: '2026-02-25T10:00:00.000Z',
+    });
+    expect(result.role).toBe('CEO');
+    expect(result.valid_until).toBeNull();
+  });
+});
+
+describe('SignatoryRuleSchema', () => {
+  it('parses valid signatory rule', () => {
+    const result = SignatoryRuleSchema.parse({
+      rule_id: 'a0000000-0000-4000-8000-000000000001',
+      description: 'Two board members must co-sign',
+      required_signatories: 2,
+      from_roles: ['BOARD_MEMBER', 'BOARD_CHAIRMAN'],
+    });
+    expect(result.required_signatories).toBe(2);
+  });
+
+  it('allows conditions', () => {
+    const result = SignatoryRuleSchema.parse({
+      rule_id: 'a0000000-0000-4000-8000-000000000001',
+      description: 'CEO for small amounts',
+      required_signatories: 1,
+      from_roles: ['CEO'],
+      conditions: { max_amount: 100000, currency: 'SEK' },
+    });
+    expect(result.conditions).toEqual({ max_amount: 100000, currency: 'SEK' });
+  });
+});
+
+// ─── Validation function tests ──────────────────────────────────────
+
+describe('validateGovernmentIdValue', () => {
+  it('validates Swedish personnummer', () => {
+    expect(validateGovernmentIdValue('SE', 'PERSONNUMMER', '811228-9874').valid).toBe(true);
+  });
+
+  it('rejects invalid personnummer', () => {
+    expect(validateGovernmentIdValue('SE', 'PERSONNUMMER', '811228-9875').valid).toBe(false);
+  });
+
+  it('returns error for unknown ID type', () => {
+    const result = validateGovernmentIdValue('SE', 'UNKNOWN_TYPE', '123');
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Unknown ID type');
+  });
+});
+
+describe('validateGovernmentIds', () => {
+  it('validates multiple unique IDs', () => {
+    const results = validateGovernmentIds([
+      { country: 'SE', id_type: 'PERSONNUMMER', id_value: '811228-9874', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+      { country: 'NL', id_type: 'BSN', id_value: '111222333', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+    ]);
+    expect(results.every((r) => r.valid)).toBe(true);
+  });
+
+  it('rejects duplicate country (one ID per country)', () => {
+    const results = validateGovernmentIds([
+      { country: 'SE', id_type: 'PERSONNUMMER', id_value: '811228-9874', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+      { country: 'SE', id_type: 'PERSONNUMMER', id_value: '811228-9874', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+    ]);
+    expect(results[1].valid).toBe(false);
+    expect(results[1].error).toContain('Duplicate');
+  });
+
+  it('rejects different ID types for the same country', () => {
+    const results = validateGovernmentIds([
+      { country: 'ES', id_type: 'DNI', id_value: '12345678Z', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+      { country: 'ES', id_type: 'NIE', id_value: 'X1234567L', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+    ]);
+    expect(results[1].valid).toBe(false);
+    expect(results[1].error).toContain('Only one government ID allowed per country');
+  });
+});
+
+describe('validateCompanyIdValue', () => {
+  it('validates VAT number', () => {
+    expect(validateCompanyIdValue('VAT', 'SE556123456701').valid).toBe(true);
+  });
+
+  it('validates LEI', () => {
+    expect(validateCompanyIdValue('LEI', '5493001KJTIIGC8Y1R12').valid).toBe(true);
+  });
+
+  it('requires country for COMPANY_REG', () => {
+    expect(validateCompanyIdValue('COMPANY_REG', '12345678').valid).toBe(false);
+  });
+
+  it('accepts COMPANY_REG with country', () => {
+    expect(validateCompanyIdValue('COMPANY_REG', '12345678', 'DK').valid).toBe(true);
+  });
+});
+
+describe('validateContactIdentities', () => {
+  it('validates email format', () => {
+    const results = validateContactIdentities([
+      { contact_id: 'a0000000-0000-4000-8000-000000000001', type: 'EMAIL', value: 'test@example.com', verified: false, verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+    ]);
+    expect(results[0].valid).toBe(true);
+  });
+
+  it('rejects invalid email format', () => {
+    const results = validateContactIdentities([
+      { contact_id: 'a0000000-0000-4000-8000-000000000001', type: 'EMAIL', value: 'not-an-email', verified: false, verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+    ]);
+    expect(results[0].valid).toBe(false);
+  });
+
+  it('validates phone format', () => {
+    const results = validateContactIdentities([
+      { contact_id: 'a0000000-0000-4000-8000-000000000001', type: 'PHONE', value: '+46701234567', verified: false, verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+    ]);
+    expect(results[0].valid).toBe(true);
+  });
+
+  it('accepts IM without further validation', () => {
+    const results = validateContactIdentities([
+      { contact_id: 'a0000000-0000-4000-8000-000000000001', type: 'INSTANT_MESSAGE', value: '@user', platform: 'SIGNAL', verified: false, verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+    ]);
+    expect(results[0].valid).toBe(true);
+  });
+});
+
+describe('validateSignatories', () => {
+  const humanOwner: OwnerFrontmatter = {
+    owner_principal_id: 'b0000000-0000-4000-8000-000000000002',
+    principal_type: 'HUMAN',
+    display_name: 'Alice',
+    status: 'ACTIVE',
+    attributes: {},
+    created_at: '2026-01-01T00:00:00Z',
+  };
+
+  const orgOwner: OwnerFrontmatter = {
+    owner_principal_id: 'c0000000-0000-4000-8000-000000000003',
+    principal_type: 'ORG',
+    display_name: 'Acme AB',
+    status: 'ACTIVE',
+    attributes: {},
+    created_at: '2026-01-01T00:00:00Z',
+  };
+
+  const resolveOwner = (id: string) => {
+    if (id === humanOwner.owner_principal_id) return humanOwner;
+    if (id === orgOwner.owner_principal_id) return orgOwner;
+    return null;
+  };
+
+  it('accepts signatory referencing a HUMAN owner', () => {
+    const results = validateSignatories([
+      {
+        signatory_id: 'd0000000-0000-4000-8000-000000000010',
+        human_owner_principal_id: humanOwner.owner_principal_id,
+        role: 'CEO',
+        signing_authority: 'SOLE',
+        valid_until: null,
+        added_at: '2026-01-01T00:00:00Z',
+      },
+    ], resolveOwner);
+    expect(results[0].valid).toBe(true);
+  });
+
+  it('rejects signatory referencing non-existent owner', () => {
+    const results = validateSignatories([
+      {
+        signatory_id: 'd0000000-0000-4000-8000-000000000010',
+        human_owner_principal_id: 'e0000000-0000-4000-8000-999999999999',
+        role: 'CEO',
+        signing_authority: 'SOLE',
+        valid_until: null,
+        added_at: '2026-01-01T00:00:00Z',
+      },
+    ], resolveOwner);
+    expect(results[0].valid).toBe(false);
+    expect(results[0].error).toContain('not found');
+  });
+
+  it('rejects signatory referencing an ORG owner', () => {
+    const results = validateSignatories([
+      {
+        signatory_id: 'd0000000-0000-4000-8000-000000000010',
+        human_owner_principal_id: orgOwner.owner_principal_id,
+        role: 'CEO',
+        signing_authority: 'SOLE',
+        valid_until: null,
+        added_at: '2026-01-01T00:00:00Z',
+      },
+    ], resolveOwner);
+    expect(results[0].valid).toBe(false);
+    expect(results[0].error).toContain('not a HUMAN');
+  });
+});
+
+// ─── validateOwnerIdentity ──────────────────────────────────────────
+
+describe('validateOwnerIdentity', () => {
+  it('rejects government IDs on ORG owner', () => {
+    const owner: OwnerFrontmatter = {
+      owner_principal_id: 'a0000000-0000-4000-8000-000000000001',
+      principal_type: 'ORG',
+      display_name: 'Acme',
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: '2026-01-01T00:00:00Z',
+      government_ids: [
+        { country: 'SE', id_type: 'PERSONNUMMER', id_value: '811228-9874', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+      ],
+    };
+    const result = validateOwnerIdentity(owner);
+    expect(result.type_errors).toContain('Government IDs are only allowed for HUMAN owners');
+  });
+
+  it('rejects company IDs on HUMAN owner', () => {
+    const owner: OwnerFrontmatter = {
+      owner_principal_id: 'a0000000-0000-4000-8000-000000000001',
+      principal_type: 'HUMAN',
+      display_name: 'Alice',
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: '2026-01-01T00:00:00Z',
+      company_ids: [
+        { id_type: 'VAT', id_value: 'SE556123456701', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+      ],
+    };
+    const result = validateOwnerIdentity(owner);
+    expect(result.type_errors).toContain('Company IDs are only allowed for ORG owners');
+  });
+
+  it('rejects signatories on HUMAN owner', () => {
+    const owner: OwnerFrontmatter = {
+      owner_principal_id: 'a0000000-0000-4000-8000-000000000001',
+      principal_type: 'HUMAN',
+      display_name: 'Alice',
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: '2026-01-01T00:00:00Z',
+      signatories: [
+        { signatory_id: 'd0000000-0000-4000-8000-000000000010', human_owner_principal_id: 'b0000000-0000-4000-8000-000000000002', role: 'CEO', signing_authority: 'SOLE', valid_until: null, added_at: '2026-01-01T00:00:00Z' },
+      ],
+    };
+    const result = validateOwnerIdentity(owner);
+    expect(result.type_errors).toContain('Signatories are only allowed for ORG owners');
+  });
+
+  it('accepts empty identity fields', () => {
+    const owner: OwnerFrontmatter = {
+      owner_principal_id: 'a0000000-0000-4000-8000-000000000001',
+      principal_type: 'HUMAN',
+      display_name: 'Alice',
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: '2026-01-01T00:00:00Z',
+    };
+    const result = validateOwnerIdentity(owner);
+    expect(result.type_errors).toHaveLength(0);
+    expect(result.contacts).toHaveLength(0);
+    expect(result.government_ids).toHaveLength(0);
+    expect(result.company_ids).toHaveLength(0);
+  });
+});
+
+// ─── computeAssuranceLevel ──────────────────────────────────────────
+
+describe('computeAssuranceLevel', () => {
+  const baseOwner: OwnerFrontmatter = {
+    owner_principal_id: 'a0000000-0000-4000-8000-000000000001',
+    principal_type: 'HUMAN',
+    display_name: 'Alice',
+    status: 'ACTIVE',
+    attributes: {},
+    created_at: '2026-01-01T00:00:00Z',
+  };
+
+  it('returns NONE for owner with no identities', () => {
+    expect(computeAssuranceLevel(baseOwner)).toBe('NONE');
+  });
+
+  it('returns SELF_DECLARED for unverified contact', () => {
+    const owner = {
+      ...baseOwner,
+      contact_identities: [
+        { contact_id: 'a0000000-0000-4000-8000-000000000001', type: 'EMAIL' as const, value: 'test@example.com', verified: false, verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+      ],
+    };
+    expect(computeAssuranceLevel(owner)).toBe('SELF_DECLARED');
+  });
+
+  it('returns CONTACT_VERIFIED for verified contact', () => {
+    const owner = {
+      ...baseOwner,
+      contact_identities: [
+        { contact_id: 'a0000000-0000-4000-8000-000000000001', type: 'EMAIL' as const, value: 'test@example.com', verified: true, verified_at: '2026-01-01T00:00:00Z', added_at: '2026-01-01T00:00:00Z' },
+      ],
+    };
+    expect(computeAssuranceLevel(owner)).toBe('CONTACT_VERIFIED');
+  });
+
+  it('returns ID_FORMAT_VALID for format-valid government ID', () => {
+    const owner = {
+      ...baseOwner,
+      government_ids: [
+        { country: 'SE' as const, id_type: 'PERSONNUMMER', id_value: '811228-9874', verification_level: 'FORMAT_VALID' as const, verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+      ],
+    };
+    expect(computeAssuranceLevel(owner)).toBe('ID_FORMAT_VALID');
+  });
+
+  it('returns ID_VERIFIED for verified government ID', () => {
+    const owner = {
+      ...baseOwner,
+      government_ids: [
+        { country: 'SE' as const, id_type: 'PERSONNUMMER', id_value: '811228-9874', verification_level: 'VERIFIED' as const, verified_at: '2026-01-01T00:00:00Z', added_at: '2026-01-01T00:00:00Z' },
+      ],
+    };
+    expect(computeAssuranceLevel(owner)).toBe('ID_VERIFIED');
+  });
+
+  it('returns highest applicable level', () => {
+    const owner = {
+      ...baseOwner,
+      contact_identities: [
+        { contact_id: 'a0000000-0000-4000-8000-000000000001', type: 'EMAIL' as const, value: 'test@example.com', verified: true, verified_at: '2026-01-01T00:00:00Z', added_at: '2026-01-01T00:00:00Z' },
+      ],
+      government_ids: [
+        { country: 'SE' as const, id_type: 'PERSONNUMMER', id_value: '811228-9874', verification_level: 'FORMAT_VALID' as const, verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+      ],
+    };
+    expect(computeAssuranceLevel(owner)).toBe('ID_FORMAT_VALID');
+  });
+
+  it('handles ORG with company IDs', () => {
+    const owner: OwnerFrontmatter = {
+      ...baseOwner,
+      principal_type: 'ORG',
+      company_ids: [
+        { id_type: 'VAT', id_value: 'SE556123456701', verification_level: 'VERIFIED', verified_at: '2026-01-01T00:00:00Z', added_at: '2026-01-01T00:00:00Z' },
+      ],
+    };
+    expect(computeAssuranceLevel(owner)).toBe('ID_VERIFIED');
+  });
+});

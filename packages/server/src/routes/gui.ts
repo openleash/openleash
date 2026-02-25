@@ -116,7 +116,36 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         .reverse()
         .slice(0, 50);
 
-      const html = renderOwnerDetail({ owner, agents, policies, audit: ownerAudit });
+      // Resolve signatory human owner names for ORG owners
+      const linkedHumans: { owner_principal_id: string; display_name: string }[] = [];
+      if (owner.principal_type === 'ORG' && owner.signatories?.length) {
+        const humanIds = new Set(owner.signatories.map((s) => s.human_owner_principal_id));
+        for (const hid of humanIds) {
+          try {
+            const h = readOwnerFile(dataDir, hid);
+            linkedHumans.push({ owner_principal_id: h.owner_principal_id, display_name: h.display_name });
+          } catch {
+            linkedHumans.push({ owner_principal_id: hid, display_name: hid.slice(0, 8) + '...' });
+          }
+        }
+      }
+
+      // All human owners (for signatory form dropdown in ORG detail pages)
+      const allHumans: { owner_principal_id: string; display_name: string }[] = [];
+      if (owner.principal_type === 'ORG') {
+        for (const ownerEntry of state.owners) {
+          try {
+            const o = readOwnerFile(dataDir, ownerEntry.owner_principal_id);
+            if (o.principal_type === 'HUMAN') {
+              allHumans.push({ owner_principal_id: o.owner_principal_id, display_name: o.display_name });
+            }
+          } catch {
+            // Skip unreadable owners
+          }
+        }
+      }
+
+      const html = renderOwnerDetail({ owner, agents, policies, audit: ownerAudit, linked_humans: linkedHumans, all_humans: allHumans });
       reply.type('text/html').send(html);
     } catch {
       reply.code(404).type('text/html').send('<h1>Owner file not found</h1>');

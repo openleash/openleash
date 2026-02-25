@@ -1,4 +1,6 @@
 export * from './types.js';
+export * from './identity.js';
+export * from './identity-validators.js';
 export * from './canonicalize.js';
 export * from './jsonpath.js';
 export * from './expression.js';

@@ -7,6 +7,15 @@ import { policyListCommand, policyShowCommand, policyUpsertCommand, policyValida
 import { playgroundListCommand, playgroundRunCommand } from './commands/playground.js';
 import { keysListCommand, keysRotateCommand } from './commands/keys.js';
 import { testvectorsCommand } from './commands/testvectors.js';
+import {
+  ownerListCommand,
+  ownerShowCommand,
+  ownerAddContactCommand,
+  ownerAddGovIdCommand,
+  ownerAddCompanyIdCommand,
+  ownerAddSignatoryCommand,
+  ownerValidateCommand,
+} from './commands/owner.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -72,6 +81,33 @@ async function main() {
             console.log('Usage: openleash keys <list|rotate>');
         }
         break;
+      case 'owner':
+        switch (subcommand) {
+          case 'list':
+            await ownerListCommand();
+            break;
+          case 'show':
+            await ownerShowCommand(args[2]);
+            break;
+          case 'add-contact':
+            await ownerAddContactCommand(args[2]);
+            break;
+          case 'add-gov-id':
+            await ownerAddGovIdCommand(args[2]);
+            break;
+          case 'add-company-id':
+            await ownerAddCompanyIdCommand(args[2]);
+            break;
+          case 'add-signatory':
+            await ownerAddSignatoryCommand(args[2]);
+            break;
+          case 'validate':
+            await ownerValidateCommand(args[2]);
+            break;
+          default:
+            console.log('Usage: openleash owner <list|show|add-contact|add-gov-id|add-company-id|add-signatory|validate>');
+        }
+        break;
       case 'testvectors':
         await testvectorsCommand();
         break;
@@ -92,6 +128,13 @@ Commands:
   start [--gui|--no-gui]  Start the openleash server
   wizard               Interactive setup wizard
   init                 Non-interactive setup (headless)
+  owner list           List all owners
+  owner show <id>      Show owner details and identities
+  owner add-contact <id>     Add a contact identity
+  owner add-gov-id <id>      Add a government ID (HUMAN only)
+  owner add-company-id <id>  Add a company ID (ORG only)
+  owner add-signatory <id>   Add a signatory (ORG only)
+  owner validate <id>        Run identity validation checks
   policy list          List policies
   policy show <id>     Show policy YAML
   policy upsert        Create/update a policy

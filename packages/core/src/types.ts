@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import type {
+  IdentityAssuranceLevel,
+  ContactIdentity,
+  GovernmentId,
+  CompanyId,
+  Signatory,
+  SignatoryRule,
+} from './identity.js';
 
 // ─── Decision results ────────────────────────────────────────────────
 export const DecisionResult = z.enum([
@@ -210,6 +218,13 @@ export interface OwnerFrontmatter {
   status: PrincipalStatus;
   attributes: Record<string, unknown>;
   created_at: string;
+  // Identity fields (all optional for backward compatibility)
+  identity_assurance_level?: IdentityAssuranceLevel;
+  contact_identities?: ContactIdentity[];
+  government_ids?: GovernmentId[];       // HUMAN only
+  company_ids?: CompanyId[];             // ORG only
+  signatories?: Signatory[];             // ORG only
+  signatory_rules?: SignatoryRule[];      // ORG only
 }
 
 // ─── Agent file frontmatter ──────────────────────────────────────────
@@ -227,6 +242,8 @@ export interface AgentFrontmatter {
 // ─── Audit event ─────────────────────────────────────────────────────
 export const AuditEventType = z.enum([
   'OWNER_CREATED',
+  'OWNER_UPDATED',
+  'OWNER_IDENTITY_UPDATED',
   'AGENT_CHALLENGE_ISSUED',
   'AGENT_REGISTERED',
   'POLICY_UPSERTED',
