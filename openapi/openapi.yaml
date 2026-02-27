@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: openleash API
   description: Local-first authorization + proof sidecar for AI agents
-  version: 0.1.0
+  version: 0.3.0
 
 servers:
   - url: http://127.0.0.1:8787
