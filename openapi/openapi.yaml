@@ -1,22 +1,68 @@
 openapi: 3.1.0
 info:
   title: openleash API
-  description: Local-first authorization + proof sidecar for AI agents
+  description: |
+    Local-first authorization and cryptographic proof sidecar for AI agents.
+
+    OpenLeash evaluates YAML-based policies against agent action requests and,
+    when an action is allowed, issues PASETO v4.public proof tokens that
+    counterparties can verify offline or online.
+
+    ## Authentication
+
+    The API uses three security zones:
+
+    - **Public** — No authentication. Health checks, public key distribution,
+      proof verification, and the playground.
+    - **Agent** — Ed25519 request signing via five headers (`X-Agent-Id`,
+      `X-Timestamp`, `X-Nonce`, `X-Body-Sha256`, `X-Signature`). Used for
+      the `/v1/authorize` endpoint.
+    - **Admin** — Bearer token and/or localhost check depending on the
+      `admin.mode` setting (`localhost`, `token`, or `localhost_or_token`).
+      Used for all `/v1/admin/*` endpoints.
+
+    ## Typical flow
+
+    1. An admin creates an **owner** and a **policy** via the Admin API.
+    2. An agent calls `/v1/agents/registration-challenge` then
+       `/v1/agents/register` to prove key ownership and register itself.
+    3. The agent signs action requests and calls `/v1/authorize` to receive
+       an authorization decision and, if allowed, a PASETO proof token.
+    4. A counterparty verifies the proof token via `/v1/verify-proof` or
+       offline using the public keys from `/v1/public-keys`.
   version: 0.3.0
+  license:
+    name: Apache-2.0
+    url: https://github.com/openleash/openleash/blob/main/LICENSE
 
 servers:
   - url: http://127.0.0.1:8787
     description: Local development
 
+tags:
+  - name: Public
+    description: Unauthenticated endpoints for health, key distribution, and proof verification.
+  - name: Agent
+    description: Endpoints called by AI agents. Registration is unauthenticated; authorization requires Ed25519 request signing.
+  - name: Admin
+    description: Server management endpoints protected by Bearer token and/or localhost check.
+  - name: Playground
+    description: Sandbox endpoint for testing policy evaluation without real agents or state.
+
 paths:
+  # ── Public ──────────────────────────────────────────────────────────
+
   /v1/health:
     get:
       summary: Health check
       operationId: getHealth
       tags: [Public]
+      description: |
+        Lightweight liveness probe for load balancers and monitoring.
+        Returns the server status, current time, and package version.
       responses:
         "200":
-          description: Server is healthy
+          description: Server is healthy.
           content:
             application/json:
               schema:
@@ -29,17 +75,27 @@ paths:
                   time:
                     type: string
                     format: date-time
+                    description: Current server time in ISO 8601 format.
                   version:
                     type: string
+                    description: Package version of the running server.
+                    example: 0.3.0
 
   /v1/public-keys:
     get:
       summary: Get server public signing keys
       operationId: getPublicKeys
       tags: [Public]
+      description: |
+        Returns all Ed25519 public keys the server uses to sign PASETO proof
+        tokens. Includes both active and revoked keys so counterparties can
+        verify tokens issued before a key rotation.
+
+        Counterparties should cache these keys and use them for offline
+        verification of proof tokens with `verifyProofOffline()` in the SDK.
       responses:
         "200":
-          description: List of public keys
+          description: List of public keys (active and revoked).
           content:
             application/json:
               schema:
@@ -56,6 +112,18 @@ paths:
       summary: Verify a proof token
       operationId: verifyProof
       tags: [Public]
+      description: |
+        Online verification of a PASETO v4.public proof token. The server
+        checks the cryptographic signature, expiration, and optionally matches
+        the token claims against `expected_action_hash` and
+        `expected_agent_id`.
+
+        No authentication is required — this endpoint is designed for
+        counterparties that receive proof tokens from agents and want to
+        confirm their validity.
+
+        For offline verification, fetch the public keys from `/v1/public-keys`
+        and verify locally using the SDK's `verifyProofOffline()`.
       requestBody:
         required: true
         content:
@@ -66,13 +134,22 @@ paths:
               properties:
                 token:
                   type: string
+                  description: The PASETO v4.public proof token to verify.
                 expected_action_hash:
                   type: string
+                  description: |
+                    If provided, verification fails when the token's
+                    `action_hash` claim does not match this value.
                 expected_agent_id:
                   type: string
+                  description: |
+                    If provided, verification fails when the token's
+                    `agent_id` claim does not match this value.
       responses:
         "200":
-          description: Verification result
+          description: |
+            Verification result. Always returns 200; inspect `valid` to
+            determine whether the token passed all checks.
           content:
             application/json:
               schema:
@@ -81,16 +158,51 @@ paths:
                 properties:
                   valid:
                     type: boolean
+                    description: Whether the token passed all verification checks.
                   reason:
                     type: string
+                    description: Human-readable explanation when `valid` is false.
                   claims:
                     type: object
+                    description: |
+                      Decoded token claims. Present only when `valid` is true.
+                    properties:
+                      decision_id:
+                        type: string
+                        format: uuid
+                      agent_id:
+                        type: string
+                      action_hash:
+                        type: string
+                      action_type:
+                        type: string
+                      owner_principal_id:
+                        type: string
+                        format: uuid
+                      matched_rule_id:
+                        type: string
+                      trust_profile:
+                        type: string
+                      exp:
+                        type: string
+                        format: date-time
+                      iat:
+                        type: string
+                        format: date-time
+
+  # ── Agent ───────────────────────────────────────────────────────────
 
   /v1/agents/registration-challenge:
     post:
       summary: Request an agent registration challenge
       operationId: registrationChallenge
       tags: [Agent]
+      description: |
+        First step of the two-step agent registration flow. The server
+        returns a random 32-byte challenge that the agent must sign with its
+        Ed25519 private key and submit to `/v1/agents/register`.
+
+        Challenges expire after 5 minutes and are single-use.
       requestBody:
         required: true
         content:
@@ -101,16 +213,20 @@ paths:
               properties:
                 agent_id:
                   type: string
+                  description: Unique identifier chosen by the agent (e.g. `my-trading-bot`).
                 agent_pubkey_b64:
                   type: string
+                  description: Base64-encoded Ed25519 public key the agent will use to sign requests.
                 owner_principal_id:
                   type: string
                   format: uuid
+                  description: UUID of the owner this agent belongs to. Required for policy binding.
                 agent_attributes_json:
                   type: object
+                  description: Arbitrary key-value metadata attached to the agent record.
       responses:
         "200":
-          description: Challenge issued
+          description: Challenge issued successfully.
           content:
             application/json:
               schema:
@@ -120,17 +236,33 @@ paths:
                   challenge_id:
                     type: string
                     format: uuid
+                    description: Reference ID to include in the register call.
                   challenge_b64:
                     type: string
+                    description: Base64-encoded random bytes the agent must sign.
                   expires_at:
                     type: string
                     format: date-time
+                    description: Expiration time of the challenge (5 minutes from issuance).
+        "400":
+          description: Missing required fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /v1/agents/register:
     post:
-      summary: Register an agent with signed challenge
+      summary: Complete agent registration
       operationId: registerAgent
       tags: [Agent]
+      description: |
+        Second step of the two-step registration flow. The agent submits the
+        challenge ID from the previous step along with a signature proving
+        possession of the corresponding Ed25519 private key.
+
+        On success the agent is immediately active and can call
+        `/v1/authorize`.
       requestBody:
         required: true
         content:
@@ -142,24 +274,42 @@ paths:
                 challenge_id:
                   type: string
                   format: uuid
+                  description: The `challenge_id` returned by `/v1/agents/registration-challenge`.
                 agent_id:
                   type: string
+                  description: Must match the `agent_id` used in the challenge request.
                 agent_pubkey_b64:
                   type: string
+                  description: Must match the public key used in the challenge request.
                 signature_b64:
                   type: string
+                  description: Base64-encoded Ed25519 signature of the raw challenge bytes.
                 owner_principal_id:
                   type: string
                   format: uuid
+                  description: UUID of the owner this agent belongs to.
                 agent_attributes_json:
                   type: object
+                  description: Arbitrary key-value metadata attached to the agent record.
       responses:
         "200":
-          description: Agent registered
+          description: Agent registered and immediately active.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AgentRegistration"
+        "400":
+          description: Missing required fields, challenge not found, or challenge expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Challenge signature verification failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /v1/authorize:
     post:
@@ -167,38 +317,51 @@ paths:
       operationId: authorize
       tags: [Agent]
       description: |
-        Requires signed headers:
-        - X-Agent-Id
-        - X-Timestamp (RFC3339 UTC)
-        - X-Nonce
-        - X-Body-Sha256 (sha256 hex of body)
-        - X-Signature (Ed25519 base64 signature)
+        Core authorization endpoint. The agent describes an action it wants
+        to perform and the server evaluates it against the bound policy,
+        returning a decision and — if allowed — a signed PASETO proof token.
+
+        Every request must be signed with the agent's Ed25519 private key.
+        The signature covers `METHOD + PATH + TIMESTAMP + NONCE + BODY_SHA256`
+        and is verified against the public key stored at registration.
+
+        **Possible decisions:**
+        - `ALLOW` — Action permitted; a `proof_token` is included.
+        - `DENY` — Action rejected.
+        - `REQUIRE_APPROVAL` — Blocked until a human fulfils the obligation.
+        - `REQUIRE_STEP_UP` — Additional authentication required.
+        - `REQUIRE_DEPOSIT` — A deposit obligation must be fulfilled first.
       parameters:
         - name: X-Agent-Id
           in: header
           required: true
           schema:
             type: string
+          description: The agent's `agent_id` as registered.
         - name: X-Timestamp
           in: header
           required: true
           schema:
             type: string
+          description: Current time in ISO 8601 / RFC 3339 UTC. Must be within the server's `clock_skew_seconds` window.
         - name: X-Nonce
           in: header
           required: true
           schema:
             type: string
+          description: Unique value per request (UUID recommended). Rejected if reused within the nonce TTL.
         - name: X-Body-Sha256
           in: header
           required: true
           schema:
             type: string
+          description: Hex-encoded SHA-256 hash of the raw request body.
         - name: X-Signature
           in: header
           required: true
           schema:
             type: string
+          description: Base64-encoded Ed25519 signature over `METHOD + PATH + X-Timestamp + X-Nonce + X-Body-Sha256`.
       requestBody:
         required: true
         content:
@@ -207,25 +370,75 @@ paths:
               $ref: "#/components/schemas/ActionRequest"
       responses:
         "200":
-          description: Authorization decision
+          description: Authorization decision returned.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthorizeResponse"
+        "400":
+          description: Invalid action request schema.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "401":
-          description: Authentication failed
+          description: |
+            Authentication failed. Possible error codes:
+            `MISSING_HEADERS`, `TIMESTAMP_SKEW`, `NONCE_REPLAY`,
+            `BODY_HASH_MISMATCH`, `AGENT_NOT_FOUND`, `AGENT_INACTIVE`,
+            `INVALID_SIGNATURE`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: No policy bound to the agent or its owner.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  # ── Admin — Owners ──────────────────────────────────────────────────
+
   /v1/admin/owners:
+    get:
+      summary: List all owners
+      operationId: listOwners
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns all owner principals with their full identity information,
+        including contact identities, government IDs, company IDs,
+        signatories, and computed identity assurance level.
+      responses:
+        "200":
+          description: List of owners.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owners]
+                properties:
+                  owners:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Owner"
     post:
       summary: Create an owner
       operationId: createOwner
       tags: [Admin]
       security:
         - BearerAuth: []
+      description: |
+        Create a new owner principal (human or organization). Owners hold
+        policies and own agents. Identity information (contacts, government
+        IDs, company IDs, signatories) can be provided at creation time or
+        added later via the dedicated identity endpoints.
+
+        Type constraints are enforced: `HUMAN` owners may have
+        `government_ids`; `ORG` owners may have `company_ids`, `signatories`,
+        and `signatory_rules`.
       requestBody:
         required: true
         content:
@@ -237,25 +450,462 @@ paths:
                 principal_type:
                   type: string
                   enum: [HUMAN, ORG]
+                  description: Whether this owner is a person or an organization.
                 display_name:
                   type: string
+                  description: Human-readable name for the owner.
                 attributes_json:
                   type: object
+                  description: Arbitrary key-value metadata.
+                contact_identities:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ContactIdentity"
+                  description: Email addresses, phone numbers, etc.
+                government_ids:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/GovernmentId"
+                  description: Government-issued IDs (HUMAN owners only).
+                company_ids:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CompanyId"
+                  description: Company registration numbers (ORG owners only).
+                signatories:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Signatory"
+                  description: Authorized signatories (ORG owners only).
+                signatory_rules:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/SignatoryRule"
+                  description: Signing quorum rules (ORG owners only).
       responses:
         "200":
-          description: Owner created
+          description: Owner created.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Owner"
+        "400":
+          description: Validation failed (e.g. type constraint violation).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
-  /v1/admin/policies:
-    post:
-      summary: Create or update a policy
-      operationId: upsertPolicy
+  /v1/admin/owners/{ownerId}/contact-identities:
+    parameters:
+      - $ref: "#/components/parameters/OwnerId"
+    get:
+      summary: List contact identities
+      operationId: listContactIdentities
       tags: [Admin]
       security:
         - BearerAuth: []
+      description: Returns all contact identities for an owner.
+      responses:
+        "200":
+          description: Contact identities.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owner_principal_id, contact_identities]
+                properties:
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+                  contact_identities:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContactIdentity"
+        "404":
+          description: Owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Replace contact identities
+      operationId: replaceContactIdentities
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Full replacement of all contact identities for an owner.
+        Auto-generates `contact_id` and timestamps if not provided.
+        Recalculates the owner's identity assurance level.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contact_identities]
+              properties:
+                contact_identities:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ContactIdentity"
+      responses:
+        "200":
+          description: Contact identities replaced.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owner_principal_id, contact_identities]
+                properties:
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+                  contact_identities:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContactIdentity"
+        "400":
+          description: Validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      summary: Add a contact identity
+      operationId: addContactIdentity
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Appends a single contact identity to the owner's existing list.
+        Auto-generates `contact_id` and timestamps if not provided.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactIdentity"
+      responses:
+        "200":
+          description: Contact identity added. Returns the full updated list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owner_principal_id, contact_identities]
+                properties:
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+                  contact_identities:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContactIdentity"
+        "400":
+          description: Validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/admin/owners/{ownerId}/government-ids:
+    parameters:
+      - $ref: "#/components/parameters/OwnerId"
+    put:
+      summary: Replace government IDs
+      operationId: replaceGovernmentIds
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Full replacement of all government IDs for a HUMAN owner.
+        Format is auto-validated; IDs with valid formats are upgraded from
+        `UNVERIFIED` to `FORMAT_VALID`. Recalculates identity assurance level.
+
+        Returns `400` with code `INVALID_IDENTITY` if called on an ORG owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [government_ids]
+              properties:
+                government_ids:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/GovernmentId"
+      responses:
+        "200":
+          description: Government IDs replaced.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owner_principal_id, government_ids]
+                properties:
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+                  government_ids:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GovernmentId"
+        "400":
+          description: Validation failed or type constraint violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/admin/owners/{ownerId}/company-ids:
+    parameters:
+      - $ref: "#/components/parameters/OwnerId"
+    put:
+      summary: Replace company IDs
+      operationId: replaceCompanyIds
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Full replacement of all company IDs for an ORG owner.
+        Format is auto-validated; IDs with valid formats are upgraded from
+        `UNVERIFIED` to `FORMAT_VALID`. Recalculates identity assurance level.
+
+        Returns `400` with code `INVALID_IDENTITY` if called on a HUMAN owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [company_ids]
+              properties:
+                company_ids:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CompanyId"
+      responses:
+        "200":
+          description: Company IDs replaced.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owner_principal_id, company_ids]
+                properties:
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+                  company_ids:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CompanyId"
+        "400":
+          description: Validation failed or type constraint violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/admin/owners/{ownerId}/signatories:
+    parameters:
+      - $ref: "#/components/parameters/OwnerId"
+    put:
+      summary: Replace signatories
+      operationId: replaceSignatories
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Full replacement of all authorized signatories for an ORG owner.
+        Signatories reference HUMAN owner principal IDs.
+
+        Returns `400` with code `INVALID_IDENTITY` if called on a HUMAN owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signatories]
+              properties:
+                signatories:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Signatory"
+      responses:
+        "200":
+          description: Signatories replaced.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owner_principal_id, signatories]
+                properties:
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+                  signatories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Signatory"
+        "400":
+          description: Validation failed or type constraint violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/admin/owners/{ownerId}/signatory-rules:
+    parameters:
+      - $ref: "#/components/parameters/OwnerId"
+    put:
+      summary: Replace signatory rules
+      operationId: replaceSignatoryRules
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Full replacement of all signatory rules (quorum/approval requirements)
+        for an ORG owner.
+
+        Returns `400` with code `INVALID_IDENTITY` if called on a HUMAN owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signatory_rules]
+              properties:
+                signatory_rules:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/SignatoryRule"
+      responses:
+        "200":
+          description: Signatory rules replaced.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owner_principal_id, signatory_rules]
+                properties:
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+                  signatory_rules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SignatoryRule"
+        "400":
+          description: Validation failed or type constraint violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── Admin — Agents ──────────────────────────────────────────────────
+
+  /v1/admin/agents:
+    get:
+      summary: List all agents
+      operationId: listAgents
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: Returns all registered agents with their full details.
+      responses:
+        "200":
+          description: List of agents.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agents]
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgentRegistration"
+
+  # ── Admin — Policies ────────────────────────────────────────────────
+
+  /v1/admin/policies:
+    get:
+      summary: List all policies
+      operationId: listPolicies
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns all policies with their YAML content and binding information.
+        If a policy file is missing on disk, an `error` field is included
+        instead of `policy_yaml`.
+      responses:
+        "200":
+          description: List of policies.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policies]
+                properties:
+                  policies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PolicyEntry"
+    post:
+      summary: Create a policy
+      operationId: createPolicy
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Create a new authorization policy from a YAML document. The YAML is
+        parsed and validated before being stored.
+
+        If `applies_to_agent_principal_id` is null the policy applies to all
+        agents owned by the specified owner.
       requestBody:
         required: true
         content:
@@ -267,19 +917,271 @@ paths:
                 owner_principal_id:
                   type: string
                   format: uuid
+                  description: Owner that this policy belongs to.
                 applies_to_agent_principal_id:
                   type: string
                   format: uuid
                   nullable: true
+                  description: Restrict this policy to a specific agent. Null means all agents of the owner.
                 policy_yaml:
                   type: string
+                  description: The full YAML policy document.
       responses:
         "200":
-          description: Policy created
+          description: Policy created and bound.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PolicyEntry"
+        "400":
+          description: Invalid policy YAML.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/admin/policies/{policyId}:
+    parameters:
+      - $ref: "#/components/parameters/PolicyId"
+    get:
+      summary: Get a policy
+      operationId: getPolicy
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: Returns a single policy with its YAML content.
+      responses:
+        "200":
+          description: Policy found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyEntry"
+        "404":
+          description: Policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Update a policy
+      operationId: updatePolicy
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Replace the YAML content of an existing policy. The new YAML is
+        parsed and validated before being written to disk.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy_yaml]
+              properties:
+                policy_yaml:
+                  type: string
+                  description: The updated YAML policy document.
+      responses:
+        "200":
+          description: Policy updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy_id, status]
+                properties:
+                  policy_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: updated
+        "400":
+          description: Invalid policy YAML.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Delete a policy
+      operationId: deletePolicy
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Permanently deletes a policy file and removes all bindings that
+        reference it.
+      responses:
+        "200":
+          description: Policy deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy_id, status]
+                properties:
+                  policy_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: deleted
+        "404":
+          description: Policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/admin/policies/{policyId}/unbind:
+    parameters:
+      - $ref: "#/components/parameters/PolicyId"
+    post:
+      summary: Remove policy bindings
+      operationId: unbindPolicy
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Removes bindings for a policy without deleting the policy file. If
+        `owner_principal_id` is provided, only that owner's binding is
+        removed; otherwise all bindings for the policy are removed.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner_principal_id:
+                  type: string
+                  format: uuid
+                  description: Remove only this owner's binding. Omit to remove all.
+      responses:
+        "200":
+          description: Bindings removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy_id, bindings_removed]
+                properties:
+                  policy_id:
+                    type: string
+                    format: uuid
+                  bindings_removed:
+                    type: integer
+                    description: Number of bindings that were removed.
+        "404":
+          description: Policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── Admin — Validation ──────────────────────────────────────────────
+
+  /v1/admin/validate/government-id:
+    post:
+      summary: Validate a government ID format
+      operationId: validateGovernmentId
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Dry-run format validation of a government ID (e.g. Swedish
+        personnummer, US SSN pattern). No state is modified.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [country, id_type, id_value]
+              properties:
+                country:
+                  type: string
+                  description: ISO 3166-1 alpha-2 country code.
+                  example: SE
+                id_type:
+                  type: string
+                  description: Type of government ID.
+                  example: PERSONNUMMER
+                id_value:
+                  type: string
+                  description: The ID value to validate.
+      responses:
+        "200":
+          description: Validation result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [valid, country, id_type]
+                properties:
+                  valid:
+                    type: boolean
+                  country:
+                    type: string
+                  id_type:
+                    type: string
+                  message:
+                    type: string
+                    description: Explanation when `valid` is false.
+
+  /v1/admin/validate/company-id:
+    post:
+      summary: Validate a company ID format
+      operationId: validateCompanyId
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Dry-run format validation of a company registration number
+        (e.g. LEI, DUNS, Swedish organisationsnummer). No state is modified.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_type, id_value]
+              properties:
+                id_type:
+                  type: string
+                  description: Type of company ID (e.g. `LEI`, `DUNS`, `SE_ORGNR`).
+                id_value:
+                  type: string
+                  description: The ID value to validate.
+                country:
+                  type: string
+                  description: ISO 3166-1 alpha-2 country code (optional for some ID types).
+      responses:
+        "200":
+          description: Validation result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [valid, id_type]
+                properties:
+                  valid:
+                    type: boolean
+                  id_type:
+                    type: string
+                  message:
+                    type: string
+                    description: Explanation when `valid` is false.
+
+  # ── Admin — Audit & Config ─────────────────────────────────────────
 
   /v1/admin/audit:
     get:
@@ -288,38 +1190,149 @@ paths:
       tags: [Admin]
       security:
         - BearerAuth: []
+      description: |
+        Paginated read of the append-only JSONL audit log. Every
+        authorization decision, registration, key rotation, and admin action
+        is recorded here.
       parameters:
         - name: limit
           in: query
           schema:
             type: integer
             default: 50
+          description: Maximum number of events to return.
         - name: cursor
           in: query
           schema:
             type: string
+          description: Byte-offset cursor from a previous response for pagination.
       responses:
         "200":
-          description: Audit log entries
+          description: Audit log entries.
           content:
             application/json:
               schema:
                 type: object
-                required: [items]
+                required: [events]
                 properties:
-                  items:
+                  events:
                     type: array
                     items:
                       $ref: "#/components/schemas/AuditEvent"
                   next_cursor:
                     type: string
                     nullable: true
+                    description: Cursor for the next page, or null if no more entries.
+
+  /v1/admin/config:
+    get:
+      summary: Get server configuration
+      operationId: getConfig
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        Returns the active server configuration. The admin token value is
+        never included — only a `token_set` boolean indicating whether a
+        token is configured.
+      responses:
+        "200":
+          description: Sanitized server configuration.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  server:
+                    type: object
+                    properties:
+                      bind_address:
+                        type: string
+                  admin:
+                    type: object
+                    properties:
+                      mode:
+                        type: string
+                        enum: [localhost, token, localhost_or_token]
+                      token_set:
+                        type: boolean
+                        description: Whether an admin token is configured (actual value not exposed).
+                      allow_remote_admin:
+                        type: boolean
+                  security:
+                    type: object
+                    properties:
+                      clock_skew_seconds:
+                        type: integer
+                      nonce_ttl_seconds:
+                        type: integer
+                  tokens:
+                    type: object
+                    properties:
+                      default_ttl_seconds:
+                        type: integer
+                      max_ttl_seconds:
+                        type: integer
+                  gui:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+
+  /v1/admin/state:
+    get:
+      summary: Get state summary
+      operationId: getState
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      description: |
+        High-level summary of the server's state including entity counts,
+        creation timestamp, and the currently active signing key ID.
+      responses:
+        "200":
+          description: State summary.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+                  counts:
+                    type: object
+                    properties:
+                      owners:
+                        type: integer
+                      agents:
+                        type: integer
+                      policies:
+                        type: integer
+                      bindings:
+                        type: integer
+                      keys:
+                        type: integer
+                  active_kid:
+                    type: string
+                    description: Key ID of the currently active signing key.
+
+  # ── Playground ──────────────────────────────────────────────────────
 
   /v1/playground/run:
     post:
       summary: Run a playground evaluation
       operationId: playgroundRun
       tags: [Playground]
+      description: |
+        Sandbox endpoint for testing policy evaluation without registering
+        agents or creating persistent state. Provide a policy YAML document
+        and an action, and receive the authorization decision along with a
+        rule-by-rule debug trace showing which rules matched and why.
+
+        No proof token is issued. Useful for policy development and debugging.
       requestBody:
         required: true
         content:
@@ -330,11 +1343,12 @@ paths:
               properties:
                 policy_yaml:
                   type: string
+                  description: The YAML policy document to evaluate.
                 action:
                   $ref: "#/components/schemas/ActionRequest"
       responses:
         "200":
-          description: Playground result
+          description: Evaluation result with debug trace.
           content:
             application/json:
               schema:
@@ -343,6 +1357,7 @@ paths:
                 properties:
                   action_hash:
                     type: string
+                    description: SHA-256 hash of the canonicalized action.
                   decision:
                     $ref: "#/components/schemas/AuthorizeResponse"
                   debug:
@@ -352,16 +1367,46 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/RuleTrace"
+                        description: Per-rule evaluation trace for debugging.
+        "400":
+          description: Invalid policy YAML or action schema.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
+      description: |
+        Admin token configured in `config.yaml` under `admin.token`.
+        Required when `admin.mode` is `token` or for remote access in
+        `localhost_or_token` mode.
+
+  parameters:
+    OwnerId:
+      name: ownerId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID of the owner principal.
+    PolicyId:
+      name: policyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID of the policy.
 
   schemas:
     Error:
       type: object
+      description: Standard error envelope returned by all endpoints on failure.
       required: [error]
       properties:
         error:
@@ -370,60 +1415,87 @@ components:
           properties:
             code:
               type: string
+              description: Machine-readable error code (e.g. `INVALID_REQUEST`, `AGENT_NOT_FOUND`).
             message:
               type: string
+              description: Human-readable error message.
             details:
               type: object
+              description: Additional structured details (e.g. Zod validation errors).
 
     PublicKey:
       type: object
+      description: An Ed25519 public key used by the server to sign PASETO proof tokens.
       required: [kid, kty, alg, public_key_b64, created_at]
       properties:
         kid:
           type: string
+          description: Key ID (unique identifier for this key).
         kty:
           type: string
           example: OKP
+          description: Key type. Always `OKP` (Octet Key Pair) for Ed25519.
         alg:
           type: string
           example: EdDSA
+          description: Algorithm. Always `EdDSA` for Ed25519.
         public_key_b64:
           type: string
+          description: Base64-encoded Ed25519 public key bytes.
         created_at:
           type: string
           format: date-time
+          description: When this key was generated.
         revoked_at:
           type: string
           format: date-time
           nullable: true
+          description: When this key was revoked, or null if still active.
 
     ActionRequest:
       type: object
-      required: [action_id, action_type, requested_at, principal, subject, payload]
+      description: |
+        An action the agent wants to perform. This is the input to the
+        authorization engine which evaluates it against the bound policy.
+      required: [action_type, principal, payload]
       properties:
         action_id:
           type: string
           format: uuid
+          description: Unique ID for this action. Auto-generated if omitted.
         action_type:
           type: string
+          description: The type of action (e.g. `transfer`, `approve`, `sign`). Matched against policy rule patterns.
         requested_at:
           type: string
           format: date-time
+          description: When the action was requested. Defaults to current time.
         principal:
           type: object
           required: [agent_id]
+          description: The agent requesting the action.
           properties:
             agent_id:
               type: string
+              description: The agent's registered `agent_id`.
         subject:
           type: object
-          required: [principal_id]
+          description: The owner principal on whose behalf the agent is acting.
           properties:
             principal_id:
               type: string
               format: uuid
+        resource:
+          type: object
+          description: The resource being acted upon.
+          properties:
+            resource_id:
+              type: string
+            resource_type:
+              type: string
         relying_party:
           type: object
+          description: The counterparty that will receive the proof token.
           properties:
             rp_id:
               type: string
@@ -433,11 +1505,20 @@ components:
             trust_profile:
               type: string
               enum: [LOW, MEDIUM, HIGH, REGULATED]
+              description: Trust tier of the counterparty. Included in proof token claims.
         payload:
           type: object
+          description: Action-specific data evaluated by policy constraints (e.g. `amount`, `currency`).
+        context:
+          type: object
+          description: Additional context available to policy expressions (e.g. IP address, device info).
 
     Obligation:
       type: object
+      description: |
+        A condition that must be fulfilled before the action can proceed.
+        Returned when the decision is `REQUIRE_APPROVAL`, `REQUIRE_STEP_UP`,
+        or `REQUIRE_DEPOSIT`.
       required: [obligation_id, type, status]
       properties:
         obligation_id:
@@ -446,64 +1527,83 @@ components:
         type:
           type: string
           enum: [HUMAN_APPROVAL, STEP_UP_AUTH, DEPOSIT, COUNTERPARTY_ATTESTATION]
+          description: The kind of obligation that must be fulfilled.
         status:
           type: string
           enum: [PENDING, FULFILLED, WAIVED]
         details_json:
           type: object
+          description: Obligation-specific details (e.g. required deposit amount).
 
     AuthorizeResponse:
       type: object
+      description: |
+        The authorization decision. When `result` is `ALLOW`, a PASETO
+        proof token is included that the agent can present to counterparties.
       required: [decision_id, action_id, action_hash, result, matched_rule_id, reason, proof_token, proof_expires_at, obligations]
       properties:
         decision_id:
           type: string
           format: uuid
+          description: Unique ID for this decision (recorded in audit log).
         action_id:
           type: string
           format: uuid
         action_hash:
           type: string
+          description: SHA-256 hash of the canonicalized action. Used for proof verification.
         result:
           type: string
           enum: [ALLOW, DENY, REQUIRE_APPROVAL, REQUIRE_STEP_UP, REQUIRE_DEPOSIT]
+          description: The authorization decision.
         matched_rule_id:
           type: string
           nullable: true
+          description: ID of the policy rule that produced this decision, or null if no rule matched.
         reason:
           type: string
+          description: Human-readable explanation of the decision.
         proof_token:
           type: string
           nullable: true
+          description: PASETO v4.public token. Present only when `result` is `ALLOW`.
         proof_expires_at:
           type: string
           format: date-time
           nullable: true
+          description: Expiration time of the proof token.
         obligations:
           type: array
           items:
             $ref: "#/components/schemas/Obligation"
+          description: Obligations that must be fulfilled (empty array when `result` is `ALLOW` or `DENY`).
 
     AgentRegistration:
       type: object
+      description: A registered AI agent.
       required: [agent_principal_id, agent_id, owner_principal_id, status, created_at]
       properties:
         agent_principal_id:
           type: string
           format: uuid
+          description: Server-assigned UUID for this agent.
         agent_id:
           type: string
+          description: The agent's self-chosen identifier.
         owner_principal_id:
           type: string
           format: uuid
+          description: UUID of the owner this agent belongs to.
         status:
           type: string
+          description: Agent status (e.g. `ACTIVE`).
         created_at:
           type: string
           format: date-time
 
     Owner:
       type: object
+      description: An owner principal (human or organization) that holds policies and owns agents.
       required: [owner_principal_id, principal_type, display_name, status, created_at]
       properties:
         owner_principal_id:
@@ -516,12 +1616,113 @@ components:
           type: string
         status:
           type: string
+        identity_assurance_level:
+          type: integer
+          description: Computed assurance level based on verified identity data (0–3).
         created_at:
           type: string
           format: date-time
 
+    ContactIdentity:
+      type: object
+      description: A contact method (email, phone, etc.) attached to an owner.
+      properties:
+        contact_id:
+          type: string
+          format: uuid
+          description: Auto-generated if not provided.
+        type:
+          type: string
+          enum: [EMAIL, PHONE, WEBSITE]
+        value:
+          type: string
+        verified:
+          type: boolean
+        added_at:
+          type: string
+          format: date-time
+
+    GovernmentId:
+      type: object
+      description: A government-issued ID (passport, national ID, etc.) for a HUMAN owner.
+      properties:
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+        id_type:
+          type: string
+          description: Type of government ID (e.g. `PERSONNUMMER`, `SSN`, `PASSPORT`).
+        id_value:
+          type: string
+        verification_status:
+          type: string
+          enum: [UNVERIFIED, FORMAT_VALID, VERIFIED]
+          description: Automatically upgraded to `FORMAT_VALID` if the format passes validation.
+        added_at:
+          type: string
+          format: date-time
+
+    CompanyId:
+      type: object
+      description: A company registration number (LEI, DUNS, etc.) for an ORG owner.
+      properties:
+        id_type:
+          type: string
+          description: Type of company ID (e.g. `LEI`, `DUNS`, `SE_ORGNR`).
+        id_value:
+          type: string
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+        verification_status:
+          type: string
+          enum: [UNVERIFIED, FORMAT_VALID, VERIFIED]
+        added_at:
+          type: string
+          format: date-time
+
+    Signatory:
+      type: object
+      description: An authorized signatory for an ORG owner, referencing a HUMAN owner.
+      properties:
+        signatory_id:
+          type: string
+          format: uuid
+          description: Auto-generated if not provided.
+        human_principal_id:
+          type: string
+          format: uuid
+          description: UUID of the HUMAN owner principal who is the signatory.
+        role:
+          type: string
+          description: Role of the signatory (e.g. `CEO`, `CFO`, `DIRECTOR`).
+        added_at:
+          type: string
+          format: date-time
+
+    SignatoryRule:
+      type: object
+      description: A quorum or approval rule governing when an ORG owner's actions are authorized.
+      properties:
+        rule_id:
+          type: string
+          format: uuid
+          description: Auto-generated if not provided.
+        rule_type:
+          type: string
+          description: Type of rule (e.g. `QUORUM`).
+        min_signatories:
+          type: integer
+          description: Minimum number of signatories required.
+        required_roles:
+          type: array
+          items:
+            type: string
+          description: Roles that must be represented among the signatories.
+
     PolicyEntry:
       type: object
+      description: A stored authorization policy with its binding information.
       required: [policy_id, owner_principal_id, path]
       properties:
         policy_id:
@@ -534,11 +1735,22 @@ components:
           type: string
           format: uuid
           nullable: true
+          description: If set, this policy only applies to this specific agent.
         path:
           type: string
+          description: File path of the stored policy YAML relative to the data directory.
+        policy_yaml:
+          type: string
+          description: The full YAML content of the policy (present on GET, absent on list errors).
+        error:
+          type: string
+          description: Present instead of `policy_yaml` if the file could not be read.
 
     AuditEvent:
       type: object
+      description: |
+        An entry in the append-only audit log. Every authorization decision,
+        registration, key rotation, and admin mutation is recorded.
       required: [event_id, timestamp, event_type]
       properties:
         event_id:
@@ -549,6 +1761,10 @@ components:
           format: date-time
         event_type:
           type: string
+          description: |
+            Event type, e.g. `AUTHORIZE_CALLED`, `PROOF_ISSUED`,
+            `DECISION_CREATED`, `AGENT_REGISTERED`, `OWNER_CREATED`,
+            `POLICY_UPSERTED`, `SERVER_STARTED`.
         principal_id:
           type: string
           format: uuid
@@ -563,20 +1779,27 @@ components:
           nullable: true
         metadata_json:
           type: object
+          description: Event-specific details.
 
     RuleTrace:
       type: object
+      description: Debug trace for a single policy rule during playground evaluation.
       required: [rule_id, pattern_match, when_match, constraints_match, final_match]
       properties:
         rule_id:
           type: string
+          description: ID of the rule from the policy YAML.
         pattern_match:
           type: boolean
+          description: Whether the rule's action_type pattern matched the request.
         when_match:
           type: boolean
           nullable: true
+          description: Whether the rule's `when` expression evaluated to true (null if no `when` clause).
         constraints_match:
           type: boolean
           nullable: true
+          description: Whether all constraints were satisfied (null if no constraints).
         final_match:
           type: boolean
+          description: Whether this rule was the one that produced the decision.
