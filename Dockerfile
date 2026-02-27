@@ -39,6 +39,7 @@ COPY --from=builder /app/packages/server/dist packages/server/dist/
 COPY --from=builder /app/packages/sdk-ts/dist packages/sdk-ts/dist/
 COPY --from=builder /app/packages/cli/dist packages/cli/dist/
 
+COPY openapi/ openapi/
 COPY playground/ playground/
 COPY templates/ templates/
 

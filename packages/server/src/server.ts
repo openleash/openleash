@@ -9,14 +9,16 @@ import { registerAuthorizeRoutes } from './routes/authorize.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerPlaygroundRoutes } from './routes/playground.js';
 import { registerGuiRoutes } from './routes/gui.js';
+import { registerReferenceRoutes } from './routes/reference.js';
 
 export interface CreateServerOptions {
   config: OpenleashConfig;
   dataDir: string;
+  openapiSpec?: Record<string, unknown>;
 }
 
 export function createServer(options: CreateServerOptions) {
-  const { config, dataDir } = options;
+  const { config, dataDir, openapiSpec } = options;
 
   const app = Fastify({
     logger: true,
@@ -50,6 +52,10 @@ export function createServer(options: CreateServerOptions) {
 
   if (config.gui?.enabled !== false) {
     registerGuiRoutes(app, dataDir, config);
+  }
+
+  if (openapiSpec) {
+    registerReferenceRoutes(app, openapiSpec);
   }
 
   return { app, nonceCache };

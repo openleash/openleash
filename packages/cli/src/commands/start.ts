@@ -1,4 +1,6 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { parse as parseYaml } from 'yaml';
 import { createServer, loadConfig, bootstrapState } from '@openleash/server';
 import { appendAuditEvent } from '@openleash/core';
 
@@ -18,10 +20,20 @@ export async function startCommand() {
     config.gui = { enabled: false };
   }
 
+  // Load OpenAPI spec if available
+  let openapiSpec: Record<string, unknown> | undefined;
+  try {
+    const specPath = path.join(rootDir, 'openapi', 'openapi.yaml');
+    const specContent = fs.readFileSync(specPath, 'utf-8');
+    openapiSpec = parseYaml(specContent) as Record<string, unknown>;
+  } catch {
+    // Silently skip if file is missing
+  }
+
   const [host, portStr] = config.server.bind_address.split(':');
   const port = parseInt(portStr, 10);
 
-  const { app } = createServer({ config, dataDir });
+  const { app } = createServer({ config, dataDir, openapiSpec });
 
   appendAuditEvent(dataDir, 'SERVER_STARTED', {
     bind_address: config.server.bind_address,
@@ -39,6 +51,7 @@ openleash running at http://${config.server.bind_address}
   Admin mode: ${adminMode}
   Admin token required: ${tokenRequired ? 'yes (for remote access)' : 'no'}
   Web GUI: ${guiEnabled ? `http://${config.server.bind_address}/gui` : 'disabled'}
+  API Reference: ${openapiSpec ? `http://${config.server.bind_address}/reference` : 'disabled (openapi/openapi.yaml not found)'}
 
 Next steps:
   npx openleash wizard              # Interactive 5-minute setup

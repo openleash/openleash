@@ -4,13 +4,17 @@
   "description": "HTTP server for openleash",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "LICENSE"],
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -b"
   },
   "dependencies": {
     "@openleash/core": "0.3.0",
     "@openleash/gui": "0.3.0",
+    "@scalar/fastify-api-reference": "^1.44.27",
     "fastify": "^5.7.4",
     "yaml": "^2.3.4",
     "zod": "^4.3.6"
