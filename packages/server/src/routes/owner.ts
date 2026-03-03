@@ -45,6 +45,74 @@ export function registerOwnerRoutes(
 
   // ─── No-auth routes ───────────────────────────────────────────────
 
+  // POST /v1/initial-setup — first-time setup: create the first owner
+  app.post('/v1/initial-setup', async (request, reply) => {
+    const body = request.body as {
+      display_name: string;
+      principal_type: string;
+      passphrase: string;
+    };
+
+    if (!body.display_name || !body.passphrase) {
+      reply.code(400).send({
+        error: { code: 'INVALID_REQUEST', message: 'display_name and passphrase are required' },
+      });
+      return;
+    }
+
+    if (body.passphrase.length < 8) {
+      reply.code(400).send({
+        error: { code: 'WEAK_PASSPHRASE', message: 'Passphrase must be at least 8 characters' },
+      });
+      return;
+    }
+
+    const principalType = body.principal_type === 'ORG' ? 'ORG' : 'HUMAN';
+
+    // Guard: only allowed when no owners exist
+    const state = readState(dataDir);
+    if (state.owners.length > 0) {
+      reply.code(403).send({
+        error: { code: 'SETUP_ALREADY_COMPLETED', message: 'Initial setup has already been completed' },
+      });
+      return;
+    }
+
+    // Create the first owner
+    const ownerId = crypto.randomUUID();
+    const { hash, salt } = hashPassphrase(body.passphrase);
+
+    writeOwnerFile(dataDir, {
+      owner_principal_id: ownerId,
+      principal_type: principalType as 'HUMAN' | 'ORG',
+      display_name: body.display_name,
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: new Date().toISOString(),
+      passphrase_hash: hash,
+      passphrase_salt: salt,
+      passphrase_set_at: new Date().toISOString(),
+    });
+
+    // Update state
+    state.owners.push({
+      owner_principal_id: ownerId,
+      path: `./owners/${ownerId}.md`,
+    });
+    writeState(dataDir, state);
+
+    appendAuditEvent(dataDir, 'INITIAL_SETUP_COMPLETED', {
+      owner_principal_id: ownerId,
+      display_name: body.display_name,
+    });
+
+    return {
+      status: 'setup_complete',
+      owner_principal_id: ownerId,
+      display_name: body.display_name,
+    };
+  });
+
   // POST /v1/owner/setup — complete setup with invite token + passphrase
   app.post('/v1/owner/setup', async (request, reply) => {
     const body = request.body as {

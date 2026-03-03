@@ -1,0 +1,261 @@
+export function renderInitialSetup(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Initial Setup - OpenLeash</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+      --bg-deep: #050a0e;
+      --bg-surface: #0a1118;
+      --bg-elevated: #111d28;
+      --green-bright: #34d399;
+      --green-mid: #10b981;
+      --green-dark: #065f46;
+      --red-bright: #f87171;
+      --text-primary: #e8f0f8;
+      --text-secondary: #8899aa;
+      --text-muted: #556677;
+      --border-subtle: rgba(136, 153, 170, 0.15);
+      --radius-md: 12px;
+    }
+    html { -webkit-font-smoothing: antialiased; }
+    body {
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      background: var(--bg-deep);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .setup-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+    }
+    .setup-card h1 {
+      color: var(--green-bright);
+      font-size: 22px;
+      margin-bottom: 4px;
+    }
+    .setup-card .subtitle {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 28px;
+    }
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 13px;
+      outline: none;
+    }
+    .form-group input[type="password"] {
+      font-family: var(--font-mono);
+    }
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--green-bright);
+    }
+    .form-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .btn-setup {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn-setup:hover {
+      filter: brightness(1.1);
+    }
+    .btn-setup:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .error-msg {
+      color: var(--red-bright);
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+    .success-msg {
+      text-align: center;
+      padding: 20px 0;
+    }
+    .success-msg h2 {
+      color: var(--green-bright);
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .success-msg p {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .success-msg a {
+      color: var(--green-bright);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .success-links {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .success-links a {
+      display: block;
+      padding: 10px 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--green-bright);
+      text-decoration: none;
+      font-size: 13px;
+      text-align: center;
+    }
+    .success-links a:hover {
+      border-color: var(--green-bright);
+    }
+  </style>
+</head>
+<body>
+  <div class="setup-card">
+    <h1>OpenLeash</h1>
+    <div class="subtitle">Initial Setup</div>
+    <form id="setupForm">
+      <div class="form-group">
+        <label>Display Name</label>
+        <input type="text" id="displayName" placeholder="Your name or organization" required>
+      </div>
+      <div class="form-group">
+        <label>Principal Type</label>
+        <select id="principalType">
+          <option value="HUMAN">Human</option>
+          <option value="ORG">Organization</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Passphrase</label>
+        <input type="password" id="passphrase" placeholder="Choose a passphrase" required>
+        <div class="form-hint">Minimum 8 characters</div>
+      </div>
+      <div class="form-group">
+        <label>Confirm Passphrase</label>
+        <input type="password" id="passphraseConfirm" placeholder="Confirm your passphrase" required>
+      </div>
+      <button type="submit" class="btn-setup" id="submitBtn">Create Owner</button>
+      <div class="error-msg" id="errorMsg"></div>
+    </form>
+    <div id="successMsg" class="success-msg" style="display:none">
+      <h2>Setup complete</h2>
+      <p>Your owner account has been created.</p>
+      <div class="success-links">
+        <a href="/gui/dashboard">Admin Dashboard</a>
+        <a id="loginLink" href="/gui/owner/login">Owner Login</a>
+      </div>
+    </div>
+  </div>
+  <script>
+    document.getElementById('setupForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var errorEl = document.getElementById('errorMsg');
+      errorEl.style.display = 'none';
+
+      var displayName = document.getElementById('displayName').value.trim();
+      var principalType = document.getElementById('principalType').value;
+      var passphrase = document.getElementById('passphrase').value;
+      var confirm = document.getElementById('passphraseConfirm').value;
+
+      if (!displayName) {
+        errorEl.textContent = 'Display name is required';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      if (passphrase !== confirm) {
+        errorEl.textContent = 'Passphrases do not match';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      if (passphrase.length < 8) {
+        errorEl.textContent = 'Passphrase must be at least 8 characters';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      var btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Setting up...';
+
+      try {
+        var res = await fetch('/v1/initial-setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            display_name: displayName,
+            principal_type: principalType,
+            passphrase: passphrase,
+          }),
+        });
+
+        var data = await res.json();
+
+        if (!res.ok) {
+          errorEl.textContent = data.error ? data.error.message : 'Setup failed';
+          errorEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Create Owner';
+          return;
+        }
+
+        document.getElementById('setupForm').style.display = 'none';
+        document.getElementById('successMsg').style.display = 'block';
+        if (data.owner_principal_id) {
+          document.getElementById('loginLink').href = '/gui/owner/login?owner_id=' + encodeURIComponent(data.owner_principal_id);
+        }
+      } catch (err) {
+        errorEl.textContent = 'Network error';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Create Owner';
+      }
+    });
+  </script>
+</body>
+</html>`;
+}

@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createServer } from '../src/server.js';
 import { loadConfig } from '../src/config.js';
 import { bootstrapState } from '../src/bootstrap.js';
-import { readState, writeState, writePolicyFile } from '@openleash/core';
+import { readState, writeState, writeOwnerFile, writePolicyFile } from '@openleash/core';
 import type { FastifyInstance } from 'fastify';
 
 describe('GUI routes', () => {
@@ -22,13 +22,28 @@ describe('GUI routes', () => {
     bootstrapState(rootDir);
     const config = loadConfig(rootDir);
 
+    // Create a test owner (bootstrap no longer creates one)
+    const ownerPrincipalId = crypto.randomUUID();
+    writeOwnerFile(dataDir, {
+      owner_principal_id: ownerPrincipalId,
+      principal_type: 'HUMAN',
+      display_name: 'Test Owner',
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: new Date().toISOString(),
+    });
+
+    const state = readState(dataDir);
+    state.owners.push({
+      owner_principal_id: ownerPrincipalId,
+      path: `./owners/${ownerPrincipalId}.md`,
+    });
+
     // Create a test policy
     policyId = crypto.randomUUID();
     const policyYaml = `version: 1\ndefault: deny\nrules:\n  - id: allow_read\n    effect: allow\n    action: read\n`;
     writePolicyFile(dataDir, policyId, policyYaml);
 
-    const state = readState(dataDir);
-    const ownerPrincipalId = state.owners[0].owner_principal_id;
     state.policies.push({
       policy_id: policyId,
       owner_principal_id: ownerPrincipalId,
@@ -52,7 +67,7 @@ describe('GUI routes', () => {
     fs.rmSync(rootDir, { recursive: true, force: true });
   });
 
-  it('GET /gui redirects to /gui/dashboard', async () => {
+  it('GET /gui redirects to /gui/dashboard when owners exist', async () => {
     const res = await app.inject({ method: 'GET', url: '/gui' });
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe('/gui/dashboard');
@@ -157,12 +172,26 @@ describe('admin API - new endpoints', () => {
     bootstrapState(rootDir);
     const config = loadConfig(rootDir);
 
+    // Create a test owner (bootstrap no longer creates one)
+    const ownerPrincipalId = crypto.randomUUID();
+    writeOwnerFile(dataDir, {
+      owner_principal_id: ownerPrincipalId,
+      principal_type: 'HUMAN',
+      display_name: 'Test Owner',
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: new Date().toISOString(),
+    });
+
     policyId = crypto.randomUUID();
     const policyYaml = `version: 1\ndefault: deny\nrules:\n  - id: allow_read\n    effect: allow\n    action: read\n`;
     writePolicyFile(dataDir, policyId, policyYaml);
 
     const state = readState(dataDir);
-    const ownerPrincipalId = state.owners[0].owner_principal_id;
+    state.owners.push({
+      owner_principal_id: ownerPrincipalId,
+      path: `./owners/${ownerPrincipalId}.md`,
+    });
     state.policies.push({
       policy_id: policyId,
       owner_principal_id: ownerPrincipalId,
@@ -237,5 +266,103 @@ describe('admin API - new endpoints', () => {
     expect(body.counts.owners).toBeGreaterThanOrEqual(1);
     expect(body.version).toBe(1);
     expect(body.active_kid).toBeDefined();
+  });
+});
+
+describe('initial setup flow', () => {
+  let app: FastifyInstance;
+  let rootDir: string;
+  let dataDir: string;
+
+  beforeAll(async () => {
+    rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openleash-setup-test-'));
+    dataDir = path.join(rootDir, 'data');
+
+    bootstrapState(rootDir);
+    const config = loadConfig(rootDir);
+
+    const { app: server } = createServer({ config, dataDir });
+    app = server;
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  });
+
+  it('GET /gui redirects to /gui/setup when no owners', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui' });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe('/gui/setup');
+  });
+
+  it('GET /gui/setup returns HTML when no owners', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui/setup' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.payload).toContain('Initial Setup');
+  });
+
+  let createdOwnerId: string;
+
+  it('POST /v1/initial-setup creates first owner with passphrase', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/initial-setup',
+      payload: {
+        display_name: 'Setup Owner',
+        principal_type: 'HUMAN',
+        passphrase: 'test-passphrase-123',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.status).toBe('setup_complete');
+    expect(body.owner_principal_id).toBeDefined();
+    expect(body.display_name).toBe('Setup Owner');
+    createdOwnerId = body.owner_principal_id;
+  });
+
+  it('POST /v1/initial-setup returns 403 when owners already exist', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/initial-setup',
+      payload: {
+        display_name: 'Another Owner',
+        principal_type: 'HUMAN',
+        passphrase: 'another-passphrase-123',
+      },
+    });
+    expect(res.statusCode).toBe(403);
+    const body = JSON.parse(res.payload);
+    expect(body.error.code).toBe('SETUP_ALREADY_COMPLETED');
+  });
+
+  it('GET /gui/setup redirects to dashboard after setup', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui/setup' });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe('/gui/dashboard');
+  });
+
+  it('GET /gui redirects to /gui/dashboard after setup', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui' });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe('/gui/dashboard');
+  });
+
+  it('owner can log in with passphrase set during initial setup', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/owner/login',
+      payload: {
+        owner_principal_id: createdOwnerId,
+        passphrase: 'test-passphrase-123',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.token).toMatch(/^v4\.public\./);
+    expect(body.owner_principal_id).toBe(createdOwnerId);
   });
 });

@@ -28,12 +28,73 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
     </tr>
   `).join('');
 
+  const emptyState = `
+    <div class="card" style="text-align:center;padding:48px 24px">
+      <div style="font-size:48px;margin-bottom:16px;opacity:0.3">&#128220;</div>
+      <div style="font-weight:600;color:var(--text-primary);font-size:15px;margin-bottom:8px">No Policies Yet</div>
+      <p style="color:var(--text-secondary);font-size:13px;max-width:520px;margin:0 auto;line-height:1.7">
+        Policies are created by owners through the
+        <a href="/gui/owner/login" style="color:var(--green-bright)">Owner Portal</a>.
+        Each owner can create YAML-based authorization rules for their agents from the
+        <strong style="color:var(--text-primary)">My Policies</strong> section of their portal.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">How Policies Work</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Creating Policies</div>
+          <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
+            Owners create policies in the Owner Portal under <strong style="color:var(--text-primary)">My Policies</strong>.
+            Policies are written in YAML and define rules that control what actions an agent is allowed to perform.
+            A policy can apply to a specific agent or to all of an owner's agents.
+          </p>
+        </div>
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Policy Structure</div>
+          <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
+            Each policy has a <span class="mono" style="font-size:11px">default</span> decision (allow or deny) and a list of
+            <span class="mono" style="font-size:11px">rules</span>. Rules match on action types and can include constraints
+            (e.g. amount limits, time windows) and obligations (e.g. require human approval).
+          </p>
+        </div>
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Decisions</div>
+          <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
+            Rules evaluate to one of five decisions:
+            <span class="badge badge-green">ALLOW</span>
+            <span class="badge badge-red">DENY</span>
+            <span class="badge badge-amber">REQUIRE_APPROVAL</span>
+            <span class="badge badge-amber">REQUIRE_STEP_UP</span>
+            <span class="badge badge-amber">REQUIRE_DEPOSIT</span>
+          </p>
+        </div>
+        <div>
+          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Example</div>
+          <div class="config-block" style="font-size:11px;line-height:1.6">version: 1
+default: deny
+rules:
+  - id: allow_read
+    effect: allow
+    action: "data.read"
+  - id: approve_write
+    effect: allow
+    action: "data.write"
+    obligations:
+      - type: HUMAN_APPROVAL</div>
+        </div>
+      </div>
+    </div>
+  `;
+
   const content = `
     <div class="page-header">
       <h2>Policies</h2>
       <p>${policies.length} configured polic${policies.length !== 1 ? 'ies' : 'y'}</p>
     </div>
 
+    ${policies.length === 0 ? emptyState : `
     <div class="card">
       <table>
         <thead>
@@ -45,10 +106,11 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:24px">No policies configured</td></tr>'}
+          ${rows}
         </tbody>
       </table>
     </div>
+    `}
   `;
 
   return renderPage('Policies', content, '/gui/policies');

@@ -58,17 +58,5 @@ Next steps:
   npx openleash wizard              # Interactive 5-minute setup
   npx openleash policy list         # List policies
   npx openleash playground list     # List playground scenarios
-
-Register and authorize from SDK:
-
-  import { generateEd25519Keypair, registrationChallenge, registerAgent, authorize } from '@openleash/sdk-ts';
-
-  const keys = generateEd25519Keypair();
-  const challenge = await registrationChallenge({
-    openleashUrl: 'http://${config.server.bind_address}',
-    agentId: 'my-agent',
-    agentPubKeyB64: keys.publicKeyB64,
-  });
-  // Sign challenge and register, then authorize actions
 `);
 }

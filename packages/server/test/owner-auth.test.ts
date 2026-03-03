@@ -8,6 +8,8 @@ import { loadConfig } from '../src/config.js';
 import { bootstrapState } from '../src/bootstrap.js';
 import {
   readState,
+  writeState,
+  writeOwnerFile,
   writeSetupInviteFile,
   hashPassphrase,
 } from '@openleash/core';
@@ -29,8 +31,23 @@ describe('owner auth', () => {
     bootstrapState(rootDir);
     const config = loadConfig(rootDir);
 
+    // Create a test owner (bootstrap no longer creates one)
+    ownerId = crypto.randomUUID();
+    writeOwnerFile(dataDir, {
+      owner_principal_id: ownerId,
+      principal_type: 'HUMAN',
+      display_name: 'Test Owner',
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: new Date().toISOString(),
+    });
+
     const state = readState(dataDir);
-    ownerId = state.owners[0].owner_principal_id;
+    state.owners.push({
+      owner_principal_id: ownerId,
+      path: `./owners/${ownerId}.md`,
+    });
+    writeState(dataDir, state);
 
     // Create a setup invite
     inviteToken = crypto.randomBytes(32).toString('base64url');
@@ -129,7 +146,7 @@ describe('owner auth', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
     expect(body.owner_principal_id).toBe(ownerId);
-    expect(body.display_name).toBe('Default Owner');
+    expect(body.display_name).toBe('Test Owner');
     // Should not expose passphrase fields
     expect(body.passphrase_hash).toBeUndefined();
     expect(body.passphrase_salt).toBeUndefined();

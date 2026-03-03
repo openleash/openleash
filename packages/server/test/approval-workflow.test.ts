@@ -9,6 +9,7 @@ import { bootstrapState } from '../src/bootstrap.js';
 import {
   readState,
   writeState,
+  writeOwnerFile,
   writeAgentFile,
   writePolicyFile,
   writeSetupInviteFile,
@@ -59,8 +60,23 @@ describe('approval workflow', () => {
     bootstrapState(rootDir);
     const config = loadConfig(rootDir);
 
+    // Create a test owner (bootstrap no longer creates one)
+    ownerId = crypto.randomUUID();
+    writeOwnerFile(dataDir, {
+      owner_principal_id: ownerId,
+      principal_type: 'HUMAN',
+      display_name: 'Test Owner',
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: new Date().toISOString(),
+    });
+
     const state = readState(dataDir);
-    ownerId = state.owners[0].owner_principal_id;
+    state.owners.push({
+      owner_principal_id: ownerId,
+      path: `./owners/${ownerId}.md`,
+    });
+    writeState(dataDir, state);
 
     // Setup owner passphrase via invite
     const inviteToken = crypto.randomBytes(32).toString('base64url');

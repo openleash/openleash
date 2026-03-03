@@ -343,6 +343,7 @@ export const AuditEventType = z.enum([
   'APPROVAL_REQUEST_DENIED',
   'APPROVAL_REQUEST_EXPIRED',
   'APPROVAL_TOKEN_USED',
+  'INITIAL_SETUP_COMPLETED',
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 

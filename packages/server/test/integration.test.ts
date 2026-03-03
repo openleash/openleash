@@ -9,6 +9,7 @@ import { bootstrapState } from '../src/bootstrap.js';
 import {
   readState,
   writeState,
+  writeOwnerFile,
   writeAgentFile,
   writePolicyFile,
   sha256Hex,
@@ -45,8 +46,22 @@ describe('server integration', () => {
     agentId = 'test-agent';
     agentPrincipalId = crypto.randomUUID();
 
+    // Create a test owner (bootstrap no longer creates one)
+    ownerPrincipalId = crypto.randomUUID();
+    writeOwnerFile(dataDir, {
+      owner_principal_id: ownerPrincipalId,
+      principal_type: 'HUMAN',
+      display_name: 'Test Owner',
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: new Date().toISOString(),
+    });
+
     const state = readState(dataDir);
-    ownerPrincipalId = state.owners[0].owner_principal_id;
+    state.owners.push({
+      owner_principal_id: ownerPrincipalId,
+      path: `./owners/${ownerPrincipalId}.md`,
+    });
 
     writeAgentFile(dataDir, {
       agent_principal_id: agentPrincipalId,

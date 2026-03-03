@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { path: '/gui/policies', label: 'Policies', icon: '&#9638;' },
   { path: '/gui/config', label: 'Config', icon: '&#9881;' },
   { path: '/gui/audit', label: 'Audit Log', icon: '&#9776;' },
+  { path: '/gui/api-reference', label: 'API Docs', icon: '&#123;&#125;' },
 ];
 
 const OWNER_NAV_ITEMS = [

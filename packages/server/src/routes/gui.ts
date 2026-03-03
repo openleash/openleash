@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import {
   readState,
@@ -24,17 +26,55 @@ import {
   renderOwnerAgents,
   renderOwnerPolicies,
   renderOwnerProfile,
+  renderInitialSetup,
+  renderApiReference,
+  renderApiReferenceUnavailable,
 } from '@openleash/gui';
 import { createAdminAuth } from '../middleware/admin-auth.js';
 import { createOwnerAuth } from '../middleware/owner-auth.js';
 import { getVersion } from '../version.js';
+import { bootstrapState } from '../bootstrap.js';
 
-export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config: OpenleashConfig) {
+export interface GuiRoutesOptions {
+  hasApiReference?: boolean;
+}
+
+export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config: OpenleashConfig, options?: GuiRoutesOptions) {
   const adminAuth = createAdminAuth(config);
+  const rootDir = path.dirname(dataDir);
+  const statePath = path.join(dataDir, 'state.md');
 
-  // Redirect /gui to /gui/dashboard
-  app.get('/gui', { preHandler: adminAuth }, async (_request, reply) => {
+  // Guard: if the data directory or state file is missing, re-bootstrap and
+  // redirect to the initial setup page so the user can start fresh.
+  app.addHook('onRequest', async (request, reply) => {
+    if (!fs.existsSync(statePath)) {
+      bootstrapState(rootDir);
+      // Let setup-related routes through without redirect
+      const url = request.url.split('?')[0];
+      if (url === '/gui' || url === '/gui/setup') return;
+      reply.redirect('/gui');
+    }
+  });
+
+  // Redirect /gui — if no owners, go to setup; otherwise dashboard
+  app.get('/gui', async (_request, reply) => {
+    const state = readState(dataDir);
+    if (state.owners.length === 0) {
+      reply.redirect('/gui/setup');
+      return;
+    }
     reply.redirect('/gui/dashboard');
+  });
+
+  // Initial setup page (no auth)
+  app.get('/gui/setup', async (_request, reply) => {
+    const state = readState(dataDir);
+    if (state.owners.length > 0) {
+      reply.redirect('/gui/dashboard');
+      return;
+    }
+    const html = renderInitialSetup();
+    reply.type('text/html').send(html);
   });
 
   // Dashboard
@@ -242,6 +282,12 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
     const agentNames = new Map(state.agents.map((a) => [a.agent_principal_id, a.agent_id]));
     const eventTypes = [...new Set(data.items.map((e) => e.event_type))].sort();
     const html = renderAudit(data, cursor, { owners: ownerNames as Map<string, string>, agents: agentNames, eventTypes });
+    reply.type('text/html').send(html);
+  });
+
+  // API Reference (embedded Scalar)
+  app.get('/gui/api-reference', { preHandler: adminAuth }, async (_request, reply) => {
+    const html = options?.hasApiReference ? renderApiReference() : renderApiReferenceUnavailable();
     reply.type('text/html').send(html);
   });
 

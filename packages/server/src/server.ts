@@ -55,7 +55,7 @@ export function createServer(options: CreateServerOptions) {
   registerPlaygroundRoutes(app, config);
 
   if (config.gui?.enabled !== false) {
-    registerGuiRoutes(app, dataDir, config);
+    registerGuiRoutes(app, dataDir, config, { hasApiReference: !!openapiSpec });
   }
 
   if (openapiSpec) {
