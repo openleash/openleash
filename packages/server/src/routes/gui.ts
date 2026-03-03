@@ -5,21 +5,28 @@ import {
   readAgentFile,
   readPolicyFile,
   readAuditLog,
-  ACTION_TAXONOMY,
+  readApprovalRequestFile,
 } from '@openleash/core';
-import type { OpenleashConfig } from '@openleash/core';
+import type { OpenleashConfig, SessionClaims } from '@openleash/core';
 import {
   renderDashboard,
   renderOwners,
   renderOwnerDetail,
   renderAgents,
   renderPolicies,
-  renderPolicyEditor,
-  renderPolicyBuilder,
+  renderPolicyViewer,
   renderConfig,
   renderAudit,
+  renderOwnerLogin,
+  renderOwnerSetup,
+  renderOwnerDashboard,
+  renderOwnerApprovals,
+  renderOwnerAgents,
+  renderOwnerPolicies,
+  renderOwnerProfile,
 } from '@openleash/gui';
 import { createAdminAuth } from '../middleware/admin-auth.js';
+import { createOwnerAuth } from '../middleware/owner-auth.js';
 import { getVersion } from '../version.js';
 
 export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config: OpenleashConfig) {
@@ -130,22 +137,7 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         }
       }
 
-      // All human owners (for signatory form dropdown in ORG detail pages)
-      const allHumans: { owner_principal_id: string; display_name: string }[] = [];
-      if (owner.principal_type === 'ORG') {
-        for (const ownerEntry of state.owners) {
-          try {
-            const o = readOwnerFile(dataDir, ownerEntry.owner_principal_id);
-            if (o.principal_type === 'HUMAN') {
-              allHumans.push({ owner_principal_id: o.owner_principal_id, display_name: o.display_name });
-            }
-          } catch {
-            // Skip unreadable owners
-          }
-        }
-      }
-
-      const html = renderOwnerDetail({ owner, agents, policies, audit: ownerAudit, linked_humans: linkedHumans, all_humans: allHumans });
+      const html = renderOwnerDetail({ owner, agents, policies, audit: ownerAudit, linked_humans: linkedHumans });
       reply.type('text/html').send(html);
     } catch {
       reply.code(404).type('text/html').send('<h1>Owner file not found</h1>');
@@ -186,80 +178,11 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
       }
     });
 
-    // Pass owners and agents for the create form
-    const owners = state.owners.map((entry) => {
-      try {
-        const o = readOwnerFile(dataDir, entry.owner_principal_id);
-        return { owner_principal_id: o.owner_principal_id, display_name: o.display_name };
-      } catch {
-        return { owner_principal_id: entry.owner_principal_id, display_name: entry.owner_principal_id.slice(0, 8) };
-      }
-    });
-
-    const agents = state.agents.map((entry) => {
-      try {
-        const a = readAgentFile(dataDir, entry.agent_principal_id);
-        return { agent_principal_id: a.agent_principal_id, agent_id: a.agent_id, owner_principal_id: a.owner_principal_id };
-      } catch {
-        return { agent_principal_id: entry.agent_principal_id, agent_id: entry.agent_id, owner_principal_id: entry.owner_principal_id };
-      }
-    });
-
-    const html = renderPolicies(policies, owners, agents);
+    const html = renderPolicies(policies);
     reply.type('text/html').send(html);
   });
 
-  // Policy builder (visual) — registered before :policyId to avoid param capture
-  app.get('/gui/policies/builder', { preHandler: adminAuth }, async (request, reply) => {
-    const state = readState(dataDir);
-    const query = request.query as { edit?: string };
-
-    const owners = state.owners.map((entry) => {
-      try {
-        const o = readOwnerFile(dataDir, entry.owner_principal_id);
-        return { owner_principal_id: o.owner_principal_id, display_name: o.display_name };
-      } catch {
-        return { owner_principal_id: entry.owner_principal_id, display_name: entry.owner_principal_id.slice(0, 8) };
-      }
-    });
-
-    const agents = state.agents.map((entry) => {
-      try {
-        const a = readAgentFile(dataDir, entry.agent_principal_id);
-        return { agent_principal_id: a.agent_principal_id, agent_id: a.agent_id, owner_principal_id: a.owner_principal_id };
-      } catch {
-        return { agent_principal_id: entry.agent_principal_id, agent_id: entry.agent_id, owner_principal_id: entry.owner_principal_id };
-      }
-    });
-
-    let existing: { policy_id: string; policy_yaml: string } | undefined;
-    if (query.edit) {
-      const entry = state.policies.find((p) => p.policy_id === query.edit);
-      if (entry) {
-        try {
-          const yaml = readPolicyFile(dataDir, query.edit);
-          existing = { policy_id: query.edit, policy_yaml: yaml };
-        } catch {
-          // Policy file not found; proceed without existing data
-        }
-      }
-    }
-
-    const html = renderPolicyBuilder({
-      taxonomy: ACTION_TAXONOMY,
-      owners,
-      agents,
-      existing,
-    });
-    reply.type('text/html').send(html);
-  });
-
-  // Taxonomy JSON endpoint (for client-side use)
-  app.get('/gui/taxonomy.json', { preHandler: adminAuth }, async (_request, reply) => {
-    reply.type('application/json').send(ACTION_TAXONOMY);
-  });
-
-  // Policy editor
+  // Policy viewer
   app.get('/gui/policies/:policyId', { preHandler: adminAuth }, async (request, reply) => {
     const { policyId } = request.params as { policyId: string };
     const state = readState(dataDir);
@@ -277,7 +200,7 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         catch { return [o.owner_principal_id, undefined] as const; }
       }));
       const agentNames = new Map(state.agents.map((a) => [a.agent_principal_id, a.agent_id]));
-      const html = renderPolicyEditor({
+      const html = renderPolicyViewer({
         policy_id: policyId,
         owner_principal_id: entry.owner_principal_id,
         applies_to_agent_principal_id: entry.applies_to_agent_principal_id,
@@ -319,6 +242,183 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
     const agentNames = new Map(state.agents.map((a) => [a.agent_principal_id, a.agent_id]));
     const eventTypes = [...new Set(data.items.map((e) => e.event_type))].sort();
     const html = renderAudit(data, cursor, { owners: ownerNames as Map<string, string>, agents: agentNames, eventTypes });
+    reply.type('text/html').send(html);
+  });
+
+  // ─── Owner GUI routes ─────────────────────────────────────────────
+
+  const ownerAuth = createOwnerAuth(config, dataDir);
+
+  // Login page (no auth)
+  app.get('/gui/owner/login', async (_request, reply) => {
+    const html = renderOwnerLogin();
+    reply.type('text/html').send(html);
+  });
+
+  // Setup page (no auth — invite token acts as proof)
+  app.get('/gui/owner/setup', async (_request, reply) => {
+    const html = renderOwnerSetup();
+    reply.type('text/html').send(html);
+  });
+
+  // Owner dashboard
+  app.get('/gui/owner/dashboard', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const state = readState(dataDir);
+    const owner = readOwnerFile(dataDir, session.sub);
+
+    const agentCount = state.agents.filter((a) => a.owner_principal_id === session.sub).length;
+    const policyCount = state.policies.filter((p) => p.owner_principal_id === session.sub).length;
+    const pendingApprovals = (state.approval_requests ?? [])
+      .filter((r) => r.owner_principal_id === session.sub && r.status === 'PENDING').length;
+
+    const html = renderOwnerDashboard({
+      display_name: owner.display_name,
+      agent_count: agentCount,
+      policy_count: policyCount,
+      pending_approvals: pendingApprovals,
+    });
+    reply.type('text/html').send(html);
+  });
+
+  // Owner agents
+  app.get('/gui/owner/agents', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const state = readState(dataDir);
+    const agents = state.agents
+      .filter((a) => a.owner_principal_id === session.sub)
+      .map((entry) => {
+        try {
+          const agent = readAgentFile(dataDir, entry.agent_principal_id);
+          return {
+            agent_principal_id: agent.agent_principal_id,
+            agent_id: agent.agent_id,
+            status: agent.status,
+            created_at: agent.created_at,
+            revoked_at: agent.revoked_at,
+          };
+        } catch {
+          return {
+            agent_principal_id: entry.agent_principal_id,
+            agent_id: entry.agent_id,
+            status: 'UNKNOWN',
+            created_at: '',
+            revoked_at: null,
+          };
+        }
+      });
+    const html = renderOwnerAgents(agents);
+    reply.type('text/html').send(html);
+  });
+
+  // Owner policies
+  app.get('/gui/owner/policies', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const state = readState(dataDir);
+    const policies = state.policies
+      .filter((p) => p.owner_principal_id === session.sub)
+      .map((entry) => {
+        try {
+          const yaml = readPolicyFile(dataDir, entry.policy_id);
+          return { policy_id: entry.policy_id, applies_to_agent_principal_id: entry.applies_to_agent_principal_id, policy_yaml: yaml };
+        } catch {
+          return { policy_id: entry.policy_id, applies_to_agent_principal_id: entry.applies_to_agent_principal_id };
+        }
+      });
+    const html = renderOwnerPolicies(policies);
+    reply.type('text/html').send(html);
+  });
+
+  // Owner approvals
+  app.get('/gui/owner/approvals', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const state = readState(dataDir);
+    const approvalEntries = (state.approval_requests ?? [])
+      .filter((r) => r.owner_principal_id === session.sub);
+
+    const approvals = approvalEntries.map((entry) => {
+      try {
+        const req = readApprovalRequestFile(dataDir, entry.approval_request_id);
+        return {
+          approval_request_id: req.approval_request_id,
+          agent_id: req.agent_id,
+          action_type: req.action_type,
+          justification: req.justification,
+          status: req.status,
+          created_at: req.created_at,
+          expires_at: req.expires_at,
+        };
+      } catch {
+        return {
+          approval_request_id: entry.approval_request_id,
+          agent_id: 'unknown',
+          action_type: 'unknown',
+          justification: null,
+          status: entry.status,
+          created_at: '',
+          expires_at: '',
+        };
+      }
+    });
+    const html = renderOwnerApprovals(approvals);
+    reply.type('text/html').send(html);
+  });
+
+  // Owner profile
+  app.get('/gui/owner/profile', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const owner = readOwnerFile(dataDir, session.sub);
+
+    const html = renderOwnerProfile({
+      owner_principal_id: owner.owner_principal_id,
+      principal_type: owner.principal_type,
+      display_name: owner.display_name,
+      status: owner.status,
+      identity_assurance_level: owner.identity_assurance_level,
+      contact_identities: owner.contact_identities,
+      government_ids: owner.government_ids,
+      company_ids: owner.company_ids,
+      created_at: owner.created_at,
+    });
+    reply.type('text/html').send(html);
+  });
+
+  // Owner audit
+  app.get('/gui/owner/audit', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const query = request.query as { cursor?: string };
+    const cursor = query.cursor ? parseInt(query.cursor, 10) : 0;
+    const data = readAuditLog(dataDir, 500, cursor);
+    const state = readState(dataDir);
+
+    const ownerAgentIds = new Set(
+      state.agents
+        .filter((a) => a.owner_principal_id === session.sub)
+        .map((a) => a.agent_principal_id)
+    );
+
+    const filtered = data.items.filter((event) => {
+      const meta = event.metadata_json as Record<string, unknown>;
+      if (meta.owner_principal_id === session.sub) return true;
+      if (meta.agent_principal_id && ownerAgentIds.has(meta.agent_principal_id as string)) return true;
+      if (event.principal_id && ownerAgentIds.has(event.principal_id)) return true;
+      return false;
+    });
+
+    const ownerNames = new Map([[session.sub, readOwnerFile(dataDir, session.sub).display_name]]);
+    const agentNames = new Map(
+      state.agents
+        .filter((a) => a.owner_principal_id === session.sub)
+        .map((a) => [a.agent_principal_id, a.agent_id])
+    );
+    const eventTypes = [...new Set(filtered.map((e) => e.event_type))].sort();
+
+    const html = renderAudit(
+      { items: filtered.slice(0, 100), next_cursor: data.next_cursor },
+      cursor,
+      { owners: ownerNames, agents: agentNames, eventTypes },
+      'owner'
+    );
     reply.type('text/html').send(html);
   });
 }

@@ -108,9 +108,19 @@ npx openleash playground run large_purchase_requires_approval
 packages/
   core/       # Authorization engine, types, crypto, state management
   server/     # Fastify HTTP server, routes, middleware
+  gui/        # Server-rendered HTML GUI (admin + owner portal)
   sdk-ts/     # TypeScript SDK for agents and counterparties
   cli/        # CLI commands (start, wizard, policy, playground, keys)
 ```
+
+Four actor types interact with the API:
+
+| Actor | Auth | Endpoints |
+|---|---|---|
+| **Public** | None | `/v1/health`, `/v1/public-keys`, `/v1/verify-proof` |
+| **Agent** | Ed25519 request signing | `/v1/authorize`, `/v1/agent/*` |
+| **Owner** | PASETO session token | `/v1/owner/*` |
+| **Admin** | Bearer token / localhost | `/v1/admin/*` |
 
 All state is stored in human-readable files:
 - `./data/state.md` — authoritative index (markdown with YAML)
@@ -118,7 +128,33 @@ All state is stored in human-readable files:
 - `./data/agents/` — agent records (markdown with YAML frontmatter)
 - `./data/policies/` — policy YAML files
 - `./data/keys/` — signing key JSON files
+- `./data/approval-requests/` — approval request records
+- `./data/invites/` — owner setup invites
 - `./data/audit.log.jsonl` — append-only audit log
+
+## 🔑 Approval Workflow
+
+When a policy includes a `HUMAN_APPROVAL` obligation, agents must get explicit owner approval:
+
+```
+Agent → POST /v1/authorize           → REQUIRE_APPROVAL
+Agent → POST /v1/agent/approval-requests  → Creates pending request
+Owner → POST /v1/owner/.../approve   → Issues approval token
+Agent → POST /v1/authorize (+ token) → ALLOW + proof token
+```
+
+Approval tokens are single-use, action-scoped, and time-limited. See [docs/protocol.md](docs/protocol.md) for details.
+
+## 👤 Owner Portal
+
+The owner portal is a self-service web interface where owners can manage their policies, review pending approval requests, and view registered agents. Access it at `/gui/owner/login`.
+
+**Setup flow:**
+
+1. An admin creates an owner via the Admin Dashboard (`/gui/dashboard`) or `npx openleash wizard`
+2. The admin generates a setup invite — the GUI produces a copyable setup link
+3. The owner opens the link (`/gui/owner/setup?invite_id=...&invite_token=...`) and chooses a passphrase
+4. The owner logs in at `/gui/owner/login` with their Owner Principal ID and passphrase
 
 ## 🔍 Troubleshooting
 

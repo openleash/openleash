@@ -39,14 +39,15 @@ npx openleash playground run <scenario>
 
 ### Packages
 
-- **`packages/core`** — Authorization engine, policy parser, expression evaluator, constraints, obligations, PASETO token issuance/verification, Ed25519 request signing, file-based state management (`./data/`), append-only audit log. Key deps: `paseto`, `zod`, `ajv`, `yaml`, `json-canonicalize`.
-- **`packages/server`** — Fastify HTTP server. Routes: `/v1/authorize`, `/v1/verify-proof`, `/v1/agents/register`, `/v1/public-keys`, `/v1/health`, admin API, playground. Middleware for agent request signature verification and admin auth. Key dep: `fastify`.
-- **`packages/sdk-ts`** — Lightweight TypeScript SDK for agents and counterparties. Functions: `authorize()`, `signRequest()`, `registerAgent()`, `verifyProofOffline()`, `verifyProofOnline()`, `generateEd25519Keypair()`. Minimal deps (`paseto`, `json-canonicalize`).
+- **`packages/core`** — Authorization engine, policy parser, expression evaluator, constraints, obligations, PASETO token issuance/verification (proof, session, approval), Ed25519 request signing, passphrase hashing (scrypt), file-based state management (`./data/`), append-only audit log. Key deps: `paseto`, `zod`, `ajv`, `yaml`, `json-canonicalize`.
+- **`packages/server`** — Fastify HTTP server. Four API scopes: Public (`/v1/health`, `/v1/public-keys`, `/v1/verify-proof`), Agent (`/v1/authorize`, `/v1/agent/*`), Owner (`/v1/owner/*`), Admin (`/v1/admin/*`), plus playground and GUI. Three auth middlewares: `agent-auth` (Ed25519 signatures), `owner-auth` (PASETO session tokens), `admin-auth` (Bearer token/localhost). Key dep: `fastify`.
+- **`packages/gui`** — Server-rendered HTML GUI with two contexts: admin dashboard and owner portal. Renders HTML strings consumed by server GUI routes.
+- **`packages/sdk-ts`** — Lightweight TypeScript SDK for agents and counterparties. Functions: `authorize()`, `signRequest()`, `registerAgent()`, `verifyProofOffline()`, `verifyProofOnline()`, `generateEd25519Keypair()`, `createApprovalRequest()`, `getApprovalRequest()`, `pollApprovalRequest()`. Minimal deps (`paseto`, `json-canonicalize`).
 - **`packages/cli`** — CLI commands: `start`, `wizard`, `policy`, `playground`, `keys`, `testvectors`. Entry point: `packages/cli/src/index.ts`.
 
 ### State storage (`./data/`)
 
-File-based with a `state.md` index (YAML frontmatter). Subdirectories: `owners/`, `agents/`, `policies/`, `keys/`. Audit log: `audit.log.jsonl` (JSONL append-only).
+File-based with a `state.md` index (YAML frontmatter). Subdirectories: `owners/`, `agents/`, `policies/`, `keys/`, `approval-requests/`, `invites/`. Audit log: `audit.log.jsonl` (JSONL append-only).
 
 ### Domain concepts
 

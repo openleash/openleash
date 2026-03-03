@@ -1,6 +1,5 @@
-import * as crypto from 'node:crypto';
 import { V4 } from 'paseto';
-import type { ServerKeyFile } from './types.js';
+import type { ServerKeyFile, SessionClaims, ApprovalTokenClaims } from './types.js';
 import { getPrivateKeyObject, getPublicKeyObject } from './keys.js';
 
 export interface ProofClaims {
@@ -88,6 +87,142 @@ export async function verifyProofToken(
       return { valid: true, claims: payload };
     } catch {
       // Try next key
+      continue;
+    }
+  }
+
+  return { valid: false, reason: 'No matching key found or invalid signature' };
+}
+
+// ─── Session tokens ─────────────────────────────────────────────────
+
+export interface IssueSessionParams {
+  key: ServerKeyFile;
+  ownerPrincipalId: string;
+  ttlSeconds: number;
+}
+
+export async function issueSessionToken(params: IssueSessionParams): Promise<{
+  token: string;
+  expiresAt: string;
+  claims: SessionClaims;
+}> {
+  const now = new Date();
+  const exp = new Date(now.getTime() + params.ttlSeconds * 1000);
+
+  const claims: SessionClaims = {
+    iss: 'openleash',
+    kid: params.key.kid,
+    sub: params.ownerPrincipalId,
+    iat: now.toISOString(),
+    exp: exp.toISOString(),
+    purpose: 'owner_session',
+  };
+
+  const privateKey = getPrivateKeyObject(params.key);
+  const token = await V4.sign(
+    { ...claims } as unknown as Record<string, unknown>,
+    privateKey,
+    { expiresIn: `${params.ttlSeconds} seconds` }
+  );
+
+  return { token, expiresAt: exp.toISOString(), claims };
+}
+
+export async function verifySessionToken(
+  token: string,
+  keys: ServerKeyFile[]
+): Promise<{ valid: boolean; claims?: SessionClaims; reason?: string }> {
+  for (const key of keys) {
+    try {
+      const publicKey = getPublicKeyObject(key);
+      const payload = await V4.verify(token, publicKey) as SessionClaims;
+
+      if (payload.purpose !== 'owner_session') {
+        return { valid: false, reason: 'Invalid token purpose' };
+      }
+
+      if (payload.exp) {
+        const expDate = new Date(payload.exp);
+        if (expDate.getTime() < Date.now()) {
+          return { valid: false, reason: 'Session expired', claims: payload };
+        }
+      }
+
+      return { valid: true, claims: payload };
+    } catch {
+      continue;
+    }
+  }
+
+  return { valid: false, reason: 'No matching key found or invalid signature' };
+}
+
+// ─── Approval tokens ────────────────────────────────────────────────
+
+export interface IssueApprovalTokenParams {
+  key: ServerKeyFile;
+  approvalRequestId: string;
+  ownerPrincipalId: string;
+  agentId: string;
+  actionType: string;
+  actionHash: string;
+  ttlSeconds: number;
+}
+
+export async function issueApprovalToken(params: IssueApprovalTokenParams): Promise<{
+  token: string;
+  expiresAt: string;
+  claims: ApprovalTokenClaims;
+}> {
+  const now = new Date();
+  const exp = new Date(now.getTime() + params.ttlSeconds * 1000);
+
+  const claims: ApprovalTokenClaims = {
+    iss: 'openleash',
+    kid: params.key.kid,
+    iat: now.toISOString(),
+    exp: exp.toISOString(),
+    approval_request_id: params.approvalRequestId,
+    owner_principal_id: params.ownerPrincipalId,
+    agent_id: params.agentId,
+    action_type: params.actionType,
+    action_hash: params.actionHash,
+    purpose: 'approval',
+  };
+
+  const privateKey = getPrivateKeyObject(params.key);
+  const token = await V4.sign(
+    { ...claims } as unknown as Record<string, unknown>,
+    privateKey,
+    { expiresIn: `${params.ttlSeconds} seconds` }
+  );
+
+  return { token, expiresAt: exp.toISOString(), claims };
+}
+
+export async function verifyApprovalToken(
+  token: string,
+  keys: ServerKeyFile[]
+): Promise<{ valid: boolean; claims?: ApprovalTokenClaims; reason?: string }> {
+  for (const key of keys) {
+    try {
+      const publicKey = getPublicKeyObject(key);
+      const payload = await V4.verify(token, publicKey) as ApprovalTokenClaims;
+
+      if (payload.purpose !== 'approval') {
+        return { valid: false, reason: 'Invalid token purpose' };
+      }
+
+      if (payload.exp) {
+        const expDate = new Date(payload.exp);
+        if (expDate.getTime() < Date.now()) {
+          return { valid: false, reason: 'Approval token expired', claims: payload };
+        }
+      }
+
+      return { valid: true, claims: payload };
+    } catch {
       continue;
     }
   }

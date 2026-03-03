@@ -10,27 +10,37 @@ info:
 
     ## Authentication
 
-    The API uses three security zones:
+    The API uses four security zones:
 
     - **Public** — No authentication. Health checks, public key distribution,
       proof verification, and the playground.
     - **Agent** — Ed25519 request signing via five headers (`X-Agent-Id`,
       `X-Timestamp`, `X-Nonce`, `X-Body-Sha256`, `X-Signature`). Used for
-      the `/v1/authorize` endpoint.
+      `/v1/authorize` and `/v1/agent/*` endpoints.
+    - **Owner** — PASETO v4.public session token via `Authorization: Bearer`
+      header (or `openleash_session` cookie for GUI). Issued on login.
+      Used for all `/v1/owner/*` endpoints.
     - **Admin** — Bearer token and/or localhost check depending on the
       `admin.mode` setting (`localhost`, `token`, or `localhost_or_token`).
       Used for all `/v1/admin/*` endpoints.
 
     ## Typical flow
 
-    1. An admin creates an **owner** and a **policy** via the Admin API.
-    2. An agent calls `/v1/agents/registration-challenge` then
+    1. An admin creates an **owner** via the Admin API and generates a
+       **setup invite**.
+    2. The owner completes setup (`POST /v1/owner/setup`) with the invite
+       token and a passphrase, then logs in (`POST /v1/owner/login`).
+    3. The owner creates **policies** via the Owner API.
+    4. An agent calls `/v1/agents/registration-challenge` then
        `/v1/agents/register` to prove key ownership and register itself.
-    3. The agent signs action requests and calls `/v1/authorize` to receive
+    5. The agent signs action requests and calls `/v1/authorize` to receive
        an authorization decision and, if allowed, a PASETO proof token.
-    4. A counterparty verifies the proof token via `/v1/verify-proof` or
+    6. If the decision is `REQUIRE_APPROVAL`, the agent creates an approval
+       request (`POST /v1/agent/approval-requests`), the owner approves it,
+       and the agent re-authorizes with the approval token.
+    7. A counterparty verifies the proof token via `/v1/verify-proof` or
        offline using the public keys from `/v1/public-keys`.
-  version: 0.3.0
+  version: 0.4.0
   license:
     name: Apache-2.0
     url: https://github.com/openleash/openleash/blob/main/LICENSE
@@ -43,7 +53,9 @@ tags:
   - name: Public
     description: Unauthenticated endpoints for health, key distribution, and proof verification.
   - name: Agent
-    description: Endpoints called by AI agents. Registration is unauthenticated; authorization requires Ed25519 request signing.
+    description: Endpoints called by AI agents. Registration is unauthenticated; authorization and self-service require Ed25519 request signing.
+  - name: Owner
+    description: Owner-scoped endpoints for managing agents, policies, and approval requests. Authenticated via PASETO session token.
   - name: Admin
     description: Server management endpoints protected by Bearer token and/or localhost check.
   - name: Playground
@@ -78,24 +90,23 @@ paths:
                     description: Current server time in ISO 8601 format.
                   version:
                     type: string
-                    description: Package version of the running server.
-                    example: 0.3.0
+                    description: Package version from `package.json`.
 
   /v1/public-keys:
     get:
-      summary: Get server public signing keys
+      summary: Get public keys
       operationId: getPublicKeys
       tags: [Public]
       description: |
-        Returns all Ed25519 public keys the server uses to sign PASETO proof
-        tokens. Includes both active and revoked keys so counterparties can
-        verify tokens issued before a key rotation.
+        Returns all Ed25519 public keys the server uses (or has used) to
+        sign PASETO proof tokens. Counterparties should fetch this
+        periodically and cache the keys for offline verification.
 
-        Counterparties should cache these keys and use them for offline
-        verification of proof tokens with `verifyProofOffline()` in the SDK.
+        The response includes both active and revoked keys so verifiers
+        can still validate tokens signed before a key rotation.
       responses:
         "200":
-          description: List of public keys (active and revoked).
+          description: List of public keys.
           content:
             application/json:
               schema:
@@ -109,21 +120,17 @@ paths:
 
   /v1/verify-proof:
     post:
-      summary: Verify a proof token
+      summary: Verify a proof token (online)
       operationId: verifyProof
       tags: [Public]
       description: |
-        Online verification of a PASETO v4.public proof token. The server
-        checks the cryptographic signature, expiration, and optionally matches
-        the token claims against `expected_action_hash` and
-        `expected_agent_id`.
+        Verifies a PASETO v4.public proof token against the server's
+        signing keys. This is the **online** verification path — the
+        server checks the signature, expiration, and optionally matches
+        the `action_hash` and `agent_id` against expected values.
 
-        No authentication is required — this endpoint is designed for
-        counterparties that receive proof tokens from agents and want to
-        confirm their validity.
-
-        For offline verification, fetch the public keys from `/v1/public-keys`
-        and verify locally using the SDK's `verifyProofOffline()`.
+        For **offline** verification, use the SDK's `verifyProofOffline()`
+        with keys fetched from `/v1/public-keys`.
       requestBody:
         required: true
         content:
@@ -134,22 +141,16 @@ paths:
               properties:
                 token:
                   type: string
-                  description: The PASETO v4.public proof token to verify.
+                  description: The PASETO v4.public token string (starts with `v4.public.`).
                 expected_action_hash:
                   type: string
-                  description: |
-                    If provided, verification fails when the token's
-                    `action_hash` claim does not match this value.
+                  description: If provided, the server checks that the token's `action_hash` claim matches.
                 expected_agent_id:
                   type: string
-                  description: |
-                    If provided, verification fails when the token's
-                    `agent_id` claim does not match this value.
+                  description: If provided, the server checks that the token's `agent_id` claim matches.
       responses:
         "200":
-          description: |
-            Verification result. Always returns 200; inspect `valid` to
-            determine whether the token passed all checks.
+          description: Verification result.
           content:
             application/json:
               schema:
@@ -158,51 +159,39 @@ paths:
                 properties:
                   valid:
                     type: boolean
-                    description: Whether the token passed all verification checks.
+                    description: Whether the token is valid and all checks passed.
                   reason:
                     type: string
-                    description: Human-readable explanation when `valid` is false.
+                    description: Human-readable reason if `valid` is false.
                   claims:
                     type: object
-                    description: |
-                      Decoded token claims. Present only when `valid` is true.
-                    properties:
-                      decision_id:
-                        type: string
-                        format: uuid
-                      agent_id:
-                        type: string
-                      action_hash:
-                        type: string
-                      action_type:
-                        type: string
-                      owner_principal_id:
-                        type: string
-                        format: uuid
-                      matched_rule_id:
-                        type: string
-                      trust_profile:
-                        type: string
-                      exp:
-                        type: string
-                        format: date-time
-                      iat:
-                        type: string
-                        format: date-time
+                    description: Decoded token claims (present when `valid` is true).
+
+  /v1/reference:
+    get:
+      summary: Scalar API Reference UI
+      operationId: getReference
+      tags: [Public]
+      description: |
+        Interactive API reference documentation rendered by Scalar.
+        Serves an HTML page; not a JSON endpoint.
+      responses:
+        "200":
+          description: HTML page with interactive API reference.
 
   # ── Agent ───────────────────────────────────────────────────────────
 
   /v1/agents/registration-challenge:
     post:
-      summary: Request an agent registration challenge
-      operationId: registrationChallenge
+      summary: Request a registration challenge
+      operationId: requestRegistrationChallenge
       tags: [Agent]
       description: |
-        First step of the two-step agent registration flow. The server
-        returns a random 32-byte challenge that the agent must sign with its
-        Ed25519 private key and submit to `/v1/agents/register`.
+        First step of the agent registration flow. The server returns a
+        random challenge that the agent must sign with its private key
+        to prove ownership of the public key.
 
-        Challenges expire after 5 minutes and are single-use.
+        Challenges expire after 5 minutes.
       requestBody:
         required: true
         content:
@@ -213,20 +202,17 @@ paths:
               properties:
                 agent_id:
                   type: string
-                  description: Unique identifier chosen by the agent (e.g. `my-trading-bot`).
+                  description: The agent's chosen identifier.
                 agent_pubkey_b64:
                   type: string
-                  description: Base64-encoded Ed25519 public key the agent will use to sign requests.
+                  description: Base64-encoded SPKI DER Ed25519 public key.
                 owner_principal_id:
                   type: string
                   format: uuid
-                  description: UUID of the owner this agent belongs to. Required for policy binding.
-                agent_attributes_json:
-                  type: object
-                  description: Arbitrary key-value metadata attached to the agent record.
+                  description: UUID of the owner to register under.
       responses:
         "200":
-          description: Challenge issued successfully.
+          description: Challenge issued.
           content:
             application/json:
               schema:
@@ -236,33 +222,23 @@ paths:
                   challenge_id:
                     type: string
                     format: uuid
-                    description: Reference ID to include in the register call.
                   challenge_b64:
                     type: string
-                    description: Base64-encoded random bytes the agent must sign.
+                    description: Base64-encoded random challenge bytes.
                   expires_at:
                     type: string
                     format: date-time
-                    description: Expiration time of the challenge (5 minutes from issuance).
-        "400":
-          description: Missing required fields.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
 
   /v1/agents/register:
     post:
-      summary: Complete agent registration
+      summary: Register agent with signed challenge
       operationId: registerAgent
       tags: [Agent]
       description: |
-        Second step of the two-step registration flow. The agent submits the
-        challenge ID from the previous step along with a signature proving
-        possession of the corresponding Ed25519 private key.
-
-        On success the agent is immediately active and can call
-        `/v1/authorize`.
+        Second step of registration. The agent presents its signed
+        challenge to prove it controls the private key. On success, the
+        server creates the agent record and returns the assigned
+        `agent_principal_id`.
       requestBody:
         required: true
         content:
@@ -274,42 +250,23 @@ paths:
                 challenge_id:
                   type: string
                   format: uuid
-                  description: The `challenge_id` returned by `/v1/agents/registration-challenge`.
                 agent_id:
                   type: string
-                  description: Must match the `agent_id` used in the challenge request.
                 agent_pubkey_b64:
                   type: string
-                  description: Must match the public key used in the challenge request.
                 signature_b64:
                   type: string
-                  description: Base64-encoded Ed25519 signature of the raw challenge bytes.
+                  description: Base64-encoded Ed25519 signature over the raw challenge bytes.
                 owner_principal_id:
                   type: string
                   format: uuid
-                  description: UUID of the owner this agent belongs to.
-                agent_attributes_json:
-                  type: object
-                  description: Arbitrary key-value metadata attached to the agent record.
       responses:
         "200":
-          description: Agent registered and immediately active.
+          description: Agent registered.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AgentRegistration"
-        "400":
-          description: Missing required fields, challenge not found, or challenge expired.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Challenge signature verification failed.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
 
   /v1/authorize:
     post:
@@ -317,546 +274,455 @@ paths:
       operationId: authorize
       tags: [Agent]
       description: |
-        Core authorization endpoint. The agent describes an action it wants
-        to perform and the server evaluates it against the bound policy,
-        returning a decision and — if allowed — a signed PASETO proof token.
+        Main authorization endpoint. The agent submits a signed action
+        request and receives a decision (`ALLOW`, `DENY`,
+        `REQUIRE_APPROVAL`, `REQUIRE_STEP_UP`, `REQUIRE_DEPOSIT`).
 
-        Every request must be signed with the agent's Ed25519 private key.
-        The signature covers `METHOD + PATH + TIMESTAMP + NONCE + BODY_SHA256`
-        and is verified against the public key stored at registration.
+        When the decision is `ALLOW`, a PASETO v4.public proof token is
+        included that the agent can present to counterparties.
 
-        **Possible decisions:**
-        - `ALLOW` — Action permitted; a `proof_token` is included.
-        - `DENY` — Action rejected.
-        - `REQUIRE_APPROVAL` — Blocked until a human fulfils the obligation.
-        - `REQUIRE_STEP_UP` — Additional authentication required.
-        - `REQUIRE_DEPOSIT` — A deposit obligation must be fulfilled first.
+        When the decision is `REQUIRE_APPROVAL`, the agent should create
+        an approval request via `POST /v1/agent/approval-requests`, wait
+        for owner approval, then re-authorize with the `approval_token`.
+
+        **Approval token re-authorization**: Include `approval_token` in
+        the request body alongside the original action. The server
+        verifies the token, checks the action hash matches, marks the
+        approval as consumed (single-use), and issues a proof token.
+
+        All five signing headers are required. See the protocol docs
+        for the signing input format.
       parameters:
         - name: X-Agent-Id
           in: header
           required: true
           schema:
             type: string
-          description: The agent's `agent_id` as registered.
         - name: X-Timestamp
           in: header
           required: true
           schema:
             type: string
-          description: Current time in ISO 8601 / RFC 3339 UTC. Must be within the server's `clock_skew_seconds` window.
+            format: date-time
         - name: X-Nonce
           in: header
           required: true
           schema:
             type: string
-          description: Unique value per request (UUID recommended). Rejected if reused within the nonce TTL.
         - name: X-Body-Sha256
           in: header
           required: true
           schema:
             type: string
-          description: Hex-encoded SHA-256 hash of the raw request body.
         - name: X-Signature
           in: header
           required: true
           schema:
             type: string
-          description: Base64-encoded Ed25519 signature over `METHOD + PATH + X-Timestamp + X-Nonce + X-Body-Sha256`.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ActionRequest"
+              allOf:
+                - $ref: "#/components/schemas/ActionRequest"
+                - type: object
+                  properties:
+                    approval_token:
+                      type: string
+                      description: |
+                        Optional PASETO v4.public approval token from an approved
+                        HUMAN_APPROVAL request. When present, the server bypasses
+                        policy evaluation and directly issues a proof token if the
+                        approval token is valid and the action hash matches.
       responses:
         "200":
-          description: Authorization decision returned.
+          description: Authorization decision.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthorizeResponse"
         "400":
-          description: Invalid action request schema.
+          description: Invalid request or approval token error.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "401":
-          description: |
-            Authentication failed. Possible error codes:
-            `MISSING_HEADERS`, `TIMESTAMP_SKEW`, `NONCE_REPLAY`,
-            `BODY_HASH_MISMATCH`, `AGENT_NOT_FOUND`, `AGENT_INACTIVE`,
-            `INVALID_SIGNATURE`.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: No policy bound to the agent or its owner.
+          description: Agent authentication failed.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  # ── Admin — Owners ──────────────────────────────────────────────────
-
-  /v1/admin/owners:
+  /v1/agent/self:
     get:
-      summary: List all owners
-      operationId: listOwners
-      tags: [Admin]
-      security:
-        - BearerAuth: []
+      summary: Get own agent info
+      operationId: getAgentSelf
+      tags: [Agent]
       description: |
-        Returns all owner principals with their full identity information,
-        including contact identities, government IDs, company IDs,
-        signatories, and computed identity assurance level.
+        Returns the authenticated agent's own record. Requires Ed25519
+        request signing.
+      parameters:
+        - name: X-Agent-Id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: X-Nonce
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Body-Sha256
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Signature
+          in: header
+          required: true
+          schema:
+            type: string
       responses:
         "200":
-          description: List of owners.
+          description: Agent info.
           content:
             application/json:
               schema:
-                type: object
-                required: [owners]
-                properties:
-                  owners:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Owner"
-    post:
-      summary: Create an owner
-      operationId: createOwner
-      tags: [Admin]
-      security:
-        - BearerAuth: []
-      description: |
-        Create a new owner principal (human or organization). Owners hold
-        policies and own agents. Identity information (contacts, government
-        IDs, company IDs, signatories) can be provided at creation time or
-        added later via the dedicated identity endpoints.
+                $ref: "#/components/schemas/AgentRegistration"
 
-        Type constraints are enforced: `HUMAN` owners may have
-        `government_ids`; `ORG` owners may have `company_ids`, `signatories`,
-        and `signatory_rules`.
+  /v1/agent/approval-requests:
+    post:
+      summary: Create approval request
+      operationId: createApprovalRequest
+      tags: [Agent]
+      description: |
+        Creates a human approval request for an action that received
+        a `REQUIRE_APPROVAL` decision. The request is stored as PENDING
+        and the owner can approve or deny it via the Owner API.
+
+        Requires Ed25519 request signing.
+      parameters:
+        - name: X-Agent-Id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: X-Nonce
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Body-Sha256
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Signature
+          in: header
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [principal_type, display_name]
+              required: [decision_id, action]
               properties:
-                principal_type:
+                decision_id:
                   type: string
-                  enum: [HUMAN, ORG]
-                  description: Whether this owner is a person or an organization.
-                display_name:
+                  format: uuid
+                action:
+                  $ref: "#/components/schemas/ActionRequest"
+                justification:
                   type: string
-                  description: Human-readable name for the owner.
-                attributes_json:
+                  description: Human-readable reason for the action.
+                context:
                   type: object
-                  description: Arbitrary key-value metadata.
-                contact_identities:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/ContactIdentity"
-                  description: Email addresses, phone numbers, etc.
-                government_ids:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/GovernmentId"
-                  description: Government-issued IDs (HUMAN owners only).
-                company_ids:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/CompanyId"
-                  description: Company registration numbers (ORG owners only).
-                signatories:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/Signatory"
-                  description: Authorized signatories (ORG owners only).
-                signatory_rules:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/SignatoryRule"
-                  description: Signing quorum rules (ORG owners only).
+                  description: Additional context for the owner's review.
       responses:
         "200":
-          description: Owner created.
+          description: Approval request created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approval_request_id, status, expires_at]
+                properties:
+                  approval_request_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [PENDING]
+                  expires_at:
+                    type: string
+                    format: date-time
+
+  /v1/agent/approval-requests/{approvalRequestId}:
+    get:
+      summary: Get approval request status
+      operationId: getAgentApprovalRequest
+      tags: [Agent]
+      description: |
+        Returns the status of an approval request. If the request has
+        been approved, the response includes the `approval_token` that
+        the agent should include in its re-authorization request.
+
+        Scoped to the authenticated agent's own requests.
+        Requires Ed25519 request signing.
+      parameters:
+        - $ref: "#/components/parameters/ApprovalRequestId"
+        - name: X-Agent-Id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: X-Nonce
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Body-Sha256
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Approval request details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequestAgentView"
+
+  # ── Owner ───────────────────────────────────────────────────────────
+
+  /v1/owner/setup:
+    post:
+      summary: Complete owner setup
+      operationId: ownerSetup
+      tags: [Owner]
+      description: |
+        Completes owner account setup using a one-time setup invite
+        (generated by an admin). Sets the owner's passphrase for future
+        login. The invite token is verified against its stored hash and
+        marked as used.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invite_id, invite_token, passphrase]
+              properties:
+                invite_id:
+                  type: string
+                  format: uuid
+                  description: ID of the setup invite.
+                invite_token:
+                  type: string
+                  description: The plaintext invite token (received from admin).
+                passphrase:
+                  type: string
+                  description: The passphrase to set (minimum 8 characters).
+      responses:
+        "200":
+          description: Setup complete.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, owner_principal_id]
+                properties:
+                  status:
+                    type: string
+                    example: setup_complete
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+        "400":
+          description: Invalid request, invite used, invite expired, or weak passphrase.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/login:
+    post:
+      summary: Owner login
+      operationId: ownerLogin
+      tags: [Owner]
+      description: |
+        Authenticates an owner with their principal ID and passphrase.
+        Returns a PASETO v4.public session token valid for the configured
+        TTL (default 8 hours). The session is stateless — the token
+        contains the owner's identity and expiry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [owner_principal_id, passphrase]
+              properties:
+                owner_principal_id:
+                  type: string
+                  format: uuid
+                passphrase:
+                  type: string
+      responses:
+        "200":
+          description: Login successful.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, expires_at, owner_principal_id]
+                properties:
+                  token:
+                    type: string
+                    description: PASETO v4.public session token (starts with `v4.public.`).
+                  expires_at:
+                    type: string
+                    format: date-time
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+        "401":
+          description: Invalid credentials or setup not completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/logout:
+    post:
+      summary: Owner logout
+      operationId: ownerLogout
+      tags: [Owner]
+      description: |
+        Logs out the owner. Since sessions are stateless (no server-side
+        session store), this is primarily an audit event. Clients should
+        discard the session token.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Logged out.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: logged_out
+
+  /v1/owner/profile:
+    get:
+      summary: Get owner profile
+      operationId: getOwnerProfile
+      tags: [Owner]
+      description: |
+        Returns the authenticated owner's profile. Sensitive fields
+        (passphrase hash/salt) are stripped from the response.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Owner profile.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Owner"
-        "400":
-          description: Validation failed (e.g. type constraint violation).
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v1/admin/owners/{ownerId}/contact-identities:
-    parameters:
-      - $ref: "#/components/parameters/OwnerId"
-    get:
-      summary: List contact identities
-      operationId: listContactIdentities
-      tags: [Admin]
-      security:
-        - BearerAuth: []
-      description: Returns all contact identities for an owner.
-      responses:
-        "200":
-          description: Contact identities.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [owner_principal_id, contact_identities]
-                properties:
-                  owner_principal_id:
-                    type: string
-                    format: uuid
-                  contact_identities:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/ContactIdentity"
-        "404":
-          description: Owner not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
     put:
-      summary: Replace contact identities
-      operationId: replaceContactIdentities
-      tags: [Admin]
-      security:
-        - BearerAuth: []
+      summary: Update owner profile
+      operationId: updateOwnerProfile
+      tags: [Owner]
       description: |
-        Full replacement of all contact identities for an owner.
-        Auto-generates `contact_id` and timestamps if not provided.
-        Recalculates the owner's identity assurance level.
+        Updates the authenticated owner's profile fields including
+        display name, contact identities, government IDs, company IDs,
+        signatories, and signatory rules. Identity validation is applied
+        and assurance level is recomputed.
+      security:
+        - OwnerSession: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [contact_identities]
               properties:
+                display_name:
+                  type: string
                 contact_identities:
                   type: array
                   items:
                     $ref: "#/components/schemas/ContactIdentity"
-      responses:
-        "200":
-          description: Contact identities replaced.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [owner_principal_id, contact_identities]
-                properties:
-                  owner_principal_id:
-                    type: string
-                    format: uuid
-                  contact_identities:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/ContactIdentity"
-        "400":
-          description: Validation failed.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Owner not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-    post:
-      summary: Add a contact identity
-      operationId: addContactIdentity
-      tags: [Admin]
-      security:
-        - BearerAuth: []
-      description: |
-        Appends a single contact identity to the owner's existing list.
-        Auto-generates `contact_id` and timestamps if not provided.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ContactIdentity"
-      responses:
-        "200":
-          description: Contact identity added. Returns the full updated list.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [owner_principal_id, contact_identities]
-                properties:
-                  owner_principal_id:
-                    type: string
-                    format: uuid
-                  contact_identities:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/ContactIdentity"
-        "400":
-          description: Validation failed.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Owner not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v1/admin/owners/{ownerId}/government-ids:
-    parameters:
-      - $ref: "#/components/parameters/OwnerId"
-    put:
-      summary: Replace government IDs
-      operationId: replaceGovernmentIds
-      tags: [Admin]
-      security:
-        - BearerAuth: []
-      description: |
-        Full replacement of all government IDs for a HUMAN owner.
-        Format is auto-validated; IDs with valid formats are upgraded from
-        `UNVERIFIED` to `FORMAT_VALID`. Recalculates identity assurance level.
-
-        Returns `400` with code `INVALID_IDENTITY` if called on an ORG owner.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [government_ids]
-              properties:
                 government_ids:
                   type: array
                   items:
                     $ref: "#/components/schemas/GovernmentId"
-      responses:
-        "200":
-          description: Government IDs replaced.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [owner_principal_id, government_ids]
-                properties:
-                  owner_principal_id:
-                    type: string
-                    format: uuid
-                  government_ids:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/GovernmentId"
-        "400":
-          description: Validation failed or type constraint violation.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Owner not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v1/admin/owners/{ownerId}/company-ids:
-    parameters:
-      - $ref: "#/components/parameters/OwnerId"
-    put:
-      summary: Replace company IDs
-      operationId: replaceCompanyIds
-      tags: [Admin]
-      security:
-        - BearerAuth: []
-      description: |
-        Full replacement of all company IDs for an ORG owner.
-        Format is auto-validated; IDs with valid formats are upgraded from
-        `UNVERIFIED` to `FORMAT_VALID`. Recalculates identity assurance level.
-
-        Returns `400` with code `INVALID_IDENTITY` if called on a HUMAN owner.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [company_ids]
-              properties:
                 company_ids:
                   type: array
                   items:
                     $ref: "#/components/schemas/CompanyId"
-      responses:
-        "200":
-          description: Company IDs replaced.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [owner_principal_id, company_ids]
-                properties:
-                  owner_principal_id:
-                    type: string
-                    format: uuid
-                  company_ids:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/CompanyId"
-        "400":
-          description: Validation failed or type constraint violation.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Owner not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v1/admin/owners/{ownerId}/signatories:
-    parameters:
-      - $ref: "#/components/parameters/OwnerId"
-    put:
-      summary: Replace signatories
-      operationId: replaceSignatories
-      tags: [Admin]
-      security:
-        - BearerAuth: []
-      description: |
-        Full replacement of all authorized signatories for an ORG owner.
-        Signatories reference HUMAN owner principal IDs.
-
-        Returns `400` with code `INVALID_IDENTITY` if called on a HUMAN owner.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [signatories]
-              properties:
                 signatories:
                   type: array
                   items:
                     $ref: "#/components/schemas/Signatory"
-      responses:
-        "200":
-          description: Signatories replaced.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [owner_principal_id, signatories]
-                properties:
-                  owner_principal_id:
-                    type: string
-                    format: uuid
-                  signatories:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Signatory"
-        "400":
-          description: Validation failed or type constraint violation.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Owner not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v1/admin/owners/{ownerId}/signatory-rules:
-    parameters:
-      - $ref: "#/components/parameters/OwnerId"
-    put:
-      summary: Replace signatory rules
-      operationId: replaceSignatoryRules
-      tags: [Admin]
-      security:
-        - BearerAuth: []
-      description: |
-        Full replacement of all signatory rules (quorum/approval requirements)
-        for an ORG owner.
-
-        Returns `400` with code `INVALID_IDENTITY` if called on a HUMAN owner.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [signatory_rules]
-              properties:
                 signatory_rules:
                   type: array
                   items:
                     $ref: "#/components/schemas/SignatoryRule"
       responses:
         "200":
-          description: Signatory rules replaced.
+          description: Updated owner profile.
           content:
             application/json:
               schema:
-                type: object
-                required: [owner_principal_id, signatory_rules]
-                properties:
-                  owner_principal_id:
-                    type: string
-                    format: uuid
-                  signatory_rules:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/SignatoryRule"
-        "400":
-          description: Validation failed or type constraint violation.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Owner not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/Owner"
 
-  # ── Admin — Agents ──────────────────────────────────────────────────
-
-  /v1/admin/agents:
+  /v1/owner/agents:
     get:
-      summary: List all agents
-      operationId: listAgents
-      tags: [Admin]
+      summary: List owner's agents
+      operationId: listOwnerAgents
+      tags: [Owner]
+      description: |
+        Returns all agents belonging to the authenticated owner.
       security:
-        - BearerAuth: []
-      description: Returns all registered agents with their full details.
+        - OwnerSession: []
       responses:
         "200":
-          description: List of agents.
+          description: Agent list.
           content:
             application/json:
               schema:
@@ -868,22 +734,72 @@ paths:
                     items:
                       $ref: "#/components/schemas/AgentRegistration"
 
-  # ── Admin — Policies ────────────────────────────────────────────────
-
-  /v1/admin/policies:
-    get:
-      summary: List all policies
-      operationId: listPolicies
-      tags: [Admin]
-      security:
-        - BearerAuth: []
+  /v1/owner/agents/{agentId}:
+    put:
+      summary: Update agent status
+      operationId: updateOwnerAgent
+      tags: [Owner]
       description: |
-        Returns all policies with their YAML content and binding information.
-        If a policy file is missing on disk, an `error` field is included
-        instead of `policy_yaml`.
+        Updates an agent's status (e.g., revoke). Only agents belonging
+        to the authenticated owner can be updated. Cross-owner access
+        returns 404.
+      security:
+        - OwnerSession: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The agent's `agent_principal_id`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [ACTIVE, REVOKED]
       responses:
         "200":
-          description: List of policies.
+          description: Agent updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agent_principal_id, agent_id, status]
+                properties:
+                  agent_principal_id:
+                    type: string
+                    format: uuid
+                  agent_id:
+                    type: string
+                  status:
+                    type: string
+        "404":
+          description: Agent not found or not owned by this owner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/policies:
+    get:
+      summary: List owner's policies
+      operationId: listOwnerPolicies
+      tags: [Owner]
+      description: |
+        Returns all policies belonging to the authenticated owner,
+        including their YAML content.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Policy list.
           content:
             application/json:
               schema:
@@ -895,83 +811,15 @@ paths:
                     items:
                       $ref: "#/components/schemas/PolicyEntry"
     post:
-      summary: Create a policy
-      operationId: createPolicy
-      tags: [Admin]
-      security:
-        - BearerAuth: []
+      summary: Create policy
+      operationId: createOwnerPolicy
+      tags: [Owner]
       description: |
-        Create a new authorization policy from a YAML document. The YAML is
-        parsed and validated before being stored.
-
-        If `applies_to_agent_principal_id` is null the policy applies to all
-        agents owned by the specified owner.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [owner_principal_id, policy_yaml]
-              properties:
-                owner_principal_id:
-                  type: string
-                  format: uuid
-                  description: Owner that this policy belongs to.
-                applies_to_agent_principal_id:
-                  type: string
-                  format: uuid
-                  nullable: true
-                  description: Restrict this policy to a specific agent. Null means all agents of the owner.
-                policy_yaml:
-                  type: string
-                  description: The full YAML policy document.
-      responses:
-        "200":
-          description: Policy created and bound.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PolicyEntry"
-        "400":
-          description: Invalid policy YAML.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /v1/admin/policies/{policyId}:
-    parameters:
-      - $ref: "#/components/parameters/PolicyId"
-    get:
-      summary: Get a policy
-      operationId: getPolicy
-      tags: [Admin]
+        Creates a new policy owned by the authenticated owner. The YAML
+        is validated against the policy schema. Optionally binds the
+        policy to a specific agent.
       security:
-        - BearerAuth: []
-      description: Returns a single policy with its YAML content.
-      responses:
-        "200":
-          description: Policy found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PolicyEntry"
-        "404":
-          description: Policy not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-    put:
-      summary: Update a policy
-      operationId: updatePolicy
-      tags: [Admin]
-      security:
-        - BearerAuth: []
-      description: |
-        Replace the YAML content of an existing policy. The new YAML is
-        parsed and validated before being written to disk.
+        - OwnerSession: []
       requestBody:
         required: true
         content:
@@ -982,7 +830,77 @@ paths:
               properties:
                 policy_yaml:
                   type: string
-                  description: The updated YAML policy document.
+                  description: The policy YAML content.
+                applies_to_agent_principal_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: If set, binds this policy to a specific agent.
+      responses:
+        "200":
+          description: Policy created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy_id, owner_principal_id]
+                properties:
+                  policy_id:
+                    type: string
+                    format: uuid
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+                  applies_to_agent_principal_id:
+                    type: string
+                    format: uuid
+                    nullable: true
+
+  /v1/owner/policies/{policyId}:
+    get:
+      summary: Get policy
+      operationId: getOwnerPolicy
+      tags: [Owner]
+      description: |
+        Returns a specific policy owned by the authenticated owner.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+      responses:
+        "200":
+          description: Policy details with YAML content.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyEntry"
+        "404":
+          description: Policy not found or not owned by this owner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Update policy
+      operationId: updateOwnerPolicy
+      tags: [Owner]
+      description: |
+        Updates the YAML content of a policy owned by the authenticated
+        owner. The new YAML is validated against the policy schema.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy_yaml]
+              properties:
+                policy_yaml:
+                  type: string
       responses:
         "200":
           description: Policy updated.
@@ -998,27 +916,17 @@ paths:
                   status:
                     type: string
                     example: updated
-        "400":
-          description: Invalid policy YAML.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Policy not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
     delete:
-      summary: Delete a policy
-      operationId: deletePolicy
-      tags: [Admin]
-      security:
-        - BearerAuth: []
+      summary: Delete policy
+      operationId: deleteOwnerPolicy
+      tags: [Owner]
       description: |
-        Permanently deletes a policy file and removes all bindings that
-        reference it.
+        Deletes a policy owned by the authenticated owner. Also removes
+        any bindings referencing this policy.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
       responses:
         "200":
           description: Policy deleted.
@@ -1034,178 +942,399 @@ paths:
                   status:
                     type: string
                     example: deleted
+
+  /v1/owner/approval-requests:
+    get:
+      summary: List approval requests
+      operationId: listOwnerApprovalRequests
+      tags: [Owner]
+      description: |
+        Returns approval requests for the authenticated owner. Supports
+        filtering by status via query parameter.
+      security:
+        - OwnerSession: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, DENIED, EXPIRED]
+          description: Filter by approval request status.
+      responses:
+        "200":
+          description: Approval request list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approval_requests]
+                properties:
+                  approval_requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApprovalRequestOwnerView"
+
+  /v1/owner/approval-requests/{approvalRequestId}:
+    get:
+      summary: Get approval request details
+      operationId: getOwnerApprovalRequest
+      tags: [Owner]
+      description: |
+        Returns the full details of an approval request, including the
+        action and justification.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/ApprovalRequestId"
+      responses:
+        "200":
+          description: Approval request details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequestOwnerView"
         "404":
-          description: Policy not found.
+          description: Approval request not found or not owned by this owner.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v1/admin/policies/{policyId}/unbind:
-    parameters:
-      - $ref: "#/components/parameters/PolicyId"
+  /v1/owner/approval-requests/{approvalRequestId}/approve:
     post:
-      summary: Remove policy bindings
-      operationId: unbindPolicy
-      tags: [Admin]
-      security:
-        - BearerAuth: []
+      summary: Approve request
+      operationId: approveApprovalRequest
+      tags: [Owner]
       description: |
-        Removes bindings for a policy without deleting the policy file. If
-        `owner_principal_id` is provided, only that owner's binding is
-        removed; otherwise all bindings for the policy are removed.
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                owner_principal_id:
-                  type: string
-                  format: uuid
-                  description: Remove only this owner's binding. Omit to remove all.
+        Approves a pending approval request and generates a single-use
+        PASETO v4.public approval token. The agent includes this token
+        in its re-authorization request to receive a proof token.
+
+        The approval token is action-scoped (bound to the specific
+        action hash) and time-limited (configurable TTL, default 1 hour).
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/ApprovalRequestId"
       responses:
         "200":
-          description: Bindings removed.
+          description: Request approved with approval token.
           content:
             application/json:
               schema:
                 type: object
-                required: [policy_id, bindings_removed]
+                required: [approval_request_id, status, approval_token, approval_token_expires_at]
                 properties:
-                  policy_id:
+                  approval_request_id:
                     type: string
                     format: uuid
-                  bindings_removed:
-                    type: integer
-                    description: Number of bindings that were removed.
-        "404":
-          description: Policy not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+                  status:
+                    type: string
+                    enum: [APPROVED]
+                  approval_token:
+                    type: string
+                    description: PASETO v4.public approval token (starts with `v4.public.`).
+                  approval_token_expires_at:
+                    type: string
+                    format: date-time
 
-  # ── Admin — Validation ──────────────────────────────────────────────
-
-  /v1/admin/validate/government-id:
+  /v1/owner/approval-requests/{approvalRequestId}/deny:
     post:
-      summary: Validate a government ID format
-      operationId: validateGovernmentId
-      tags: [Admin]
-      security:
-        - BearerAuth: []
+      summary: Deny request
+      operationId: denyApprovalRequest
+      tags: [Owner]
       description: |
-        Dry-run format validation of a government ID (e.g. Swedish
-        personnummer, US SSN pattern). No state is modified.
+        Denies a pending approval request. An optional reason can be
+        provided for the agent.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/ApprovalRequestId"
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               type: object
-              required: [country, id_type, id_value]
               properties:
-                country:
+                reason:
                   type: string
-                  description: ISO 3166-1 alpha-2 country code.
-                  example: SE
-                id_type:
-                  type: string
-                  description: Type of government ID.
-                  example: PERSONNUMMER
-                id_value:
-                  type: string
-                  description: The ID value to validate.
+                  description: Optional reason for denial.
       responses:
         "200":
-          description: Validation result.
+          description: Request denied.
           content:
             application/json:
               schema:
                 type: object
-                required: [valid, country, id_type]
+                required: [approval_request_id, status]
                 properties:
-                  valid:
-                    type: boolean
-                  country:
+                  approval_request_id:
                     type: string
-                  id_type:
+                    format: uuid
+                  status:
                     type: string
-                  message:
-                    type: string
-                    description: Explanation when `valid` is false.
+                    enum: [DENIED]
 
-  /v1/admin/validate/company-id:
-    post:
-      summary: Validate a company ID format
-      operationId: validateCompanyId
-      tags: [Admin]
-      security:
-        - BearerAuth: []
-      description: |
-        Dry-run format validation of a company registration number
-        (e.g. LEI, DUNS, Swedish organisationsnummer). No state is modified.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [id_type, id_value]
-              properties:
-                id_type:
-                  type: string
-                  description: Type of company ID (e.g. `LEI`, `DUNS`, `SE_ORGNR`).
-                id_value:
-                  type: string
-                  description: The ID value to validate.
-                country:
-                  type: string
-                  description: ISO 3166-1 alpha-2 country code (optional for some ID types).
-      responses:
-        "200":
-          description: Validation result.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [valid, id_type]
-                properties:
-                  valid:
-                    type: boolean
-                  id_type:
-                    type: string
-                  message:
-                    type: string
-                    description: Explanation when `valid` is false.
-
-  # ── Admin — Audit & Config ─────────────────────────────────────────
-
-  /v1/admin/audit:
+  /v1/owner/audit:
     get:
-      summary: Query audit log
-      operationId: getAuditLog
-      tags: [Admin]
-      security:
-        - BearerAuth: []
+      summary: Owner audit log
+      operationId: getOwnerAudit
+      tags: [Owner]
       description: |
-        Paginated read of the append-only JSONL audit log. Every
-        authorization decision, registration, key rotation, and admin action
-        is recorded here.
+        Returns audit log events related to the authenticated owner
+        and their agents. Events are filtered server-side to only
+        include entries for this owner's resources.
+      security:
+        - OwnerSession: []
       parameters:
         - name: limit
           in: query
           schema:
             type: integer
             default: 50
-          description: Maximum number of events to return.
         - name: cursor
           in: query
           schema:
-            type: string
-          description: Byte-offset cursor from a previous response for pagination.
+            type: integer
+      responses:
+        "200":
+          description: Filtered audit log.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEvent"
+                  next_cursor:
+                    type: integer
+                    nullable: true
+
+  # ── Admin ───────────────────────────────────────────────────────────
+
+  /v1/admin/owners:
+    get:
+      summary: List all owners
+      operationId: listOwners
+      tags: [Admin]
+      description: |
+        Returns all owner principals in the system.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of owners.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owners]
+                properties:
+                  owners:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Owner"
+    post:
+      summary: Create a new owner
+      operationId: createOwner
+      tags: [Admin]
+      description: |
+        Creates a new owner principal. After creation, use
+        `POST /v1/admin/owners/{ownerId}/setup-invite` to generate a
+        setup invite for the owner.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [principal_type, display_name]
+              properties:
+                principal_type:
+                  type: string
+                  enum: [HUMAN, ORG]
+                display_name:
+                  type: string
+                contact_identities:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ContactIdentity"
+                government_ids:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/GovernmentId"
+                company_ids:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CompanyId"
+                signatories:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Signatory"
+                signatory_rules:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/SignatoryRule"
+      responses:
+        "200":
+          description: Owner created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Owner"
+
+  /v1/admin/owners/{ownerId}/setup-invite:
+    post:
+      summary: Generate setup invite
+      operationId: createSetupInvite
+      tags: [Admin]
+      description: |
+        Generates a one-time setup invite for an owner. The plaintext
+        invite token is returned once and cannot be retrieved again.
+        The owner uses this token with `POST /v1/owner/setup` to set
+        their passphrase.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OwnerId"
+      responses:
+        "200":
+          description: Invite created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invite_id, invite_token, expires_at]
+                properties:
+                  invite_id:
+                    type: string
+                    format: uuid
+                  invite_token:
+                    type: string
+                    description: Plaintext invite token (one-time, give to owner securely).
+                  expires_at:
+                    type: string
+                    format: date-time
+
+  /v1/admin/owners/{ownerId}:
+    delete:
+      summary: Delete owner
+      operationId: deleteOwner
+      tags: [Admin]
+      description: |
+        Removes an owner from the system state. Does not delete
+        associated agents or policies.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OwnerId"
+      responses:
+        "200":
+          description: Owner deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owner_principal_id, status]
+                properties:
+                  owner_principal_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: deleted
+
+  /v1/admin/agents:
+    get:
+      summary: List all agents
+      operationId: listAgents
+      tags: [Admin]
+      description: Returns all registered agents across all owners.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of agents.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agents]
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgentRegistration"
+
+  /v1/admin/policies:
+    get:
+      summary: List all policies
+      operationId: listPolicies
+      tags: [Admin]
+      description: Returns all policies across all owners (read-only view).
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of policies.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policies]
+                properties:
+                  policies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PolicyEntry"
+
+  /v1/admin/policies/{policyId}:
+    get:
+      summary: Get policy details
+      operationId: getPolicy
+      tags: [Admin]
+      description: Returns a specific policy with its YAML content (read-only).
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+      responses:
+        "200":
+          description: Policy with YAML.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyEntry"
+        "404":
+          description: Policy not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/admin/audit:
+    get:
+      summary: Full audit log
+      operationId: getAuditLog
+      tags: [Admin]
+      description: Returns the complete audit log (unfiltered).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Audit log entries.
@@ -1213,126 +1342,65 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [events]
+                required: [items]
                 properties:
-                  events:
+                  items:
                     type: array
                     items:
                       $ref: "#/components/schemas/AuditEvent"
                   next_cursor:
-                    type: string
+                    type: integer
                     nullable: true
-                    description: Cursor for the next page, or null if no more entries.
 
   /v1/admin/config:
     get:
       summary: Get server configuration
       operationId: getConfig
       tags: [Admin]
+      description: |
+        Returns the merged server configuration (defaults + config.yaml).
+        Sensitive values (admin token) are redacted.
       security:
         - BearerAuth: []
-      description: |
-        Returns the active server configuration. The admin token value is
-        never included — only a `token_set` boolean indicating whether a
-        token is configured.
       responses:
         "200":
-          description: Sanitized server configuration.
+          description: Server configuration.
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  server:
-                    type: object
-                    properties:
-                      bind_address:
-                        type: string
-                  admin:
-                    type: object
-                    properties:
-                      mode:
-                        type: string
-                        enum: [localhost, token, localhost_or_token]
-                      token_set:
-                        type: boolean
-                        description: Whether an admin token is configured (actual value not exposed).
-                      allow_remote_admin:
-                        type: boolean
-                  security:
-                    type: object
-                    properties:
-                      clock_skew_seconds:
-                        type: integer
-                      nonce_ttl_seconds:
-                        type: integer
-                  tokens:
-                    type: object
-                    properties:
-                      default_ttl_seconds:
-                        type: integer
-                      max_ttl_seconds:
-                        type: integer
-                  gui:
-                    type: object
-                    properties:
-                      enabled:
-                        type: boolean
+                description: Full configuration object (structure varies).
 
   /v1/admin/state:
     get:
-      summary: Get state summary
+      summary: Get full state
       operationId: getState
       tags: [Admin]
+      description: |
+        Returns the full system state including owners, agents, policies,
+        bindings, and server keys. This is the authoritative index.
       security:
         - BearerAuth: []
-      description: |
-        High-level summary of the server's state including entity counts,
-        creation timestamp, and the currently active signing key ID.
       responses:
         "200":
-          description: State summary.
+          description: Full state data.
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  version:
-                    type: string
-                  created_at:
-                    type: string
-                    format: date-time
-                  counts:
-                    type: object
-                    properties:
-                      owners:
-                        type: integer
-                      agents:
-                        type: integer
-                      policies:
-                        type: integer
-                      bindings:
-                        type: integer
-                      keys:
-                        type: integer
-                  active_kid:
-                    type: string
-                    description: Key ID of the currently active signing key.
+                description: Complete StateData object.
 
   # ── Playground ──────────────────────────────────────────────────────
 
   /v1/playground/run:
     post:
-      summary: Run a playground evaluation
+      summary: Run a policy evaluation (sandbox)
       operationId: playgroundRun
       tags: [Playground]
       description: |
-        Sandbox endpoint for testing policy evaluation without registering
-        agents or creating persistent state. Provide a policy YAML document
-        and an action, and receive the authorization decision along with a
-        rule-by-rule debug trace showing which rules matched and why.
-
-        No proof token is issued. Useful for policy development and debugging.
+        Evaluates an action against a policy in sandbox mode — no real
+        agent, no state mutation, no proof token issued. Returns the
+        decision plus a rule-by-rule evaluation trace for debugging.
       requestBody:
         required: true
         content:
@@ -1343,37 +1411,36 @@ paths:
               properties:
                 policy_yaml:
                   type: string
-                  description: The YAML policy document to evaluate.
+                  description: The policy YAML to evaluate.
                 action:
                   $ref: "#/components/schemas/ActionRequest"
       responses:
         "200":
-          description: Evaluation result with debug trace.
+          description: Evaluation result with trace.
           content:
             application/json:
               schema:
                 type: object
-                required: [action_hash, decision, debug]
+                required: [result, matched_rule_id, reason, action_hash, obligations, trace]
                 properties:
+                  result:
+                    type: string
+                    enum: [ALLOW, DENY, REQUIRE_APPROVAL, REQUIRE_STEP_UP, REQUIRE_DEPOSIT]
+                  matched_rule_id:
+                    type: string
+                    nullable: true
+                  reason:
+                    type: string
                   action_hash:
                     type: string
-                    description: SHA-256 hash of the canonicalized action.
-                  decision:
-                    $ref: "#/components/schemas/AuthorizeResponse"
-                  debug:
-                    type: object
-                    properties:
-                      trace:
-                        type: array
-                        items:
-                          $ref: "#/components/schemas/RuleTrace"
-                        description: Per-rule evaluation trace for debugging.
-        "400":
-          description: Invalid policy YAML or action schema.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+                  obligations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Obligation"
+                  trace:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RuleTrace"
 
 components:
   securitySchemes:
@@ -1384,6 +1451,15 @@ components:
         Admin token configured in `config.yaml` under `admin.token`.
         Required when `admin.mode` is `token` or for remote access in
         `localhost_or_token` mode.
+
+    OwnerSession:
+      type: http
+      scheme: bearer
+      description: |
+        PASETO v4.public session token issued by `POST /v1/owner/login`.
+        Contains `purpose: 'owner_session'` claim to distinguish from
+        proof tokens. Default TTL is 8 hours (configurable via
+        `sessions.ttl_seconds` in `config.yaml`).
 
   parameters:
     OwnerId:
@@ -1402,6 +1478,14 @@ components:
         type: string
         format: uuid
       description: UUID of the policy.
+    ApprovalRequestId:
+      name: approvalRequestId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID of the approval request.
 
   schemas:
     Error:
@@ -1425,7 +1509,7 @@ components:
 
     PublicKey:
       type: object
-      description: An Ed25519 public key used by the server to sign PASETO proof tokens.
+      description: An Ed25519 public key used by the server to sign PASETO tokens.
       required: [kid, kty, alg, public_key_b64, created_at]
       properties:
         kid:
@@ -1465,7 +1549,7 @@ components:
           description: Unique ID for this action. Auto-generated if omitted.
         action_type:
           type: string
-          description: The type of action (e.g. `transfer`, `approve`, `sign`). Matched against policy rule patterns.
+          description: The type of action (e.g. `transfer`, `purchase`, `sign`). Matched against policy rule patterns.
         requested_at:
           type: string
           format: date-time
@@ -1596,7 +1680,7 @@ components:
           description: UUID of the owner this agent belongs to.
         status:
           type: string
-          description: Agent status (e.g. `ACTIVE`).
+          description: Agent status (e.g. `ACTIVE`, `REVOKED`).
         created_at:
           type: string
           format: date-time
@@ -1618,7 +1702,7 @@ components:
           type: string
         identity_assurance_level:
           type: integer
-          description: Computed assurance level based on verified identity data (0–3).
+          description: Computed assurance level based on verified identity data (0-3).
         created_at:
           type: string
           format: date-time
@@ -1746,6 +1830,104 @@ components:
           type: string
           description: Present instead of `policy_yaml` if the file could not be read.
 
+    ApprovalRequestAgentView:
+      type: object
+      description: Agent-facing view of an approval request.
+      required: [approval_request_id, status, action_type, action_hash, created_at, expires_at]
+      properties:
+        approval_request_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, APPROVED, DENIED, EXPIRED]
+        action_type:
+          type: string
+        action_hash:
+          type: string
+        justification:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        denial_reason:
+          type: string
+          nullable: true
+        approval_token:
+          type: string
+          description: Present only when status is APPROVED.
+        approval_token_expires_at:
+          type: string
+          format: date-time
+          description: Present only when status is APPROVED.
+
+    ApprovalRequestOwnerView:
+      type: object
+      description: Owner-facing view of an approval request with full action details.
+      required: [approval_request_id, status, agent_id, action_type, created_at, expires_at]
+      properties:
+        approval_request_id:
+          type: string
+          format: uuid
+        decision_id:
+          type: string
+          format: uuid
+        agent_principal_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+        owner_principal_id:
+          type: string
+          format: uuid
+        action_type:
+          type: string
+        action_hash:
+          type: string
+        action:
+          $ref: "#/components/schemas/ActionRequest"
+        justification:
+          type: string
+          nullable: true
+        context:
+          type: object
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, APPROVED, DENIED, EXPIRED]
+        approval_token:
+          type: string
+          nullable: true
+        approval_token_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_by:
+          type: string
+          format: uuid
+          nullable: true
+        denial_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
     AuditEvent:
       type: object
       description: |
@@ -1764,7 +1946,10 @@ components:
           description: |
             Event type, e.g. `AUTHORIZE_CALLED`, `PROOF_ISSUED`,
             `DECISION_CREATED`, `AGENT_REGISTERED`, `OWNER_CREATED`,
-            `POLICY_UPSERTED`, `SERVER_STARTED`.
+            `POLICY_UPSERTED`, `OWNER_LOGIN`, `OWNER_LOGOUT`,
+            `APPROVAL_REQUEST_CREATED`, `APPROVAL_REQUEST_APPROVED`,
+            `APPROVAL_REQUEST_DENIED`, `APPROVAL_TOKEN_USED`,
+            `SERVER_STARTED`.
         principal_id:
           type: string
           format: uuid

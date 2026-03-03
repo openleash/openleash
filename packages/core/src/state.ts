@@ -3,7 +3,9 @@ import * as path from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type {
   AgentFrontmatter,
+  ApprovalRequestFrontmatter,
   OwnerFrontmatter,
+  SetupInvite,
   StateData,
 } from './types.js';
 
@@ -91,6 +93,50 @@ function parseFrontmatter(content: string): Record<string, unknown> {
 
 export function deletePolicyFile(dataDir: string, policyId: string): void {
   const filePath = path.join(dataDir, "policies", `${policyId}.yaml`);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+}
+
+// ─── Approval request files ─────────────────────────────────────────
+
+export function writeApprovalRequestFile(
+  dataDir: string,
+  req: ApprovalRequestFrontmatter
+): void {
+  const dir = path.join(dataDir, 'approval-requests');
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${req.approval_request_id}.md`);
+  const frontmatter = stringifyYaml(req, { lineWidth: 0 }).trim();
+  const content = `---\n${frontmatter}\n---\n\nApproval request for action: ${req.action_type}\n`;
+  fs.writeFileSync(filePath, content, 'utf-8');
+}
+
+export function readApprovalRequestFile(
+  dataDir: string,
+  approvalRequestId: string
+): ApprovalRequestFrontmatter {
+  const filePath = path.join(dataDir, 'approval-requests', `${approvalRequestId}.md`);
+  const content = fs.readFileSync(filePath, 'utf-8');
+  return parseFrontmatter(content) as unknown as ApprovalRequestFrontmatter;
+}
+
+// ─── Setup invite files ─────────────────────────────────────────────
+
+export function writeSetupInviteFile(dataDir: string, invite: SetupInvite): void {
+  const dir = path.join(dataDir, 'invites');
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${invite.invite_id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(invite, null, 2), 'utf-8');
+}
+
+export function readSetupInviteFile(dataDir: string, inviteId: string): SetupInvite {
+  const filePath = path.join(dataDir, 'invites', `${inviteId}.json`);
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+export function deleteSetupInviteFile(dataDir: string, inviteId: string): void {
+  const filePath = path.join(dataDir, 'invites', `${inviteId}.json`);
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
   }

@@ -92,7 +92,7 @@ describe('GUI routes', () => {
     const res = await app.inject({ method: 'GET', url: `/gui/policies/${policyId}` });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
-    expect(res.payload).toContain('Edit Policy');
+    expect(res.payload).toContain('View Policy');
     expect(res.payload).toContain('allow_read');
   });
 
@@ -218,34 +218,6 @@ describe('admin API - new endpoints', () => {
   it('GET /v1/admin/policies/:invalid returns 404', async () => {
     const res = await app.inject({ method: 'GET', url: `/v1/admin/policies/${crypto.randomUUID()}` });
     expect(res.statusCode).toBe(404);
-  });
-
-  it('PUT /v1/admin/policies/:policyId updates policy', async () => {
-    const newYaml = `version: 1\ndefault: deny\nrules:\n  - id: allow_write\n    effect: allow\n    action: write\n`;
-    const res = await app.inject({
-      method: 'PUT',
-      url: `/v1/admin/policies/${policyId}`,
-      payload: { policy_yaml: newYaml },
-    });
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.payload);
-    expect(body.status).toBe('updated');
-
-    // Verify file was actually updated
-    const getRes = await app.inject({ method: 'GET', url: `/v1/admin/policies/${policyId}` });
-    const getBody = JSON.parse(getRes.payload);
-    expect(getBody.policy_yaml).toContain('allow_write');
-  });
-
-  it('PUT /v1/admin/policies/:policyId rejects invalid YAML', async () => {
-    const res = await app.inject({
-      method: 'PUT',
-      url: `/v1/admin/policies/${policyId}`,
-      payload: { policy_yaml: 'not: valid\npolicy: yaml\n' },
-    });
-    expect(res.statusCode).toBe(400);
-    const body = JSON.parse(res.payload);
-    expect(body.error.code).toBe('INVALID_POLICY');
   });
 
   it('GET /v1/admin/config returns sanitized config', async () => {

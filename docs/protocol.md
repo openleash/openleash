@@ -159,3 +159,70 @@ POST /v1/agents/register
 ```
 
 The server verifies the signature over the raw challenge bytes, creates the agent, and returns the agent principal ID.
+
+## Owner Session Tokens (PASETO v4.public)
+
+Owner sessions use PASETO v4.public tokens signed with the same Ed25519 key used for proof tokens. Session tokens are distinguished by the `purpose: 'owner_session'` claim.
+
+### Session Token Claims
+
+| Claim | Description |
+|---|---|
+| `iss` | Always `"openleash"` |
+| `kid` | Signing key ID |
+| `sub` | Owner `owner_principal_id` |
+| `iat` | Issued-at timestamp |
+| `exp` | Expiration timestamp |
+| `purpose` | Always `"owner_session"` |
+
+### Issuance
+
+- Issued on successful `POST /v1/owner/login`
+- Default TTL: 8 hours (configurable via `sessions.ttl_seconds`)
+- Sessions are stateless — no server-side session store
+- Revocation is only via token expiry
+
+### Authentication Flow
+
+1. Admin creates an owner (`POST /v1/admin/owners`) and generates a setup invite (`POST /v1/admin/owners/:ownerId/setup-invite`)
+2. Owner completes setup (`POST /v1/owner/setup`) with the invite token and a passphrase
+3. Owner logs in (`POST /v1/owner/login`) with principal ID and passphrase
+4. Server returns a PASETO session token
+5. Owner includes token in `Authorization: Bearer <token>` header for all owner-scoped API calls
+
+## Approval Tokens (PASETO v4.public)
+
+When an owner approves a `HUMAN_APPROVAL` request, the server issues an approval token. This is a single-use, action-scoped PASETO token that the agent includes in its re-authorization request.
+
+### Approval Token Claims
+
+| Claim | Description |
+|---|---|
+| `iss` | Always `"openleash"` |
+| `kid` | Signing key ID |
+| `iat` | Issued-at timestamp |
+| `exp` | Expiration timestamp |
+| `approval_request_id` | UUID of the approval request |
+| `owner_principal_id` | UUID of the approving owner |
+| `agent_id` | Agent ID string |
+| `action_type` | Type of action approved |
+| `action_hash` | SHA256 hash of the canonical action |
+| `purpose` | Always `"approval"` |
+
+### Approval Flow
+
+1. Agent calls `POST /v1/authorize` — receives `REQUIRE_APPROVAL` with `HUMAN_APPROVAL` obligation
+2. Agent creates approval request (`POST /v1/agent/approval-requests`) with the action and justification
+3. Owner reviews and approves (`POST /v1/owner/approval-requests/:id/approve`) — receives approval token
+4. Agent polls (`GET /v1/agent/approval-requests/:id`) — receives approval token when approved
+5. Agent re-authorizes (`POST /v1/authorize`) with the original action + `approval_token` in request body
+6. Server verifies approval token, checks action hash match, marks token as consumed, issues proof token
+
+### Single-Use Enforcement
+
+Each approval token can only be used once. After the agent re-authorizes successfully, the approval request is marked with a `consumed_at` timestamp. Subsequent attempts to use the same token return `APPROVAL_TOKEN_CONSUMED`.
+
+### TTL
+
+- Default: 1 hour (configurable via `approval.token_ttl_seconds`)
+- Approval requests themselves expire after 24 hours by default (`approval.request_ttl_seconds`)

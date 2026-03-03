@@ -10,6 +10,7 @@ export * from './policy-parser.js';
 export * from './engine.js';
 export * from './keys.js';
 export * from './tokens.js';
+export * from './passphrase.js';
 export * from './state.js';
 export * from './audit.js';
 export * from './nonce-cache.js';

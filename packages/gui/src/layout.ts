@@ -7,6 +7,15 @@ const NAV_ITEMS = [
   { path: '/gui/audit', label: 'Audit Log', icon: '&#9776;' },
 ];
 
+const OWNER_NAV_ITEMS = [
+  { path: '/gui/owner/dashboard', label: 'Dashboard', icon: '&#9632;' },
+  { path: '/gui/owner/agents', label: 'My Agents', icon: '&#9670;' },
+  { path: '/gui/owner/policies', label: 'My Policies', icon: '&#9638;' },
+  { path: '/gui/owner/approvals', label: 'Approvals', icon: '&#10003;' },
+  { path: '/gui/owner/audit', label: 'Audit Log', icon: '&#9776;' },
+  { path: '/gui/owner/profile', label: 'Profile', icon: '&#9679;' },
+];
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -24,14 +33,31 @@ export function formatNameWithId(name: string | undefined, uuid: string): string
   return `<span class="mono truncate" title="${escapeHtml(uuid)}">${escapeHtml(uuid.slice(0, 8))}...</span>`;
 }
 
-export function renderPage(title: string, content: string, activePath: string): string {
-  const navHtml = NAV_ITEMS.map((item) => {
-    const active = activePath === item.path || (item.path !== '/gui/dashboard' && activePath.startsWith(item.path));
+export function renderPage(title: string, content: string, activePath: string, context?: 'admin' | 'owner'): string {
+  const isOwner = context === 'owner';
+  const navItems = isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS;
+  const subtitle = isOwner ? 'Owner Portal' : 'Authorization GUI';
+  const dashboardPath = isOwner ? '/gui/owner/dashboard' : '/gui/dashboard';
+
+  const navHtml = navItems.map((item) => {
+    const active = activePath === item.path || (item.path !== dashboardPath && activePath.startsWith(item.path));
     return `<a href="${item.path}" class="nav-item${active ? ' active' : ''}">
       <span class="nav-icon">${item.icon}</span>
       <span class="nav-label">${item.label}</span>
     </a>`;
   }).join('\n');
+
+  const logoutHtml = isOwner ? `
+    <a href="#" class="nav-item" style="margin-top:auto;color:var(--red-bright)" onclick="
+      fetch('/v1/owner/logout', {method:'POST',headers:{'Authorization':'Bearer '+sessionStorage.getItem('openleash_session')}});
+      sessionStorage.removeItem('openleash_session');
+      document.cookie='openleash_session=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      window.location.href='/gui/owner/login';
+      return false;
+    ">
+      <span class="nav-icon">&#10005;</span>
+      <span class="nav-label">Logout</span>
+    </a>` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -711,10 +737,11 @@ export function renderPage(title: string, content: string, activePath: string): 
       </svg>
       <div class="sidebar-logo-text">
         <h1>OpenLeash</h1>
-        <span>Authorization GUI</span>
+        <span>${subtitle}</span>
       </div>
     </div>
     ${navHtml}
+    ${logoutHtml}
   </nav>
   <main class="main">
     ${content}

@@ -32,6 +32,8 @@ export function bootstrapState(rootDir: string): void {
   fs.mkdirSync(path.join(dataDir, 'owners'), { recursive: true });
   fs.mkdirSync(path.join(dataDir, 'agents'), { recursive: true });
   fs.mkdirSync(path.join(dataDir, 'policies'), { recursive: true });
+  fs.mkdirSync(path.join(dataDir, 'approval-requests'), { recursive: true });
+  fs.mkdirSync(path.join(dataDir, 'invites'), { recursive: true });
 
   // Ensure audit.log.jsonl
   const auditPath = path.join(dataDir, 'audit.log.jsonl');

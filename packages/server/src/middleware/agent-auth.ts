@@ -44,16 +44,17 @@ export function createAgentAuth(config: OpenleashConfig, dataDir: string, nonceC
 
     // Verify body hash
     const rawBody = (request as unknown as { rawBody?: Buffer }).rawBody;
-    if (!rawBody) {
+    if (rawBody) {
+      const computedHash = sha256Hex(rawBody);
+      if (computedHash !== bodySha256) {
+        reply.code(401).send({
+          error: { code: 'BODY_HASH_MISMATCH', message: 'Body hash does not match' },
+        });
+        return;
+      }
+    } else if (request.method !== 'GET' && request.method !== 'HEAD') {
       reply.code(400).send({
         error: { code: 'MISSING_BODY', message: 'Request body is required' },
-      });
-      return;
-    }
-    const computedHash = sha256Hex(rawBody);
-    if (computedHash !== bodySha256) {
-      reply.code(401).send({
-        error: { code: 'BODY_HASH_MISMATCH', message: 'Body hash does not match' },
       });
       return;
     }

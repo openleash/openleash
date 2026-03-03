@@ -51,6 +51,7 @@ openleash running at http://${config.server.bind_address}
   Admin mode: ${adminMode}
   Admin token required: ${tokenRequired ? 'yes (for remote access)' : 'no'}
   Web GUI: ${guiEnabled ? `http://${config.server.bind_address}/gui` : 'disabled'}
+  Owner Portal: ${guiEnabled ? `http://${config.server.bind_address}/gui/owner/login` : 'disabled'}
   API Reference: ${openapiSpec ? `http://${config.server.bind_address}/reference` : 'disabled (openapi/openapi.yaml not found)'}
 
 Next steps:

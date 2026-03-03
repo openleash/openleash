@@ -199,6 +199,7 @@ export interface StateData {
   agents: StateAgentEntry[];
   policies: StatePolicyEntry[];
   bindings: StateBinding[];
+  approval_requests?: StateApprovalRequestEntry[];
 }
 
 // ─── Server key file ─────────────────────────────────────────────────
@@ -225,6 +226,10 @@ export interface OwnerFrontmatter {
   company_ids?: CompanyId[];             // ORG only
   signatories?: Signatory[];             // ORG only
   signatory_rules?: SignatoryRule[];      // ORG only
+  // Owner authentication (set during setup)
+  passphrase_hash?: string;
+  passphrase_salt?: string;
+  passphrase_set_at?: string;
 }
 
 // ─── Agent file frontmatter ──────────────────────────────────────────
@@ -239,11 +244,87 @@ export interface AgentFrontmatter {
   revoked_at: string | null;
 }
 
+// ─── Approval request types ─────────────────────────────────────────
+export const ApprovalRequestStatus = z.enum([
+  'PENDING',
+  'APPROVED',
+  'DENIED',
+  'EXPIRED',
+]);
+export type ApprovalRequestStatus = z.infer<typeof ApprovalRequestStatus>;
+
+export interface ApprovalRequestFrontmatter {
+  approval_request_id: string;
+  decision_id: string;
+  agent_principal_id: string;
+  agent_id: string;
+  owner_principal_id: string;
+  action_type: string;
+  action_hash: string;
+  action: ActionRequest;
+  justification: string | null;
+  context: Record<string, unknown> | null;
+  status: ApprovalRequestStatus;
+  approval_token: string | null;
+  approval_token_expires_at: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  denial_reason: string | null;
+  consumed_at: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface StateApprovalRequestEntry {
+  approval_request_id: string;
+  owner_principal_id: string;
+  agent_principal_id: string;
+  status: ApprovalRequestStatus;
+  path: string;
+}
+
+export interface SetupInvite {
+  invite_id: string;
+  owner_principal_id: string;
+  token_hash: string;
+  token_salt: string;
+  expires_at: string;
+  used: boolean;
+  used_at: string | null;
+  created_at: string;
+}
+
+export interface SessionClaims {
+  iss: string;
+  kid: string;
+  sub: string; // owner_principal_id
+  iat: string;
+  exp: string;
+  purpose: 'owner_session';
+}
+
+export interface ApprovalTokenClaims {
+  iss: string;
+  kid: string;
+  iat: string;
+  exp: string;
+  approval_request_id: string;
+  owner_principal_id: string;
+  agent_id: string;
+  action_type: string;
+  action_hash: string;
+  purpose: 'approval';
+}
+
 // ─── Audit event ─────────────────────────────────────────────────────
 export const AuditEventType = z.enum([
   'OWNER_CREATED',
   'OWNER_UPDATED',
   'OWNER_IDENTITY_UPDATED',
+  'OWNER_SETUP_INVITE_CREATED',
+  'OWNER_SETUP_COMPLETED',
+  'OWNER_LOGIN',
+  'OWNER_LOGOUT',
   'AGENT_CHALLENGE_ISSUED',
   'AGENT_REGISTERED',
   'POLICY_UPSERTED',
@@ -257,6 +338,11 @@ export const AuditEventType = z.enum([
   'POLICY_UPDATED',
   'POLICY_DELETED',
   'POLICY_UNBOUND',
+  'APPROVAL_REQUEST_CREATED',
+  'APPROVAL_REQUEST_APPROVED',
+  'APPROVAL_REQUEST_DENIED',
+  'APPROVAL_REQUEST_EXPIRED',
+  'APPROVAL_TOKEN_USED',
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 
@@ -291,6 +377,13 @@ export interface OpenleashConfig {
   };
   gui?: {
     enabled: boolean;
+  };
+  sessions?: {
+    ttl_seconds: number;
+  };
+  approval?: {
+    request_ttl_seconds: number;
+    token_ttl_seconds: number;
   };
 }
 

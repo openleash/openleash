@@ -7,6 +7,8 @@ import { registerVerifyProofRoutes } from './routes/verify-proof.js';
 import { registerAgentRoutes } from './routes/agents.js';
 import { registerAuthorizeRoutes } from './routes/authorize.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerOwnerRoutes } from './routes/owner.js';
+import { registerAgentSelfRoutes } from './routes/agent-self.js';
 import { registerPlaygroundRoutes } from './routes/playground.js';
 import { registerGuiRoutes } from './routes/gui.js';
 import { registerReferenceRoutes } from './routes/reference.js';
@@ -47,6 +49,8 @@ export function createServer(options: CreateServerOptions) {
   registerVerifyProofRoutes(app, dataDir);
   registerAgentRoutes(app, dataDir);
   registerAuthorizeRoutes(app, dataDir, config, nonceCache);
+  registerOwnerRoutes(app, dataDir, config);
+  registerAgentSelfRoutes(app, dataDir, config, nonceCache);
   registerAdminRoutes(app, dataDir, config);
   registerPlaygroundRoutes(app, config);
 

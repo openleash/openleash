@@ -59,7 +59,7 @@ function validBadge(valid: boolean): string {
     : '<span class="badge badge-red">INVALID</span>';
 }
 
-function eventSummary(entry: AuditEntry, nameMap?: AuditNameMap): string {
+function eventSummary(entry: AuditEntry, nameMap?: AuditNameMap, policyBasePath = '/gui/policies'): string {
   const meta = entry.metadata_json;
   switch (entry.event_type) {
     case 'OWNER_CREATED':
@@ -78,7 +78,10 @@ function eventSummary(entry: AuditEntry, nameMap?: AuditNameMap): string {
     case 'POLICY_UNBOUND':
       if (meta.policy_id) {
         const pid = String(meta.policy_id);
-        return `<a href="/gui/policies/${escapeHtml(pid)}" class="table-link mono">${escapeHtml(pid.slice(0, 8))}...</a>`;
+        if (policyBasePath === '/gui/owner/policies') {
+          return `<span class="mono">${escapeHtml(pid.slice(0, 8))}...</span>`;
+        }
+        return `<a href="${policyBasePath}/${escapeHtml(pid)}" class="table-link mono">${escapeHtml(pid.slice(0, 8))}...</a>`;
       }
       return '';
     case 'AUTHORIZE_CALLED':
@@ -100,7 +103,7 @@ function eventSummary(entry: AuditEntry, nameMap?: AuditNameMap): string {
   }
 }
 
-function formatMetadata(meta: Record<string, unknown>, nameMap?: AuditNameMap): string {
+function formatMetadata(meta: Record<string, unknown>, nameMap?: AuditNameMap, policyBasePath = '/gui/policies'): string {
   const entries = Object.entries(meta);
   if (entries.length === 0) return '<span style="color:var(--text-muted)">No metadata</span>';
 
@@ -114,9 +117,12 @@ function formatMetadata(meta: Record<string, unknown>, nameMap?: AuditNameMap): 
       return `<div style="margin-bottom:6px">${keyHtml}: <span style="color:var(--text-primary)">${display}</span></div>`;
     }
 
-    // Link policy_id to editor
+    // Link policy_id to editor (admin only — owner has no detail view)
     if (key === 'policy_id' && typeof val === 'string') {
-      return `<div style="margin-bottom:6px">${keyHtml}: <a href="/gui/policies/${escapeHtml(val)}" class="table-link mono">${escapeHtml(val)}</a></div>`;
+      if (policyBasePath === '/gui/owner/policies') {
+        return `<div style="margin-bottom:6px">${keyHtml}: <span class="mono">${escapeHtml(val)}</span></div>`;
+      }
+      return `<div style="margin-bottom:6px">${keyHtml}: <a href="${policyBasePath}/${escapeHtml(val)}" class="table-link mono">${escapeHtml(val)}</a></div>`;
     }
 
     // Badge for result
@@ -134,7 +140,10 @@ function formatMetadata(meta: Record<string, unknown>, nameMap?: AuditNameMap): 
   }).join('');
 }
 
-export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditNameMap): string {
+export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditNameMap, context?: 'admin' | 'owner'): string {
+  const isOwner = context === 'owner';
+  const policyBasePath = isOwner ? '/gui/owner/policies' : '/gui/policies';
+  const auditBasePath = isOwner ? '/gui/owner/audit' : '/gui/audit';
   // Reverse to show newest first
   const items = [...data.items].reverse();
 
@@ -155,7 +164,7 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
 
     const isoTimestamp = e.timestamp;
     const displayTimestamp = e.timestamp.slice(0, 19).replace('T', ' ');
-    const summary = eventSummary(e, nameMap);
+    const summary = eventSummary(e, nameMap, policyBasePath);
 
     return `
       <tr class="accordion-row" onclick="toggleAccordion(${idx})" id="row-${idx}" data-event-type="${escapeHtml(e.event_type)}">
@@ -170,7 +179,7 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
         <td colspan="6">
           <div class="accordion-content">
             ${extraFields.join('')}
-            ${formatMetadata(e.metadata_json, nameMap)}
+            ${formatMetadata(e.metadata_json, nameMap, policyBasePath)}
           </div>
         </td>
       </tr>
@@ -179,7 +188,7 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
 
   const nextCursor = data.next_cursor;
   const loadMoreHtml = nextCursor
-    ? `<div style="text-align:center;margin-top:16px"><a href="/gui/audit?cursor=${escapeHtml(nextCursor)}" class="btn btn-secondary">Load More</a></div>`
+    ? `<div style="text-align:center;margin-top:16px"><a href="${auditBasePath}?cursor=${escapeHtml(nextCursor)}" class="btn btn-secondary">Load More</a></div>`
     : '';
 
   // Build event type filter options
@@ -285,5 +294,5 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
     </script>
   `;
 
-  return renderPage('Audit Log', content, '/gui/audit');
+  return renderPage('Audit Log', content, auditBasePath, context);
 }

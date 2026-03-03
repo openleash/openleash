@@ -129,8 +129,12 @@ export async function authorize(params: {
   agentId: string;
   privateKeyB64: string;
   action: Record<string, unknown>;
+  approvalToken?: string;
 }): Promise<Record<string, unknown>> {
-  const bodyBytes = Buffer.from(JSON.stringify(params.action));
+  const body = params.approvalToken
+    ? { ...params.action, approval_token: params.approvalToken }
+    : params.action;
+  const bodyBytes = Buffer.from(JSON.stringify(body));
   const timestamp = new Date().toISOString();
   const nonce = crypto.randomUUID();
 
@@ -210,4 +214,136 @@ export async function verifyProofOffline(params: {
   }
 
   return { valid: false, reason: 'No matching key found or invalid signature' };
+}
+
+// ─── Approval requests ──────────────────────────────────────────────
+
+export async function createApprovalRequest(params: {
+  openleashUrl: string;
+  agentId: string;
+  privateKeyB64: string;
+  decisionId: string;
+  action: Record<string, unknown>;
+  justification?: string;
+  context?: Record<string, unknown>;
+}): Promise<{
+  approval_request_id: string;
+  status: string;
+  expires_at: string;
+}> {
+  const body = {
+    decision_id: params.decisionId,
+    action: params.action,
+    ...(params.justification && { justification: params.justification }),
+    ...(params.context && { context: params.context }),
+  };
+  const bodyBytes = Buffer.from(JSON.stringify(body));
+  const timestamp = new Date().toISOString();
+  const nonce = crypto.randomUUID();
+
+  const headers = signRequest({
+    method: 'POST',
+    path: '/v1/agent/approval-requests',
+    timestamp,
+    nonce,
+    bodyBytes,
+    privateKeyB64: params.privateKeyB64,
+  });
+
+  const res = await fetch(`${params.openleashUrl}/v1/agent/approval-requests`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Agent-Id': params.agentId,
+      ...headers,
+    },
+    body: bodyBytes.toString(),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Create approval request failed: ${JSON.stringify(err)}`);
+  }
+  return res.json() as Promise<{ approval_request_id: string; status: string; expires_at: string }>;
+}
+
+export async function getApprovalRequest(params: {
+  openleashUrl: string;
+  agentId: string;
+  privateKeyB64: string;
+  approvalRequestId: string;
+}): Promise<{
+  approval_request_id: string;
+  status: string;
+  approval_token?: string;
+  approval_token_expires_at?: string;
+}> {
+  const bodyBytes = Buffer.from('{}');
+  const timestamp = new Date().toISOString();
+  const nonce = crypto.randomUUID();
+  const urlPath = `/v1/agent/approval-requests/${params.approvalRequestId}`;
+
+  const headers = signRequest({
+    method: 'GET',
+    path: urlPath,
+    timestamp,
+    nonce,
+    bodyBytes,
+    privateKeyB64: params.privateKeyB64,
+  });
+
+  const res = await fetch(`${params.openleashUrl}${urlPath}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Agent-Id': params.agentId,
+      ...headers,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Get approval request failed: ${JSON.stringify(err)}`);
+  }
+  return res.json() as Promise<{
+    approval_request_id: string;
+    status: string;
+    approval_token?: string;
+    approval_token_expires_at?: string;
+  }>;
+}
+
+export async function pollApprovalRequest(params: {
+  openleashUrl: string;
+  agentId: string;
+  privateKeyB64: string;
+  approvalRequestId: string;
+  intervalMs?: number;
+  timeoutMs?: number;
+}): Promise<{
+  approval_request_id: string;
+  status: string;
+  approval_token?: string;
+  approval_token_expires_at?: string;
+}> {
+  const interval = params.intervalMs ?? 5000;
+  const timeout = params.timeoutMs ?? 300000; // 5 minutes default
+  const start = Date.now();
+
+  while (Date.now() - start < timeout) {
+    const result = await getApprovalRequest({
+      openleashUrl: params.openleashUrl,
+      agentId: params.agentId,
+      privateKeyB64: params.privateKeyB64,
+      approvalRequestId: params.approvalRequestId,
+    });
+
+    if (result.status !== 'PENDING') {
+      return result;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+
+  throw new Error(`Approval request polling timed out after ${timeout}ms`);
 }

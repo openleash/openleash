@@ -1,5 +1,4 @@
 import { renderPage, escapeHtml, formatNameWithId } from '../layout.js';
-import { EU_PERSONAL_ID_TYPES } from '@openleash/core';
 
 // ─── Country data ─────────────────────────────────────────────────────
 
@@ -51,48 +50,6 @@ const GOV_ID_LABELS: Record<string, string> = {
   ID_CARD: 'ID Card Number',
 };
 
-// Example placeholder values per COUNTRY:ID_TYPE
-const GOV_ID_EXAMPLES: Record<string, string> = {
-  'SE:PERSONNUMMER': '19850101-1234',
-  'NL:BSN': '123456782',
-  'BE:RIJKSREGISTERNUMMER': '85.01.01-123.45',
-  'PL:PESEL': '85010112345',
-  'FI:HENKILOTUNNUS': '010185-123A',
-  'ES:DNI': '12345678Z',
-  'ES:NIE': 'X1234567L',
-  'IT:CODICE_FISCALE': 'RSSMRA85A01H501Z',
-  'DE:STEUER_ID': '12345678901',
-  'FR:NIR': '185017512345678',
-  'HR:OIB': '12345678901',
-  'BG:EGN': '8501011234',
-  'CZ:RODNE_CISLO': '850101/1234',
-  'DK:CPR': '010185-1234',
-  'EE:ISIKUKOOD': '38501011234',
-  'GR:AMKA': '01018512345',
-  'IE:PPSN': '1234567TA',
-  'LT:ASMENS_KODAS': '38501011234',
-  'PT:NIF': '123456789',
-  'RO:CNP': '1850101123456',
-  'SK:RODNE_CISLO': '850101/1234',
-  'SI:EMSO': '0101985500123',
-  'AT:ZMR': '123456789012',
-  'CY:ARC': '1234567',
-  'HU:SZEMELYI_SZAM': '123456AB',
-  'HU:ADOAZONOSITO': '1234567890',
-  'LV:PERSONAS_KODS': '010185-12345',
-  'LU:MATRICULE': '1234567890123',
-  'MT:ID_CARD': '1234567M',
-};
-
-// Example placeholder values per company ID type
-const COMPANY_ID_EXAMPLES: Record<string, string> = {
-  COMPANY_REG: '5560123456',
-  VAT: 'SE556012345601',
-  EORI: 'SE123456789012',
-  LEI: '529900T8BM49AURSDO55',
-  DUNS: '123456789',
-};
-
 // ─── Interfaces ───────────────────────────────────────────────────────
 
 export interface OwnerData {
@@ -117,7 +74,6 @@ export interface OwnerDetailData {
   policies: { policy_id: string; applies_to_agent_principal_id: string | null }[];
   audit: { event_id: string; timestamp: string; event_type: string; metadata_json: Record<string, unknown> }[];
   linked_humans?: { owner_principal_id: string; display_name: string }[];
-  all_humans?: { owner_principal_id: string; display_name: string }[];
 }
 
 // ─── Badge helpers ────────────────────────────────────────────────────
@@ -159,15 +115,6 @@ function assuranceBadge(level?: string): string {
   if (level === 'ID_FORMAT_VALID') return '<span class="badge badge-amber">ID FORMAT VALID</span>';
   if (level === 'ID_VERIFIED') return '<span class="badge badge-green">ID VERIFIED</span>';
   return `<span class="badge badge-muted">${escapeHtml(level)}</span>`;
-}
-
-// ─── Country dropdown helpers ─────────────────────────────────────────
-
-function countryOptions(): string {
-  return Object.entries(EU_COUNTRY_NAMES)
-    .sort(([, a], [, b]) => a.localeCompare(b))
-    .map(([code, name]) => `<option value="${escapeHtml(code)}">${countryFlag(code)} ${escapeHtml(code)} — ${escapeHtml(name)}</option>`)
-    .join('');
 }
 
 function contactTypeLabel(type: string): string {
@@ -301,224 +248,100 @@ export function renderOwners(owners: OwnerData[]): string {
   return renderPage('Owners', content, '/gui/owners');
 }
 
-// ─── Contact Identities Card ──────────────────────────────────────────
+// ─── Contact Identities Card (read-only) ─────────────────────────────
 
 function renderContactIdentitiesCard(owner: OwnerData): string {
   const contacts = owner.contact_identities ?? [];
-  const rows = contacts.map((c, i) => `
+  const rows = contacts.map((c) => `
     <tr>
       <td>${escapeHtml(contactTypeLabel(c.type))}</td>
       <td class="mono">${escapeHtml(c.value)}</td>
       <td>${escapeHtml(c.label ?? '-')}</td>
       <td>${escapeHtml(c.platform ?? '-')}</td>
       <td>${c.verified ? '<span class="badge badge-green">VERIFIED</span>' : '<span class="badge badge-muted">UNVERIFIED</span>'}</td>
-      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;color:var(--red-bright)" onclick="removeContact(${i})" title="Remove">&times;</button></td>
     </tr>
   `).join('');
 
   return `
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Contact Identities (${contacts.length})</div>
-        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="toggleIdentityForm('contact-form')">+ Add Contact</button>
-      </div>
+      <div class="card-title">Contact Identities (${contacts.length})</div>
       ${contacts.length > 0 ? `
       <table>
         <thead>
-          <tr><th>Type</th><th>Value</th><th>Label</th><th>Platform</th><th>Status</th><th></th></tr>
+          <tr><th>Type</th><th>Value</th><th>Label</th><th>Platform</th><th>Status</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      ` : '<p style="color:var(--text-muted);font-size:13px">No contact identities added yet</p>'}
-
-      <div id="contact-form" class="hidden" style="margin-top:16px;border-top:1px solid var(--border-subtle);padding-top:16px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-group">
-            <label for="contact-type">Type</label>
-            <select id="contact-type" class="form-select" onchange="onContactTypeChange()">
-              <option value="EMAIL">Email</option>
-              <option value="PHONE">Phone</option>
-              <option value="INSTANT_MESSAGE">Instant Message</option>
-              <option value="SOCIAL_MEDIA">Social Media</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="contact-value" id="contact-value-label">Email Address</label>
-            <input type="text" id="contact-value" class="form-input" placeholder="alice@example.com">
-            <div class="form-help" id="contact-value-help">Standard email address</div>
-          </div>
-          <div class="form-group">
-            <label for="contact-label">Label (optional)</label>
-            <input type="text" id="contact-label" class="form-input" placeholder="e.g. Work email">
-          </div>
-          <div class="form-group" id="contact-platform-group" style="display:none">
-            <label for="contact-platform">Platform</label>
-            <select id="contact-platform" class="form-select">
-              <option value="">Select platform</option>
-              <option value="SIGNAL">Signal</option>
-              <option value="TELEGRAM">Telegram</option>
-              <option value="WHATSAPP">WhatsApp</option>
-              <option value="SLACK">Slack</option>
-              <option value="DISCORD">Discord</option>
-              <option value="LINKEDIN">LinkedIn</option>
-              <option value="X">X (Twitter)</option>
-              <option value="GITHUB">GitHub</option>
-              <option value="MASTODON">Mastodon</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-        </div>
-        <div id="contact-validation-hint" style="font-size:12px;margin-bottom:8px"></div>
-        <div class="toolbar" style="margin-top:4px">
-          <button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="addContact()">Add Contact</button>
-          <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="toggleIdentityForm('contact-form')">Cancel</button>
-        </div>
-      </div>
+      ` : '<p style="color:var(--text-muted);font-size:13px">No contact identities</p>'}
     </div>
   `;
 }
 
-// ─── Government IDs Card ──────────────────────────────────────────────
+// ─── Government IDs Card (read-only) ─────────────────────────────────
 
 function renderGovernmentIdsCard(owner: OwnerData): string {
   const ids = owner.government_ids ?? [];
-  const rows = ids.map((g, i) => `
+  const rows = ids.map((g) => `
     <tr>
-      <td>${countryFlag(g.country)} ${escapeHtml(g.country)}</td>
+      <td>${countryFlag(g.country)} ${escapeHtml(g.country)} ${escapeHtml(EU_COUNTRY_NAMES[g.country] ?? '')}</td>
       <td>${escapeHtml(GOV_ID_LABELS[g.id_type] ?? g.id_type.replace(/_/g, ' '))}</td>
       <td class="mono">${escapeHtml(g.id_value)}</td>
       <td>${verificationBadge(g.verification_level)}</td>
-      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;color:var(--red-bright)" onclick="removeGovernmentId(${i})" title="Remove">&times;</button></td>
     </tr>
   `).join('');
 
-  const countryOpts = countryOptions();
-
   return `
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Government IDs (${ids.length})</div>
-        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="toggleIdentityForm('gov-form')">+ Add ID</button>
-      </div>
+      <div class="card-title">Government IDs (${ids.length})</div>
       ${ids.length > 0 ? `
       <table>
         <thead>
-          <tr><th>Country</th><th>ID Type</th><th>Value</th><th>Status</th><th></th></tr>
+          <tr><th>Country</th><th>ID Type</th><th>Value</th><th>Status</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      ` : '<p style="color:var(--text-muted);font-size:13px">No government IDs added yet</p>'}
-
-      <div id="gov-form" class="hidden" style="margin-top:16px;border-top:1px solid var(--border-subtle);padding-top:16px">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-          <div class="form-group">
-            <label for="gov-country">Country</label>
-            <select id="gov-country" class="form-select" onchange="onGovCountryChange()">
-              <option value="" disabled selected>Select country</option>
-              ${countryOpts}
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="gov-id-type">ID Type</label>
-            <select id="gov-id-type" class="form-select" onchange="onGovIdTypeChange()">
-              <option value="" disabled selected>Select country first</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="gov-id-value">ID Value</label>
-            <input type="text" id="gov-id-value" class="form-input" placeholder="Select country and ID type first">
-            <div class="form-help" id="gov-id-help"></div>
-          </div>
-        </div>
-        <div id="gov-validation-result" style="font-size:12px;margin-bottom:8px"></div>
-        <div class="toolbar" style="margin-top:4px">
-          <button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="addGovernmentId()">Add Government ID</button>
-          <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="validateGovId()">Validate</button>
-          <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="toggleIdentityForm('gov-form')">Cancel</button>
-        </div>
-      </div>
+      ` : '<p style="color:var(--text-muted);font-size:13px">No government IDs</p>'}
     </div>
   `;
 }
 
-// ─── Company IDs Card ─────────────────────────────────────────────────
+// ─── Company IDs Card (read-only) ────────────────────────────────────
 
 function renderCompanyIdsCard(owner: OwnerData): string {
   const ids = owner.company_ids ?? [];
-  const rows = ids.map((c, i) => `
+  const rows = ids.map((c) => `
     <tr>
       <td>${escapeHtml(c.id_type)}</td>
       <td>${c.country ? `${countryFlag(c.country)} ${escapeHtml(c.country)}` : '-'}</td>
       <td class="mono">${escapeHtml(c.id_value)}</td>
       <td>${verificationBadge(c.verification_level)}</td>
-      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;color:var(--red-bright)" onclick="removeCompanyId(${i})" title="Remove">&times;</button></td>
     </tr>
   `).join('');
 
-  const countryOpts = countryOptions();
-
   return `
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Company IDs (${ids.length})</div>
-        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="toggleIdentityForm('company-form')">+ Add ID</button>
-      </div>
+      <div class="card-title">Company IDs (${ids.length})</div>
       ${ids.length > 0 ? `
       <table>
         <thead>
-          <tr><th>Type</th><th>Country</th><th>Value</th><th>Status</th><th></th></tr>
+          <tr><th>Type</th><th>Country</th><th>Value</th><th>Status</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      ` : '<p style="color:var(--text-muted);font-size:13px">No company IDs added yet</p>'}
-
-      <div id="company-form" class="hidden" style="margin-top:16px;border-top:1px solid var(--border-subtle);padding-top:16px">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-          <div class="form-group">
-            <label for="company-id-type">ID Type</label>
-            <select id="company-id-type" class="form-select" onchange="onCompanyTypeChange()">
-              <option value="" disabled selected>Select type</option>
-              <option value="COMPANY_REG">Company Registration</option>
-              <option value="VAT">VAT Number</option>
-              <option value="EORI">EORI</option>
-              <option value="LEI">LEI</option>
-              <option value="DUNS">DUNS</option>
-            </select>
-          </div>
-          <div class="form-group" id="company-country-group" style="display:none">
-            <label for="company-country">Country</label>
-            <select id="company-country" class="form-select">
-              <option value="" disabled selected>Select country</option>
-              ${countryOpts}
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="company-id-value">ID Value</label>
-            <input type="text" id="company-id-value" class="form-input" placeholder="Select a type first">
-            <div class="form-help" id="company-id-help"></div>
-          </div>
-        </div>
-        <div id="company-validation-result" style="font-size:12px;margin-bottom:8px"></div>
-        <div class="toolbar" style="margin-top:4px">
-          <button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="addCompanyId()">Add Company ID</button>
-          <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="validateCompanyId()">Validate</button>
-          <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="toggleIdentityForm('company-form')">Cancel</button>
-        </div>
-      </div>
+      ` : '<p style="color:var(--text-muted);font-size:13px">No company IDs</p>'}
     </div>
   `;
 }
 
-// ─── Signatories Card ─────────────────────────────────────────────────
+// ─── Signatories Card (read-only) ────────────────────────────────────
 
 function renderSignatoriesCard(
   owner: OwnerData,
   linkedHumans: { owner_principal_id: string; display_name: string }[],
-  allHumans: { owner_principal_id: string; display_name: string }[],
 ): string {
   const signatories = owner.signatories ?? [];
   const humanMap = new Map(linkedHumans.map((h) => [h.owner_principal_id, h.display_name]));
-  const rows = signatories.map((s, i) => {
+  const rows = signatories.map((s) => {
     const name = humanMap.get(s.human_owner_principal_id) ?? s.human_owner_principal_id.slice(0, 8) + '...';
     return `
     <tr>
@@ -526,140 +349,57 @@ function renderSignatoriesCard(
       <td>${escapeHtml(s.role.replace(/_/g, ' '))}</td>
       <td>${escapeHtml(s.signing_authority)}</td>
       <td>${escapeHtml(s.scope_description ?? '-')}</td>
-      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;color:var(--red-bright)" onclick="removeSignatory(${i})" title="Remove">&times;</button></td>
     </tr>
     `;
   }).join('');
 
-  const humanOptions = allHumans.map((h) =>
-    `<option value="${escapeHtml(h.owner_principal_id)}">${escapeHtml(h.display_name)} (${escapeHtml(h.owner_principal_id.slice(0, 8))}...)</option>`
-  ).join('');
-
   return `
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Signatories (${signatories.length})</div>
-        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="toggleIdentityForm('sig-form')">+ Add Signatory</button>
-      </div>
+      <div class="card-title">Signatories (${signatories.length})</div>
       ${signatories.length > 0 ? `
       <table>
         <thead>
-          <tr><th>Person</th><th>Role</th><th>Authority</th><th>Scope</th><th></th></tr>
+          <tr><th>Person</th><th>Role</th><th>Authority</th><th>Scope</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      ` : '<p style="color:var(--text-muted);font-size:13px">No signatories added yet</p>'}
-
-      <div id="sig-form" class="hidden" style="margin-top:16px;border-top:1px solid var(--border-subtle);padding-top:16px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-group">
-            <label for="sig-human">Person (Human Owner)</label>
-            <select id="sig-human" class="form-select">
-              <option value="" disabled selected>Select a human owner</option>
-              ${humanOptions}
-            </select>
-            ${allHumans.length === 0 ? '<div class="form-help" style="color:var(--amber-bright)">No human owners exist yet. Create a human owner first.</div>' : ''}
-          </div>
-          <div class="form-group">
-            <label for="sig-role">Role</label>
-            <select id="sig-role" class="form-select">
-              <option value="CEO">CEO</option>
-              <option value="BOARD_CHAIRMAN">Board Chairman</option>
-              <option value="BOARD_MEMBER">Board Member</option>
-              <option value="AUTHORIZED_SIGNATORY">Authorized Signatory</option>
-              <option value="PROCURATOR">Procurator</option>
-              <option value="MANAGING_DIRECTOR">Managing Director</option>
-              <option value="SECRETARY">Secretary</option>
-              <option value="TREASURER">Treasurer</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="sig-authority">Signing Authority</label>
-            <select id="sig-authority" class="form-select">
-              <option value="SOLE">Sole</option>
-              <option value="JOINT">Joint</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="sig-scope">Scope (optional)</label>
-            <input type="text" id="sig-scope" class="form-input" placeholder="e.g. Transactions up to 100k EUR">
-          </div>
-        </div>
-        <div class="toolbar" style="margin-top:4px">
-          <button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="addSignatory()">Add Signatory</button>
-          <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="toggleIdentityForm('sig-form')">Cancel</button>
-        </div>
-      </div>
+      ` : '<p style="color:var(--text-muted);font-size:13px">No signatories</p>'}
     </div>
   `;
 }
 
-// ─── Signatory Rules Card ─────────────────────────────────────────────
+// ─── Signatory Rules Card (read-only) ────────────────────────────────
 
 function renderSignatoryRulesCard(owner: OwnerData): string {
   const rules = owner.signatory_rules ?? [];
-  const rows = rules.map((r, i) => `
+  const rows = rules.map((r) => `
     <tr>
       <td>${escapeHtml(r.description)}</td>
       <td>${r.required_signatories}</td>
       <td>${escapeHtml((r.from_roles ?? []).join(', ') || 'Any')}</td>
       <td>${escapeHtml(r.scope_description ?? '-')}</td>
-      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;color:var(--red-bright)" onclick="removeSignatoryRule(${i})" title="Remove">&times;</button></td>
     </tr>
   `).join('');
 
   return `
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Signatory Rules (${rules.length})</div>
-        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="toggleIdentityForm('rule-form')">+ Add Rule</button>
-      </div>
+      <div class="card-title">Signatory Rules (${rules.length})</div>
       ${rules.length > 0 ? `
       <table>
         <thead>
-          <tr><th>Description</th><th>Required</th><th>Roles</th><th>Scope</th><th></th></tr>
+          <tr><th>Description</th><th>Required</th><th>Roles</th><th>Scope</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      ` : '<p style="color:var(--text-muted);font-size:13px">No signatory rules defined yet</p>'}
-
-      <div id="rule-form" class="hidden" style="margin-top:16px;border-top:1px solid var(--border-subtle);padding-top:16px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-group">
-            <label for="rule-desc">Description</label>
-            <input type="text" id="rule-desc" class="form-input" placeholder="e.g. Two board members must co-sign">
-          </div>
-          <div class="form-group">
-            <label for="rule-required">Required Signatories</label>
-            <input type="number" id="rule-required" class="form-input" min="1" value="2">
-          </div>
-          <div class="form-group">
-            <label for="rule-roles">From Roles (optional, comma-separated)</label>
-            <input type="text" id="rule-roles" class="form-input" placeholder="e.g. BOARD_MEMBER, CEO">
-          </div>
-          <div class="form-group">
-            <label for="rule-scope">Scope (optional)</label>
-            <input type="text" id="rule-scope" class="form-input" placeholder="e.g. Transactions above 50k EUR">
-          </div>
-        </div>
-        <div class="toolbar" style="margin-top:4px">
-          <button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="addSignatoryRule()">Add Rule</button>
-          <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="toggleIdentityForm('rule-form')">Cancel</button>
-        </div>
-      </div>
+      ` : '<p style="color:var(--text-muted);font-size:13px">No signatory rules</p>'}
     </div>
   `;
 }
 
 // ─── Owner Detail Page ────────────────────────────────────────────────
 
-function safeJsonEmbed(data: unknown): string {
-  return JSON.stringify(data).replace(/<\//g, '<\\/');
-}
-
 export function renderOwnerDetail(data: OwnerDetailData): string {
-  const { owner, agents, policies, audit, linked_humans, all_humans } = data;
+  const { owner, agents, policies, audit, linked_humans } = data;
 
   const agentRows = agents.map((a) => `
     <tr>
@@ -706,19 +446,6 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     `).join('')
     : '<tr><td colspan="2" style="color:var(--text-muted)">No custom attributes</td></tr>';
 
-  // Embedded data for JavaScript form handlers
-  const embeddedOwnerData = safeJsonEmbed({
-    contact_identities: owner.contact_identities ?? [],
-    government_ids: owner.government_ids ?? [],
-    company_ids: owner.company_ids ?? [],
-    signatories: owner.signatories ?? [],
-    signatory_rules: owner.signatory_rules ?? [],
-  });
-  const embeddedEuIdTypes = safeJsonEmbed(EU_PERSONAL_ID_TYPES);
-  const embeddedGovIdLabels = safeJsonEmbed(GOV_ID_LABELS);
-  const embeddedGovIdExamples = safeJsonEmbed(GOV_ID_EXAMPLES);
-  const embeddedCompanyIdExamples = safeJsonEmbed(COMPANY_ID_EXAMPLES);
-
   const content = `
     <div class="page-header">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
@@ -729,7 +456,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       <p class="mono">${escapeHtml(owner.owner_principal_id)}</p>
     </div>
 
-    <div id="identity-alert"></div>
+    <div id="invite-alert"></div>
 
     <div class="card">
       <div class="card-title">Details</div>
@@ -759,6 +486,23 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       </table>
     </div>
 
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:0">Setup Invite</div>
+      </div>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">
+        Generate a one-time setup invite link for this owner to set up their account (passphrase, contact info, IDs).
+      </p>
+      <button id="invite-btn" class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="generateInvite()">Generate Setup Invite</button>
+      <div id="invite-result" class="hidden" style="margin-top:12px">
+        <div class="card-title" style="font-size:12px">Setup Link (copy and share securely — shown once)</div>
+        <div style="display:flex;gap:8px;align-items:stretch">
+          <pre id="invite-link" class="config-block" style="word-break:break-all;white-space:pre-wrap;margin-bottom:0;flex:1"></pre>
+          <button type="button" id="copy-btn" onclick="copyLink()" class="btn btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;align-self:start">Copy</button>
+        </div>
+      </div>
+    </div>
+
     ${attrEntries.length > 0 ? `
     <div class="card">
       <div class="card-title">Attributes</div>
@@ -769,7 +513,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     ${renderContactIdentitiesCard(owner)}
     ${owner.principal_type === 'HUMAN' ? renderGovernmentIdsCard(owner) : ''}
     ${owner.principal_type === 'ORG' ? renderCompanyIdsCard(owner) : ''}
-    ${owner.principal_type === 'ORG' ? renderSignatoriesCard(owner, linked_humans ?? [], all_humans ?? []) : ''}
+    ${owner.principal_type === 'ORG' ? renderSignatoriesCard(owner, linked_humans ?? []) : ''}
     ${owner.principal_type === 'ORG' ? renderSignatoryRulesCard(owner) : ''}
 
     <div class="card">
@@ -826,11 +570,6 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
 
     <script>
       var ownerId = '${escapeHtml(owner.owner_principal_id)}';
-      var ownerIdentity = ${embeddedOwnerData};
-      var euIdTypes = ${embeddedEuIdTypes};
-      var govIdLabels = ${embeddedGovIdLabels};
-      var govIdExamples = ${embeddedGovIdExamples};
-      var companyIdExamples = ${embeddedCompanyIdExamples};
 
       function toggleAccordion(idx) {
         var row = document.getElementById('row-' + idx);
@@ -845,497 +584,45 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         }
       }
 
-      function toggleIdentityForm(formId) {
-        document.getElementById(formId).classList.toggle('hidden');
+      function copyLink() {
+        var linkText = document.getElementById('invite-link').textContent;
+        navigator.clipboard.writeText(linkText).then(function() {
+          var btn = document.getElementById('copy-btn');
+          btn.textContent = 'Copied!';
+          setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+        });
       }
 
-      function showIdentityAlert(msg, type) {
-        var container = document.getElementById('identity-alert');
-        container.innerHTML = '<div class="alert alert-' + type + '">' + msg.replace(/</g, '&lt;') + '</div>';
-        if (type === 'success') {
-          setTimeout(function() { window.location.reload(); }, 1000);
-        }
-      }
-
-      // ── Contact Identity ──
-
-      function onContactTypeChange() {
-        var type = document.getElementById('contact-type').value;
-        var valueInput = document.getElementById('contact-value');
-        var valueLabel = document.getElementById('contact-value-label');
-        var valueHelp = document.getElementById('contact-value-help');
-        var platformGroup = document.getElementById('contact-platform-group');
-        var labelInput = document.getElementById('contact-label');
-        var hint = document.getElementById('contact-validation-hint');
-        hint.innerHTML = '';
-
-        switch (type) {
-          case 'EMAIL':
-            valueLabel.textContent = 'Email Address';
-            valueInput.placeholder = 'alice@example.com';
-            valueHelp.textContent = 'Standard email address';
-            labelInput.placeholder = 'e.g. Work email';
-            platformGroup.style.display = 'none';
-            break;
-          case 'PHONE':
-            valueLabel.textContent = 'Phone Number';
-            valueInput.placeholder = '+46 70 123 4567';
-            valueHelp.textContent = 'International format: + country code + number';
-            labelInput.placeholder = 'e.g. Mobile';
-            platformGroup.style.display = 'none';
-            break;
-          case 'INSTANT_MESSAGE':
-            valueLabel.textContent = 'Username / Handle';
-            valueInput.placeholder = '@alice';
-            valueHelp.textContent = 'Username or handle on the selected platform';
-            labelInput.placeholder = 'e.g. Work IM';
-            platformGroup.style.display = '';
-            break;
-          case 'SOCIAL_MEDIA':
-            valueLabel.textContent = 'Profile URL / Handle';
-            valueInput.placeholder = '@alice or profile URL';
-            valueHelp.textContent = 'Profile handle or full URL';
-            labelInput.placeholder = 'e.g. Company page';
-            platformGroup.style.display = '';
-            break;
-        }
-      }
-
-      async function addContact() {
-        var type = document.getElementById('contact-type').value;
-        var value = document.getElementById('contact-value').value.trim();
-        var label = document.getElementById('contact-label').value.trim();
-        var platform = document.getElementById('contact-platform').value;
-
-        if (!value) { showIdentityAlert('Value is required', 'error'); return; }
-
-        // Strict validation
-        if (type === 'EMAIL') {
-          if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) {
-            showIdentityAlert('Invalid email format. Expected format: alice@example.com', 'error');
-            return;
-          }
-        } else if (type === 'PHONE') {
-          if (!/^\\+\\d[\\d\\s\\-()]{6,18}$/.test(value)) {
-            showIdentityAlert('Invalid phone format. Must start with + followed by country code and number. Example: +46 70 123 4567', 'error');
-            return;
-          }
-        } else if (type === 'INSTANT_MESSAGE' || type === 'SOCIAL_MEDIA') {
-          if (!platform) {
-            showIdentityAlert('Please select a platform', 'error');
-            return;
-          }
-        }
-
-        var body = { type: type, value: value };
-        if (label) body.label = label;
-        if (platform) body.platform = platform;
+      async function generateInvite() {
+        var btn = document.getElementById('invite-btn');
+        var alertContainer = document.getElementById('invite-alert');
+        alertContainer.innerHTML = '';
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
 
         try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/contact-identities', {
+          var res = await fetch('/v1/admin/owners/' + ownerId + '/setup-invite', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: JSON.stringify({}),
           });
+
           if (!res.ok) {
             var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to add contact');
+            throw new Error(err.error ? err.error.message : 'Failed to generate invite');
           }
-          showIdentityAlert('Contact added. Reloading...', 'success');
-        } catch (err) {
-          showIdentityAlert(err.message || String(err), 'error');
-        }
-      }
 
-      // ── Government ID ──
-
-      function onGovCountryChange() {
-        var country = document.getElementById('gov-country').value;
-        var typeSelect = document.getElementById('gov-id-type');
-        typeSelect.innerHTML = '<option value="" disabled selected>Select ID type</option>';
-        var types = euIdTypes[country];
-        if (types) {
-          types.forEach(function(t) {
-            var opt = document.createElement('option');
-            opt.value = t;
-            opt.textContent = govIdLabels[t] || t.replace(/_/g, ' ');
-            typeSelect.appendChild(opt);
-          });
-          // Auto-select if only one type
-          if (types.length === 1) {
-            typeSelect.value = types[0];
-            onGovIdTypeChange();
-          }
-        }
-        document.getElementById('gov-validation-result').innerHTML = '';
-      }
-
-      function onGovIdTypeChange() {
-        var country = document.getElementById('gov-country').value;
-        var idType = document.getElementById('gov-id-type').value;
-        var valueInput = document.getElementById('gov-id-value');
-        var helpDiv = document.getElementById('gov-id-help');
-
-        if (country && idType) {
-          var example = govIdExamples[country + ':' + idType];
-          if (example) {
-            valueInput.placeholder = example;
-            helpDiv.textContent = 'Example: ' + example;
-          } else {
-            valueInput.placeholder = 'Enter ID value';
-            helpDiv.textContent = '';
-          }
-        }
-        document.getElementById('gov-validation-result').innerHTML = '';
-      }
-
-      async function validateGovId() {
-        var country = document.getElementById('gov-country').value;
-        var idType = document.getElementById('gov-id-type').value;
-        var idValue = document.getElementById('gov-id-value').value.trim();
-        var resultDiv = document.getElementById('gov-validation-result');
-
-        if (!country || !idType || !idValue) {
-          resultDiv.innerHTML = '<span style="color:var(--amber-bright)">Fill in all fields to validate</span>';
-          return;
-        }
-
-        try {
-          var res = await fetch('/v1/admin/validate/government-id', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ country: country, id_type: idType, id_value: idValue })
-          });
           var data = await res.json();
-          if (data.valid) {
-            resultDiv.innerHTML = '<span style="color:var(--green-bright)">\\u2713 Format valid</span>';
-          } else {
-            resultDiv.innerHTML = '<span style="color:var(--red-bright)">\\u2717 ' + (data.error || 'Invalid format').replace(/</g, '&lt;') + '</span>';
-          }
-          return data;
+          var resultDiv = document.getElementById('invite-result');
+          resultDiv.classList.remove('hidden');
+          var setupUrl = window.location.origin + '/gui/owner/setup?invite_id=' + encodeURIComponent(data.invite_id) + '&invite_token=' + encodeURIComponent(data.invite_token) + '&owner_id=' + encodeURIComponent(ownerId);
+          document.getElementById('invite-link').textContent = setupUrl;
+          btn.style.display = 'none';
         } catch (err) {
-          resultDiv.innerHTML = '<span style="color:var(--red-bright)">Validation error</span>';
-          return { valid: false };
-        }
-      }
-
-      async function addGovernmentId() {
-        var country = document.getElementById('gov-country').value;
-        var idType = document.getElementById('gov-id-type').value;
-        var idValue = document.getElementById('gov-id-value').value.trim();
-
-        if (!country || !idType || !idValue) {
-          showIdentityAlert('Country, ID type, and value are required', 'error');
-          return;
-        }
-
-        // One government ID per country
-        var existingForCountry = ownerIdentity.government_ids.find(function(g) { return g.country === country; });
-        if (existingForCountry) {
-          showIdentityAlert('Only one government ID is allowed per country. This owner already has an ID for ' + country + '.', 'error');
-          return;
-        }
-
-        // Strict: validate format before allowing add
-        var valResult = await validateGovId();
-        if (!valResult || !valResult.valid) {
-          showIdentityAlert('Cannot add: the ID value does not pass format validation. Please correct the value.', 'error');
-          return;
-        }
-
-        var existing = ownerIdentity.government_ids.slice();
-        existing.push({ country: country, id_type: idType, id_value: idValue });
-
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/government-ids', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ government_ids: existing })
-          });
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to add government ID');
-          }
-          showIdentityAlert('Government ID added. Reloading...', 'success');
-        } catch (err) {
-          showIdentityAlert(err.message || String(err), 'error');
-        }
-      }
-
-      // ── Company ID ──
-
-      function onCompanyTypeChange() {
-        var type = document.getElementById('company-id-type').value;
-        var countryGroup = document.getElementById('company-country-group');
-        var valueInput = document.getElementById('company-id-value');
-        var helpDiv = document.getElementById('company-id-help');
-
-        countryGroup.style.display = (type === 'COMPANY_REG' || type === 'VAT') ? '' : 'none';
-
-        var example = companyIdExamples[type];
-        if (example) {
-          valueInput.placeholder = example;
-          if (type === 'VAT') helpDiv.textContent = 'Include country prefix (e.g. SE, DE, FR)';
-          else if (type === 'LEI') helpDiv.textContent = '20 alphanumeric characters (ISO 17442)';
-          else if (type === 'DUNS') helpDiv.textContent = '9 digits';
-          else if (type === 'EORI') helpDiv.textContent = 'Country prefix + up to 15 characters';
-          else helpDiv.textContent = 'Example: ' + example;
-        } else {
-          valueInput.placeholder = 'Enter ID value';
-          helpDiv.textContent = '';
-        }
-        document.getElementById('company-validation-result').innerHTML = '';
-      }
-
-      async function validateCompanyId() {
-        var idType = document.getElementById('company-id-type').value;
-        var country = document.getElementById('company-country').value;
-        var idValue = document.getElementById('company-id-value').value.trim();
-        var resultDiv = document.getElementById('company-validation-result');
-
-        if (!idType || !idValue) {
-          resultDiv.innerHTML = '<span style="color:var(--amber-bright)">Fill in type and value to validate</span>';
-          return;
-        }
-
-        var body = { id_type: idType, id_value: idValue };
-        if (country) body.country = country;
-
-        try {
-          var res = await fetch('/v1/admin/validate/company-id', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-          });
-          var data = await res.json();
-          if (data.valid) {
-            resultDiv.innerHTML = '<span style="color:var(--green-bright)">\\u2713 Format valid</span>';
-          } else {
-            resultDiv.innerHTML = '<span style="color:var(--red-bright)">\\u2717 ' + (data.error || 'Invalid format').replace(/</g, '&lt;') + '</span>';
-          }
-          return data;
-        } catch (err) {
-          resultDiv.innerHTML = '<span style="color:var(--red-bright)">Validation error</span>';
-          return { valid: false };
-        }
-      }
-
-      async function addCompanyId() {
-        var idType = document.getElementById('company-id-type').value;
-        var country = document.getElementById('company-country').value;
-        var idValue = document.getElementById('company-id-value').value.trim();
-
-        if (!idType || !idValue) {
-          showIdentityAlert('ID type and value are required', 'error');
-          return;
-        }
-
-        if ((idType === 'COMPANY_REG' || idType === 'VAT') && !country) {
-          showIdentityAlert('Country is required for ' + idType, 'error');
-          return;
-        }
-
-        // Strict: validate format before allowing add
-        var valResult = await validateCompanyId();
-        if (!valResult || !valResult.valid) {
-          showIdentityAlert('Cannot add: the ID value does not pass format validation. Please correct the value.', 'error');
-          return;
-        }
-
-        var item = { id_type: idType, id_value: idValue };
-        if (country) item.country = country;
-
-        var existing = ownerIdentity.company_ids.slice();
-        existing.push(item);
-
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/company-ids', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_ids: existing })
-          });
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to add company ID');
-          }
-          showIdentityAlert('Company ID added. Reloading...', 'success');
-        } catch (err) {
-          showIdentityAlert(err.message || String(err), 'error');
-        }
-      }
-
-      // ── Signatory ──
-
-      async function addSignatory() {
-        var humanId = document.getElementById('sig-human').value;
-        var role = document.getElementById('sig-role').value;
-        var authority = document.getElementById('sig-authority').value;
-        var scope = document.getElementById('sig-scope').value.trim();
-
-        if (!humanId || !role || !authority) {
-          showIdentityAlert('Person, role, and signing authority are required', 'error');
-          return;
-        }
-
-        var item = { human_owner_principal_id: humanId, role: role, signing_authority: authority };
-        if (scope) item.scope_description = scope;
-
-        var existing = ownerIdentity.signatories.slice();
-        existing.push(item);
-
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/signatories', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ signatories: existing })
-          });
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to add signatory');
-          }
-          showIdentityAlert('Signatory added. Reloading...', 'success');
-        } catch (err) {
-          showIdentityAlert(err.message || String(err), 'error');
-        }
-      }
-
-      // ── Signatory Rule ──
-
-      async function addSignatoryRule() {
-        var description = document.getElementById('rule-desc').value.trim();
-        var required = parseInt(document.getElementById('rule-required').value, 10);
-        var rolesStr = document.getElementById('rule-roles').value.trim();
-        var scope = document.getElementById('rule-scope').value.trim();
-
-        if (!description || !required || required < 1) {
-          showIdentityAlert('Description and required signatories (>= 1) are required', 'error');
-          return;
-        }
-
-        var item = { description: description, required_signatories: required };
-        if (rolesStr) {
-          item.from_roles = rolesStr.split(',').map(function(r) { return r.trim(); }).filter(Boolean);
-        }
-        if (scope) item.scope_description = scope;
-
-        var existing = ownerIdentity.signatory_rules.slice();
-        existing.push(item);
-
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/signatory-rules', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ signatory_rules: existing })
-          });
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to add signatory rule');
-          }
-          showIdentityAlert('Signatory rule added. Reloading...', 'success');
-        } catch (err) {
-          showIdentityAlert(err.message || String(err), 'error');
-        }
-      }
-
-      // ── Remove functions ──
-
-      async function removeContact(index) {
-        if (!confirm('Remove this contact identity?')) return;
-        var remaining = ownerIdentity.contact_identities.slice();
-        remaining.splice(index, 1);
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/contact-identities', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contact_identities: remaining })
-          });
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to remove contact');
-          }
-          showIdentityAlert('Contact removed. Reloading...', 'success');
-        } catch (err) {
-          showIdentityAlert(err.message || String(err), 'error');
-        }
-      }
-
-      async function removeGovernmentId(index) {
-        if (!confirm('Remove this government ID?')) return;
-        var remaining = ownerIdentity.government_ids.slice();
-        remaining.splice(index, 1);
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/government-ids', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ government_ids: remaining })
-          });
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to remove government ID');
-          }
-          showIdentityAlert('Government ID removed. Reloading...', 'success');
-        } catch (err) {
-          showIdentityAlert(err.message || String(err), 'error');
-        }
-      }
-
-      async function removeCompanyId(index) {
-        if (!confirm('Remove this company ID?')) return;
-        var remaining = ownerIdentity.company_ids.slice();
-        remaining.splice(index, 1);
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/company-ids', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ company_ids: remaining })
-          });
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to remove company ID');
-          }
-          showIdentityAlert('Company ID removed. Reloading...', 'success');
-        } catch (err) {
-          showIdentityAlert(err.message || String(err), 'error');
-        }
-      }
-
-      async function removeSignatory(index) {
-        if (!confirm('Remove this signatory?')) return;
-        var remaining = ownerIdentity.signatories.slice();
-        remaining.splice(index, 1);
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/signatories', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ signatories: remaining })
-          });
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to remove signatory');
-          }
-          showIdentityAlert('Signatory removed. Reloading...', 'success');
-        } catch (err) {
-          showIdentityAlert(err.message || String(err), 'error');
-        }
-      }
-
-      async function removeSignatoryRule(index) {
-        if (!confirm('Remove this signatory rule?')) return;
-        var remaining = ownerIdentity.signatory_rules.slice();
-        remaining.splice(index, 1);
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/signatory-rules', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ signatory_rules: remaining })
-          });
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to remove signatory rule');
-          }
-          showIdentityAlert('Signatory rule removed. Reloading...', 'success');
-        } catch (err) {
-          showIdentityAlert(err.message || String(err), 'error');
+          alertContainer.innerHTML = '<div class="alert alert-error">' + String(err.message || err).replace(/</g, '&lt;') + '</div>';
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Generate Setup Invite';
         }
       }
     </script>
