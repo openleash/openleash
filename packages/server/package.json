@@ -14,7 +14,7 @@
   "dependencies": {
     "@openleash/core": "0.4.1",
     "@openleash/gui": "0.4.1",
-    "@scalar/fastify-api-reference": "^1.44.27",
+    "@scalar/fastify-api-reference": "^1.46.2",
     "fastify": "^5.7.4",
     "yaml": "^2.3.4",
     "zod": "^4.3.6"
