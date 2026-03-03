@@ -14,7 +14,7 @@ export function getVersion(): string {
     cachedVersion = desc;
   } catch {
     // No git or no tags — fall back to package version
-    cachedVersion = '0.4.0';
+    cachedVersion = '0.4.1';
   }
 
   return cachedVersion;

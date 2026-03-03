@@ -1,6 +1,6 @@
 {
   "name": "@openleash/gui",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Web GUI for openleash",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,7 +15,7 @@
     "directory": "packages/gui"
   },
   "dependencies": {
-    "@openleash/core": "0.4.0"
+    "@openleash/core": "0.4.1"
   },
   "homepage": "https://github.com/openleash/openleash/tree/main/packages/gui",
   "bugs": {
