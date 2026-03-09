@@ -120,39 +120,77 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <table>
         <tbody>
           <tr><td style="color:var(--text-muted);width:160px">Principal ID</td><td class="mono">${escapeHtml(data.owner_principal_id)}</td></tr>
-          <tr><td style="color:var(--text-muted)">Display Name</td><td>${escapeHtml(data.display_name)}</td></tr>
+          <tr><td style="color:var(--text-muted)">Display Name</td><td>
+            <span id="display-name-view" style="display:flex;align-items:center;gap:8px">
+              <span>${escapeHtml(data.display_name)}</span>
+              <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showNameEdit()">Edit</button>
+            </span>
+            <span id="display-name-edit" style="display:none;align-items:center;gap:8px">
+              <input type="text" id="newDisplayName" value="${escapeHtml(data.display_name)}" class="form-input" style="width:220px;padding:4px 8px;font-size:13px">
+              <button class="btn btn-primary" style="padding:4px 12px;font-size:12px" onclick="updateName()">Save</button>
+              <button class="btn btn-secondary" style="padding:4px 12px;font-size:12px" onclick="hideNameEdit()">Cancel</button>
+            </span>
+          </td></tr>
           <tr><td style="color:var(--text-muted)">Type</td><td>${escapeHtml(data.principal_type)}</td></tr>
           <tr><td style="color:var(--text-muted)">Status</td><td><span class="badge ${data.status === 'ACTIVE' ? 'badge-green' : 'badge-red'}">${escapeHtml(data.status)}</span></td></tr>
           ${data.identity_assurance_level ? `<tr><td style="color:var(--text-muted)">Assurance Level</td><td>${escapeHtml(data.identity_assurance_level)}</td></tr>` : ''}
-          <tr><td style="color:var(--text-muted)">Created</td><td class="mono">${escapeHtml(data.created_at)}</td></tr>
+          <tr><td style="color:var(--text-muted)">Created</td><td class="mono">${new Date(data.created_at).toLocaleString()}</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="card">
-      <div class="card-title">Update Display Name</div>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="newDisplayName" value="${escapeHtml(data.display_name)}" class="form-input" style="flex:1">
-        <button class="btn btn-primary" onclick="updateName()">Update</button>
+      <div class="card-title">Security</div>
+      ${data.totp_enabled ? `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span class="badge badge-green">2FA Enabled</span>
+        ${data.totp_enabled_at ? `<span style="font-size:12px;color:var(--text-muted)">since ${new Date(data.totp_enabled_at).toLocaleString()}</span>` : ''}
+      </div>
+      ${data.totp_backup_codes_remaining !== undefined ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">${data.totp_backup_codes_remaining} backup code${data.totp_backup_codes_remaining !== 1 ? 's' : ''} remaining</p>` : ''}
+      <button class="btn btn-secondary" style="border-color:var(--red-bright);color:var(--red-bright)" onclick="openDisableModal()">Disable 2FA</button>
+      ` : `
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Two-Factor Authentication: Not configured</p>
+      <button class="btn btn-primary" onclick="setupTotp()">Enable 2FA</button>
+      `}
+    </div>
+
+    <!-- TOTP Setup Modal -->
+    <div id="totp-setup-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('totp-setup-modal')">
+      <div class="modal">
+        <div class="modal-title">Enable Two-Factor Authentication</div>
+        <div id="totp-setup-step1">
+          <p style="font-size:13px;margin-bottom:16px">Scan this QR code with your authenticator app:</p>
+          <div id="totp-qr" style="text-align:center;margin-bottom:16px;background:#fff;display:inline-block;padding:8px;border-radius:4px;width:100%"></div>
+          <details style="margin-bottom:16px"><summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Or enter secret manually</summary>
+            <div id="totp-secret-display" class="mono" style="background:var(--bg-deep);padding:8px 12px;border-radius:4px;font-size:13px;word-break:break-all;margin-top:8px"></div>
+          </details>
+          <div style="background:var(--bg-deep);padding:12px;border-radius:4px;border:1px solid var(--amber-bright);margin-bottom:16px">
+            <p style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--amber-bright)">Save these backup codes</p>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Store them somewhere safe. Each code can only be used once.</p>
+            <div id="totp-backup-codes" class="mono" style="font-size:13px;line-height:1.8"></div>
+          </div>
+          <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Verify code from authenticator</label>
+          <input type="text" id="totp-confirm-code" class="form-input" placeholder="Enter 6-digit code" maxlength="6" style="width:100%">
+          <div id="totp-setup-error" class="modal-error"></div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('totp-setup-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmTotp()">Verify & Enable</button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">Security</div>
-      <div id="totp-section">
-        ${data.totp_enabled ? `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-          <span class="badge badge-green">2FA Enabled</span>
-          ${data.totp_enabled_at ? `<span style="font-size:12px;color:var(--text-muted)">since ${escapeHtml(data.totp_enabled_at)}</span>` : ''}
+    <!-- TOTP Disable Modal -->
+    <div id="totp-disable-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('totp-disable-modal')">
+      <div class="modal">
+        <div class="modal-title">Disable Two-Factor Authentication</div>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Enter your current 2FA code or a backup code to confirm.</p>
+        <input type="text" id="totp-disable-code" class="form-input" placeholder="Enter code" style="width:100%">
+        <div id="totp-disable-error" class="modal-error"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('totp-disable-modal')">Cancel</button>
+          <button class="btn btn-secondary" style="border-color:var(--red-bright);color:var(--red-bright)" onclick="confirmDisableTotp()">Disable 2FA</button>
         </div>
-        ${data.totp_backup_codes_remaining !== undefined ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">${data.totp_backup_codes_remaining} backup code${data.totp_backup_codes_remaining !== 1 ? 's' : ''} remaining</p>` : ''}
-        <button class="btn btn-secondary" style="border-color:var(--red-bright);color:var(--red-bright)" onclick="disableTotp()">Disable 2FA</button>
-        ` : `
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Two-Factor Authentication: Not configured</p>
-        <div id="totp-setup-area">
-          <button class="btn btn-primary" onclick="setupTotp()">Enable 2FA</button>
-        </div>
-        `}
       </div>
     </div>
 
@@ -310,8 +348,20 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         return true;
       }
 
+      function showNameEdit() {
+        document.getElementById('display-name-view').style.display = 'none';
+        document.getElementById('display-name-edit').style.display = 'flex';
+        document.getElementById('newDisplayName').focus();
+      }
+
+      function hideNameEdit() {
+        document.getElementById('display-name-edit').style.display = 'none';
+        document.getElementById('display-name-view').style.display = 'flex';
+      }
+
       async function updateName() {
         var name = document.getElementById('newDisplayName').value.trim();
+        if (!name) { showAlert('Name cannot be empty', 'error'); return; }
         if (await saveProfile({ display_name: name })) window.location.reload();
       }
 
@@ -380,6 +430,9 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         if (await saveProfile({ company_ids: updated })) window.location.reload();
       }
 
+      function openModal(id) { document.getElementById(id).classList.add('open'); }
+      function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
       async function setupTotp() {
         var res = await fetch('/v1/owner/totp/setup', {
           method: 'POST',
@@ -388,25 +441,18 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         });
         if (!res.ok) { showAlert('Failed to start TOTP setup', 'error'); return; }
         var data = await res.json();
-        var area = document.getElementById('totp-setup-area');
-        area.innerHTML = '<div style="margin-top:12px">' +
-          '<p style="font-size:13px;margin-bottom:12px">Scan this QR code with your authenticator app:</p>' +
-          '<div style="text-align:center;margin-bottom:16px;background:#fff;display:inline-block;padding:8px;border-radius:4px">' + data.qr_svg + '</div>' +
-          '<details style="margin-bottom:12px"><summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Or enter manually</summary>' +
-          '<div class="mono" style="background:var(--bg-base);padding:8px 12px;border-radius:4px;font-size:13px;word-break:break-all;margin-top:8px">' + data.secret + '</div></details>' +
-          '<div style="background:var(--bg-base);padding:12px;border-radius:4px;border:1px solid var(--amber);margin-bottom:12px">' +
-          '<p style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--amber)">Save these backup codes</p>' +
-          '<div class="mono" style="font-size:13px;line-height:1.8">' + data.backup_codes.join('<br>') + '</div>' +
-          '</div>' +
-          '<div style="display:flex;gap:8px;align-items:center">' +
-          '<input type="text" id="totp-confirm-code" class="form-input" placeholder="Enter 6-digit code" maxlength="6" style="width:180px">' +
-          '<button class="btn btn-primary" onclick="confirmTotp()">Verify & Enable</button>' +
-          '</div></div>';
+        document.getElementById('totp-qr').innerHTML = data.qr_svg;
+        document.getElementById('totp-secret-display').textContent = data.secret;
+        document.getElementById('totp-backup-codes').innerHTML = data.backup_codes.join('<br>');
+        document.getElementById('totp-confirm-code').value = '';
+        document.getElementById('totp-setup-error').textContent = '';
+        openModal('totp-setup-modal');
       }
 
       async function confirmTotp() {
         var code = document.getElementById('totp-confirm-code').value.trim();
-        if (!code) { showAlert('Enter a code', 'error'); return; }
+        var errEl = document.getElementById('totp-setup-error');
+        if (!code) { errEl.textContent = 'Enter a 6-digit code'; return; }
         var res = await fetch('/v1/owner/totp/confirm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -416,13 +462,20 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           window.location.reload();
         } else {
           var data = await res.json().catch(function() { return {}; });
-          showAlert((data.error && data.error.message) || 'Invalid code', 'error');
+          errEl.textContent = (data.error && data.error.message) || 'Invalid code';
         }
       }
 
-      async function disableTotp() {
-        var code = prompt('Enter your 2FA code to disable:');
-        if (!code) return;
+      function openDisableModal() {
+        document.getElementById('totp-disable-code').value = '';
+        document.getElementById('totp-disable-error').textContent = '';
+        openModal('totp-disable-modal');
+      }
+
+      async function confirmDisableTotp() {
+        var code = document.getElementById('totp-disable-code').value.trim();
+        var errEl = document.getElementById('totp-disable-error');
+        if (!code) { errEl.textContent = 'Enter a code'; return; }
         var res = await fetch('/v1/owner/totp/disable', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -432,7 +485,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           window.location.reload();
         } else {
           var data = await res.json().catch(function() { return {}; });
-          showAlert((data.error && data.error.message) || 'Invalid code', 'error');
+          errEl.textContent = (data.error && data.error.message) || 'Invalid code';
         }
       }
     </script>
