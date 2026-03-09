@@ -4,7 +4,7 @@
 
 ## What is OpenLeash?
 
-OpenLeash is a **local-first authorization sidecar** that you (the agent) must consult before performing risky or side-effectful actions. It evaluates your request against YAML policies and returns a decision plus a cryptographic proof token (PASETO v4.public) that counterparties can verify.
+OpenLeash provides **authorization guardrails for AI agents**. Your owner sets policies that define what you're allowed to do. Before performing risky or side-effectful actions, you must consult OpenLeash — it evaluates your request and returns a decision plus a cryptographic proof token (PASETO v4.public) that counterparties can verify.
 
 ## How to Register
 

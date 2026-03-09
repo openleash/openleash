@@ -4,7 +4,7 @@
 
 # OpenLeash
 
-🔐 **Local-first authorization and proof sidecar for AI agents.** 🦞
+🔐 **Authorization guardrails for AI agents.** 🦞
 
 [![CI](https://img.shields.io/github/actions/workflow/status/openleash/openleash/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/openleash/openleash/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@openleash/core?style=for-the-badge&label=npm)](https://www.npmjs.com/package/@openleash/core)
@@ -19,12 +19,9 @@
 
 ## What is OpenLeash?
 
-OpenLeash runs locally next to your AI agent runtime. Before an agent takes a side-effectful action (purchases, bookings, sending messages, government submissions), it asks OpenLeash:
+An open-source authorization layer where owners set policies, agents ask before acting, and counterparties can verify the agent was authorized.
 
-1. **Is this agent allowed to do this action right now?**
-2. **If allowed, can the agent get a cryptographic proof that others can verify?**
-
-OpenLeash evaluates the request against a YAML policy and returns a decision (`ALLOW`, `DENY`, `REQUIRE_APPROVAL`, `REQUIRE_STEP_UP`, `REQUIRE_DEPOSIT`), a list of obligations, and optionally a short-lived proof token (PASETO v4.public) that counterparties can verify.
+OpenLeash runs locally next to your AI agent runtime. Before an agent takes a side-effectful action (purchases, bookings, sending messages, government submissions), it asks OpenLeash. The server evaluates the request against YAML policies and returns a decision (`ALLOW`, `DENY`, `REQUIRE_APPROVAL`, `REQUIRE_STEP_UP`, `REQUIRE_DEPOSIT`), a list of obligations, and optionally a short-lived proof token (PASETO v4.public) that counterparties can verify.
 
 ## ⚡ Quickstart
 
