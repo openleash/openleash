@@ -344,6 +344,7 @@ export function renderOwnerSetup(): string {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + sessionToken,
           },
+          body: '{}',
         });
 
         if (!res.ok) throw new Error('Failed to create invite');

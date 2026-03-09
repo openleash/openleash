@@ -78,6 +78,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[]): string {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer ' + token,
             },
+            body: '{}',
           });
 
           if (!res.ok) throw new Error('Failed to create invite');
