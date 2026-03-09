@@ -6,6 +6,7 @@ import type {
   AgentInvite,
   ApprovalRequestFrontmatter,
   OwnerFrontmatter,
+  PolicyDraftFrontmatter,
   SetupInvite,
   StateData,
 } from './types.js';
@@ -120,6 +121,29 @@ export function readApprovalRequestFile(
   const filePath = path.join(dataDir, 'approval-requests', `${approvalRequestId}.md`);
   const content = fs.readFileSync(filePath, 'utf-8');
   return parseFrontmatter(content) as unknown as ApprovalRequestFrontmatter;
+}
+
+// ─── Policy draft files ─────────────────────────────────────────────
+
+export function writePolicyDraftFile(
+  dataDir: string,
+  draft: PolicyDraftFrontmatter
+): void {
+  const dir = path.join(dataDir, 'policy-drafts');
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${draft.policy_draft_id}.md`);
+  const frontmatter = stringifyYaml(draft, { lineWidth: 0 }).trim();
+  const content = `---\n${frontmatter}\n---\n\nPolicy draft from agent: ${draft.agent_id}\n`;
+  fs.writeFileSync(filePath, content, 'utf-8');
+}
+
+export function readPolicyDraftFile(
+  dataDir: string,
+  policyDraftId: string
+): PolicyDraftFrontmatter {
+  const filePath = path.join(dataDir, 'policy-drafts', `${policyDraftId}.md`);
+  const content = fs.readFileSync(filePath, 'utf-8');
+  return parseFrontmatter(content) as unknown as PolicyDraftFrontmatter;
 }
 
 // ─── Setup invite files ─────────────────────────────────────────────

@@ -13,6 +13,8 @@ import {
   readKeyFile,
   readApprovalRequestFile,
   writeApprovalRequestFile,
+  readPolicyDraftFile,
+  writePolicyDraftFile,
   readSetupInviteFile,
   writeSetupInviteFile,
   writeAgentInviteFile,
@@ -933,6 +935,195 @@ export function registerOwnerRoutes(
 
     return {
       approval_request_id: id,
+      status: 'DENIED',
+    };
+  });
+
+  // ─── Policy drafts (owner-facing) ──────────────────────────────────
+
+  // GET /v1/owner/policy-drafts
+  app.get('/v1/owner/policy-drafts', { preHandler: ownerAuth }, async (request) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const query = request.query as { status?: string };
+
+    const state = readState(dataDir);
+    let drafts = (state.policy_drafts ?? [])
+      .filter((d) => d.owner_principal_id === session.sub);
+
+    if (query.status) {
+      drafts = drafts.filter((d) => d.status === query.status);
+    }
+
+    const details = drafts.map((entry) => {
+      try {
+        return readPolicyDraftFile(dataDir, entry.policy_draft_id);
+      } catch {
+        return { policy_draft_id: entry.policy_draft_id, error: 'file_not_found' };
+      }
+    });
+
+    return { policy_drafts: details };
+  });
+
+  // GET /v1/owner/policy-drafts/:id
+  app.get('/v1/owner/policy-drafts/:id', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const { id } = request.params as { id: string };
+
+    const state = readState(dataDir);
+    const entry = (state.policy_drafts ?? []).find(
+      (d) => d.policy_draft_id === id && d.owner_principal_id === session.sub
+    );
+
+    if (!entry) {
+      reply.code(404).send({
+        error: { code: 'NOT_FOUND', message: 'Policy draft not found' },
+      });
+      return;
+    }
+
+    try {
+      return readPolicyDraftFile(dataDir, id);
+    } catch {
+      reply.code(404).send({
+        error: { code: 'FILE_NOT_FOUND', message: 'Policy draft file not found' },
+      });
+    }
+  });
+
+  // POST /v1/owner/policy-drafts/:id/approve
+  app.post('/v1/owner/policy-drafts/:id/approve', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const { id } = request.params as { id: string };
+
+    const state = readState(dataDir);
+    const entry = (state.policy_drafts ?? []).find(
+      (d) => d.policy_draft_id === id && d.owner_principal_id === session.sub
+    );
+
+    if (!entry) {
+      reply.code(404).send({
+        error: { code: 'NOT_FOUND', message: 'Policy draft not found' },
+      });
+      return;
+    }
+
+    // TOTP verification
+    const approveOwner = readOwnerFile(dataDir, session.sub);
+    if (!(await verifyTotpForApproval(request, reply, approveOwner, session))) return;
+
+    const draft = readPolicyDraftFile(dataDir, id);
+
+    if (draft.status !== 'PENDING') {
+      reply.code(400).send({
+        error: { code: 'INVALID_STATUS', message: `Cannot approve draft with status ${draft.status}` },
+      });
+      return;
+    }
+
+    // Re-validate the policy YAML (defensive)
+    try {
+      parsePolicyYaml(draft.policy_yaml);
+    } catch (e: unknown) {
+      reply.code(400).send({
+        error: { code: 'INVALID_POLICY', message: (e as Error).message },
+      });
+      return;
+    }
+
+    // Create the real policy
+    const policyId = crypto.randomUUID();
+    writePolicyFile(dataDir, policyId, draft.policy_yaml);
+
+    const appliesToAgent = draft.applies_to_agent_principal_id;
+
+    state.policies.push({
+      policy_id: policyId,
+      owner_principal_id: session.sub,
+      applies_to_agent_principal_id: appliesToAgent,
+      path: `./policies/${policyId}.yaml`,
+    });
+
+    state.bindings.push({
+      owner_principal_id: session.sub,
+      policy_id: policyId,
+      applies_to_agent_principal_id: appliesToAgent,
+    });
+
+    // Update the draft
+    draft.status = 'APPROVED';
+    draft.resulting_policy_id = policyId;
+    draft.resolved_at = new Date().toISOString();
+    draft.resolved_by = session.sub;
+    writePolicyDraftFile(dataDir, draft);
+
+    entry.status = 'APPROVED';
+    writeState(dataDir, state);
+
+    appendAuditEvent(dataDir, 'POLICY_DRAFT_APPROVED', {
+      policy_draft_id: id,
+      policy_id: policyId,
+      owner_principal_id: session.sub,
+      agent_id: draft.agent_id,
+    });
+
+    return {
+      policy_draft_id: id,
+      status: 'APPROVED',
+      policy_id: policyId,
+      applies_to_agent_principal_id: appliesToAgent,
+    };
+  });
+
+  // POST /v1/owner/policy-drafts/:id/deny
+  app.post('/v1/owner/policy-drafts/:id/deny', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const { id } = request.params as { id: string };
+    const body = request.body as { reason?: string; totp_code?: string } | null;
+
+    // TOTP verification
+    const denyOwner = readOwnerFile(dataDir, session.sub);
+    if (!(await verifyTotpForApproval(request, reply, denyOwner, session))) return;
+
+    const state = readState(dataDir);
+    const entry = (state.policy_drafts ?? []).find(
+      (d) => d.policy_draft_id === id && d.owner_principal_id === session.sub
+    );
+
+    if (!entry) {
+      reply.code(404).send({
+        error: { code: 'NOT_FOUND', message: 'Policy draft not found' },
+      });
+      return;
+    }
+
+    const draft = readPolicyDraftFile(dataDir, id);
+
+    if (draft.status !== 'PENDING') {
+      reply.code(400).send({
+        error: { code: 'INVALID_STATUS', message: `Cannot deny draft with status ${draft.status}` },
+      });
+      return;
+    }
+
+    draft.status = 'DENIED';
+    draft.denial_reason = body?.reason ?? null;
+    draft.resolved_at = new Date().toISOString();
+    draft.resolved_by = session.sub;
+    writePolicyDraftFile(dataDir, draft);
+
+    entry.status = 'DENIED';
+    writeState(dataDir, state);
+
+    appendAuditEvent(dataDir, 'POLICY_DRAFT_DENIED', {
+      policy_draft_id: id,
+      owner_principal_id: session.sub,
+      agent_id: draft.agent_id,
+      reason: body?.reason ?? null,
+    });
+
+    return {
+      policy_draft_id: id,
       status: 'DENIED',
     };
   });

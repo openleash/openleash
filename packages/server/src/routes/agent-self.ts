@@ -6,6 +6,9 @@ import {
   writeState,
   readApprovalRequestFile,
   writeApprovalRequestFile,
+  readPolicyDraftFile,
+  writePolicyDraftFile,
+  parsePolicyYaml,
   appendAuditEvent,
   computeActionHash,
   NonceCache,
@@ -15,6 +18,7 @@ import type {
   AgentFrontmatter,
   StateAgentEntry,
   ApprovalRequestFrontmatter,
+  PolicyDraftFrontmatter,
 } from '@openleash/core';
 import { createAgentAuth } from '../middleware/agent-auth.js';
 
@@ -167,6 +171,153 @@ export function registerAgentSelfRoutes(
     } catch {
       reply.code(404).send({
         error: { code: 'FILE_NOT_FOUND', message: 'Approval request file not found' },
+      });
+    }
+  });
+
+  // ─── Policy drafts (agent-facing) ──────────────────────────────────
+
+  // POST /v1/agent/policy-drafts
+  app.post('/v1/agent/policy-drafts', { preHandler: agentAuth }, async (request, reply) => {
+    const agentEntry = (request as unknown as Record<string, unknown>).agentEntry as StateAgentEntry;
+    const agent = (request as unknown as Record<string, unknown>).agentPrincipal as AgentFrontmatter;
+
+    const body = request.body as {
+      policy_yaml: string;
+      applies_to_agent_principal_id?: string | null;
+      justification?: string;
+    };
+
+    if (!body.policy_yaml) {
+      reply.code(400).send({
+        error: { code: 'INVALID_REQUEST', message: 'policy_yaml is required' },
+      });
+      return;
+    }
+
+    // Validate the YAML is a valid policy
+    try {
+      parsePolicyYaml(body.policy_yaml);
+    } catch (e: unknown) {
+      reply.code(400).send({
+        error: { code: 'INVALID_POLICY', message: (e as Error).message },
+      });
+      return;
+    }
+
+    const policyDraftId = crypto.randomUUID();
+    const now = new Date();
+
+    const draft: PolicyDraftFrontmatter = {
+      policy_draft_id: policyDraftId,
+      agent_principal_id: agentEntry.agent_principal_id,
+      agent_id: agent.agent_id,
+      owner_principal_id: agentEntry.owner_principal_id,
+      applies_to_agent_principal_id: body.applies_to_agent_principal_id ?? null,
+      policy_yaml: body.policy_yaml,
+      justification: body.justification ?? null,
+      status: 'PENDING',
+      resulting_policy_id: null,
+      resolved_at: null,
+      resolved_by: null,
+      denial_reason: null,
+      created_at: now.toISOString(),
+    };
+
+    writePolicyDraftFile(dataDir, draft);
+
+    // Update state
+    const state = readState(dataDir);
+    if (!state.policy_drafts) state.policy_drafts = [];
+    state.policy_drafts.push({
+      policy_draft_id: policyDraftId,
+      owner_principal_id: agentEntry.owner_principal_id,
+      agent_principal_id: agentEntry.agent_principal_id,
+      status: 'PENDING',
+      path: `./policy-drafts/${policyDraftId}.md`,
+    });
+    writeState(dataDir, state);
+
+    appendAuditEvent(dataDir, 'POLICY_DRAFT_CREATED', {
+      policy_draft_id: policyDraftId,
+      agent_id: agent.agent_id,
+      agent_principal_id: agentEntry.agent_principal_id,
+      owner_principal_id: agentEntry.owner_principal_id,
+    });
+
+    return {
+      policy_draft_id: policyDraftId,
+      status: 'PENDING',
+      created_at: now.toISOString(),
+    };
+  });
+
+  // GET /v1/agent/policy-drafts
+  app.get('/v1/agent/policy-drafts', { preHandler: agentAuth }, async (request) => {
+    const agentEntry = (request as unknown as Record<string, unknown>).agentEntry as StateAgentEntry;
+    const query = request.query as { status?: string };
+
+    const state = readState(dataDir);
+    let drafts = (state.policy_drafts ?? [])
+      .filter((d) => d.agent_principal_id === agentEntry.agent_principal_id);
+
+    if (query.status) {
+      drafts = drafts.filter((d) => d.status === query.status);
+    }
+
+    const details = drafts.map((entry) => {
+      try {
+        const draft = readPolicyDraftFile(dataDir, entry.policy_draft_id);
+        return {
+          policy_draft_id: draft.policy_draft_id,
+          status: draft.status,
+          justification: draft.justification,
+          created_at: draft.created_at,
+          resolved_at: draft.resolved_at,
+          denial_reason: draft.denial_reason,
+          resulting_policy_id: draft.resulting_policy_id,
+        };
+      } catch {
+        return { policy_draft_id: entry.policy_draft_id, error: 'file_not_found' };
+      }
+    });
+
+    return { policy_drafts: details };
+  });
+
+  // GET /v1/agent/policy-drafts/:id
+  app.get('/v1/agent/policy-drafts/:id', { preHandler: agentAuth }, async (request, reply) => {
+    const agentEntry = (request as unknown as Record<string, unknown>).agentEntry as StateAgentEntry;
+    const { id } = request.params as { id: string };
+
+    const state = readState(dataDir);
+    const entry = (state.policy_drafts ?? []).find(
+      (d) => d.policy_draft_id === id && d.agent_principal_id === agentEntry.agent_principal_id
+    );
+
+    if (!entry) {
+      reply.code(404).send({
+        error: { code: 'NOT_FOUND', message: 'Policy draft not found' },
+      });
+      return;
+    }
+
+    try {
+      const draft = readPolicyDraftFile(dataDir, id);
+      return {
+        policy_draft_id: draft.policy_draft_id,
+        status: draft.status,
+        policy_yaml: draft.policy_yaml,
+        applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
+        justification: draft.justification,
+        created_at: draft.created_at,
+        resolved_at: draft.resolved_at,
+        denial_reason: draft.denial_reason,
+        resulting_policy_id: draft.resulting_policy_id,
+      };
+    } catch {
+      reply.code(404).send({
+        error: { code: 'FILE_NOT_FOUND', message: 'Policy draft file not found' },
       });
     }
   });

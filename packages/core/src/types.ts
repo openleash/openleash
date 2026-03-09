@@ -200,6 +200,7 @@ export interface StateData {
   policies: StatePolicyEntry[];
   bindings: StateBinding[];
   approval_requests?: StateApprovalRequestEntry[];
+  policy_drafts?: StatePolicyDraftEntry[];
 }
 
 // ─── Server key file ─────────────────────────────────────────────────
@@ -288,6 +289,38 @@ export interface StateApprovalRequestEntry {
   path: string;
 }
 
+// ─── Policy draft types ─────────────────────────────────────────────
+export const PolicyDraftStatus = z.enum([
+  'PENDING',
+  'APPROVED',
+  'DENIED',
+]);
+export type PolicyDraftStatus = z.infer<typeof PolicyDraftStatus>;
+
+export interface PolicyDraftFrontmatter {
+  policy_draft_id: string;
+  agent_principal_id: string;
+  agent_id: string;
+  owner_principal_id: string;
+  applies_to_agent_principal_id: string | null;
+  policy_yaml: string;
+  justification: string | null;
+  status: PolicyDraftStatus;
+  resulting_policy_id: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  denial_reason: string | null;
+  created_at: string;
+}
+
+export interface StatePolicyDraftEntry {
+  policy_draft_id: string;
+  owner_principal_id: string;
+  agent_principal_id: string;
+  status: PolicyDraftStatus;
+  path: string;
+}
+
 export interface SetupInvite {
   invite_id: string;
   owner_principal_id: string;
@@ -365,6 +398,9 @@ export const AuditEventType = z.enum([
   'OWNER_TOTP_BACKUP_USED',
   'AGENT_INVITE_CREATED',
   'AGENT_REGISTERED_VIA_INVITE',
+  'POLICY_DRAFT_CREATED',
+  'POLICY_DRAFT_APPROVED',
+  'POLICY_DRAFT_DENIED',
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 
