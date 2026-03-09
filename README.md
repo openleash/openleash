@@ -135,6 +135,7 @@ All state is stored in human-readable files:
 - `./data/policies/` — policy YAML files
 - `./data/keys/` — signing key JSON files
 - `./data/approval-requests/` — approval request records
+- `./data/policy-drafts/` — agent-proposed policy drafts
 - `./data/invites/` — owner setup invites
 - `./data/agent-invites/` — agent registration invites
 - `./data/audit.log.jsonl` — append-only audit log
@@ -151,6 +152,19 @@ Agent → POST /v1/authorize (+ token) → ALLOW + proof token
 ```
 
 Approval tokens are single-use, action-scoped, and time-limited. See [docs/protocol.md](docs/protocol.md) for details.
+
+## 📝 Policy Drafts
+
+Agents can propose new policies to their owner when they need access to action types not covered by existing rules:
+
+```
+Agent → POST /v1/agent/policy-drafts      → Submits draft YAML + justification
+Owner → GET  /v1/owner/policy-drafts       → Reviews pending drafts
+Owner → POST /v1/owner/.../approve         → Creates real policy + binding
+Agent → GET  /v1/agent/policy-drafts/:id   → Sees APPROVED + resulting_policy_id
+```
+
+This lets agents self-serve within the owner's control — the owner always has the final say. See [docs/protocol.md](docs/protocol.md#policy-drafts) for the full specification.
 
 ## 👤 Owner Portal
 

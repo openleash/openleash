@@ -309,9 +309,103 @@ if (result.decision === "ALLOW") {
 | `POST` | `/v1/authorize` | Request authorization for an action |
 | `POST` | `/v1/agent/approval-requests` | Request human approval when required |
 | `GET` | `/v1/agent/approval-requests/{id}` | Poll approval request status |
+| `POST` | `/v1/agent/policy-drafts` | Propose a new policy for owner review |
+| `GET` | `/v1/agent/policy-drafts` | List your policy drafts |
+| `GET` | `/v1/agent/policy-drafts/{id}` | Poll policy draft status |
+| `GET` | `/v1/agent/self` | Get your agent profile |
 | `POST` | `/v1/verify-proof` | Verify a proof token |
 | `GET` | `/v1/public-keys` | Get server public keys for offline verification |
 | `GET` | `/v1/health` | Health check |
+
+## Proposing Policies (Policy Drafts)
+
+If you need access to action types that your current policy doesn't cover, you can **propose a policy** to your owner. This is useful when you discover new capabilities you need at runtime, rather than requiring the owner to anticipate every action in advance.
+
+### How It Works
+
+1. You submit a draft policy (valid YAML) with a justification explaining why you need it
+2. Your owner reviews the draft and either approves or denies it
+3. If approved, the policy is created and bound — you can immediately start authorizing actions against it
+4. If denied, you receive the owner's reason
+
+### Submitting a Draft
+
+```
+POST /v1/agent/policy-drafts
+Content-Type: application/json
+```
+
+```json
+{
+  "policy_yaml": "version: 1\ndefault: deny\nrules:\n  - id: allow-read\n    effect: allow\n    action: \"data.read\"\n    description: Need read access for analytics",
+  "applies_to_agent_principal_id": "<your-agent-principal-id>",
+  "justification": "I need read access to data sources to complete the analytics task"
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `policy_yaml` | Yes | Valid policy YAML (validated on submission) |
+| `applies_to_agent_principal_id` | No | Which agent this policy should apply to (defaults to null = owner-wide) |
+| `justification` | No | Human-readable explanation of why you need this policy |
+
+Response:
+
+```json
+{
+  "policy_draft_id": "<uuid>",
+  "status": "PENDING",
+  "created_at": "2025-01-15T10:30:00.000Z"
+}
+```
+
+### Polling for a Decision
+
+```
+GET /v1/agent/policy-drafts/<policy_draft_id>
+```
+
+Response when approved:
+
+```json
+{
+  "policy_draft_id": "<uuid>",
+  "status": "APPROVED",
+  "resulting_policy_id": "<uuid>",
+  "policy_yaml": "...",
+  "justification": "...",
+  "created_at": "...",
+  "resolved_at": "..."
+}
+```
+
+Response when denied:
+
+```json
+{
+  "policy_draft_id": "<uuid>",
+  "status": "DENIED",
+  "denial_reason": "Too broad — please scope to specific data sources",
+  "policy_yaml": "...",
+  "justification": "...",
+  "created_at": "...",
+  "resolved_at": "..."
+}
+```
+
+### Listing Your Drafts
+
+```
+GET /v1/agent/policy-drafts
+GET /v1/agent/policy-drafts?status=PENDING
+```
+
+### Tips
+
+- **Be specific.** Propose the narrowest policy that covers your needs. Owners are more likely to approve scoped policies than broad `"*"` rules.
+- **Explain yourself.** A clear justification helps the owner understand the request and approve it faster.
+- **Scope to yourself.** Set `applies_to_agent_principal_id` to your own agent principal ID so the policy only applies to you, not all agents.
+- **Handle denial gracefully.** If denied, read the `denial_reason` — the owner may suggest a narrower scope. You can submit a revised draft.
 
 ## Error Reference
 
@@ -347,6 +441,15 @@ All errors follow the format `{ "error": { "code": "ERROR_CODE", "message": "...
 | `APPROVAL_TOKEN_CONSUMED` | 400 | Approval token has already been used (they are single-use) |
 | `ACTION_HASH_MISMATCH` | 400 | Action doesn't match what was approved |
 | `AGENT_MISMATCH` | 400 | Agent ID doesn't match the approved agent |
+
+### Policy Draft Errors
+
+| Code | HTTP | Cause |
+|---|---|---|
+| `INVALID_REQUEST` | 400 | `policy_yaml` field is missing |
+| `INVALID_POLICY` | 400 | Policy YAML fails schema validation |
+| `NOT_FOUND` | 404 | Policy draft not found or doesn't belong to you |
+| `FILE_NOT_FOUND` | 404 | Policy draft file is missing on disk |
 
 ### Registration Errors
 

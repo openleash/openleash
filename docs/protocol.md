@@ -291,6 +291,89 @@ Each approval token can only be used once. After the agent re-authorizes success
 - Default: 1 hour (configurable via `approval.token_ttl_seconds`)
 - Approval requests themselves expire after 24 hours by default (`approval.request_ttl_seconds`)
 
+## Policy Drafts
+
+Agents can propose new policies for owner review. This allows agents to request access to action types not covered by their current policy, without requiring the owner to anticipate every need in advance.
+
+### Draft Lifecycle
+
+1. Agent submits a draft policy (`POST /v1/agent/policy-drafts`) with valid YAML, an optional target agent, and a justification
+2. Server validates the YAML against the policy schema and stores the draft with status `PENDING`
+3. Owner reviews pending drafts (`GET /v1/owner/policy-drafts?status=PENDING`)
+4. Owner approves (`POST /v1/owner/policy-drafts/:id/approve`) or denies (`POST /v1/owner/policy-drafts/:id/deny`)
+5. On approval: server creates a real policy file, adds it to state with a binding, and records the `resulting_policy_id` on the draft
+6. On denial: server records the owner's reason on the draft
+7. Agent polls (`GET /v1/agent/policy-drafts/:id`) to see the outcome
+
+### Agent Endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/v1/agent/policy-drafts` | Agent-signed | Submit a draft policy |
+| `GET` | `/v1/agent/policy-drafts` | Agent-signed | List own drafts (optional `?status=` filter) |
+| `GET` | `/v1/agent/policy-drafts/:id` | Agent-signed | Get draft status and details |
+
+#### POST /v1/agent/policy-drafts
+
+Request body:
+
+| Field | Required | Description |
+|---|---|---|
+| `policy_yaml` | Yes | Valid policy YAML (validated against schema on submission) |
+| `applies_to_agent_principal_id` | No | UUID of the agent this policy should apply to (null = owner-wide) |
+| `justification` | No | Human-readable explanation of why the policy is needed |
+
+Response:
+
+```json
+{
+  "policy_draft_id": "<uuid>",
+  "status": "PENDING",
+  "created_at": "2025-01-15T10:30:00.000Z"
+}
+```
+
+#### GET /v1/agent/policy-drafts/:id
+
+Returns draft details including `status`, `policy_yaml`, `justification`, `resulting_policy_id` (if approved), and `denial_reason` (if denied).
+
+### Owner Endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/v1/owner/policy-drafts` | Session token | List drafts from agents (optional `?status=` filter) |
+| `GET` | `/v1/owner/policy-drafts/:id` | Session token | View draft details with full YAML |
+| `POST` | `/v1/owner/policy-drafts/:id/approve` | Session token | Approve draft — creates real policy + binding |
+| `POST` | `/v1/owner/policy-drafts/:id/deny` | Session token | Deny draft with optional reason |
+
+#### POST /v1/owner/policy-drafts/:id/approve
+
+- Requires TOTP code if the owner has two-factor authentication enabled
+- Re-validates the policy YAML before creating the policy (defensive)
+- Creates the policy file, adds it to state with a binding, and updates the draft status to `APPROVED`
+- Returns `policy_draft_id`, `status`, `policy_id` (the created policy), and `applies_to_agent_principal_id`
+
+#### POST /v1/owner/policy-drafts/:id/deny
+
+Request body:
+
+| Field | Required | Description |
+|---|---|---|
+| `reason` | No | Human-readable explanation for the denial |
+| `totp_code` | No | TOTP code if two-factor authentication is enabled |
+
+### Storage
+
+Draft files are stored at `./data/policy-drafts/{policy_draft_id}.md` using markdown with YAML frontmatter. Drafts are tracked in `state.md` under the `policy_drafts` array.
+
+### Audit Events
+
+| Event | When |
+|---|---|
+| `POLICY_DRAFT_CREATED` | Agent submits a draft |
+| `POLICY_DRAFT_APPROVED` | Owner approves a draft (includes `policy_id` of created policy) |
+| `POLICY_DRAFT_DENIED` | Owner denies a draft |
+
 ## Default Behavior When No Policy Is Bound
 
 If an agent calls `POST /v1/authorize` but no policy is bound to the agent or its owner, the server returns HTTP `403` with error code `NO_POLICY`. The authorization engine is never invoked — the server rejects the request before evaluation.
@@ -394,13 +477,23 @@ All error responses follow this structure:
 | `INVALID_TOTP_CODE` | 400 | TOTP code does not match |
 | `TOTP_NOT_ENABLED` | 400 | Attempt to disable TOTP when it is not enabled |
 
+### Policy Drafts
+
+| Code | HTTP | Cause |
+|---|---|---|
+| `INVALID_REQUEST` | 400 | `policy_yaml` field is missing from request body |
+| `INVALID_POLICY` | 400 | Policy YAML fails schema validation |
+| `NOT_FOUND` | 404 | Policy draft not found or does not belong to the requesting agent/owner |
+| `FILE_NOT_FOUND` | 404 | Policy draft file listed in state does not exist on disk |
+| `INVALID_STATUS` | 400 | Draft is not in PENDING status (already approved or denied) |
+
 ### Owner Operations
 
 | Code | HTTP | Cause |
 |---|---|---|
-| `NOT_FOUND` | 404 | Agent, policy, or approval request not found |
+| `NOT_FOUND` | 404 | Agent, policy, approval request, or policy draft not found |
 | `FILE_NOT_FOUND` | 404 | File listed in state does not exist on disk |
 | `INVALID_POLICY` | 400 | Policy YAML fails schema validation |
 | `INVALID_IDENTITY` | 400 | Owner identity validation failed |
-| `INVALID_STATUS` | 400 | Approval request is not in PENDING status |
+| `INVALID_STATUS` | 400 | Approval request or policy draft is not in PENDING status |
 | `REQUEST_EXPIRED` | 400 | Approval request has expired |
