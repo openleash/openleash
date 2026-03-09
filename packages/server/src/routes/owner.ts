@@ -750,8 +750,8 @@ export function registerOwnerRoutes(
   app.get('/v1/owner/audit', { preHandler: ownerAuth }, async (request) => {
     const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
     const query = request.query as { limit?: string; cursor?: string };
-    const limit = query.limit ? parseInt(query.limit, 10) : 50;
-    const cursor = query.cursor ? parseInt(query.cursor, 10) : 0;
+    const limit = query.limit ? Math.max(1, Math.min(parseInt(query.limit, 10) || 1, 1000)) : 50;
+    const cursor = query.cursor ? Math.max(0, parseInt(query.cursor, 10) || 0) : 0;
 
     const result = readAuditLog(dataDir, limit * 5, cursor); // Read more to compensate for filtering
 

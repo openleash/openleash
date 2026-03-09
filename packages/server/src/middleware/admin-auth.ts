@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { OpenleashConfig } from '@openleash/core';
 
@@ -57,5 +58,9 @@ function validateToken(request: FastifyRequest, expectedToken: string): boolean 
   if (!authHeader) return false;
   const parts = authHeader.split(' ');
   if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') return false;
-  return parts[1] === expectedToken;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(parts[1]), Buffer.from(expectedToken));
+  } catch {
+    return false;
+  }
 }

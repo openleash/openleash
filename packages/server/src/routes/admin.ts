@@ -226,8 +226,8 @@ export function registerAdminRoutes(app: FastifyInstance, dataDir: string, confi
   // GET /v1/admin/audit
   app.get('/v1/admin/audit', { preHandler: adminAuth }, async (request) => {
     const query = request.query as { limit?: string; cursor?: string };
-    const limit = query.limit ? parseInt(query.limit, 10) : 50;
-    const cursor = query.cursor ? parseInt(query.cursor, 10) : 0;
+    const limit = query.limit ? Math.max(1, Math.min(parseInt(query.limit, 10) || 1, 1000)) : 50;
+    const cursor = query.cursor ? Math.max(0, parseInt(query.cursor, 10) || 0) : 0;
     return readAuditLog(dataDir, limit, cursor);
   });
 

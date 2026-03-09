@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import helmet from '@fastify/helmet';
 import { NonceCache } from '@openleash/core';
 import type { OpenleashConfig } from '@openleash/core';
 import { registerHealthRoutes } from './routes/health.js';
@@ -24,6 +25,11 @@ export function createServer(options: CreateServerOptions) {
 
   const app = Fastify({
     logger: true,
+    bodyLimit: 1_048_576,
+  });
+
+  app.register(helmet, {
+    contentSecurityPolicy: false,
   });
 
   // Add raw body support for signature verification

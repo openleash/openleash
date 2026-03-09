@@ -12,6 +12,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "@fastify/helmet": "^13.0.1",
     "@openleash/core": "0.4.1",
     "@openleash/gui": "0.4.1",
     "@scalar/fastify-api-reference": "^1.44.27",
