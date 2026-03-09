@@ -99,6 +99,15 @@ npx openleash playground run large_purchase_requires_approval
 | `openleash keys rotate` | Rotate signing key |
 | `openleash testvectors` | Generate test vectors |
 
+## 📖 API Reference
+
+When the server is running, an interactive API reference and machine-readable OpenAPI spec are available:
+
+- **Interactive reference:** `http://localhost:8787/reference`
+- **OpenAPI spec (JSON):** `http://localhost:8787/reference/openapi.json`
+
+The `/v1/health` endpoint also includes these URLs in its response.
+
 ## 🏗️ Architecture
 
 ```

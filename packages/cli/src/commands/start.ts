@@ -53,6 +53,7 @@ openleash running at http://${config.server.bind_address}
   Web GUI: ${guiEnabled ? `http://${config.server.bind_address}/gui` : 'disabled'}
   Owner Portal: ${guiEnabled ? `http://${config.server.bind_address}/gui/owner/login` : 'disabled'}
   API Reference: ${openapiSpec ? `http://${config.server.bind_address}/reference` : 'disabled (openapi/openapi.yaml not found)'}
+  OpenAPI Spec:  ${openapiSpec ? `http://${config.server.bind_address}/reference/openapi.json` : 'disabled'}
 
 Next steps:
   npx openleash wizard              # Interactive 5-minute setup

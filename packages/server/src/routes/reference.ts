@@ -51,6 +51,13 @@ export function registerReferenceRoutes(
   app: FastifyInstance,
   spec: Record<string, unknown>
 ) {
+  // Machine-readable OpenAPI spec
+  app.get('/reference/openapi.json', async (_request, reply) => {
+    reply.header('content-type', 'application/json');
+    return spec;
+  });
+
+  // Interactive API reference (Scalar UI)
   app.register(
     async (instance) => {
       const { default: scalarPlugin } = await import(

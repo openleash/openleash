@@ -95,6 +95,15 @@ Once you're registered:
 3. **Make a test authorization call** — try a simple `authorize` request to confirm your signing works. Expect `DENY` or `NO_POLICY` if no policy grants the action yet.
 4. **Ask your owner** to create a policy and bind it to you via the owner portal (`/gui/owner/policies`).
 
+## API Reference
+
+A machine-readable OpenAPI spec and interactive API reference are available from the server:
+
+- **OpenAPI spec (JSON):** `http://<openleash_url>/reference/openapi.json`
+- **Interactive reference (Scalar UI):** `http://<openleash_url>/reference`
+
+The `/v1/health` endpoint also includes these URLs in its response when the spec is available.
+
 ## How to Integrate
 
 ### 1. Request Authorization

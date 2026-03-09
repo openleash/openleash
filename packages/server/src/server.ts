@@ -50,7 +50,7 @@ export function createServer(options: CreateServerOptions) {
   const nonceCache = new NonceCache(config.security.nonce_ttl_seconds);
 
   // Register routes
-  registerHealthRoutes(app);
+  registerHealthRoutes(app, { hasApiReference: !!openapiSpec });
   registerPublicKeysRoutes(app, dataDir);
   registerVerifyProofRoutes(app, dataDir);
   registerAgentRoutes(app, dataDir);
