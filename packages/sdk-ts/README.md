@@ -64,6 +64,38 @@ const result = await verifyProofOffline({
 console.log(result.valid, result.claims);
 ```
 
+## Propose a policy
+
+```typescript
+import { createPolicyDraft, getPolicyDraft } from '@openleash/sdk-ts';
+
+// Submit a draft policy for owner review
+const draft = await createPolicyDraft({
+  openleashUrl: 'http://127.0.0.1:8787',
+  agentId: 'my-agent',
+  privateKeyB64: process.env.OPENLEASH_AGENT_PRIVATE_KEY_B64!,
+  policyYaml: `version: 1
+default: deny
+rules:
+  - id: allow-read
+    effect: allow
+    action: "data.read"`,
+  appliesToAgentPrincipalId: '<your-agent-principal-id>',
+  justification: 'Need read access for analytics',
+});
+
+// Poll for the owner's decision
+const result = await getPolicyDraft({
+  openleashUrl: 'http://127.0.0.1:8787',
+  agentId: 'my-agent',
+  privateKeyB64: process.env.OPENLEASH_AGENT_PRIVATE_KEY_B64!,
+  policyDraftId: draft.policy_draft_id,
+});
+
+console.log(result.status); // "PENDING" | "APPROVED" | "DENIED"
+console.log(result.resulting_policy_id); // UUID if approved
+```
+
 ## Documentation
 
 See the [OpenLeash README](https://github.com/openleash/openleash) for full documentation.

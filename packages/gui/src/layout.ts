@@ -13,6 +13,7 @@ const OWNER_NAV_ITEMS = [
   { path: '/gui/owner/agents', label: 'My Agents', icon: '&#9670;' },
   { path: '/gui/owner/policies', label: 'My Policies', icon: '&#9638;' },
   { path: '/gui/owner/approvals', label: 'Approvals', icon: '&#10003;' },
+  { path: '/gui/owner/policy-drafts', label: 'Policy Drafts', icon: '&#9998;' },
   { path: '/gui/owner/audit', label: 'Audit Log', icon: '&#9776;' },
   { path: '/gui/owner/profile', label: 'Profile', icon: '&#9679;' },
 ];

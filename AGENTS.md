@@ -93,7 +93,7 @@ Once you're registered:
 1. **Verify connectivity** — call `GET /v1/health` to confirm the server is reachable.
 2. **Check if a policy is bound** — your owner must bind a policy to you before authorization requests will succeed. Until then, `POST /v1/authorize` will return a `403` error with code `NO_POLICY`.
 3. **Make a test authorization call** — try a simple `authorize` request to confirm your signing works. Expect `DENY` or `NO_POLICY` if no policy grants the action yet.
-4. **Ask your owner** to create a policy and bind it to you via the owner portal (`/gui/owner/policies`).
+4. **Get a policy bound** — either ask your owner to create one via the owner portal (`/gui/owner/policies`), or [propose a policy draft](#proposing-policies-policy-drafts) yourself.
 
 ## API Reference
 
@@ -141,7 +141,7 @@ The response contains:
 
 **Only proceed with the action if the decision is `ALLOW`.**
 
-If no policy is bound to you, the server returns HTTP `403` with error code `NO_POLICY`. Ask your owner to bind a policy to you.
+If no policy is bound to you, the server returns HTTP `403` with error code `NO_POLICY`. You can either ask your owner to bind a policy, or [propose a policy draft](#proposing-policies-policy-drafts) yourself.
 
 ### 3. Present the Proof Token
 
@@ -427,7 +427,7 @@ All errors follow the format `{ "error": { "code": "ERROR_CODE", "message": "...
 
 | Code | HTTP | Cause |
 |---|---|---|
-| `NO_POLICY` | 403 | No policy is bound to you or your owner — ask your owner to create one |
+| `NO_POLICY` | 403 | No policy is bound to you or your owner — ask your owner to create one, or [propose a draft](#proposing-policies-policy-drafts) |
 | `INVALID_ACTION_REQUEST` | 400 | Request body fails schema validation (check required fields) |
 | `POLICY_NOT_FOUND` | 500 | Policy file is missing on disk (server configuration issue) |
 

@@ -376,6 +376,169 @@ export async function getApprovalRequest(params: {
   }>;
 }
 
+// ─── Policy drafts ─────────────────────────────────────────────────
+
+export async function createPolicyDraft(params: {
+  openleashUrl: string;
+  agentId: string;
+  privateKeyB64: string;
+  policyYaml: string;
+  appliesToAgentPrincipalId?: string | null;
+  justification?: string;
+}): Promise<{
+  policy_draft_id: string;
+  status: string;
+  created_at: string;
+}> {
+  const body: Record<string, unknown> = {
+    policy_yaml: params.policyYaml,
+    ...(params.appliesToAgentPrincipalId && { applies_to_agent_principal_id: params.appliesToAgentPrincipalId }),
+    ...(params.justification && { justification: params.justification }),
+  };
+  const bodyBytes = Buffer.from(JSON.stringify(body));
+  const timestamp = new Date().toISOString();
+  const nonce = crypto.randomUUID();
+
+  const headers = signRequest({
+    method: 'POST',
+    path: '/v1/agent/policy-drafts',
+    timestamp,
+    nonce,
+    bodyBytes,
+    privateKeyB64: params.privateKeyB64,
+  });
+
+  const res = await fetch(`${params.openleashUrl}/v1/agent/policy-drafts`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Agent-Id': params.agentId,
+      ...headers,
+    },
+    body: bodyBytes.toString(),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Create policy draft failed: ${JSON.stringify(err)}`);
+  }
+  return res.json() as Promise<{ policy_draft_id: string; status: string; created_at: string }>;
+}
+
+export async function getPolicyDraft(params: {
+  openleashUrl: string;
+  agentId: string;
+  privateKeyB64: string;
+  policyDraftId: string;
+}): Promise<{
+  policy_draft_id: string;
+  status: string;
+  policy_yaml: string;
+  applies_to_agent_principal_id: string | null;
+  justification: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  denial_reason: string | null;
+  resulting_policy_id: string | null;
+}> {
+  const bodyBytes = Buffer.from('{}');
+  const timestamp = new Date().toISOString();
+  const nonce = crypto.randomUUID();
+  const urlPath = `/v1/agent/policy-drafts/${params.policyDraftId}`;
+
+  const headers = signRequest({
+    method: 'GET',
+    path: urlPath,
+    timestamp,
+    nonce,
+    bodyBytes,
+    privateKeyB64: params.privateKeyB64,
+  });
+
+  const res = await fetch(`${params.openleashUrl}${urlPath}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Agent-Id': params.agentId,
+      ...headers,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Get policy draft failed: ${JSON.stringify(err)}`);
+  }
+  return res.json() as Promise<{
+    policy_draft_id: string;
+    status: string;
+    policy_yaml: string;
+    applies_to_agent_principal_id: string | null;
+    justification: string | null;
+    created_at: string;
+    resolved_at: string | null;
+    denial_reason: string | null;
+    resulting_policy_id: string | null;
+  }>;
+}
+
+export async function listPolicyDrafts(params: {
+  openleashUrl: string;
+  agentId: string;
+  privateKeyB64: string;
+  status?: string;
+}): Promise<{
+  policy_drafts: Array<{
+    policy_draft_id: string;
+    status: string;
+    justification: string | null;
+    created_at: string;
+    resolved_at: string | null;
+    denial_reason: string | null;
+    resulting_policy_id: string | null;
+  }>;
+}> {
+  const bodyBytes = Buffer.from('{}');
+  const timestamp = new Date().toISOString();
+  const nonce = crypto.randomUUID();
+  const urlPath = params.status
+    ? `/v1/agent/policy-drafts?status=${encodeURIComponent(params.status)}`
+    : '/v1/agent/policy-drafts';
+
+  const headers = signRequest({
+    method: 'GET',
+    path: urlPath,
+    timestamp,
+    nonce,
+    bodyBytes,
+    privateKeyB64: params.privateKeyB64,
+  });
+
+  const res = await fetch(`${params.openleashUrl}${urlPath}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Agent-Id': params.agentId,
+      ...headers,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`List policy drafts failed: ${JSON.stringify(err)}`);
+  }
+  return res.json() as Promise<{
+    policy_drafts: Array<{
+      policy_draft_id: string;
+      status: string;
+      justification: string | null;
+      created_at: string;
+      resolved_at: string | null;
+      denial_reason: string | null;
+      resulting_policy_id: string | null;
+    }>;
+  }>;
+}
+
 export async function pollApprovalRequest(params: {
   openleashUrl: string;
   agentId: string;

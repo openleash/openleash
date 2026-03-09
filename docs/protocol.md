@@ -378,7 +378,7 @@ Draft files are stored at `./data/policy-drafts/{policy_draft_id}.md` using mark
 
 If an agent calls `POST /v1/authorize` but no policy is bound to the agent or its owner, the server returns HTTP `403` with error code `NO_POLICY`. The authorization engine is never invoked — the server rejects the request before evaluation.
 
-To fix this, the owner must create a policy and bind it to the agent (or to all agents for that owner) via the owner portal or the `policy upsert` CLI command.
+To fix this, the owner must create a policy and bind it to the agent (or to all agents for that owner) via the owner portal or the `policy upsert` CLI command. Alternatively, agents can propose a policy via the [Policy Drafts](#policy-drafts) flow — the owner reviews and approves the draft, which automatically creates and binds the policy.
 
 ## Error Codes
 

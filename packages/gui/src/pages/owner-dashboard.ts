@@ -5,6 +5,7 @@ export interface OwnerDashboardData {
   agent_count: number;
   policy_count: number;
   pending_approvals: number;
+  pending_policy_drafts: number;
 }
 
 export function renderOwnerDashboard(data: OwnerDashboardData): string {
@@ -29,12 +30,22 @@ export function renderOwnerDashboard(data: OwnerDashboardData): string {
         <div style="font-size:28px;font-weight:700;color:${data.pending_approvals > 0 ? 'var(--amber-bright)' : 'var(--green-bright)'}">${data.pending_approvals}</div>
         <div style="color:var(--text-secondary);font-size:13px;margin-top:4px">Pending Approvals</div>
       </div>
+      <div class="card" style="padding:20px">
+        <div style="font-size:28px;font-weight:700;color:${data.pending_policy_drafts > 0 ? 'var(--amber-bright)' : 'var(--green-bright)'}">${data.pending_policy_drafts}</div>
+        <div style="color:var(--text-secondary);font-size:13px;margin-top:4px">Policy Drafts</div>
+      </div>
     </div>
 
     ${data.pending_approvals > 0 ? `
     <div class="card" style="padding:16px;margin-bottom:24px;border-left:3px solid var(--amber-bright)">
       <span style="color:var(--amber-bright)">You have ${data.pending_approvals} pending approval request${data.pending_approvals > 1 ? 's' : ''}.</span>
       <a href="/gui/owner/approvals" style="color:var(--green-bright);margin-left:8px">Review now</a>
+    </div>` : ''}
+
+    ${data.pending_policy_drafts > 0 ? `
+    <div class="card" style="padding:16px;margin-bottom:24px;border-left:3px solid var(--amber-bright)">
+      <span style="color:var(--amber-bright)">You have ${data.pending_policy_drafts} pending policy draft${data.pending_policy_drafts > 1 ? 's' : ''} from your agents.</span>
+      <a href="/gui/owner/policy-drafts" style="color:var(--green-bright);margin-left:8px">Review now</a>
     </div>` : ''}
 
     ${needsSetup ? `
@@ -106,6 +117,12 @@ export function renderOwnerDashboard(data: OwnerDashboardData): string {
             <a href="/gui/owner/approvals" style="font-weight:600;color:var(--green-bright);font-size:13px;text-decoration:none">Approvals</a>
             <p style="color:var(--text-secondary);font-size:12px;margin-top:2px;line-height:1.6">
               Review and approve or deny requests from your agents. When a policy requires human approval, the agent's request appears here for you to review.
+            </p>
+          </div>
+          <div>
+            <a href="/gui/owner/policy-drafts" style="font-weight:600;color:var(--green-bright);font-size:13px;text-decoration:none">Policy Drafts</a>
+            <p style="color:var(--text-secondary);font-size:12px;margin-top:2px;line-height:1.6">
+              Your agents can propose new policies when they need access to action types not yet covered. Review the proposed YAML and approve or deny each draft.
             </p>
           </div>
           <div>
