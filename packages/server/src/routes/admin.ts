@@ -223,6 +223,41 @@ export function registerAdminRoutes(app: FastifyInstance, dataDir: string, confi
     return { owner_principal_id: ownerId, status: 'deleted' };
   });
 
+  // POST /v1/admin/owners/:ownerId/disable-totp
+  app.post('/v1/admin/owners/:ownerId/disable-totp', { preHandler: adminAuth }, async (request, reply) => {
+    const { ownerId } = request.params as { ownerId: string };
+
+    const state = readState(dataDir);
+    const ownerEntry = state.owners.find((o) => o.owner_principal_id === ownerId);
+    if (!ownerEntry) {
+      reply.code(404).send({
+        error: { code: 'NOT_FOUND', message: 'Owner not found' },
+      });
+      return;
+    }
+
+    const owner = readOwnerFile(dataDir, ownerId);
+    if (!owner.totp_enabled) {
+      reply.code(400).send({
+        error: { code: 'TOTP_NOT_ENABLED', message: 'TOTP is not enabled for this owner' },
+      });
+      return;
+    }
+
+    delete owner.totp_secret_b32;
+    delete owner.totp_enabled;
+    delete owner.totp_enabled_at;
+    delete owner.totp_backup_codes_hash;
+    writeOwnerFile(dataDir, owner);
+
+    appendAuditEvent(dataDir, 'OWNER_TOTP_DISABLED', {
+      owner_principal_id: ownerId,
+      disabled_by: 'admin',
+    });
+
+    return { owner_principal_id: ownerId, status: 'totp_disabled' };
+  });
+
   // GET /v1/admin/audit
   app.get('/v1/admin/audit', { preHandler: adminAuth }, async (request) => {
     const query = request.query as { limit?: string; cursor?: string };

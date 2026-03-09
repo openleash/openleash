@@ -66,6 +66,8 @@ export interface OwnerData {
   company_ids?: { id_type: string; country?: string; id_value: string; verification_level: string; verified_at: string | null; added_at: string }[];
   signatories?: { signatory_id: string; human_owner_principal_id: string; role: string; signing_authority: string; scope_description?: string; valid_from?: string; valid_until: string | null; added_at: string }[];
   signatory_rules?: { rule_id: string; description: string; required_signatories: number; from_roles?: string[]; scope_description?: string; conditions?: Record<string, unknown> }[];
+  totp_enabled?: boolean;
+  totp_enabled_at?: string;
 }
 
 export interface OwnerDetailData {
@@ -503,6 +505,28 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-title">Security</div>
+      <table>
+        <tbody>
+          <tr>
+            <td style="width:160px;color:var(--text-muted)">Two-Factor Auth</td>
+            <td>
+              ${owner.totp_enabled
+                ? `<span class="badge badge-green">Enabled</span>${owner.totp_enabled_at ? ` <span style="font-size:12px;color:var(--text-muted)">since ${new Date(owner.totp_enabled_at).toLocaleString()}</span>` : ''}`
+                : '<span class="badge badge-muted">Not configured</span>'}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      ${owner.totp_enabled ? `
+      <div style="margin-top:12px">
+        <button class="btn btn-secondary" style="border-color:var(--red-bright);color:var(--red-bright);font-size:12px;padding:4px 12px" onclick="adminDisableTotp()">Disable 2FA</button>
+        <span id="totp-disable-msg" style="font-size:12px;margin-left:8px"></span>
+      </div>
+      ` : ''}
+    </div>
+
     ${attrEntries.length > 0 ? `
     <div class="card">
       <div class="card-title">Attributes</div>
@@ -591,6 +615,27 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
           btn.textContent = 'Copied!';
           setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
         });
+      }
+
+      async function adminDisableTotp() {
+        if (!confirm('Are you sure you want to disable 2FA for this owner? They will need to set it up again.')) return;
+        try {
+          var res = await fetch('/v1/admin/owners/' + ownerId + '/disable-totp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          });
+          if (res.ok) {
+            window.location.reload();
+          } else {
+            var err = await res.json();
+            document.getElementById('totp-disable-msg').textContent = (err.error && err.error.message) || 'Failed';
+            document.getElementById('totp-disable-msg').style.color = 'var(--red-bright)';
+          }
+        } catch (e) {
+          document.getElementById('totp-disable-msg').textContent = 'Network error';
+          document.getElementById('totp-disable-msg').style.color = 'var(--red-bright)';
+        }
       }
 
       async function generateInvite() {
