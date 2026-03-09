@@ -104,3 +104,22 @@ export function verifyBackupCode(code: string, hashes: string[]): { valid: boole
   remainingHashes.splice(idx, 1);
   return { valid: true, remainingHashes };
 }
+
+// ─── QR code SVG generation ──────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const QRCode = require('qrcode-svg');
+
+export function generateTotpQrSvg(uri: string): string {
+  const qr = new QRCode({
+    content: uri,
+    padding: 4,
+    width: 200,
+    height: 200,
+    color: '#000000',
+    background: '#ffffff',
+    ecl: 'M',
+    join: true,
+  });
+  return qr.svg() as string;
+}

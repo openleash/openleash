@@ -26,6 +26,7 @@ import {
   computeAssuranceLevel,
   generateTotpSecret,
   generateTotpUri,
+  generateTotpQrSvg,
   verifyTotp,
   generateBackupCodes,
   verifyBackupCode,
@@ -588,7 +589,9 @@ export function registerOwnerRoutes(
     owner.totp_backup_codes_hash = hashes;
     writeOwnerFile(dataDir, owner);
 
-    return { secret, uri, backup_codes: codes };
+    const qr_svg = generateTotpQrSvg(uri);
+
+    return { secret, uri, qr_svg, backup_codes: codes };
   });
 
   // POST /v1/owner/totp/confirm

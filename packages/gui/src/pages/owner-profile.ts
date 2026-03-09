@@ -390,9 +390,10 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         var data = await res.json();
         var area = document.getElementById('totp-setup-area');
         area.innerHTML = '<div style="margin-top:12px">' +
-          '<p style="font-size:13px;margin-bottom:8px">Add this secret to your authenticator app:</p>' +
-          '<div class="mono" style="background:var(--bg-base);padding:8px 12px;border-radius:4px;font-size:13px;word-break:break-all;margin-bottom:8px">' + data.secret + '</div>' +
-          '<p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Or use this URI: <span class="mono" style="font-size:11px;word-break:break-all">' + data.uri + '</span></p>' +
+          '<p style="font-size:13px;margin-bottom:12px">Scan this QR code with your authenticator app:</p>' +
+          '<div style="text-align:center;margin-bottom:16px;background:#fff;display:inline-block;padding:8px;border-radius:4px">' + data.qr_svg + '</div>' +
+          '<details style="margin-bottom:12px"><summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Or enter manually</summary>' +
+          '<div class="mono" style="background:var(--bg-base);padding:8px 12px;border-radius:4px;font-size:13px;word-break:break-all;margin-top:8px">' + data.secret + '</div></details>' +
           '<div style="background:var(--bg-base);padding:12px;border-radius:4px;border:1px solid var(--amber);margin-bottom:12px">' +
           '<p style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--amber)">Save these backup codes</p>' +
           '<div class="mono" style="font-size:13px;line-height:1.8">' + data.backup_codes.join('<br>') + '</div>' +
