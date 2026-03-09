@@ -180,6 +180,10 @@ See [AGENTS.md](AGENTS.md) for the full agent integration guide.
 
 ## 🔍 Troubleshooting
 
+### NO_POLICY errors
+
+If an agent gets a `403` with `NO_POLICY`, it means no policy is bound to the agent or its owner. Create a policy and bind it via the owner portal or `npx openleash policy upsert`.
+
 ### Clock skew errors
 
 If you get `TIMESTAMP_SKEW` errors, ensure the requesting system's clock is synchronized. The default allowed skew is ±120 seconds. Adjust in `config.yaml`:

@@ -290,3 +290,117 @@ Each approval token can only be used once. After the agent re-authorizes success
 
 - Default: 1 hour (configurable via `approval.token_ttl_seconds`)
 - Approval requests themselves expire after 24 hours by default (`approval.request_ttl_seconds`)
+
+## Default Behavior When No Policy Is Bound
+
+If an agent calls `POST /v1/authorize` but no policy is bound to the agent or its owner, the server returns HTTP `403` with error code `NO_POLICY`. The authorization engine is never invoked — the server rejects the request before evaluation.
+
+To fix this, the owner must create a policy and bind it to the agent (or to all agents for that owner) via the owner portal or the `policy upsert` CLI command.
+
+## Error Codes
+
+All error responses follow this structure:
+
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable description"
+  }
+}
+```
+
+### Agent Authentication (401)
+
+| Code | Cause |
+|---|---|
+| `MISSING_HEADERS` | One or more required signing headers (`X-Agent-Id`, `X-Timestamp`, `X-Nonce`, `X-Body-Sha256`, `X-Signature`) are missing |
+| `TIMESTAMP_SKEW` | Request timestamp falls outside the allowed clock skew window (default ±120s) |
+| `NONCE_REPLAY` | Nonce has already been used for this agent within the TTL window (default 600s) |
+| `BODY_HASH_MISMATCH` | SHA-256 of the request body does not match the `X-Body-Sha256` header |
+| `MISSING_BODY` | Request requires a body but none was provided |
+| `AGENT_NOT_FOUND` | No agent registered with the given `X-Agent-Id` |
+| `AGENT_INACTIVE` | Agent exists but has been revoked (status is not ACTIVE) |
+| `INVALID_SIGNATURE` | Ed25519 signature verification failed |
+
+### Owner Authentication (401)
+
+| Code | Cause |
+|---|---|
+| `MISSING_TOKEN` | No session token in Authorization header or `openleash_session` cookie |
+| `INVALID_SESSION` | Session token is invalid, expired, or signature verification failed |
+| `OWNER_NOT_FOUND` | Owner from session token is not found in state |
+| `OWNER_INACTIVE` | Owner exists but has inactive status |
+
+### Admin Authentication
+
+| Code | HTTP | Cause |
+|---|---|---|
+| `ADMIN_FORBIDDEN` | 403 | Remote access without `allow_remote_admin: true` |
+| `ADMIN_UNAUTHORIZED` | 401 | Invalid or missing admin bearer token |
+
+### Authorization
+
+| Code | HTTP | Cause |
+|---|---|---|
+| `INVALID_ACTION_REQUEST` | 400 | Action request body fails schema validation |
+| `NO_POLICY` | 403 | No policy is bound to the requesting agent or its owner |
+| `POLICY_NOT_FOUND` | 500 | Policy is listed in state but the file is missing on disk |
+
+### Approval Tokens
+
+| Code | HTTP | Cause |
+|---|---|---|
+| `INVALID_APPROVAL_TOKEN` | 401 | Approval token is invalid, expired, or signature verification failed |
+| `APPROVAL_REQUEST_NOT_FOUND` | 400 | Referenced approval request does not exist |
+| `INVALID_APPROVAL_STATUS` | 400 | Approval request is not in APPROVED status |
+| `APPROVAL_TOKEN_CONSUMED` | 400 | Approval token has already been used (single-use) |
+| `ACTION_HASH_MISMATCH` | 400 | Action hash does not match the approved action |
+| `AGENT_MISMATCH` | 400 | Agent ID does not match the approved agent |
+
+### Registration
+
+| Code | HTTP | Cause |
+|---|---|---|
+| `INVALID_KEY` | 400 | Public key is not valid base64 SPKI/DER Ed25519 |
+| `INVITE_NOT_FOUND` | 404 | Agent invite does not exist |
+| `INVITE_USED` | 400 | Invite has already been redeemed |
+| `INVITE_EXPIRED` | 400 | Invite has passed its expiration time |
+| `INVALID_INVITE_TOKEN` | 401 | Invite token hash does not match |
+| `CHALLENGE_NOT_FOUND` | 400 | Registration challenge does not exist or has expired |
+| `CHALLENGE_EXPIRED` | 400 | Registration challenge has passed its expiration time |
+
+### Owner Setup and Login
+
+| Code | HTTP | Cause |
+|---|---|---|
+| `INVALID_REQUEST` | 400 | Required fields are missing from request body |
+| `WEAK_PASSPHRASE` | 400 | Passphrase is shorter than 8 characters |
+| `SETUP_ALREADY_COMPLETED` | 403 | Initial setup has already been completed |
+| `INVITE_NOT_FOUND` | 404 | Setup invite does not exist |
+| `INVITE_USED` | 400 | Setup invite has already been redeemed |
+| `INVITE_EXPIRED` | 400 | Setup invite has expired |
+| `INVALID_INVITE_TOKEN` | 401 | Setup invite token does not match |
+| `INVALID_CREDENTIALS` | 401 | Owner not found, inactive, or passphrase verification failed |
+| `SETUP_REQUIRED` | 401 | Owner has not completed setup (no passphrase set) |
+
+### TOTP (Two-Factor Authentication)
+
+| Code | HTTP | Cause |
+|---|---|---|
+| `TOTP_SETUP_REQUIRED` | 403 | Server requires TOTP but owner hasn't set it up |
+| `TOTP_REQUIRED` | 403 | Owner has TOTP enabled but code was not provided or is invalid |
+| `TOTP_NOT_SETUP` | 400 | Attempt to confirm TOTP when no secret has been generated |
+| `INVALID_TOTP_CODE` | 400 | TOTP code does not match |
+| `TOTP_NOT_ENABLED` | 400 | Attempt to disable TOTP when it is not enabled |
+
+### Owner Operations
+
+| Code | HTTP | Cause |
+|---|---|---|
+| `NOT_FOUND` | 404 | Agent, policy, or approval request not found |
+| `FILE_NOT_FOUND` | 404 | File listed in state does not exist on disk |
+| `INVALID_POLICY` | 400 | Policy YAML fails schema validation |
+| `INVALID_IDENTITY` | 400 | Owner identity validation failed |
+| `INVALID_STATUS` | 400 | Approval request is not in PENDING status |
+| `REQUEST_EXPIRED` | 400 | Approval request has expired |
