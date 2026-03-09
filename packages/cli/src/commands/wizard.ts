@@ -392,8 +392,8 @@ export async function wizardCommand() {
         {
           mcpServers: {
             'office365-outlook': {
-              command: 'mcp-glove',
-              args: ['start'],
+              command: 'npx',
+              args: ['mcp-glove', 'start'],
               env: {
                 OPENLEASH_SERVER_NAME: 'office365-outlook',
                 OPENLEASH_UPSTREAM_CMD: upstreamCmd as string,
