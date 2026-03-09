@@ -16,7 +16,7 @@ export { renderOwnerSetup } from './pages/owner-setup.js';
 export { renderOwnerDashboard } from './pages/owner-dashboard.js';
 export type { OwnerDashboardData } from './pages/owner-dashboard.js';
 export { renderOwnerApprovals } from './pages/owner-approvals.js';
-export type { OwnerApprovalEntry } from './pages/owner-approvals.js';
+export type { OwnerApprovalEntry, OwnerApprovalsOptions } from './pages/owner-approvals.js';
 export { renderOwnerAgents } from './pages/owner-agents.js';
 export type { OwnerAgentEntry } from './pages/owner-agents.js';
 export { renderOwnerPolicies } from './pages/owner-policies.js';

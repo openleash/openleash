@@ -10,7 +10,14 @@ export interface OwnerApprovalEntry {
   expires_at: string;
 }
 
-export function renderOwnerApprovals(approvals: OwnerApprovalEntry[]): string {
+export interface OwnerApprovalsOptions {
+  totp_enabled?: boolean;
+  require_totp?: boolean;
+}
+
+export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: OwnerApprovalsOptions): string {
+  const totpEnabled = options?.totp_enabled ?? false;
+  const requireTotp = options?.require_totp ?? false;
   const pending = approvals.filter((a) => a.status === 'PENDING');
   const resolved = approvals.filter((a) => a.status !== 'PENDING');
 
@@ -24,8 +31,8 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[]): string {
         <td>${a.justification ? escapeHtml(a.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
         <td>${new Date(a.created_at).toLocaleString()}</td>
         <td>
-          <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="handleApproval('${a.approval_request_id}', 'approve')">Approve</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="handleApproval('${a.approval_request_id}', 'deny')">Deny</button>
+          <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="handleApproval('${a.approval_request_id}', 'approve')" ${disableActions ? 'disabled' : ''}>Approve</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="handleApproval('${a.approval_request_id}', 'deny')" ${disableActions ? 'disabled' : ''}>Deny</button>
         </td>
       </tr>
     `).join('');
@@ -44,8 +51,15 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[]): string {
       </tr>`;
     }).join('');
 
+  const totpBanner = requireTotp && !totpEnabled
+    ? '<div class="alert alert-error" style="margin-top:16px">Two-factor authentication is required. <a href="/gui/owner/profile" style="color:inherit;text-decoration:underline">Set up 2FA in your Profile.</a></div>'
+    : '';
+
+  const disableActions = requireTotp && !totpEnabled;
+
   const content = `
     <h2>Approval Requests</h2>
+    ${totpBanner}
 
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Pending</h3>
@@ -71,9 +85,20 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[]): string {
     <div id="resultMsg" class="alert" style="display:none;margin-top:16px"></div>
 
     <script>
+      var totpEnabled = ${totpEnabled};
+
       async function handleApproval(id, action) {
         const token = sessionStorage.getItem('openleash_session');
-        const body = action === 'deny' ? JSON.stringify({ reason: prompt('Reason for denial (optional):') || undefined }) : '{}';
+        var bodyObj = {};
+        if (action === 'deny') {
+          bodyObj.reason = prompt('Reason for denial (optional):') || undefined;
+        }
+        if (totpEnabled) {
+          var code = prompt('Enter your 2FA code:');
+          if (!code) return;
+          bodyObj.totp_code = code;
+        }
+        const body = JSON.stringify(bodyObj);
         try {
           const res = await fetch('/v1/owner/approval-requests/' + id + '/' + action, {
             method: 'POST',

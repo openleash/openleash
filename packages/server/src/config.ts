@@ -15,6 +15,7 @@ export const DEFAULT_CONFIG: OpenleashConfig = {
   security: {
     nonce_ttl_seconds: 600,
     clock_skew_seconds: 120,
+    require_totp: false,
   },
   tokens: {
     format: 'paseto_v4_public',

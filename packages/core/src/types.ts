@@ -230,6 +230,11 @@ export interface OwnerFrontmatter {
   passphrase_hash?: string;
   passphrase_salt?: string;
   passphrase_set_at?: string;
+  // Two-factor authentication
+  totp_secret_b32?: string;
+  totp_enabled?: boolean;
+  totp_enabled_at?: string;
+  totp_backup_codes_hash?: string[];
 }
 
 // ─── Agent file frontmatter ──────────────────────────────────────────
@@ -344,6 +349,9 @@ export const AuditEventType = z.enum([
   'APPROVAL_REQUEST_EXPIRED',
   'APPROVAL_TOKEN_USED',
   'INITIAL_SETUP_COMPLETED',
+  'OWNER_TOTP_ENABLED',
+  'OWNER_TOTP_DISABLED',
+  'OWNER_TOTP_BACKUP_USED',
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 
@@ -370,6 +378,7 @@ export interface OpenleashConfig {
   security: {
     nonce_ttl_seconds: number;
     clock_skew_seconds: number;
+    require_totp?: boolean;
   };
   tokens: {
     format: 'paseto_v4_public';

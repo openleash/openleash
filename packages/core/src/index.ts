@@ -16,3 +16,4 @@ export * from './audit.js';
 export * from './nonce-cache.js';
 export * from './signing.js';
 export * from './taxonomy.js';
+export * from './totp.js';

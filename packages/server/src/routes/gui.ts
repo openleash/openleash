@@ -406,7 +406,11 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         };
       }
     });
-    const html = renderOwnerApprovals(approvals);
+    const approvalOwner = readOwnerFile(dataDir, session.sub);
+    const html = renderOwnerApprovals(approvals, {
+      totp_enabled: !!approvalOwner.totp_enabled,
+      require_totp: !!config.security.require_totp,
+    });
     reply.type('text/html').send(html);
   });
 
@@ -425,6 +429,9 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
       government_ids: owner.government_ids,
       company_ids: owner.company_ids,
       created_at: owner.created_at,
+      totp_enabled: !!owner.totp_enabled,
+      totp_enabled_at: owner.totp_enabled_at,
+      totp_backup_codes_remaining: owner.totp_backup_codes_hash?.length,
     });
     reply.type('text/html').send(html);
   });

@@ -1,5 +1,5 @@
 import * as crypto from 'node:crypto';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import {
   readState,
   writeState,
@@ -24,6 +24,11 @@ import {
   verifyPassphrase,
   validateOwnerIdentity,
   computeAssuranceLevel,
+  generateTotpSecret,
+  generateTotpUri,
+  verifyTotp,
+  generateBackupCodes,
+  verifyBackupCode,
 } from '@openleash/core';
 import type {
   OpenleashConfig,
@@ -290,8 +295,8 @@ export function registerOwnerRoutes(
     const owner = readOwnerFile(dataDir, session.sub);
 
     // Strip sensitive fields
-    const { passphrase_hash: _hash, passphrase_salt: _salt, ...safeOwner } = owner;
-    return safeOwner;
+    const { passphrase_hash: _hash, passphrase_salt: _salt, totp_secret_b32: _secret, totp_backup_codes_hash: _codes, ...safeOwner } = owner;
+    return { ...safeOwner, totp_enabled: !!owner.totp_enabled };
   });
 
   // PUT /v1/owner/profile
@@ -567,6 +572,150 @@ export function registerOwnerRoutes(
     return { policy_id: policyId, status: 'deleted' };
   });
 
+  // ─── TOTP two-factor authentication ──────────────────────────────
+
+  // POST /v1/owner/totp/setup
+  app.post('/v1/owner/totp/setup', { preHandler: ownerAuth }, async (request) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const owner = readOwnerFile(dataDir, session.sub);
+
+    const secret = generateTotpSecret();
+    const uri = generateTotpUri(secret, owner.display_name);
+    const { codes, hashes } = generateBackupCodes();
+
+    owner.totp_secret_b32 = secret;
+    owner.totp_enabled = false;
+    owner.totp_backup_codes_hash = hashes;
+    writeOwnerFile(dataDir, owner);
+
+    return { secret, uri, backup_codes: codes };
+  });
+
+  // POST /v1/owner/totp/confirm
+  app.post('/v1/owner/totp/confirm', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const body = request.body as { code: string };
+    const owner = readOwnerFile(dataDir, session.sub);
+
+    if (!owner.totp_secret_b32) {
+      reply.code(400).send({
+        error: { code: 'TOTP_NOT_SETUP', message: 'TOTP setup has not been initiated' },
+      });
+      return;
+    }
+
+    if (!verifyTotp(owner.totp_secret_b32, body.code)) {
+      reply.code(400).send({
+        error: { code: 'INVALID_TOTP_CODE', message: 'Invalid TOTP code' },
+      });
+      return;
+    }
+
+    owner.totp_enabled = true;
+    owner.totp_enabled_at = new Date().toISOString();
+    writeOwnerFile(dataDir, owner);
+
+    appendAuditEvent(dataDir, 'OWNER_TOTP_ENABLED', {
+      owner_principal_id: session.sub,
+    });
+
+    return { status: 'totp_enabled' };
+  });
+
+  // POST /v1/owner/totp/disable
+  app.post('/v1/owner/totp/disable', { preHandler: ownerAuth }, async (request, reply) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+    const body = request.body as { code: string };
+    const owner = readOwnerFile(dataDir, session.sub);
+
+    if (!owner.totp_enabled || !owner.totp_secret_b32) {
+      reply.code(400).send({
+        error: { code: 'TOTP_NOT_ENABLED', message: 'TOTP is not enabled' },
+      });
+      return;
+    }
+
+    // Accept either a TOTP code or a backup code
+    let valid = verifyTotp(owner.totp_secret_b32, body.code);
+    if (!valid && owner.totp_backup_codes_hash) {
+      const result = verifyBackupCode(body.code, owner.totp_backup_codes_hash);
+      valid = result.valid;
+    }
+
+    if (!valid) {
+      reply.code(400).send({
+        error: { code: 'INVALID_TOTP_CODE', message: 'Invalid TOTP or backup code' },
+      });
+      return;
+    }
+
+    delete owner.totp_secret_b32;
+    delete owner.totp_enabled;
+    delete owner.totp_enabled_at;
+    delete owner.totp_backup_codes_hash;
+    writeOwnerFile(dataDir, owner);
+
+    appendAuditEvent(dataDir, 'OWNER_TOTP_DISABLED', {
+      owner_principal_id: session.sub,
+    });
+
+    return { status: 'totp_disabled' };
+  });
+
+  // ─── TOTP verification helper ──────────────────────────────────────
+
+  async function verifyTotpForApproval(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    owner: { totp_enabled?: boolean; totp_secret_b32?: string; totp_backup_codes_hash?: string[] },
+    session: SessionClaims,
+  ): Promise<boolean> {
+    // If require_totp is set but owner hasn't set up TOTP, block
+    if (config.security.require_totp && !owner.totp_enabled) {
+      reply.code(403).send({
+        error: { code: 'TOTP_SETUP_REQUIRED', message: 'Two-factor authentication setup is required' },
+      });
+      return false;
+    }
+
+    if (!owner.totp_enabled) return true;
+
+    const body = request.body as { totp_code?: string } | null;
+    const code = body?.totp_code;
+
+    if (!code) {
+      reply.code(403).send({
+        error: { code: 'TOTP_REQUIRED', message: 'Two-factor authentication code is required' },
+      });
+      return false;
+    }
+
+    // Try TOTP code first
+    if (owner.totp_secret_b32 && verifyTotp(owner.totp_secret_b32, code)) {
+      return true;
+    }
+
+    // Try backup code
+    if (owner.totp_backup_codes_hash) {
+      const result = verifyBackupCode(code, owner.totp_backup_codes_hash);
+      if (result.valid) {
+        owner.totp_backup_codes_hash = result.remainingHashes;
+        writeOwnerFile(dataDir, owner as import('@openleash/core').OwnerFrontmatter);
+
+        appendAuditEvent(dataDir, 'OWNER_TOTP_BACKUP_USED', {
+          owner_principal_id: session.sub,
+          remaining_codes: result.remainingHashes.length,
+        });
+        return true;
+      }
+    }
+
+    reply.code(403).send({
+      error: { code: 'TOTP_REQUIRED', message: 'Invalid two-factor authentication code' },
+    });
+    return false;
+  }
+
   // ─── Approval requests (scoped to owner) ─────────────────────────
 
   // GET /v1/owner/approval-requests
@@ -636,6 +785,10 @@ export function registerOwnerRoutes(
       return;
     }
 
+    // TOTP verification
+    const approveOwner = readOwnerFile(dataDir, session.sub);
+    if (!(await verifyTotpForApproval(request, reply, approveOwner, session))) return;
+
     const req = readApprovalRequestFile(dataDir, id);
 
     if (req.status !== 'PENDING') {
@@ -699,7 +852,11 @@ export function registerOwnerRoutes(
   app.post('/v1/owner/approval-requests/:id/deny', { preHandler: ownerAuth }, async (request, reply) => {
     const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
     const { id } = request.params as { id: string };
-    const body = request.body as { reason?: string } | null;
+    const body = request.body as { reason?: string; totp_code?: string } | null;
+
+    // TOTP verification
+    const denyOwner = readOwnerFile(dataDir, session.sub);
+    if (!(await verifyTotpForApproval(request, reply, denyOwner, session))) return;
 
     const state = readState(dataDir);
     const entry = (state.approval_requests ?? []).find(

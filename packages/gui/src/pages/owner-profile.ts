@@ -55,6 +55,9 @@ export interface OwnerProfileData {
   government_ids?: Array<{ country: string; id_type: string; id_value: string; verification_level: string; verified_at: string | null; added_at: string }>;
   company_ids?: Array<{ id_type: string; country?: string; id_value: string; verification_level: string; verified_at: string | null; added_at: string }>;
   created_at: string;
+  totp_enabled?: boolean;
+  totp_enabled_at?: string;
+  totp_backup_codes_remaining?: number;
 }
 
 // ─── Render ───────────────────────────────────────────────────────────
@@ -131,6 +134,25 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <div style="display:flex;gap:8px">
         <input type="text" id="newDisplayName" value="${escapeHtml(data.display_name)}" class="form-input" style="flex:1">
         <button class="btn btn-primary" onclick="updateName()">Update</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Security</div>
+      <div id="totp-section">
+        ${data.totp_enabled ? `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <span class="badge badge-green">2FA Enabled</span>
+          ${data.totp_enabled_at ? `<span style="font-size:12px;color:var(--text-muted)">since ${escapeHtml(data.totp_enabled_at)}</span>` : ''}
+        </div>
+        ${data.totp_backup_codes_remaining !== undefined ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">${data.totp_backup_codes_remaining} backup code${data.totp_backup_codes_remaining !== 1 ? 's' : ''} remaining</p>` : ''}
+        <button class="btn btn-secondary" style="border-color:var(--red-bright);color:var(--red-bright)" onclick="disableTotp()">Disable 2FA</button>
+        ` : `
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Two-Factor Authentication: Not configured</p>
+        <div id="totp-setup-area">
+          <button class="btn btn-primary" onclick="setupTotp()">Enable 2FA</button>
+        </div>
+        `}
       </div>
     </div>
 
@@ -356,6 +378,61 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       async function removeCompanyId(idx) {
         var updated = companyIds.filter(function(_, i) { return i !== idx; });
         if (await saveProfile({ company_ids: updated })) window.location.reload();
+      }
+
+      async function setupTotp() {
+        var res = await fetch('/v1/owner/totp/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: '{}',
+        });
+        if (!res.ok) { showAlert('Failed to start TOTP setup', 'error'); return; }
+        var data = await res.json();
+        var area = document.getElementById('totp-setup-area');
+        area.innerHTML = '<div style="margin-top:12px">' +
+          '<p style="font-size:13px;margin-bottom:8px">Add this secret to your authenticator app:</p>' +
+          '<div class="mono" style="background:var(--bg-base);padding:8px 12px;border-radius:4px;font-size:13px;word-break:break-all;margin-bottom:8px">' + data.secret + '</div>' +
+          '<p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Or use this URI: <span class="mono" style="font-size:11px;word-break:break-all">' + data.uri + '</span></p>' +
+          '<div style="background:var(--bg-base);padding:12px;border-radius:4px;border:1px solid var(--amber);margin-bottom:12px">' +
+          '<p style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--amber)">Save these backup codes</p>' +
+          '<div class="mono" style="font-size:13px;line-height:1.8">' + data.backup_codes.join('<br>') + '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;align-items:center">' +
+          '<input type="text" id="totp-confirm-code" class="form-input" placeholder="Enter 6-digit code" maxlength="6" style="width:180px">' +
+          '<button class="btn btn-primary" onclick="confirmTotp()">Verify & Enable</button>' +
+          '</div></div>';
+      }
+
+      async function confirmTotp() {
+        var code = document.getElementById('totp-confirm-code').value.trim();
+        if (!code) { showAlert('Enter a code', 'error'); return; }
+        var res = await fetch('/v1/owner/totp/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ code: code }),
+        });
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          var data = await res.json().catch(function() { return {}; });
+          showAlert((data.error && data.error.message) || 'Invalid code', 'error');
+        }
+      }
+
+      async function disableTotp() {
+        var code = prompt('Enter your 2FA code to disable:');
+        if (!code) return;
+        var res = await fetch('/v1/owner/totp/disable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ code: code }),
+        });
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          var data = await res.json().catch(function() { return {}; });
+          showAlert((data.error && data.error.message) || 'Invalid code', 'error');
+        }
       }
     </script>
   `;
