@@ -165,6 +165,53 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
     };
   });
 
+  // GET /v1/agents/register-with-invite — returns registration instructions
+  app.get('/v1/agents/register-with-invite', async (request, reply) => {
+    const query = request.query as { invite_id?: string; invite_token?: string };
+
+    if (!query.invite_id || !query.invite_token) {
+      reply.code(400).send({
+        error: { code: 'INVALID_REQUEST', message: 'Missing invite_id or invite_token query parameters' },
+      });
+      return;
+    }
+
+    const proto = request.headers['x-forwarded-proto'] || request.protocol;
+    const host = request.headers['x-forwarded-host'] || request.hostname;
+    const port = (request.headers['x-forwarded-port'] as string | undefined)
+      || (request.socket.localPort !== 80 && request.socket.localPort !== 443
+        ? String(request.socket.localPort)
+        : undefined);
+    const baseUrl = `${proto}://${host}${port ? ':' + port : ''}`;
+    const registerUrl = `${baseUrl}/v1/agents/register-with-invite`;
+
+    return {
+      message: 'OpenLeash Agent Registration',
+      instructions: 'To register, POST to this URL with your agent_id and agent_pubkey_b64. The invite_id and invite_token from the query parameters will be used automatically.',
+      register_url: registerUrl,
+      method: 'POST',
+      required_body: {
+        invite_id: query.invite_id,
+        invite_token: query.invite_token,
+        agent_id: '(your agent identifier)',
+        agent_pubkey_b64: '(your Ed25519 public key, base64-encoded SPKI/DER format)',
+      },
+      example_curl: `curl -X POST ${registerUrl} -H "Content-Type: application/json" -d '{"invite_id":"${query.invite_id}","invite_token":"${query.invite_token}","agent_id":"my-agent","agent_pubkey_b64":"<BASE64_PUBLIC_KEY>"}'`,
+      sdks: {
+        typescript: {
+          package: '@openleash/sdk-ts',
+          install: 'npm install @openleash/sdk-ts',
+          example: `import { redeemAgentInvite } from '@openleash/sdk-ts';\nconst agent = await redeemAgentInvite({ inviteUrl: '${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agentId: 'my-agent' });`,
+        },
+        python: {
+          package: 'openleash-sdk',
+          install: 'pip install openleash-sdk',
+          example: `from openleash import redeem_agent_invite\nagent = await redeem_agent_invite(invite_url='${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agent_id='my-agent')`,
+        },
+      },
+    };
+  });
+
   // POST /v1/agents/register-with-invite
   app.post('/v1/agents/register-with-invite', async (request, reply) => {
     const body = request.body as {
