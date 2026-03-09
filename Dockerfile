@@ -11,10 +11,14 @@ COPY packages/cli/package.json packages/cli/
 
 RUN npm install
 
-COPY tsconfig.json ./
-COPY packages/ packages/
+COPY tsconfig.json tsconfig.docker.json ./
+COPY packages/core/ packages/core/
+COPY packages/gui/ packages/gui/
+COPY packages/server/ packages/server/
+COPY packages/sdk-ts/ packages/sdk-ts/
+COPY packages/cli/ packages/cli/
 
-RUN npm run build
+RUN npx tsc -b tsconfig.docker.json
 
 FROM node:22-slim
 
