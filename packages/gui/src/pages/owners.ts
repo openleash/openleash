@@ -68,6 +68,7 @@ export interface OwnerData {
   signatory_rules?: { rule_id: string; description: string; required_signatories: number; from_roles?: string[]; scope_description?: string; conditions?: Record<string, unknown> }[];
   totp_enabled?: boolean;
   totp_enabled_at?: string;
+  has_passphrase?: boolean;
 }
 
 export interface OwnerDetailData {
@@ -490,14 +491,17 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
 
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Setup Invite</div>
+        <div class="card-title" style="margin-bottom:0">${owner.has_passphrase ? 'Reset Passphrase' : 'Setup Invite'}</div>
+        ${owner.has_passphrase ? '<span class="badge badge-green" style="font-size:11px">Setup complete</span>' : '<span class="badge badge-amber" style="font-size:11px">Setup pending</span>'}
       </div>
       <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">
-        Generate a one-time setup invite link for this owner to set up their account (passphrase, contact info, IDs).
+        ${owner.has_passphrase
+          ? 'Generate a one-time link to let this owner reset their passphrase.'
+          : 'Generate a one-time setup invite link for this owner to set up their account (passphrase, contact info, IDs).'}
       </p>
-      <button id="invite-btn" class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="generateInvite()">Generate Setup Invite</button>
+      <button id="invite-btn" class="btn ${owner.has_passphrase ? 'btn-secondary' : 'btn-primary'}" style="padding:6px 14px;font-size:12px" onclick="generateInvite()">${owner.has_passphrase ? 'Generate Reset Link' : 'Generate Setup Invite'}</button>
       <div id="invite-result" class="hidden" style="margin-top:12px">
-        <div class="card-title" style="font-size:12px">Setup Link (copy and share securely — shown once)</div>
+        <div class="card-title" style="font-size:12px">${owner.has_passphrase ? 'Reset Link' : 'Setup Link'} (copy and share securely — shown once)</div>
         <div style="display:flex;gap:8px;align-items:stretch">
           <pre id="invite-link" class="config-block" style="word-break:break-all;white-space:pre-wrap;margin-bottom:0;flex:1"></pre>
           <button type="button" id="copy-btn" onclick="copyLink()" class="btn btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;align-self:start">Copy</button>

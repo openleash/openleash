@@ -177,7 +177,8 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         }
       }
 
-      const html = renderOwnerDetail({ owner, agents, policies, audit: ownerAudit, linked_humans: linkedHumans });
+      const ownerWithMeta = { ...owner, has_passphrase: !!owner.passphrase_hash };
+      const html = renderOwnerDetail({ owner: ownerWithMeta, agents, policies, audit: ownerAudit, linked_humans: linkedHumans });
       reply.type('text/html').send(html);
     } catch {
       reply.code(404).type('text/html').send('<h1>Owner file not found</h1>');
