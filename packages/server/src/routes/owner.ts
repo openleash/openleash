@@ -15,6 +15,7 @@ import {
   writeApprovalRequestFile,
   readSetupInviteFile,
   writeSetupInviteFile,
+  writeAgentInviteFile,
   parsePolicyYaml,
   appendAuditEvent,
   readAuditLog,
@@ -407,6 +408,38 @@ export function registerOwnerRoutes(
       agent_principal_id: agentEntry.agent_principal_id,
       agent_id: agent.agent_id,
       status: agent.status,
+    };
+  });
+
+  // POST /v1/owner/agent-invites
+  app.post('/v1/owner/agent-invites', { preHandler: ownerAuth }, async (request) => {
+    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
+
+    const inviteToken = crypto.randomBytes(32).toString('base64url');
+    const inviteId = crypto.randomUUID();
+    const { hash, salt } = hashPassphrase(inviteToken);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    writeAgentInviteFile(dataDir, {
+      invite_id: inviteId,
+      owner_principal_id: session.sub,
+      token_hash: hash,
+      token_salt: salt,
+      expires_at: expiresAt,
+      used: false,
+      used_at: null,
+      created_at: new Date().toISOString(),
+    });
+
+    appendAuditEvent(dataDir, 'AGENT_INVITE_CREATED', {
+      owner_principal_id: session.sub,
+      invite_id: inviteId,
+    });
+
+    return {
+      invite_id: inviteId,
+      invite_token: inviteToken,
+      expires_at: expiresAt,
     };
   });
 

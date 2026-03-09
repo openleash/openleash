@@ -4,7 +4,10 @@ import {
   readState,
   writeState,
   writeAgentFile,
+  readAgentInviteFile,
+  writeAgentInviteFile,
   appendAuditEvent,
+  hashPassphrase,
 } from '@openleash/core';
 import type { RegistrationChallenge } from '@openleash/core';
 
@@ -159,6 +162,180 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       owner_principal_id: body.owner_principal_id,
       status: 'ACTIVE',
       created_at: createdAt,
+    };
+  });
+
+  // POST /v1/agents/register-with-invite
+  app.post('/v1/agents/register-with-invite', async (request, reply) => {
+    const body = request.body as {
+      invite_id: string;
+      invite_token: string;
+      agent_id: string;
+      agent_pubkey_b64: string;
+    };
+    const query = request.query as { invite_id?: string; invite_token?: string };
+
+    // Accept invite_id and invite_token from either body or query params
+    const inviteId = body.invite_id || query.invite_id;
+    const inviteToken = body.invite_token || query.invite_token;
+
+    if (!inviteId || !inviteToken || !body.agent_id || !body.agent_pubkey_b64) {
+      reply.code(400).send({
+        error: { code: 'INVALID_REQUEST', message: 'invite_id, invite_token, agent_id, and agent_pubkey_b64 are required' },
+      });
+      return;
+    }
+
+    // Validate the public key format
+    try {
+      crypto.createPublicKey({
+        key: Buffer.from(body.agent_pubkey_b64, 'base64'),
+        format: 'der',
+        type: 'spki',
+      });
+    } catch {
+      reply.code(400).send({
+        error: { code: 'INVALID_KEY', message: 'Invalid public key format (expected base64 SPKI/DER Ed25519 key)' },
+      });
+      return;
+    }
+
+    // Load invite
+    let invite;
+    try {
+      invite = readAgentInviteFile(dataDir, inviteId);
+    } catch {
+      reply.code(404).send({
+        error: { code: 'INVITE_NOT_FOUND', message: 'Agent invite not found' },
+      });
+      return;
+    }
+
+    if (invite.used) {
+      reply.code(400).send({
+        error: { code: 'INVITE_USED', message: 'Agent invite has already been used' },
+      });
+      return;
+    }
+
+    if (new Date(invite.expires_at).getTime() < Date.now()) {
+      reply.code(400).send({
+        error: { code: 'INVITE_EXPIRED', message: 'Agent invite has expired' },
+      });
+      return;
+    }
+
+    // Verify invite token
+    const { hash: computedHash } = hashPassphrase(inviteToken, invite.token_salt);
+    if (computedHash !== invite.token_hash) {
+      reply.code(401).send({
+        error: { code: 'INVALID_INVITE_TOKEN', message: 'Invalid invite token' },
+      });
+      return;
+    }
+
+    // Create the agent
+    const agentPrincipalId = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+
+    writeAgentFile(dataDir, {
+      agent_principal_id: agentPrincipalId,
+      agent_id: body.agent_id,
+      owner_principal_id: invite.owner_principal_id,
+      public_key_b64: body.agent_pubkey_b64,
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: createdAt,
+      revoked_at: null,
+    });
+
+    // Update state
+    const state = readState(dataDir);
+    state.agents.push({
+      agent_principal_id: agentPrincipalId,
+      agent_id: body.agent_id,
+      owner_principal_id: invite.owner_principal_id,
+      path: `./agents/${agentPrincipalId}.md`,
+    });
+    writeState(dataDir, state);
+
+    // Mark invite as used
+    invite.used = true;
+    invite.used_at = createdAt;
+    writeAgentInviteFile(dataDir, invite);
+
+    appendAuditEvent(dataDir, 'AGENT_REGISTERED_VIA_INVITE', {
+      agent_principal_id: agentPrincipalId,
+      agent_id: body.agent_id,
+      owner_principal_id: invite.owner_principal_id,
+      invite_id: inviteId,
+    });
+
+    // Derive the base URL from the request
+    const proto = request.headers['x-forwarded-proto'] || request.protocol;
+    const host = request.headers['x-forwarded-host'] || request.hostname;
+    const port = (request.headers['x-forwarded-port'] as string | undefined)
+      || (request.socket.localPort !== 80 && request.socket.localPort !== 443
+        ? String(request.socket.localPort)
+        : undefined);
+    const baseUrl = `${proto}://${host}${port ? ':' + port : ''}`;
+
+    return {
+      agent_principal_id: agentPrincipalId,
+      agent_id: body.agent_id,
+      owner_principal_id: invite.owner_principal_id,
+      status: 'ACTIVE',
+      created_at: createdAt,
+      openleash_url: baseUrl,
+      auth: {
+        method: 'ed25519_signed_request',
+        key_format: 'base64 SPKI/DER (public) and PKCS8/DER (private)',
+        headers: {
+          'X-Agent-Id': body.agent_id,
+          'X-Timestamp': 'ISO 8601 timestamp',
+          'X-Nonce': 'UUID v4',
+          'X-Body-Sha256': 'hex-encoded SHA-256 of request body',
+          'X-Signature': 'base64-encoded Ed25519 signature',
+        },
+        signing_input: 'METHOD\\nPATH\\nTIMESTAMP\\nNONCE\\nBODY_SHA256',
+      },
+      endpoints: {
+        authorize: {
+          method: 'POST',
+          path: '/v1/authorize',
+          description: 'Submit an action for authorization. Returns a decision (ALLOW/DENY/REQUIRE_APPROVAL) and a proof token on ALLOW.',
+        },
+        create_approval_request: {
+          method: 'POST',
+          path: '/v1/agent/approval-requests',
+          description: 'Request human approval when a decision requires it.',
+        },
+        get_approval_request: {
+          method: 'GET',
+          path: '/v1/agent/approval-requests/{approval_request_id}',
+          description: 'Poll the status of an approval request. Returns approval_token when approved.',
+        },
+        health: {
+          method: 'GET',
+          path: '/v1/health',
+          description: 'Server health check (no auth required).',
+        },
+        public_keys: {
+          method: 'GET',
+          path: '/v1/public-keys',
+          description: 'Retrieve server public keys for offline proof verification (no auth required).',
+        },
+        verify_proof: {
+          method: 'POST',
+          path: '/v1/verify-proof',
+          description: 'Verify a proof token online (no auth required).',
+        },
+      },
+      sdks: {
+        typescript: { package: '@openleash/sdk-ts', install: 'npm install @openleash/sdk-ts' },
+        python: { package: 'openleash-sdk', install: 'pip install openleash-sdk' },
+        go: { module: 'github.com/openleash/openleash/packages/sdk-go', install: 'go get github.com/openleash/openleash/packages/sdk-go' },
+      },
     };
   });
 }

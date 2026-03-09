@@ -123,6 +123,69 @@ export async function registerAgent(params: {
   }>;
 }
 
+// ─── Redeem agent invite ─────────────────────────────────────────────
+export interface AgentInviteResult {
+  agent_principal_id: string;
+  agent_id: string;
+  owner_principal_id: string;
+  openleash_url: string;
+  public_key_b64: string;
+  private_key_b64: string;
+  auth: Record<string, unknown>;
+  endpoints: Record<string, unknown>;
+  sdks: Record<string, unknown>;
+}
+
+export async function redeemAgentInvite(params: {
+  inviteUrl: string;
+  agentId: string;
+}): Promise<AgentInviteResult> {
+  const url = new URL(params.inviteUrl);
+  const inviteId = url.searchParams.get('invite_id');
+  const inviteToken = url.searchParams.get('invite_token');
+
+  if (!inviteId || !inviteToken) {
+    throw new Error('Invalid invite URL: missing invite_id or invite_token query parameters');
+  }
+
+  // Derive the base OpenLeash URL from the invite URL
+  const openleashUrl = url.origin;
+
+  // Generate a fresh Ed25519 keypair
+  const { publicKeyB64, privateKeyB64 } = generateEd25519Keypair();
+
+  // Register with the invite
+  const res = await fetch(`${openleashUrl}/v1/agents/register-with-invite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      invite_id: inviteId,
+      invite_token: inviteToken,
+      agent_id: params.agentId,
+      agent_pubkey_b64: publicKeyB64,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Agent invite registration failed: ${JSON.stringify(err)}`);
+  }
+
+  const result = await res.json() as Record<string, unknown>;
+
+  return {
+    agent_principal_id: result.agent_principal_id as string,
+    agent_id: result.agent_id as string,
+    owner_principal_id: result.owner_principal_id as string,
+    openleash_url: result.openleash_url as string,
+    public_key_b64: publicKeyB64,
+    private_key_b64: privateKeyB64,
+    auth: result.auth as Record<string, unknown>,
+    endpoints: result.endpoints as Record<string, unknown>,
+    sdks: result.sdks as Record<string, unknown>,
+  };
+}
+
 // ─── Authorize ───────────────────────────────────────────────────────
 export async function authorize(params: {
   openleashUrl: string;

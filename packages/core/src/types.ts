@@ -299,6 +299,17 @@ export interface SetupInvite {
   created_at: string;
 }
 
+export interface AgentInvite {
+  invite_id: string;
+  owner_principal_id: string;
+  token_hash: string;
+  token_salt: string;
+  expires_at: string;
+  used: boolean;
+  used_at: string | null;
+  created_at: string;
+}
+
 export interface SessionClaims {
   iss: string;
   kid: string;
@@ -352,6 +363,8 @@ export const AuditEventType = z.enum([
   'OWNER_TOTP_ENABLED',
   'OWNER_TOTP_DISABLED',
   'OWNER_TOTP_BACKUP_USED',
+  'AGENT_INVITE_CREATED',
+  'AGENT_REGISTERED_VIA_INVITE',
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 

@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type {
   AgentFrontmatter,
+  AgentInvite,
   ApprovalRequestFrontmatter,
   OwnerFrontmatter,
   SetupInvite,
@@ -140,4 +141,18 @@ export function deleteSetupInviteFile(dataDir: string, inviteId: string): void {
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
   }
+}
+
+// ─── Agent invite files ────────────────────────────────────────────
+
+export function writeAgentInviteFile(dataDir: string, invite: AgentInvite): void {
+  const dir = path.join(dataDir, 'agent-invites');
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${invite.invite_id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(invite, null, 2), 'utf-8');
+}
+
+export function readAgentInviteFile(dataDir: string, inviteId: string): AgentInvite {
+  const filePath = path.join(dataDir, 'agent-invites', `${inviteId}.json`);
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
 }

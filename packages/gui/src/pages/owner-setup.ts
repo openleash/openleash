@@ -17,6 +17,7 @@ export function renderOwnerSetup(): string {
       --green-mid: #10b981;
       --green-dark: #065f46;
       --red-bright: #f87171;
+      --amber-bright: #fbbf24;
       --text-primary: #e8f0f8;
       --text-secondary: #8899aa;
       --text-muted: #556677;
@@ -41,7 +42,7 @@ export function renderOwnerSetup(): string {
       border-radius: var(--radius-md);
       padding: 40px;
       width: 100%;
-      max-width: 420px;
+      max-width: 480px;
     }
     .setup-card h1 {
       color: var(--green-bright);
@@ -102,6 +103,21 @@ export function renderOwnerSetup(): string {
       opacity: 0.6;
       cursor: not-allowed;
     }
+    .btn-secondary {
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn-secondary:hover {
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+    }
     .error-msg {
       color: var(--red-bright);
       font-size: 13px;
@@ -137,6 +153,39 @@ export function renderOwnerSetup(): string {
       color: var(--green-bright);
       text-decoration: none;
     }
+    .invite-result {
+      margin-top: 16px;
+    }
+    .invite-result label {
+      display: block;
+      font-size: 12px;
+      color: var(--amber-bright);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .invite-url-box {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg-elevated);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+    .invite-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border-subtle);
+      margin: 24px 0;
+    }
   </style>
 </head>
 <body>
@@ -163,8 +212,21 @@ export function renderOwnerSetup(): string {
     </form>
     <div id="successMsg" class="success-msg" style="display:none">
       <h2>Account ready</h2>
-      <p>Your passphrase has been set. You can now log in.</p>
-      <a id="loginLink" href="/gui/owner/login">Go to login</a>
+      <p>Your passphrase has been set.</p>
+
+      <hr class="divider">
+
+      <p style="margin-bottom:12px">Would you like to register an agent?</p>
+      <button class="btn-setup" id="createInviteBtn" onclick="createAgentInvite()">Create Agent Invite</button>
+      <button class="btn-secondary" id="skipBtn" onclick="goToLogin()">Skip for now</button>
+
+      <div id="inviteResult" class="invite-result" style="display:none">
+        <label>Agent invite URL (single use, expires in 24h)</label>
+        <div id="inviteUrlBox" class="invite-url-box"></div>
+        <div class="invite-hint">Copy this URL and give it to your agent. It contains everything the agent needs to register itself.</div>
+        <button class="btn-setup" style="margin-top:12px" onclick="copyInviteUrl()">Copy to Clipboard</button>
+        <button class="btn-secondary" onclick="goToLogin()">Continue to login</button>
+      </div>
     </div>
   </div>
   <script>
@@ -172,11 +234,20 @@ export function renderOwnerSetup(): string {
     var inviteId = params.get('invite_id');
     var inviteToken = params.get('invite_token');
     var ownerIdParam = params.get('owner_id');
+    var sessionToken = null;
+    var ownerPrincipalId = null;
 
     if (!inviteId || !inviteToken) {
       document.getElementById('missingParams').style.display = 'block';
     } else {
       document.getElementById('setupForm').style.display = 'block';
+    }
+
+    function goToLogin() {
+      var id = ownerPrincipalId || ownerIdParam;
+      window.location.href = id
+        ? '/gui/owner/login?owner_id=' + encodeURIComponent(id)
+        : '/gui/owner/login';
     }
 
     document.getElementById('setupForm').addEventListener('submit', async function(e) {
@@ -224,12 +295,34 @@ export function renderOwnerSetup(): string {
           return;
         }
 
+        ownerPrincipalId = data.owner_principal_id || ownerIdParam;
+
+        // Auto-login to get session token for agent invite creation
+        if (ownerPrincipalId) {
+          try {
+            var loginRes = await fetch('/v1/owner/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                owner_principal_id: ownerPrincipalId,
+                passphrase: passphrase,
+              }),
+            });
+            if (loginRes.ok) {
+              var loginData = await loginRes.json();
+              sessionToken = loginData.token;
+            }
+          } catch (_) {
+            // Login failed — agent invite won't be available
+          }
+        }
+
         document.getElementById('setupForm').style.display = 'none';
         document.getElementById('successMsg').style.display = 'block';
-        if (data.owner_principal_id) {
-          document.getElementById('loginLink').href = '/gui/owner/login?owner_id=' + encodeURIComponent(data.owner_principal_id);
-        } else if (ownerIdParam) {
-          document.getElementById('loginLink').href = '/gui/owner/login?owner_id=' + encodeURIComponent(ownerIdParam);
+
+        // If login failed, hide the invite option
+        if (!sessionToken) {
+          document.getElementById('createInviteBtn').style.display = 'none';
         }
       } catch (err) {
         errorEl.textContent = 'Network error';
@@ -238,6 +331,46 @@ export function renderOwnerSetup(): string {
         btn.textContent = 'Set Up Account';
       }
     });
+
+    async function createAgentInvite() {
+      var btn = document.getElementById('createInviteBtn');
+      btn.disabled = true;
+      btn.textContent = 'Creating invite...';
+
+      try {
+        var res = await fetch('/v1/owner/agent-invites', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + sessionToken,
+          },
+        });
+
+        if (!res.ok) throw new Error('Failed to create invite');
+
+        var data = await res.json();
+        var baseUrl = window.location.origin;
+        var inviteUrl = baseUrl + '/v1/agents/register-with-invite?invite_id=' + encodeURIComponent(data.invite_id) + '&invite_token=' + encodeURIComponent(data.invite_token);
+
+        document.getElementById('inviteUrlBox').textContent = inviteUrl;
+        document.getElementById('inviteResult').style.display = 'block';
+        btn.style.display = 'none';
+        document.getElementById('skipBtn').style.display = 'none';
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Create Agent Invite';
+        alert('Failed to create agent invite');
+      }
+    }
+
+    async function copyInviteUrl() {
+      var url = document.getElementById('inviteUrlBox').textContent;
+      await navigator.clipboard.writeText(url);
+      var btn = event.target;
+      var orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = orig; }, 2000);
+    }
   </script>
 </body>
 </html>`;

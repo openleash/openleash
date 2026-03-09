@@ -14,6 +14,7 @@ import {
   validateCompanyIdValue,
   computeAssuranceLevel,
   writeSetupInviteFile,
+  writeAgentInviteFile,
   hashPassphrase,
 } from '@openleash/core';
 import type {
@@ -184,6 +185,47 @@ export function registerAdminRoutes(app: FastifyInstance, dataDir: string, confi
     });
 
     appendAuditEvent(dataDir, 'OWNER_SETUP_INVITE_CREATED', {
+      owner_principal_id: ownerId,
+      invite_id: inviteId,
+    });
+
+    return {
+      invite_id: inviteId,
+      invite_token: inviteToken,
+      expires_at: expiresAt,
+    };
+  });
+
+  // POST /v1/admin/owners/:ownerId/agent-invite
+  app.post('/v1/admin/owners/:ownerId/agent-invite', { preHandler: adminAuth }, async (request, reply) => {
+    const { ownerId } = request.params as { ownerId: string };
+
+    const state = readState(dataDir);
+    const ownerEntry = state.owners.find((o) => o.owner_principal_id === ownerId);
+    if (!ownerEntry) {
+      reply.code(404).send({
+        error: { code: 'NOT_FOUND', message: 'Owner not found' },
+      });
+      return;
+    }
+
+    const inviteToken = crypto.randomBytes(32).toString('base64url');
+    const inviteId = crypto.randomUUID();
+    const { hash, salt } = hashPassphrase(inviteToken);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    writeAgentInviteFile(dataDir, {
+      invite_id: inviteId,
+      owner_principal_id: ownerId,
+      token_hash: hash,
+      token_salt: salt,
+      expires_at: expiresAt,
+      used: false,
+      used_at: null,
+      created_at: new Date().toISOString(),
+    });
+
+    appendAuditEvent(dataDir, 'AGENT_INVITE_CREATED', {
       owner_principal_id: ownerId,
       invite_id: inviteId,
     });
