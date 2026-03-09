@@ -6,6 +6,48 @@
 
 OpenLeash is a **local-first authorization sidecar** that you (the agent) must consult before performing risky or side-effectful actions. It evaluates your request against YAML policies and returns a decision plus a cryptographic proof token (PASETO v4.public) that counterparties can verify.
 
+## How to Register
+
+Your owner will give you an **agent invite URL**. This URL contains everything you need to register yourself with OpenLeash.
+
+### Using the SDK (recommended)
+
+```typescript
+import { redeemAgentInvite } from "@openleash/sdk-ts";
+
+const agent = await redeemAgentInvite({
+  inviteUrl: process.env.OPENLEASH_AGENT_INVITE_URL!,
+  agentId: "my-agent",
+});
+
+// Save these — you'll need them for every request:
+// agent.openleash_url      — the server URL
+// agent.agent_id           — your agent ID
+// agent.private_key_b64    — your private key (keep secret)
+// agent.agent_principal_id — your principal ID
+// agent.owner_principal_id — your owner's ID
+```
+
+The SDK generates your Ed25519 keypair, registers you with the server, and returns everything you need. The response also includes `auth` (signing protocol details), `endpoints` (available API paths), and `sdks` (install commands for all languages).
+
+### Using the API directly
+
+If you don't have the SDK, `GET` the invite URL to receive registration instructions, then `POST` to it with your public key:
+
+```
+POST <invite_url>
+Content-Type: application/json
+
+{
+  "invite_id": "<from URL>",
+  "invite_token": "<from URL>",
+  "agent_id": "my-agent",
+  "agent_pubkey_b64": "<your Ed25519 public key, base64 SPKI/DER>"
+}
+```
+
+The response contains your identity, the signing protocol, and all available endpoints.
+
 ## How to Integrate
 
 ### 1. Request Authorization
@@ -74,10 +116,29 @@ if (result.decision === "ALLOW") {
 
 | Method | Path | Purpose |
 |---|---|---|
+| `POST` | `/v1/agents/register-with-invite` | Register using an invite URL |
 | `POST` | `/v1/authorize` | Request authorization for an action |
+| `POST` | `/v1/agent/approval-requests` | Request human approval when required |
+| `GET` | `/v1/agent/approval-requests/{id}` | Poll approval request status |
 | `POST` | `/v1/verify-proof` | Verify a proof token |
-| `POST` | `/v1/agents/register` | Register your agent identity |
+| `GET` | `/v1/public-keys` | Get server public keys for offline verification |
 | `GET` | `/v1/health` | Health check |
+
+## Request Signing
+
+All requests to `/v1/authorize` and `/v1/agent/*` must include signed headers:
+
+| Header | Value |
+|---|---|
+| `X-Agent-Id` | Your agent ID |
+| `X-Timestamp` | ISO 8601 timestamp |
+| `X-Nonce` | UUID v4 (unique per request) |
+| `X-Body-Sha256` | Hex-encoded SHA-256 of request body |
+| `X-Signature` | Base64-encoded Ed25519 signature |
+
+Signing input: `METHOD\nPATH\nTIMESTAMP\nNONCE\nBODY_SHA256`
+
+The SDK handles this automatically via `authorize()` and `signRequest()`.
 
 ## Important Rules
 

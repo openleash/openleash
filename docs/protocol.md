@@ -130,9 +130,73 @@ const result = await verifyProofOffline({
 
 Fetch public keys from `GET /v1/public-keys`.
 
-## Agent Registration (Challenge-Response)
+## Agent Registration
 
-### Step 1: Request Challenge
+There are two ways to register an agent: **invite-based** (recommended) and **challenge-response** (programmatic).
+
+### Invite-Based Registration (Recommended)
+
+Owners create agent invite URLs from the GUI or API. The invite URL is self-contained and single-use.
+
+**Creating an invite (owner-authed):**
+
+```
+POST /v1/owner/agent-invites
+Authorization: Bearer <session_token>
+```
+
+Returns `invite_id`, `invite_token`, and `expires_at` (24 hours).
+
+**Creating an invite (admin-authed):**
+
+```
+POST /v1/admin/owners/:ownerId/agent-invite
+```
+
+**Redeeming an invite:**
+
+The agent `GET`s the invite URL to receive registration instructions, then `POST`s with its public key:
+
+```
+POST /v1/agents/register-with-invite
+{
+  "invite_id": "<from URL or body>",
+  "invite_token": "<from URL or body>",
+  "agent_id": "my-agent",
+  "agent_pubkey_b64": "<SPKI DER base64>"
+}
+```
+
+The `invite_id` and `invite_token` can also be passed as query parameters.
+
+The server verifies the hashed invite token, creates the agent, marks the invite as used, and returns:
+
+- Agent identity (`agent_principal_id`, `agent_id`, `owner_principal_id`)
+- Server URL (`openleash_url`)
+- Auth protocol details (`auth`) — signing method, required headers, signing input format
+- Available endpoints (`endpoints`) — method, path, and description for each
+- SDK install commands (`sdks`) — for TypeScript, Python, and Go
+
+**Using the TypeScript SDK:**
+
+```typescript
+import { redeemAgentInvite } from '@openleash/sdk-ts';
+
+const agent = await redeemAgentInvite({
+  inviteUrl: 'http://127.0.0.1:8787/v1/agents/register-with-invite?invite_id=...&invite_token=...',
+  agentId: 'my-agent',
+});
+// agent.private_key_b64 — generated locally, never sent to the server
+// agent.openleash_url   — server URL
+// agent.auth            — signing protocol details
+// agent.endpoints       — available API endpoints
+```
+
+### Challenge-Response Registration
+
+For programmatic registration without an invite (e.g., from admin tooling):
+
+#### Step 1: Request Challenge
 
 ```
 POST /v1/agents/registration-challenge
@@ -145,7 +209,7 @@ POST /v1/agents/registration-challenge
 
 Returns a random challenge with 5-minute expiry.
 
-### Step 2: Register with Signed Challenge
+#### Step 2: Register with Signed Challenge
 
 ```
 POST /v1/agents/register

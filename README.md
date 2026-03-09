@@ -130,6 +130,7 @@ All state is stored in human-readable files:
 - `./data/keys/` — signing key JSON files
 - `./data/approval-requests/` — approval request records
 - `./data/invites/` — owner setup invites
+- `./data/agent-invites/` — agent registration invites
 - `./data/audit.log.jsonl` — append-only audit log
 
 ## 🔑 Approval Workflow
@@ -154,7 +155,31 @@ The owner portal is a self-service web interface where owners can manage their p
 1. An admin creates an owner via the Admin Dashboard (`/gui/dashboard`) or `npx openleash wizard`
 2. The admin generates a setup invite — the GUI produces a copyable setup link
 3. The owner opens the link (`/gui/owner/setup?invite_id=...&invite_token=...`) and chooses a passphrase
-4. The owner logs in at `/gui/owner/login` with their Owner Principal ID and passphrase
+4. After setup, the owner is offered to create an **agent invite** — a single URL that an agent uses to register itself
+5. The owner logs in at `/gui/owner/login` with their Owner Principal ID and passphrase
+
+## 🤖 Agent Registration
+
+Agents register via **invite URLs** created by owners (or admins). The invite URL is self-contained — the agent POSTs its public key and agent ID to it, and receives back its identity, the signing protocol, all available endpoints, and SDK install instructions.
+
+**Using the TypeScript SDK:**
+
+```typescript
+import { redeemAgentInvite } from '@openleash/sdk-ts';
+
+const agent = await redeemAgentInvite({
+  inviteUrl: process.env.OPENLEASH_AGENT_INVITE_URL!,
+  agentId: 'my-agent',
+});
+// agent.openleash_url, agent.private_key_b64, agent.agent_principal_id, ...
+```
+
+Owners can create agent invites from:
+- The owner setup page (offered immediately after setting a passphrase)
+- The owner agents page (`/gui/owner/agents`)
+- The admin agents page (`/gui/agents`)
+
+See [AGENTS.md](AGENTS.md) for the full agent integration guide.
 
 ## 🔍 Troubleshooting
 

@@ -10,6 +10,23 @@ Use this package in your agent code to request authorization and verify proof to
 npm install @openleash/sdk-ts
 ```
 
+## Register with an invite
+
+```typescript
+import { redeemAgentInvite } from '@openleash/sdk-ts';
+
+const agent = await redeemAgentInvite({
+  inviteUrl: process.env.OPENLEASH_AGENT_INVITE_URL!,
+  agentId: 'my-agent',
+});
+
+// agent.openleash_url      — server URL
+// agent.agent_principal_id — your ID
+// agent.private_key_b64    — your private key (generated locally)
+// agent.auth               — signing protocol details
+// agent.endpoints          — available API endpoints
+```
+
 ## Authorize an action
 
 ```typescript

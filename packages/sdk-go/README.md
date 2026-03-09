@@ -60,8 +60,9 @@ func main() {
 |---|---|
 | `GenerateEd25519Keypair()` | Generate Ed25519 keypair (DER SPKI/PKCS8, base64) |
 | `SignRequest(...)` | Sign an HTTP request with Ed25519 |
+| `RedeemAgentInvite(...)` | Register using an invite URL (recommended) |
 | `RegistrationChallenge(...)` | Request a registration challenge |
-| `RegisterAgent(...)` | Register an agent |
+| `RegisterAgent(...)` | Register an agent via challenge-response |
 | `Authorize(...)` | Send a signed authorization request |
 | `VerifyProofOnline(...)` | Verify a proof token via the server |
 | `VerifyProofOffline(...)` | Verify a PASETO v4.public token locally |

@@ -46,8 +46,9 @@ verification = verify_proof_offline(
 |---|---|---|
 | `generate_ed25519_keypair()` | No | Generate Ed25519 keypair (DER SPKI/PKCS8, base64) |
 | `sign_request(...)` | No | Sign an HTTP request with Ed25519 |
+| `redeem_agent_invite(...)` | Yes | Register using an invite URL (recommended) |
 | `registration_challenge(...)` | Yes | Request a registration challenge |
-| `register_agent(...)` | Yes | Register an agent |
+| `register_agent(...)` | Yes | Register an agent via challenge-response |
 | `authorize(...)` | Yes | Send a signed authorization request |
 | `verify_proof_online(...)` | Yes | Verify a proof token via the server |
 | `verify_proof_offline(...)` | No | Verify a PASETO v4.public token locally |
