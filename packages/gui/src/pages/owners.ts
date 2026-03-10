@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId, copyableId } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp } from '../layout.js';
 
 // ─── Country data ─────────────────────────────────────────────────────
 
@@ -141,7 +141,7 @@ export function renderOwners(owners: OwnerData[]): string {
       <td>${escapeHtml(o.display_name ?? '-')}</td>
       <td>${escapeHtml(o.principal_type ?? '-')}</td>
       <td>${statusBadge(o.status)}</td>
-      <td class="mono">${escapeHtml(o.created_at?.slice(0, 10) ?? '-')}</td>
+      <td class="mono">${o.created_at ? formatTimestamp(o.created_at, true) : '-'}</td>
       <td>
         <a href="/gui/owners/${escapeHtml(o.owner_principal_id)}" class="btn btn-secondary" style="padding:4px 10px;font-size:12px">View</a>
       </td>
@@ -409,7 +409,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
       <td>${copyableId(a.agent_principal_id)}</td>
       <td>${statusBadge(a.status)}</td>
-      <td class="mono">${escapeHtml(a.created_at.slice(0, 10))}</td>
+      <td class="mono">${formatTimestamp(a.created_at, true)}</td>
     </tr>
   `).join('');
 
@@ -483,7 +483,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
           </tr>
           <tr>
             <td style="color:var(--text-muted)">Created</td>
-            <td class="mono">${escapeHtml(owner.created_at ?? '-')}</td>
+            <td class="mono">${owner.created_at ? formatTimestamp(owner.created_at) : '-'}</td>
           </tr>
         </tbody>
       </table>

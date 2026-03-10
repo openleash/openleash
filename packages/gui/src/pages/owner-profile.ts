@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp } from '../layout.js';
 
 // ─── Country data ─────────────────────────────────────────────────────
 
@@ -134,7 +134,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           <tr><td style="color:var(--text-muted)">Type</td><td>${escapeHtml(data.principal_type)}</td></tr>
           <tr><td style="color:var(--text-muted)">Status</td><td><span class="badge ${data.status === 'ACTIVE' ? 'badge-green' : 'badge-red'}">${escapeHtml(data.status)}</span></td></tr>
           ${data.identity_assurance_level ? `<tr><td style="color:var(--text-muted)">Assurance Level</td><td>${escapeHtml(data.identity_assurance_level)}</td></tr>` : ''}
-          <tr><td style="color:var(--text-muted)">Created</td><td class="mono">${new Date(data.created_at).toLocaleString()}</td></tr>
+          <tr><td style="color:var(--text-muted)">Created</td><td class="mono">${formatTimestamp(data.created_at)}</td></tr>
         </tbody>
       </table>
     </div>
@@ -144,7 +144,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       ${data.totp_enabled ? `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <span class="badge badge-green">2FA Enabled</span>
-        ${data.totp_enabled_at ? `<span style="font-size:12px;color:var(--text-muted)">since ${new Date(data.totp_enabled_at).toLocaleString()}</span>` : ''}
+        ${data.totp_enabled_at ? `<span style="font-size:12px;color:var(--text-muted)">since ${formatTimestamp(data.totp_enabled_at)}</span>` : ''}
       </div>
       ${data.totp_backup_codes_remaining !== undefined ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">${data.totp_backup_codes_remaining} backup code${data.totp_backup_codes_remaining !== 1 ? 's' : ''} remaining</p>` : ''}
       <button class="btn btn-secondary" style="border-color:var(--red-bright);color:var(--red-bright)" onclick="openDisableModal()">Disable 2FA</button>

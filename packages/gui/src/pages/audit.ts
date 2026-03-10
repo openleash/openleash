@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId, copyableId } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp } from '../layout.js';
 
 export interface AuditEntry {
   event_id: string;
@@ -162,14 +162,12 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
     if (e.action_id) extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">action_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.action_id)}</span></div>`);
     if (e.decision_id) extraFields.push(`<div style="margin-bottom:6px"><span style="color:var(--green-bright)">decision_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.decision_id)}</span></div>`);
 
-    const isoTimestamp = e.timestamp;
-    const displayTimestamp = e.timestamp.slice(0, 19).replace('T', ' ');
     const summary = eventSummary(e, nameMap, policyBasePath);
 
     return `
       <tr class="accordion-row" onclick="toggleAccordion(${idx})" id="row-${idx}" data-event-type="${escapeHtml(e.event_type)}">
         <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
-        <td class="local-time" data-utc="${escapeHtml(isoTimestamp)}" title="UTC: ${escapeHtml(displayTimestamp)}" style="white-space:nowrap">${escapeHtml(displayTimestamp)}</td>
+        <td>${formatTimestamp(e.timestamp)}</td>
         <td>${eventBadge(e.event_type)}</td>
         <td>${principalDisplay(e.principal_id, nameMap)}</td>
         <td>${summary || '<span style="color:var(--text-muted)">--</span>'}</td>
@@ -247,24 +245,6 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
           row.classList.add('expanded');
         }
       }
-
-      (function() {
-        try {
-          var cells = document.querySelectorAll('.local-time[data-utc]');
-          for (var i = 0; i < cells.length; i++) {
-            var utc = cells[i].getAttribute('data-utc');
-            var d = new Date(utc);
-            if (!isNaN(d.getTime())) {
-              cells[i].textContent = d.toLocaleString(undefined, {
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit',
-                hour12: false
-              });
-              cells[i].title = 'UTC: ' + utc.slice(0, 19).replace('T', ' ');
-            }
-          }
-        } catch(_) {}
-      })();
 
       function filterEvents() {
         var val = document.getElementById('event-filter').value;

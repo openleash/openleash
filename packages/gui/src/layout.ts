@@ -37,6 +37,12 @@ export function copyableId(fullId: string, truncateLength = 8): string {
   return `<span class="mono copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${display}</span>`;
 }
 
+export function formatTimestamp(iso: string, dateOnly = false): string {
+  const escaped = escapeHtml(iso);
+  const fallback = dateOnly ? iso.slice(0, 10) : iso.slice(0, 19).replace('T', ' ');
+  return `<span class="local-time" data-utc="${escaped}"${dateOnly ? ' data-date-only="1"' : ''} title="UTC: ${escapeHtml(fallback)}" style="white-space:nowrap">${escapeHtml(fallback)}</span>`;
+}
+
 export function formatNameWithId(name: string | undefined, uuid: string): string {
   const escaped = escapeHtml(uuid);
   if (name) {
@@ -948,6 +954,7 @@ export function renderPage(title: string, content: string, activePath: string, c
   </div>
   <script>
     function toggleSidebar(){document.body.classList.toggle('sidebar-collapsed');localStorage.setItem('ol_sidebar_collapsed',document.body.classList.contains('sidebar-collapsed')?'1':'0');}
+    (function(){try{var cells=document.querySelectorAll('.local-time[data-utc]');for(var i=0;i<cells.length;i++){var utc=cells[i].getAttribute('data-utc');var d=new Date(utc);if(!isNaN(d.getTime())){if(cells[i].getAttribute('data-date-only')==='1'){cells[i].textContent=d.toLocaleDateString(undefined,{year:'numeric',month:'2-digit',day:'2-digit'});}else{cells[i].textContent=d.toLocaleString(undefined,{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}cells[i].title='UTC: '+utc.slice(0,19).replace('T',' ');}}}catch(_){}})();
     function copyId(el,id){navigator.clipboard.writeText(id);var t=el.querySelector('.copy-tooltip');if(!t){t=document.createElement('span');t.className='copy-tooltip';t.textContent='Copied!';el.appendChild(t);}t.classList.add('show');clearTimeout(el._copyTimer);el._copyTimer=setTimeout(function(){t.classList.remove('show');},1200);}
     var _olResolve=null;
     function olDialogCancel(){document.getElementById('ol-dialog').classList.remove('open');if(_olResolve){_olResolve(null);_olResolve=null;}}

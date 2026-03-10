@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp } from '../layout.js';
 
 export interface OwnerApprovalEntry {
   approval_request_id: string;
@@ -29,7 +29,7 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
         <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
         <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span>${a.action_type.startsWith('communication.') ? ' <span class="badge badge-muted" style="margin-left:4px;font-size:10px">MCP Glove</span>' : ''}</td>
         <td>${a.justification ? escapeHtml(a.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
-        <td>${new Date(a.created_at).toLocaleString()}</td>
+        <td>${formatTimestamp(a.created_at)}</td>
         <td>
           <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="handleApproval('${a.approval_request_id}', 'approve')" ${disableActions ? 'disabled' : ''}>Approve</button>
           <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="handleApproval('${a.approval_request_id}', 'deny')" ${disableActions ? 'disabled' : ''}>Deny</button>
@@ -47,7 +47,7 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
         <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
         <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span>${a.action_type.startsWith('communication.') ? ' <span class="badge badge-muted" style="margin-left:4px;font-size:10px">MCP Glove</span>' : ''}</td>
         <td><span class="badge ${badge}">${escapeHtml(a.status)}</span></td>
-        <td>${new Date(a.created_at).toLocaleString()}</td>
+        <td>${formatTimestamp(a.created_at)}</td>
       </tr>`;
     }).join('');
 

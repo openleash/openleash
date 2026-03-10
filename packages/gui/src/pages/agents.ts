@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId, copyableId } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp } from '../layout.js';
 
 export interface AgentData {
   agent_principal_id: string;
@@ -33,8 +33,8 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
       <td>${copyableId(a.agent_principal_id)}</td>
       <td>${a.owner_principal_id ? formatNameWithId(ownerMap.get(a.owner_principal_id), a.owner_principal_id) : '-'}</td>
       <td>${statusBadge(a.status)}</td>
-      <td class="mono">${escapeHtml(a.created_at?.slice(0, 10) ?? '-')}</td>
-      <td class="mono">${a.revoked_at ? escapeHtml(a.revoked_at.slice(0, 10)) : '-'}</td>
+      <td class="mono">${a.created_at ? formatTimestamp(a.created_at, true) : '-'}</td>
+      <td class="mono">${a.revoked_at ? formatTimestamp(a.revoked_at, true) : '-'}</td>
     </tr>
   `).join('');
 

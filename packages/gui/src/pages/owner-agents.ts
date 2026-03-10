@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp } from '../layout.js';
 
 export interface OwnerAgentEntry {
   agent_principal_id: string;
@@ -18,7 +18,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[]): string {
         <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
         <td>${copyableId(a.agent_principal_id)}</td>
         <td><span class="badge ${badge}">${escapeHtml(a.status)}</span></td>
-        <td>${new Date(a.created_at).toLocaleString()}</td>
+        <td>${formatTimestamp(a.created_at)}</td>
         <td>
           ${a.status === 'ACTIVE'
             ? `<button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;border-color:var(--red-bright);color:var(--red-bright)" onclick="revokeAgent('${a.agent_principal_id}')">Revoke</button>`

@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp } from '../layout.js';
 
 export interface DashboardData {
   state: {
@@ -120,7 +120,7 @@ export function renderDashboard(data: DashboardData): string {
             </tr>
             <tr>
               <td style="color:var(--text-muted)">Created At</td>
-              <td class="mono">${escapeHtml(state.created_at)}</td>
+              <td class="mono">${formatTimestamp(state.created_at)}</td>
             </tr>
             <tr>
               <td style="color:var(--text-muted)">Active Key ID</td>

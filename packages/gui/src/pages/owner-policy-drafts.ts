@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp } from '../layout.js';
 
 export interface OwnerPolicyDraftEntry {
   policy_draft_id: string;
@@ -84,7 +84,7 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
-        <td>${new Date(d.created_at).toLocaleString()}</td>
+        <td>${formatTimestamp(d.created_at)}</td>
         <td>
           <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'approve')" ${disableActions ? 'disabled' : ''}>Approve</button>
           <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'deny')" ${disableActions ? 'disabled' : ''}>Deny</button>
@@ -112,7 +112,7 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
         <td>${d.resulting_policy_id
           ? copyableId(d.resulting_policy_id)
           : d.denial_reason ? escapeHtml(d.denial_reason) : '<span style="color:var(--text-muted)">-</span>'}</td>
-        <td>${new Date(d.created_at).toLocaleString()}</td>
+        <td>${formatTimestamp(d.created_at)}</td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
         <td colspan="6" style="padding:0 12px 16px">
