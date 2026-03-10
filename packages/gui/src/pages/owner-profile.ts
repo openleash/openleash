@@ -165,10 +165,12 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
             <div id="totp-secret-display" class="mono" style="background:var(--bg-deep);padding:8px 12px;border-radius:4px;font-size:13px;word-break:break-all;margin-top:8px"></div>
           </details>
           <div style="background:var(--bg-deep);padding:12px;border-radius:4px;border:1px solid var(--amber-bright);margin-bottom:16px">
-            <p style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--amber-bright)">Save these backup codes</p>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <p style="font-size:13px;font-weight:600;color:var(--amber-bright)">Save these backup codes</p>
+              <button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="downloadBackupCodes()"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">download</span>Download .txt</button>
+            </div>
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Store them somewhere safe. Each code can only be used once.</p>
             <div id="totp-backup-codes" class="mono" style="font-size:13px;line-height:1.8"></div>
-            <button class="btn btn-secondary" style="margin-top:8px;font-size:12px;padding:4px 12px" onclick="downloadBackupCodes()">Download as .txt</button>
           </div>
           <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Verify code from authenticator</label>
           <input type="text" id="totp-confirm-code" class="form-input" placeholder="Enter 6-digit code" maxlength="6" style="width:100%">
@@ -435,7 +437,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
       function downloadBackupCodes() {
-        var codes = document.getElementById('totp-backup-codes').textContent;
+        var codes = document.getElementById('totp-backup-codes').innerText;
         var blob = new Blob([codes], { type: 'text/plain' });
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
