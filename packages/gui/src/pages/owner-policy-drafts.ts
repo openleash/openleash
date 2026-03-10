@@ -137,7 +137,7 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Pending</h3>
       <table>
-        <colgroup><col style="width:290px"><col><col><col><col style="width:170px"><col style="width:150px"></colgroup>
+        <colgroup><col style="width:290px"><col><col><col><col style="width:170px"><col style="width:180px"></colgroup>
         <thead>
           <tr><th>ID</th><th>Suggested By</th><th>Applies To</th><th>Justification</th><th>Created</th><th>Actions</th></tr>
         </thead>
