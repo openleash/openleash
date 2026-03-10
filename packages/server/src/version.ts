@@ -6,7 +6,7 @@ export function getVersion(): string {
   if (cachedVersion) return cachedVersion;
 
   try {
-    const desc = execSync('git describe --tags --dirty --always', {
+    const desc = execSync('git describe --tags --match "v[0-9]*" --dirty --always', {
       encoding: 'utf-8',
       timeout: 3000,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -14,7 +14,7 @@ export function getVersion(): string {
     cachedVersion = desc;
   } catch {
     // No git or no tags — fall back to package version
-    cachedVersion = '0.4.1';
+    cachedVersion = '0.5.0';
   }
 
   return cachedVersion;
