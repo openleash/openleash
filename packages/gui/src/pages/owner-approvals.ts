@@ -18,6 +18,7 @@ export interface OwnerApprovalsOptions {
 export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: OwnerApprovalsOptions): string {
   const totpEnabled = options?.totp_enabled ?? false;
   const requireTotp = options?.require_totp ?? false;
+  const disableActions = requireTotp && !totpEnabled;
   const pending = approvals.filter((a) => a.status === 'PENDING');
   const resolved = approvals.filter((a) => a.status !== 'PENDING');
 
@@ -54,8 +55,6 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
   const totpBanner = requireTotp && !totpEnabled
     ? '<div class="alert alert-error" style="margin-top:16px">Two-factor authentication is required. <a href="/gui/owner/profile" style="color:inherit;text-decoration:underline">Set up 2FA in your Profile.</a></div>'
     : '';
-
-  const disableActions = requireTotp && !totpEnabled;
 
   const content = `
     <h2>Approval Requests</h2>
