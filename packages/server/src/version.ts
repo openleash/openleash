@@ -6,7 +6,7 @@ export function getVersion(): string {
   if (cachedVersion) return cachedVersion;
 
   try {
-    const desc = execSync('git describe --tags --match "v[0-9]*" --dirty --always', {
+    const desc = execSync("git describe --tags --match 'v[0-9]*' --exclude 'packages/*' --dirty --always", {
       encoding: 'utf-8',
       timeout: 3000,
       stdio: ['pipe', 'pipe', 'pipe'],
