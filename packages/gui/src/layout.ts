@@ -159,6 +159,30 @@ export function renderPage(title: string, content: string, activePath: string, c
       margin-top: 1px;
     }
 
+    .context-switcher {
+      display: flex;
+      margin: 0 16px 16px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg-deep);
+    }
+    .context-tab {
+      flex: 1;
+      padding: 7px 0;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-body);
+      text-align: center;
+      text-decoration: none;
+      color: var(--text-muted);
+      transition: all 0.25s var(--ease-out);
+      letter-spacing: 0.03em;
+    }
+    .context-tab:hover { color: var(--text-secondary); background: rgba(136,153,170,0.05); }
+    .context-tab.active { background: var(--green-dark); color: var(--green-bright); cursor: default; }
+    .context-tab-icon { display: none; }
+
     .nav-item {
       display: flex;
       align-items: center;
@@ -760,6 +784,9 @@ export function renderPage(title: string, content: string, activePath: string, c
       .nav-label { display: none; }
       .nav-item { justify-content: center; padding: 10px; }
       .main { margin-left: 60px; padding: 20px; }
+      .context-switcher { flex-direction: column; margin: 0 8px 12px; }
+      .context-tab { padding: 6px 0; font-size: 0; }
+      .context-tab-icon { display: inline; font-size: 14px; }
     }
   </style>
 </head>
@@ -790,6 +817,16 @@ export function renderPage(title: string, content: string, activePath: string, c
         <h1>OpenLeash</h1>
         <span>${subtitle}</span>
       </div>
+    </div>
+    <div class="context-switcher">
+      <a href="/gui/dashboard" class="context-tab${!isOwner ? ' active' : ''}">
+        <span class="context-tab-icon">&#9881;</span>
+        <span class="context-tab-label">Admin</span>
+      </a>
+      <a href="/gui/owner/dashboard" class="context-tab${isOwner ? ' active' : ''}">
+        <span class="context-tab-icon">&#9679;</span>
+        <span class="context-tab-label">Owner</span>
+      </a>
     </div>
     ${navHtml}
     ${logoutHtml}

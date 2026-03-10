@@ -9,6 +9,16 @@ import type { OpenleashConfig } from '@openleash/core';
 
 export function createOwnerAuth(config: OpenleashConfig, dataDir: string) {
   return async function ownerAuth(request: FastifyRequest, reply: FastifyReply) {
+    const isGuiRequest = request.url.startsWith('/gui/');
+
+    function deny(code: string, message: string) {
+      if (isGuiRequest) {
+        reply.redirect('/gui/owner/login');
+      } else {
+        reply.code(401).send({ error: { code, message } });
+      }
+    }
+
     // Extract Bearer token from Authorization header or cookie
     let token: string | undefined;
 
@@ -29,9 +39,7 @@ export function createOwnerAuth(config: OpenleashConfig, dataDir: string) {
     }
 
     if (!token) {
-      reply.code(401).send({
-        error: { code: 'MISSING_TOKEN', message: 'Missing session token' },
-      });
+      deny('MISSING_TOKEN', 'Missing session token');
       return;
     }
 
@@ -42,26 +50,20 @@ export function createOwnerAuth(config: OpenleashConfig, dataDir: string) {
     // Verify session token
     const result = await verifySessionToken(token, keys);
     if (!result.valid || !result.claims) {
-      reply.code(401).send({
-        error: { code: 'INVALID_SESSION', message: result.reason ?? 'Invalid session token' },
-      });
+      deny('INVALID_SESSION', result.reason ?? 'Invalid session token');
       return;
     }
 
     // Verify owner exists and is active
     const ownerEntry = state.owners.find((o) => o.owner_principal_id === result.claims!.sub);
     if (!ownerEntry) {
-      reply.code(401).send({
-        error: { code: 'OWNER_NOT_FOUND', message: 'Owner not found' },
-      });
+      deny('OWNER_NOT_FOUND', 'Owner not found');
       return;
     }
 
     const owner = readOwnerFile(dataDir, result.claims.sub);
     if (owner.status !== 'ACTIVE') {
-      reply.code(401).send({
-        error: { code: 'OWNER_INACTIVE', message: 'Owner account is not active' },
-      });
+      deny('OWNER_INACTIVE', 'Owner account is not active');
       return;
     }
 
