@@ -190,7 +190,7 @@ function renderEventFlow(entry: AuditEntry, nameMap?: AuditNameMap): string {
     meta.expires_at ? `expires: ${meta.expires_at}` : null,
   ].filter(Boolean).join('\n');
 
-  let nodes = '';
+  let nodes: string;
 
   switch (entry.event_type) {
     case 'AUTHORIZE_CALLED':
