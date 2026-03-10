@@ -279,6 +279,56 @@ export async function verifyProofOffline(params: {
   return { valid: false, reason: 'No matching key found or invalid signature' };
 }
 
+// ─── Agent self ─────────────────────────────────────────────────────
+
+export async function getAgentSelf(params: {
+  openleashUrl: string;
+  agentId: string;
+  privateKeyB64: string;
+}): Promise<{
+  agent_principal_id: string;
+  agent_id: string;
+  owner_principal_id: string;
+  status: string;
+  attributes: Record<string, unknown>;
+  created_at: string;
+}> {
+  const bodyBytes = Buffer.from('{}');
+  const timestamp = new Date().toISOString();
+  const nonce = crypto.randomUUID();
+
+  const headers = signRequest({
+    method: 'GET',
+    path: '/v1/agent/self',
+    timestamp,
+    nonce,
+    bodyBytes,
+    privateKeyB64: params.privateKeyB64,
+  });
+
+  const res = await fetch(`${params.openleashUrl}/v1/agent/self`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Agent-Id': params.agentId,
+      ...headers,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Get agent self failed: ${JSON.stringify(err)}`);
+  }
+  return res.json() as Promise<{
+    agent_principal_id: string;
+    agent_id: string;
+    owner_principal_id: string;
+    status: string;
+    attributes: Record<string, unknown>;
+    created_at: string;
+  }>;
+}
+
 // ─── Approval requests ──────────────────────────────────────────────
 
 export async function createApprovalRequest(params: {
@@ -378,6 +428,13 @@ export async function getApprovalRequest(params: {
 
 // ─── Policy drafts ─────────────────────────────────────────────────
 
+/**
+ * Submit a policy draft for owner review.
+ *
+ * @param params.appliesToAgentPrincipalId - The agent principal the policy
+ *   should apply to. Defaults to the requesting agent itself when omitted.
+ *   Pass `null` explicitly to propose a policy that applies to all agents.
+ */
 export async function createPolicyDraft(params: {
   openleashUrl: string;
   agentId: string;
@@ -392,7 +449,7 @@ export async function createPolicyDraft(params: {
 }> {
   const body: Record<string, unknown> = {
     policy_yaml: params.policyYaml,
-    ...(params.appliesToAgentPrincipalId && { applies_to_agent_principal_id: params.appliesToAgentPrincipalId }),
+    ...(params.appliesToAgentPrincipalId !== undefined && { applies_to_agent_principal_id: params.appliesToAgentPrincipalId }),
     ...(params.justification && { justification: params.justification }),
   };
   const bodyBytes = Buffer.from(JSON.stringify(body));

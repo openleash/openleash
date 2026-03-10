@@ -4,7 +4,15 @@ __version__ = "0.1.0"
 
 from .client import (
     authorize,
+    create_approval_request,
+    create_policy_draft,
     generate_ed25519_keypair,
+    get_agent_self,
+    get_approval_request,
+    get_policy_draft,
+    list_policy_drafts,
+    poll_approval_request,
+    redeem_agent_invite,
     register_agent,
     registration_challenge,
     sign_request,
@@ -14,7 +22,15 @@ from .client import (
 
 __all__ = [
     "authorize",
+    "create_approval_request",
+    "create_policy_draft",
     "generate_ed25519_keypair",
+    "get_agent_self",
+    "get_approval_request",
+    "get_policy_draft",
+    "list_policy_drafts",
+    "poll_approval_request",
+    "redeem_agent_invite",
     "register_agent",
     "registration_challenge",
     "sign_request",
