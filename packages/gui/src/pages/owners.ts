@@ -517,7 +517,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
             <td style="width:160px;color:var(--text-muted)">Two-Factor Auth</td>
             <td>
               ${owner.totp_enabled
-                ? `<span class="badge badge-green">Enabled</span>${owner.totp_enabled_at ? ` <span style="font-size:12px;color:var(--text-muted)">since ${new Date(owner.totp_enabled_at).toLocaleString()}</span>` : ''}`
+                ? `<span class="badge badge-green">Enabled</span>${owner.totp_enabled_at ? ` <span style="font-size:12px;color:var(--text-muted)">since ${formatTimestamp(owner.totp_enabled_at)}</span>` : ''}`
                 : '<span class="badge badge-muted">Not configured</span>'}
             </td>
           </tr>
