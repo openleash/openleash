@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp, infoIcon, INFO_OWNER_STATUS } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp, infoIcon, INFO_OWNER_STATUS, INFO_AGENT_STATUS, INFO_VERIFICATION_LEVEL } from '../layout.js';
 
 // ─── Country data ─────────────────────────────────────────────────────
 
@@ -295,7 +295,7 @@ function renderGovernmentIdsCard(owner: OwnerData): string {
 
   return `
     <div class="card">
-      <div class="card-title">Government IDs (${ids.length})</div>
+      <div class="card-title">Government IDs (${ids.length})${infoIcon('admin-gov-verification', INFO_VERIFICATION_LEVEL)}</div>
       ${ids.length > 0 ? `
       <table>
         <thead>
@@ -323,7 +323,7 @@ function renderCompanyIdsCard(owner: OwnerData): string {
 
   return `
     <div class="card">
-      <div class="card-title">Company IDs (${ids.length})</div>
+      <div class="card-title">Company IDs (${ids.length})${infoIcon('admin-company-verification', INFO_VERIFICATION_LEVEL)}</div>
       ${ids.length > 0 ? `
       <table>
         <thead>
@@ -453,7 +453,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     <div class="page-header">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
         <h2>${escapeHtml(owner.display_name ?? 'Owner')}</h2>
-        ${statusBadge(owner.status)}
+        ${statusBadge(owner.status)}${infoIcon('detail-owner-status', INFO_OWNER_STATUS)}
         ${assuranceBadge(owner.identity_assurance_level)}
       </div>
       <p>${copyableId(owner.owner_principal_id, owner.owner_principal_id.length)}</p>
@@ -551,7 +551,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
           <tr>
             <th>Agent ID</th>
             <th>Principal ID</th>
-            <th>Status</th>
+            <th>Status${infoIcon('detail-agent-status', INFO_AGENT_STATUS)}</th>
             <th>Created</th>
           </tr>
         </thead>

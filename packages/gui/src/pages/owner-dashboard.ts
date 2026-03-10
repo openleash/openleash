@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, infoIcon, INFO_DECISIONS } from '../layout.js';
+import { renderPage, escapeHtml, infoIcon, INFO_DECISIONS, INFO_PROOF_TOKENS } from '../layout.js';
 
 export interface OwnerDashboardData {
   display_name: string;
@@ -144,7 +144,7 @@ export function renderOwnerDashboard(data: OwnerDashboardData): string {
             </p>
           </div>
           <div>
-            <div style="font-weight:600;color:var(--text-primary);font-size:13px">Proof Tokens</div>
+            <div style="font-weight:600;color:var(--text-primary);font-size:13px">Proof Tokens${infoIcon('owner-proof-tokens', INFO_PROOF_TOKENS)}</div>
             <p style="color:var(--text-secondary);font-size:12px;margin-top:2px;line-height:1.6">
               When an agent is authorized, it receives a cryptographic proof token (PASETO v4.public) that third parties can verify independently.
             </p>

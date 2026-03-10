@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp, infoIcon, INFO_AUDIT_EVENTS } from '../layout.js';
 
 export interface AuditEntry {
   event_id: string;
@@ -219,7 +219,7 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
           <tr>
             <th style="width:20px"></th>
             <th>Timestamp</th>
-            <th>Event</th>
+            <th>Event${infoIcon('audit-events', INFO_AUDIT_EVENTS)}</th>
             <th>Principal</th>
             <th>Detail</th>
             <th>Event ID</th>

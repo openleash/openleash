@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, infoIcon, INFO_MCP_GLOVE } from '../layout.js';
 
 export interface McpGlovePageData {
   agents: { agent_id: string; display_name: string; owner_principal_id: string }[];
@@ -54,7 +54,7 @@ export function renderMcpGlove(data: McpGlovePageData): string {
 
   const content = `
     <div class="page-header">
-      <h2>MCP Glove</h2>
+      <h2>MCP Glove${infoIcon('mcp-glove-info', INFO_MCP_GLOVE)}</h2>
       <p>Transparent MCP governance proxy &mdash; wraps upstream MCP servers and enforces OpenLeash policies on tool calls</p>
     </div>
 

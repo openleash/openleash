@@ -128,6 +128,51 @@ export const INFO_APPROVAL_REQUESTS = `
     <dd>The request timed out before a decision was made.</dd>
   </dl>`;
 
+export const INFO_PROOF_TOKENS = `
+  <div class="info-title">Proof Tokens</div>
+  <p style="margin-bottom:8px">When an action is authorized (ALLOW), OpenLeash issues a <strong style="color:var(--text-primary)">PASETO v4.public</strong> cryptographic proof token.</p>
+  <dl>
+    <dt>What it proves</dt>
+    <dd>That a specific agent was authorized to perform a specific action at a specific time, under a specific policy.</dd>
+    <dt>How verification works</dt>
+    <dd>Third parties (counterparties) can verify the token offline using the server's public key, without contacting OpenLeash.</dd>
+    <dt>What's inside</dt>
+    <dd>The token contains the decision ID, action hash, agent and owner IDs, matched rule, and expiration time.</dd>
+  </dl>`;
+
+export const INFO_AUDIT_EVENTS = `
+  <div class="info-title">Audit Event Types</div>
+  <dl>
+    <dt><span class="badge badge-green">SERVER_STARTED</span></dt>
+    <dd>The OpenLeash server was started.</dd>
+    <dt><span class="badge badge-green">OWNER_CREATED</span></dt>
+    <dd>A new owner principal was created.</dd>
+    <dt><span class="badge badge-green">AGENT_REGISTERED</span></dt>
+    <dd>A new agent was registered under an owner.</dd>
+    <dt><span class="badge badge-amber">POLICY_UPSERTED</span></dt>
+    <dd>A policy was created or updated.</dd>
+    <dt><span class="badge badge-muted">AUTHORIZE_CALLED</span></dt>
+    <dd>An agent submitted an authorization request.</dd>
+    <dt><span class="badge badge-muted">DECISION_CREATED</span></dt>
+    <dd>The policy engine produced a decision (ALLOW, DENY, etc.).</dd>
+    <dt><span class="badge badge-muted">PROOF_VERIFIED</span></dt>
+    <dd>A proof token was verified (valid or invalid).</dd>
+    <dt><span class="badge badge-amber">KEY_ROTATED</span></dt>
+    <dd>The server's signing key was rotated. New tokens use the new key; old tokens remain verifiable.</dd>
+  </dl>`;
+
+export const INFO_MCP_GLOVE = `
+  <div class="info-title">MCP Glove</div>
+  <p style="margin-bottom:8px">MCP Glove is a transparent governance proxy that sits between an MCP client (e.g. Claude Desktop) and an upstream MCP server.</p>
+  <dl>
+    <dt>What it does</dt>
+    <dd>Intercepts every MCP tool call, maps it to an OpenLeash action type, and enforces your authorization policies before forwarding to the upstream server.</dd>
+    <dt>How it decides</dt>
+    <dd>ALLOW lets the call through, DENY blocks it, and REQUIRE_APPROVAL pauses execution until you approve or deny in the Owner Portal.</dd>
+    <dt>Profiles</dt>
+    <dd>Profiles define how MCP tools map to OpenLeash action types. Each profile covers a specific upstream server (e.g. office365-outlook).</dd>
+  </dl>`;
+
 export function copyableId(fullId: string, truncateLength = 8): string {
   const escaped = escapeHtml(fullId);
   const display = truncateLength >= fullId.length

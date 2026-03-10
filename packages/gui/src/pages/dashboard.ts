@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_DECISIONS } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_DECISIONS, INFO_PROOF_TOKENS } from '../layout.js';
 
 export interface DashboardData {
   state: {
@@ -179,7 +179,7 @@ export function renderDashboard(data: DashboardData): string {
           </p>
         </div>
         <div>
-          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Proof Tokens</div>
+          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Proof Tokens${infoIcon('admin-proof-tokens', INFO_PROOF_TOKENS)}</div>
           <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
             When an action is authorized, OpenLeash issues a PASETO v4.public cryptographic proof token. Counterparties can verify these tokens offline using the server's public key, without contacting OpenLeash.
           </p>
