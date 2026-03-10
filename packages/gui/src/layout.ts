@@ -60,7 +60,7 @@ export function renderPage(title: string, content: string, activePath: string, c
   }).join('\n');
 
   const logoutHtml = isOwner ? `
-    <a href="#" class="nav-item" style="margin-top:auto;color:var(--red-bright)" onclick="
+    <a href="#" class="nav-item" style="color:var(--red-bright)" onclick="
       fetch('/v1/owner/logout', {method:'POST',headers:{'Authorization':'Bearer '+sessionStorage.getItem('openleash_session')}});
       sessionStorage.removeItem('openleash_session');
       document.cookie='openleash_session=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -105,6 +105,9 @@ export function renderPage(title: string, content: string, activePath: string, c
       --radius-md: 12px;
       --radius-lg: 16px;
       --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+      --sidebar-width: 220px;
+      --sidebar-collapsed-width: 60px;
+      --sidebar-transition: 0.3s var(--ease-out);
     }
 
     html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
@@ -121,7 +124,7 @@ export function renderPage(title: string, content: string, activePath: string, c
 
     /* Sidebar */
     .sidebar {
-      width: 220px;
+      width: var(--sidebar-width);
       min-height: 100vh;
       background: var(--bg-surface);
       border-right: 1px solid var(--border-subtle);
@@ -132,6 +135,8 @@ export function renderPage(title: string, content: string, activePath: string, c
       z-index: 10;
       display: flex;
       flex-direction: column;
+      transition: width var(--sidebar-transition);
+      overflow: hidden;
     }
 
     .sidebar-logo {
@@ -147,12 +152,6 @@ export function renderPage(title: string, content: string, activePath: string, c
       width: 38px;
       height: 38px;
       flex-shrink: 0;
-      animation: float 4s ease-in-out infinite;
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-4px); }
     }
 
     .sidebar-logo-text h1 {
@@ -161,6 +160,12 @@ export function renderPage(title: string, content: string, activePath: string, c
       color: var(--green-bright);
       letter-spacing: -0.02em;
       line-height: 1.2;
+    }
+
+    .sidebar-logo-text {
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity 0.2s var(--ease-out), width 0.2s var(--ease-out);
     }
 
     .sidebar-logo-text span {
@@ -218,15 +223,22 @@ export function renderPage(title: string, content: string, activePath: string, c
       border-left-color: var(--green-bright);
     }
 
-    .nav-icon { font-size: 18px; width: 20px; text-align: center; }
+    .nav-icon { font-size: 18px; width: 20px; text-align: center; flex-shrink: 0; }
+
+    .nav-label {
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity 0.2s var(--ease-out);
+    }
 
     /* Main content */
     .main {
-      margin-left: 220px;
+      margin-left: var(--sidebar-width);
       flex: 1;
       padding: 32px 40px;
       min-height: 100vh;
       background: var(--bg-elevated);
+      transition: margin-left var(--sidebar-transition);
     }
 
     .page-header {
@@ -811,21 +823,67 @@ export function renderPage(title: string, content: string, activePath: string, c
     .mode-btn:hover { color: var(--text-primary); background: rgba(52, 211, 153, 0.05); }
     .mode-btn.active { background: var(--green-dark); color: var(--green-bright); }
 
+    /* Sidebar toggle button */
+    .sidebar-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      width: 100%;
+      padding: 12px 20px;
+      background: none;
+      border: none;
+      border-top: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.2s var(--ease-out), background 0.2s var(--ease-out);
+    }
+    .sidebar-toggle:hover {
+      color: var(--text-primary);
+      background: rgba(52, 211, 153, 0.05);
+    }
+    .sidebar-toggle .material-symbols-outlined {
+      font-size: 18px;
+      width: 20px;
+      text-align: center;
+    }
+    .sidebar-toggle .expand-icon { display: none; }
+
+    /* Sidebar bottom area */
+    .sidebar-bottom {
+      margin-top: auto;
+    }
+
+    /* Collapsed sidebar */
+    body.sidebar-collapsed .sidebar { width: var(--sidebar-collapsed-width); }
+    body.sidebar-collapsed .main { margin-left: var(--sidebar-collapsed-width); }
+    body.sidebar-collapsed .sidebar-logo { justify-content: center; padding: 0 0 24px; gap: 0; }
+    body.sidebar-collapsed .sidebar-logo svg { width: 32px; height: 32px; }
+    body.sidebar-collapsed .sidebar-logo-text { opacity: 0; width: 0; }
+    body.sidebar-collapsed .nav-label { opacity: 0; width: 0; }
+    body.sidebar-collapsed .nav-item { justify-content: center; padding: 10px; border-left-width: 0; gap: 0; }
+    body.sidebar-collapsed .nav-item.active { border-left-width: 0; }
+    body.sidebar-collapsed .context-switcher { display: none; }
+    body.sidebar-collapsed .sidebar-toggle { justify-content: center; padding: 10px; }
+    body.sidebar-collapsed .sidebar-toggle .collapse-icon { display: none; }
+    body.sidebar-collapsed .sidebar-toggle .expand-icon { display: inline; }
+
     @media (max-width: 768px) {
-      .sidebar { width: 60px; }
+      .sidebar { width: var(--sidebar-collapsed-width); }
       .sidebar-logo { justify-content: center; padding: 0 0 24px; }
       .sidebar-logo svg { width: 32px; height: 32px; }
-      .sidebar-logo-text { display: none; }
-      .nav-label { display: none; }
+      .sidebar-logo-text { opacity: 0; width: 0; }
+      .nav-label { opacity: 0; width: 0; }
       .nav-item { justify-content: center; padding: 10px; }
-      .main { margin-left: 60px; padding: 20px; }
+      .main { margin-left: var(--sidebar-collapsed-width); padding: 20px; }
       .context-switcher { flex-direction: column; margin: 0 8px 12px; }
       .context-tab { padding: 6px 0; font-size: 0; }
       .context-tab-icon { display: inline; font-size: 18px; }
+      .sidebar-toggle { display: none; }
     }
   </style>
 </head>
 <body>
+  <script>if(localStorage.getItem('ol_sidebar_collapsed')==='1')document.body.classList.add('sidebar-collapsed');</script>
   <nav class="sidebar">
     <div class="sidebar-logo">
       <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="OpenLeash logo">
@@ -864,7 +922,13 @@ export function renderPage(title: string, content: string, activePath: string, c
       </a>
     </div>
     ${navHtml}
-    ${logoutHtml}
+    <div class="sidebar-bottom">
+      ${logoutHtml}
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+        <span class="material-symbols-outlined collapse-icon">left_panel_close</span>
+        <span class="material-symbols-outlined expand-icon">left_panel_open</span>
+      </button>
+    </div>
   </nav>
   <main class="main">
     ${content}
@@ -883,6 +947,7 @@ export function renderPage(title: string, content: string, activePath: string, c
     </div>
   </div>
   <script>
+    function toggleSidebar(){document.body.classList.toggle('sidebar-collapsed');localStorage.setItem('ol_sidebar_collapsed',document.body.classList.contains('sidebar-collapsed')?'1':'0');}
     function copyId(el,id){navigator.clipboard.writeText(id);var t=el.querySelector('.copy-tooltip');if(!t){t=document.createElement('span');t.className='copy-tooltip';t.textContent='Copied!';el.appendChild(t);}t.classList.add('show');clearTimeout(el._copyTimer);el._copyTimer=setTimeout(function(){t.classList.remove('show');},1200);}
     var _olResolve=null;
     function olDialogCancel(){document.getElementById('ol-dialog').classList.remove('open');if(_olResolve){_olResolve(null);_olResolve=null;}}
