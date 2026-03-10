@@ -213,7 +213,9 @@ export function registerAgentSelfRoutes(
       agent_principal_id: agentEntry.agent_principal_id,
       agent_id: agent.agent_id,
       owner_principal_id: agentEntry.owner_principal_id,
-      applies_to_agent_principal_id: body.applies_to_agent_principal_id ?? null,
+      applies_to_agent_principal_id: body.applies_to_agent_principal_id !== undefined
+        ? body.applies_to_agent_principal_id
+        : agentEntry.agent_principal_id,
       policy_yaml: body.policy_yaml,
       justification: body.justification ?? null,
       status: 'PENDING',

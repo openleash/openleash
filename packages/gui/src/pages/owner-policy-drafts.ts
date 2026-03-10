@@ -17,24 +17,72 @@ export interface OwnerPolicyDraftEntry {
 export interface OwnerPolicyDraftsOptions {
   totp_enabled?: boolean;
   require_totp?: boolean;
+  agent_names?: Map<string, string>;
+}
+
+function appliesToCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string>): string {
+  const isSelf = d.applies_to_agent_principal_id === d.agent_principal_id;
+  const isAll = !d.applies_to_agent_principal_id;
+  const isOther = !isAll && !isSelf;
+
+  if (isAll) {
+    return `<span class="badge badge-amber" style="font-size:10px" title="This policy will apply to ALL your agents, not just the one suggesting it">All agents</span>`;
+  }
+  if (isSelf) {
+    const name = agentNames?.get(d.applies_to_agent_principal_id!) ?? null;
+    const display = name
+      ? `${escapeHtml(name)} (self)`
+      : `${copyableId(d.applies_to_agent_principal_id!)} <span style="color:var(--text-muted);font-size:11px">(self)</span>`;
+    return display;
+  }
+  // Other agent
+  const name = agentNames?.get(d.applies_to_agent_principal_id!) ?? null;
+  const display = name
+    ? escapeHtml(name)
+    : copyableId(d.applies_to_agent_principal_id!);
+  return `${display} <span class="badge badge-amber" style="font-size:10px;margin-left:4px" title="This agent is suggesting a policy for a DIFFERENT agent">other agent</span>`;
+}
+
+function suggestedByCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string>): string {
+  const name = agentNames?.get(d.agent_principal_id) ?? null;
+  if (name) {
+    return escapeHtml(name);
+  }
+  return copyableId(d.agent_id, d.agent_id.length);
+}
+
+function scopeWarning(d: OwnerPolicyDraftEntry): string {
+  const isSelf = d.applies_to_agent_principal_id === d.agent_principal_id;
+  const isAll = !d.applies_to_agent_principal_id;
+
+  if (isAll) {
+    return `<div class="alert" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);color:var(--amber-bright);padding:8px 12px;margin-top:8px;font-size:12px">
+      <strong>Broad scope:</strong> Agent <span class="mono">${escapeHtml(d.agent_id)}</span> is proposing a policy that applies to <strong>all your agents</strong>, not just itself. Review carefully.
+    </div>`;
+  }
+  if (!isSelf) {
+    return `<div class="alert" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);color:var(--amber-bright);padding:8px 12px;margin-top:8px;font-size:12px">
+      <strong>Cross-agent:</strong> Agent <span class="mono">${escapeHtml(d.agent_id)}</span> is proposing a policy for a <strong>different agent</strong> (${copyableId(d.applies_to_agent_principal_id!)}). Review carefully.
+    </div>`;
+  }
+  return '';
 }
 
 export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options?: OwnerPolicyDraftsOptions): string {
   const totpEnabled = options?.totp_enabled ?? false;
   const requireTotp = options?.require_totp ?? false;
+  const agentNames = options?.agent_names;
   const disableActions = requireTotp && !totpEnabled;
   const pending = drafts.filter((d) => d.status === 'PENDING');
   const resolved = drafts.filter((d) => d.status !== 'PENDING');
 
   const pendingRows = pending.length === 0
-    ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No pending policy drafts</td></tr>'
+    ? '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No pending policy drafts</td></tr>'
     : pending.map((d) => `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
         <td>${copyableId(d.policy_draft_id)} <span class="chevron">&#9654;</span></td>
-        <td>${copyableId(d.agent_id, d.agent_id.length)}</td>
-        <td>${d.applies_to_agent_principal_id
-          ? copyableId(d.applies_to_agent_principal_id)
-          : '<span style="color:var(--text-muted)">All agents</span>'}</td>
+        <td>${suggestedByCell(d, agentNames)}</td>
+        <td>${appliesToCell(d, agentNames)}</td>
         <td>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
         <td>${new Date(d.created_at).toLocaleString()}</td>
         <td>
@@ -43,7 +91,8 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
         </td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
-        <td colspan="6" style="padding:0 12px 16px">
+        <td colspan="7" style="padding:0 12px 16px">
+          ${scopeWarning(d)}
           <div style="margin-top:8px;margin-bottom:4px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Proposed Policy YAML</div>
           <div class="accordion-content">${escapeHtml(d.policy_yaml)}</div>
         </td>
@@ -57,7 +106,8 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
       return `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
         <td>${copyableId(d.policy_draft_id)} <span class="chevron">&#9654;</span></td>
-        <td>${copyableId(d.agent_id, d.agent_id.length)}</td>
+        <td>${suggestedByCell(d, agentNames)}</td>
+        <td>${appliesToCell(d, agentNames)}</td>
         <td><span class="badge ${badge}">${escapeHtml(d.status)}</span></td>
         <td>${d.resulting_policy_id
           ? copyableId(d.resulting_policy_id)
@@ -65,7 +115,8 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
         <td>${new Date(d.created_at).toLocaleString()}</td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
-        <td colspan="5" style="padding:0 12px 16px">
+        <td colspan="6" style="padding:0 12px 16px">
+          ${scopeWarning(d)}
           <div style="margin-top:8px;margin-bottom:4px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Proposed Policy YAML</div>
           <div class="accordion-content">${escapeHtml(d.policy_yaml)}</div>
         </td>
@@ -87,7 +138,7 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Pending</h3>
       <table>
         <thead>
-          <tr><th>ID</th><th>Agent</th><th>Applies To</th><th>Justification</th><th>Created</th><th>Actions</th></tr>
+          <tr><th>ID</th><th>Suggested By</th><th>Applies To</th><th>Justification</th><th>Created</th><th>Actions</th></tr>
         </thead>
         <tbody>${pendingRows}</tbody>
       </table>
@@ -98,7 +149,7 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Resolved</h3>
       <table>
         <thead>
-          <tr><th>ID</th><th>Agent</th><th>Status</th><th>Result</th><th>Created</th></tr>
+          <tr><th>ID</th><th>Suggested By</th><th>Applies To</th><th>Status</th><th>Result</th><th>Created</th></tr>
         </thead>
         <tbody>${resolvedRows}</tbody>
       </table>

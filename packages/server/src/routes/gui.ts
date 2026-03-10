@@ -514,10 +514,16 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         };
       }
     });
+    const agentNames = new Map(
+      state.agents
+        .filter((a) => a.owner_principal_id === session.sub)
+        .map((a) => [a.agent_principal_id, a.agent_id])
+    );
     const draftOwner = readOwnerFile(dataDir, session.sub);
     const html = renderOwnerPolicyDrafts(drafts, {
       totp_enabled: !!draftOwner.totp_enabled,
       require_totp: !!config.security.require_totp,
+      agent_names: agentNames,
     });
     reply.type('text/html').send(html);
   });
