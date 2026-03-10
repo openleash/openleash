@@ -384,7 +384,7 @@ export function renderInitialSetup(): string {
       } catch (err) {
         btn.disabled = false;
         btn.textContent = 'Create Agent Invite';
-        alert('Failed to create agent invite');
+        document.getElementById('errorMsg').textContent = 'Failed to create agent invite';
       }
     }
 

@@ -55,7 +55,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[]): string {
     </div>
     <script>
       async function revokeAgent(principalId) {
-        if (!confirm('Are you sure you want to revoke this agent?')) return;
+        if (!await olConfirm('Are you sure you want to revoke this agent?', 'Revoke Agent')) return;
         var token = sessionStorage.getItem('openleash_session');
         var res = await fetch('/v1/owner/agents/' + principalId, {
           method: 'PUT',
@@ -63,7 +63,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[]): string {
           body: JSON.stringify({ status: 'REVOKED' }),
         });
         if (res.ok) window.location.reload();
-        else alert('Failed to revoke agent');
+        else olAlert('Failed to revoke agent', 'Error');
       }
 
       async function createAgentInvite() {

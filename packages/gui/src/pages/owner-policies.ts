@@ -91,13 +91,13 @@ rules:
       }
 
       async function deletePolicy(id) {
-        if (!confirm('Are you sure you want to delete this policy?')) return;
+        if (!await olConfirm('Are you sure you want to delete this policy?', 'Delete Policy')) return;
         var res = await fetch('/v1/owner/policies/' + id, {
           method: 'DELETE',
           headers: { 'Authorization': 'Bearer ' + token },
         });
         if (res.ok) window.location.reload();
-        else alert('Failed to delete policy');
+        else olAlert('Failed to delete policy', 'Error');
       }
 
       async function createPolicy() {

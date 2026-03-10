@@ -91,10 +91,12 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
         const token = sessionStorage.getItem('openleash_session');
         var bodyObj = {};
         if (action === 'deny') {
-          bodyObj.reason = prompt('Reason for denial (optional):') || undefined;
+          var reason = await olPrompt('Reason for denial (optional):', 'Enter reason...', 'Deny Request');
+          if (reason === null) return;
+          if (reason) bodyObj.reason = reason;
         }
         if (totpEnabled) {
-          var code = prompt('Enter your 2FA code:');
+          var code = await olPrompt('Enter your 2FA code:', '000000', 'Two-Factor Authentication');
           if (!code) return;
           bodyObj.totp_code = code;
         }
@@ -115,7 +117,7 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
             el.style.display = 'block';
           }
         } catch (err) {
-          alert('Network error');
+          olAlert('Network error', 'Error');
         }
       }
     </script>

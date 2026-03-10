@@ -168,6 +168,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
             <p style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--amber-bright)">Save these backup codes</p>
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Store them somewhere safe. Each code can only be used once.</p>
             <div id="totp-backup-codes" class="mono" style="font-size:13px;line-height:1.8"></div>
+            <button class="btn btn-secondary" style="margin-top:8px;font-size:12px;padding:4px 12px" onclick="downloadBackupCodes()">Download as .txt</button>
           </div>
           <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Verify code from authenticator</label>
           <input type="text" id="totp-confirm-code" class="form-input" placeholder="Enter 6-digit code" maxlength="6" style="width:100%">
@@ -432,6 +433,16 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
 
       function openModal(id) { document.getElementById(id).classList.add('open'); }
       function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+      function downloadBackupCodes() {
+        var codes = document.getElementById('totp-backup-codes').textContent;
+        var blob = new Blob([codes], { type: 'text/plain' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'openleash-backup-codes.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
 
       async function setupTotp() {
         var res = await fetch('/v1/owner/totp/setup', {

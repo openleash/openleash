@@ -622,7 +622,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       }
 
       async function adminDisableTotp() {
-        if (!confirm('Are you sure you want to disable 2FA for this owner? They will need to set it up again.')) return;
+        if (!await olConfirm('Are you sure you want to disable 2FA for this owner? They will need to set it up again.', 'Disable 2FA')) return;
         try {
           var res = await fetch('/v1/admin/owners/' + ownerId + '/disable-totp', {
             method: 'POST',

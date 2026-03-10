@@ -847,7 +847,28 @@ export function renderPage(title: string, content: string, activePath: string, c
   <main class="main">
     ${content}
   </main>
-  <script>function copyId(el,id){navigator.clipboard.writeText(id);var o=el.innerHTML;el.textContent='Copied!';el.style.color='var(--green-bright)';setTimeout(function(){el.innerHTML=o;el.style.color='';},1200);}</script>
+  <div id="ol-dialog" class="modal-overlay" onclick="if(event.target===this)olDialogCancel()">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-title" id="ol-dialog-title"></div>
+      <p id="ol-dialog-msg" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px"></p>
+      <div id="ol-dialog-input-wrap" style="display:none;margin-bottom:16px">
+        <input type="text" id="ol-dialog-input" class="form-input" style="width:100%">
+      </div>
+      <div class="modal-footer">
+        <button id="ol-dialog-cancel" class="btn btn-secondary" onclick="olDialogCancel()">Cancel</button>
+        <button id="ol-dialog-ok" class="btn btn-primary" onclick="olDialogOk()">OK</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    function copyId(el,id){navigator.clipboard.writeText(id);var o=el.innerHTML;el.textContent='Copied!';el.style.color='var(--green-bright)';setTimeout(function(){el.innerHTML=o;el.style.color='';},1200);}
+    var _olResolve=null;
+    function olDialogCancel(){document.getElementById('ol-dialog').classList.remove('open');if(_olResolve){_olResolve(null);_olResolve=null;}}
+    function olDialogOk(){var d=document.getElementById('ol-dialog');var inp=document.getElementById('ol-dialog-input-wrap');d.classList.remove('open');if(_olResolve){_olResolve(inp.style.display!=='none'?document.getElementById('ol-dialog-input').value:true);_olResolve=null;}}
+    function olAlert(msg,title){return new Promise(function(r){_olResolve=function(){r(undefined);};document.getElementById('ol-dialog-title').textContent=title||'Notice';document.getElementById('ol-dialog-msg').textContent=msg;document.getElementById('ol-dialog-input-wrap').style.display='none';document.getElementById('ol-dialog-cancel').style.display='none';document.getElementById('ol-dialog-ok').textContent='OK';document.getElementById('ol-dialog').classList.add('open');});}
+    function olConfirm(msg,title){return new Promise(function(r){_olResolve=r;document.getElementById('ol-dialog-title').textContent=title||'Confirm';document.getElementById('ol-dialog-msg').textContent=msg;document.getElementById('ol-dialog-input-wrap').style.display='none';document.getElementById('ol-dialog-cancel').style.display='';document.getElementById('ol-dialog-ok').textContent='Confirm';document.getElementById('ol-dialog').classList.add('open');});}
+    function olPrompt(msg,placeholder,title){return new Promise(function(r){_olResolve=r;document.getElementById('ol-dialog-title').textContent=title||'Input';document.getElementById('ol-dialog-msg').textContent=msg;var inp=document.getElementById('ol-dialog-input');inp.value='';inp.placeholder=placeholder||'';document.getElementById('ol-dialog-input-wrap').style.display='block';document.getElementById('ol-dialog-cancel').style.display='';document.getElementById('ol-dialog-ok').textContent='OK';document.getElementById('ol-dialog').classList.add('open');inp.focus();});}
+  </script>
 </body>
 </html>`;
 }
