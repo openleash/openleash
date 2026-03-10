@@ -828,10 +828,7 @@ export function renderPage(title: string, content: string, activePath: string, c
     .copyable { cursor: pointer; position: relative; }
     .copyable:hover { color: var(--green-bright) !important; }
     .copy-tooltip {
-      position: absolute;
-      bottom: calc(100% + 6px);
-      left: 50%;
-      transform: translateX(-50%);
+      position: fixed;
       background: var(--green-dark);
       color: var(--green-bright);
       font-size: 11px;
@@ -843,7 +840,7 @@ export function renderPage(title: string, content: string, activePath: string, c
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.15s var(--ease-out);
-      z-index: 100;
+      z-index: 10000;
     }
     .copy-tooltip.show { opacity: 1; }
 
@@ -1211,7 +1208,7 @@ export function renderPage(title: string, content: string, activePath: string, c
     function closeAllPopovers(){document.querySelectorAll('.info-popover.open').forEach(function(p){p.classList.remove('open');var orig=document.querySelector('[data-info-return="'+p.id+'"]');if(orig){orig.appendChild(p);orig.removeAttribute('data-info-return');}});}
     function toggleInfo(e,id){e.stopPropagation();var el=document.getElementById(id);if(!el)return;var wasOpen=el.classList.contains('open');closeAllPopovers();if(!wasOpen){var wrap=el.parentElement;if(wrap)wrap.setAttribute('data-info-return',id);document.body.appendChild(el);var trigger=e.currentTarget;var tr=trigger.getBoundingClientRect();el.style.left='-9999px';el.style.top='-9999px';el.classList.add('open');var pr=el.getBoundingClientRect();var left=tr.left+tr.width/2-pr.width/2;var top=tr.bottom+8;if(left<8)left=8;if(left+pr.width>window.innerWidth-8)left=window.innerWidth-8-pr.width;if(top+pr.height>window.innerHeight-8){top=tr.top-pr.height-8;}el.style.left=left+'px';el.style.top=top+'px';el.style.setProperty('--arrow-left',(tr.left+tr.width/2-left)+'px');}};
     document.addEventListener('click',function(e){if(!e.target.closest('.info-popover') && !e.target.closest('.info-trigger')){closeAllPopovers();}});
-    function copyId(el,id){navigator.clipboard.writeText(id);var t=el.querySelector('.copy-tooltip');if(!t){t=document.createElement('span');t.className='copy-tooltip';t.textContent='Copied!';el.appendChild(t);}t.classList.add('show');clearTimeout(el._copyTimer);el._copyTimer=setTimeout(function(){t.classList.remove('show');},1200);}
+    function copyId(el,id){navigator.clipboard.writeText(id);var t=el._copyTooltip;if(!t){t=document.createElement('span');t.className='copy-tooltip';t.textContent='Copied!';document.body.appendChild(t);el._copyTooltip=t;}var r=el.getBoundingClientRect();t.style.left=r.left+r.width/2-t.offsetWidth/2+'px';t.style.top=r.top-t.offsetHeight-6+'px';t.classList.add('show');clearTimeout(el._copyTimer);el._copyTimer=setTimeout(function(){t.classList.remove('show');},1200);}
     var _olResolve=null;
     function olDialogCancel(){document.getElementById('ol-dialog').classList.remove('open');if(_olResolve){_olResolve(null);_olResolve=null;}}
     function olDialogOk(){var d=document.getElementById('ol-dialog');var inp=document.getElementById('ol-dialog-input-wrap');d.classList.remove('open');if(_olResolve){_olResolve(inp.style.display!=='none'?document.getElementById('ol-dialog-input').value:true);_olResolve=null;}}
