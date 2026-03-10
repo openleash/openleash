@@ -31,6 +31,7 @@ import {
   renderInitialSetup,
   renderApiReference,
   renderApiReferenceUnavailable,
+  renderMcpGlove,
 } from '@openleash/gui';
 import { createAdminAuth } from '../middleware/admin-auth.js';
 import { createOwnerAuth } from '../middleware/owner-auth.js';
@@ -269,6 +270,60 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
       gui: config.gui,
     };
     const html = renderConfig(configData);
+    reply.type('text/html').send(html);
+  });
+
+  // MCP Glove
+  app.get('/gui/mcp-glove', { preHandler: adminAuth }, async (_request, reply) => {
+    const state = readState(dataDir);
+
+    const agents = state.agents.map((entry) => {
+      try {
+        const agent = readAgentFile(dataDir, entry.agent_principal_id);
+        return {
+          agent_id: agent.agent_id,
+          display_name: agent.agent_id,
+          owner_principal_id: entry.owner_principal_id,
+        };
+      } catch {
+        return {
+          agent_id: entry.agent_id,
+          display_name: entry.agent_id,
+          owner_principal_id: entry.owner_principal_id,
+        };
+      }
+    });
+
+    const owners = state.owners.map((entry) => {
+      try {
+        const o = readOwnerFile(dataDir, entry.owner_principal_id);
+        return { owner_principal_id: o.owner_principal_id, display_name: o.display_name };
+      } catch {
+        return { owner_principal_id: entry.owner_principal_id, display_name: entry.owner_principal_id.slice(0, 8) };
+      }
+    });
+
+    const auditData = readAuditLog(dataDir, 10000, 0);
+    const gloveActivity = { total: 0, allow: 0, deny: 0, require_approval: 0 };
+    for (const event of auditData.items) {
+      const meta = event.metadata_json as Record<string, unknown>;
+      const actionType = meta.action_type as string | undefined;
+      if (!actionType || !actionType.startsWith('communication.')) continue;
+      gloveActivity.total++;
+      const result = meta.result as string | undefined;
+      if (result === 'ALLOW') gloveActivity.allow++;
+      else if (result === 'DENY') gloveActivity.deny++;
+      else if (result === 'REQUIRE_APPROVAL') gloveActivity.require_approval++;
+    }
+
+    const serverUrl = `http://${config.server.bind_address}`;
+
+    const html = renderMcpGlove({
+      agents,
+      owners,
+      server_url: serverUrl,
+      glove_activity: gloveActivity,
+    });
     reply.type('text/html').send(html);
   });
 

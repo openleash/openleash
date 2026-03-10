@@ -145,6 +145,10 @@ export function renderDashboard(data: DashboardData): string {
             <span style="font-size:16px;width:20px;text-align:center">&#128203;</span>
             <span>API Reference</span>
           </a>
+          <a href="/gui/mcp-glove" style="display:flex;align-items:center;gap:10px;color:var(--text-secondary);text-decoration:none;padding:8px 0;border-bottom:1px solid var(--border-subtle);transition:color 0.2s">
+            <span style="font-size:16px;width:20px;text-align:center">&#9830;</span>
+            <span>MCP Glove</span>
+          </a>
           <a href="https://github.com/openleash/openleash/issues" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;color:var(--text-secondary);text-decoration:none;padding:8px 0;transition:color 0.2s">
             <span style="font-size:16px;width:20px;text-align:center">&#128172;</span>
             <span>Report an Issue</span>

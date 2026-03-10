@@ -4,6 +4,7 @@ const NAV_ITEMS = [
   { path: '/gui/agents', label: 'Agents', icon: '&#9670;' },
   { path: '/gui/policies', label: 'Policies', icon: '&#9638;' },
   { path: '/gui/config', label: 'Config', icon: '&#9881;' },
+  { path: '/gui/mcp-glove', label: 'MCP Glove', icon: '&#9830;' },
   { path: '/gui/audit', label: 'Audit Log', icon: '&#9776;' },
   { path: '/gui/api-reference', label: 'API Docs', icon: '&#123;&#125;' },
 ];

@@ -27,7 +27,7 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
       <tr>
         <td>${copyableId(a.approval_request_id)}</td>
         <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
-        <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span></td>
+        <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span>${a.action_type.startsWith('communication.') ? ' <span class="badge badge-muted" style="margin-left:4px;font-size:10px">MCP Glove</span>' : ''}</td>
         <td>${a.justification ? escapeHtml(a.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
         <td>${new Date(a.created_at).toLocaleString()}</td>
         <td>
@@ -45,7 +45,7 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
       <tr>
         <td>${copyableId(a.approval_request_id)}</td>
         <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
-        <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span></td>
+        <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span>${a.action_type.startsWith('communication.') ? ' <span class="badge badge-muted" style="margin-left:4px;font-size:10px">MCP Glove</span>' : ''}</td>
         <td><span class="badge ${badge}">${escapeHtml(a.status)}</span></td>
         <td>${new Date(a.created_at).toLocaleString()}</td>
       </tr>`;
