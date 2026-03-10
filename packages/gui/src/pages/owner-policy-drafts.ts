@@ -23,7 +23,6 @@ export interface OwnerPolicyDraftsOptions {
 function appliesToCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string>): string {
   const isSelf = d.applies_to_agent_principal_id === d.agent_principal_id;
   const isAll = !d.applies_to_agent_principal_id;
-  const isOther = !isAll && !isSelf;
 
   if (isAll) {
     return `<span class="badge badge-amber" style="font-size:10px" title="This policy will apply to ALL your agents, not just the one suggesting it">All agents</span>`;

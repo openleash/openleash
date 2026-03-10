@@ -8,7 +8,6 @@ import {
   writePolicyFile,
   deletePolicyFile,
   validatePolicyYaml,
-  parsePolicyYaml,
   appendAuditEvent,
 } from '@openleash/core';
 

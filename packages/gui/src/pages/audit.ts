@@ -398,7 +398,6 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
 
   const rows = items.map((e, i) => {
     const idx = cursor + data.items.length - 1 - i;
-    const hasExtra = e.principal_id || e.action_id || e.decision_id || Object.keys(e.metadata_json).length > 0;
 
     const extraFields: string[] = [];
     if (e.principal_id) {

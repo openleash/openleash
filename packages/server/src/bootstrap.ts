@@ -4,10 +4,9 @@ import {
   generateSigningKey,
   writeKeyFile,
   writeState,
-  appendAuditEvent,
 } from '@openleash/core';
 import type { StateData } from '@openleash/core';
-import { loadConfig, writeDefaultConfig } from './config.js';
+import { writeDefaultConfig } from './config.js';
 
 export function bootstrapState(rootDir: string): void {
   const dataDir = path.join(rootDir, 'data');

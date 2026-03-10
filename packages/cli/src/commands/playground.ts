@@ -9,7 +9,7 @@ import {
   appendAuditEvent,
   ActionRequestSchema,
 } from '@openleash/core';
-import type { ActionRequest } from '@openleash/core';
+
 
 function getScenariosDir(): string {
   // Look for playground/scenarios relative to package root

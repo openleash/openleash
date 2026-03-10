@@ -1,8 +1,6 @@
 import * as crypto from 'node:crypto';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import prompts from 'prompts';
-import { stringify as stringifyYaml } from 'yaml';
 import {
   writeOwnerFile,
   writeAgentFile,
@@ -12,12 +10,8 @@ import {
   appendAuditEvent,
   evaluate,
   parsePolicyYaml,
-  computeActionHash,
-  generateSigningKey,
-  writeKeyFile,
-  readKeyFile,
 } from '@openleash/core';
-import type { ActionRequest, StateData } from '@openleash/core';
+import type { ActionRequest } from '@openleash/core';
 import { loadConfig, updateConfigToken, bootstrapState } from '@openleash/server';
 import { PROFILES, generatePolicyYaml } from './policy-profiles.js';
 

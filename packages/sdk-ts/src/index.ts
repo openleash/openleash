@@ -1,6 +1,5 @@
 import * as crypto from 'node:crypto';
 import { V4 } from 'paseto';
-import { canonicalize } from 'json-canonicalize';
 
 // ─── Key generation ──────────────────────────────────────────────────
 export function generateEd25519Keypair(): {
