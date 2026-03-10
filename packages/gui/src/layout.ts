@@ -11,12 +11,12 @@ const NAV_ITEMS = [
 
 const OWNER_NAV_ITEMS = [
   { path: '/gui/owner/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { path: '/gui/owner/profile', label: 'Profile', icon: 'account_circle' },
   { path: '/gui/owner/agents', label: 'My Agents', icon: 'smart_toy' },
   { path: '/gui/owner/policies', label: 'My Policies', icon: 'policy' },
   { path: '/gui/owner/approvals', label: 'Approvals', icon: 'task_alt' },
   { path: '/gui/owner/policy-drafts', label: 'Policy Drafts', icon: 'edit_note' },
   { path: '/gui/owner/audit', label: 'Audit Log', icon: 'receipt_long' },
-  { path: '/gui/owner/profile', label: 'Profile', icon: 'account_circle' },
 ];
 
 function escapeHtml(str: string): string {
