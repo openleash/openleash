@@ -36,6 +36,7 @@ export function renderOwnerPolicies(policies: OwnerPolicyEntry[]): string {
     <h2>My Policies</h2>
     <div class="card" style="padding:0;margin-top:20px">
       <table>
+        <colgroup><col style="width:290px"><col><col style="width:150px"></colgroup>
         <thead>
           <tr><th>Policy ID</th><th>Applies To</th><th>Actions</th></tr>
         </thead>

@@ -97,6 +97,7 @@ rules:
     ${policies.length === 0 ? emptyState : `
     <div class="card">
       <table>
+        <colgroup><col style="width:290px"><col style="width:290px"><col><col style="width:140px"></colgroup>
         <thead>
           <tr>
             <th>Policy ID</th>
@@ -145,9 +146,10 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
     <div class="card">
       <div class="card-title">Policy Details</div>
       <table style="margin-bottom:20px">
+        <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
           <tr>
-            <td style="width:160px;color:var(--text-muted)">Owner</td>
+            <td style="color:var(--text-muted)">Owner</td>
             <td>${formatNameWithId(ownerMap.get(policy.owner_principal_id), policy.owner_principal_id)}</td>
           </tr>
           <tr>
@@ -169,6 +171,7 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
       <div class="card-title">Bindings (${bindingCount})</div>
       ${bindingCount > 0 ? `
       <table>
+        <colgroup><col style="width:290px"><col></colgroup>
         <thead>
           <tr>
             <th>Owner</th>

@@ -118,8 +118,9 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
     <div class="card">
       <div class="card-title">Details</div>
       <table>
+        <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
-          <tr><td style="color:var(--text-muted);width:160px">Principal ID</td><td>${copyableId(data.owner_principal_id, data.owner_principal_id.length)}</td></tr>
+          <tr><td style="color:var(--text-muted)">Principal ID</td><td>${copyableId(data.owner_principal_id, data.owner_principal_id.length)}</td></tr>
           <tr><td style="color:var(--text-muted)">Display Name</td><td>
             <span id="display-name-view" style="display:flex;align-items:center;gap:8px">
               <span>${escapeHtml(data.display_name)}</span>
@@ -205,6 +206,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       </div>
       ${contacts.length > 0 ? `
       <table>
+        <colgroup><col style="width:140px"><col><col style="width:120px"><col style="width:120px"><col style="width:130px"><col style="width:60px"></colgroup>
         <thead><tr><th>Type</th><th>Value</th><th>Label</th><th>Platform</th><th>Status</th><th></th></tr></thead>
         <tbody>${contactRows}</tbody>
       </table>
@@ -247,6 +249,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       </div>
       ${govIds.length > 0 ? `
       <table>
+        <colgroup><col style="width:160px"><col style="width:180px"><col><col style="width:130px"><col style="width:60px"></colgroup>
         <thead><tr><th>Country</th><th>ID Type</th><th>Value</th><th>Status</th><th></th></tr></thead>
         <tbody>${govIdRows}</tbody>
       </table>
@@ -286,6 +289,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       </div>
       ${companyIds.length > 0 ? `
       <table>
+        <colgroup><col style="width:180px"><col style="width:160px"><col><col style="width:130px"><col style="width:60px"></colgroup>
         <thead><tr><th>Type</th><th>Country</th><th>Value</th><th>Status</th><th></th></tr></thead>
         <tbody>${companyIdRows}</tbody>
       </table>

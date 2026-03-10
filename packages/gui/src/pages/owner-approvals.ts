@@ -63,6 +63,7 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Pending</h3>
       <table>
+        <colgroup><col style="width:290px"><col><col style="width:140px"><col><col style="width:170px"><col style="width:150px"></colgroup>
         <thead>
           <tr><th>ID</th><th>Agent</th><th>Action</th><th>Justification</th><th>Created</th><th>Actions</th></tr>
         </thead>
@@ -74,6 +75,7 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Resolved</h3>
       <table>
+        <colgroup><col style="width:290px"><col><col style="width:140px"><col style="width:130px"><col style="width:170px"></colgroup>
         <thead>
           <tr><th>ID</th><th>Agent</th><th>Action</th><th>Status</th><th>Created</th></tr>
         </thead>

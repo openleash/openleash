@@ -215,9 +215,10 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
 
     <div class="card">
       <table>
+        <colgroup><col style="width:36px"><col style="width:170px"><col style="width:240px"><col><col style="width:180px"><col style="width:290px"></colgroup>
         <thead>
           <tr>
-            <th style="width:20px"></th>
+            <th></th>
             <th>Timestamp</th>
             <th>Event${infoIcon('audit-events', INFO_AUDIT_EVENTS)}</th>
             <th>Principal</th>

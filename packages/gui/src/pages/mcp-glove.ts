@@ -128,6 +128,7 @@ export function renderMcpGlove(data: McpGlovePageData): string {
       </p>
       <h4 style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">Tool Mappings</h4>
       <table>
+        <colgroup><col style="width:200px"><col style="width:180px"><col style="width:100px"><col></colgroup>
         <thead>
           <tr><th>MCP Tool</th><th>Action Type</th><th>Kind</th><th>Description</th></tr>
         </thead>
@@ -136,6 +137,7 @@ export function renderMcpGlove(data: McpGlovePageData): string {
 
       <h4 style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:20px 0 8px">Extracted Payload Fields</h4>
       <table>
+        <colgroup><col style="width:200px"><col style="width:120px"><col></colgroup>
         <thead>
           <tr><th>Field</th><th>Type</th><th>Description</th></tr>
         </thead>

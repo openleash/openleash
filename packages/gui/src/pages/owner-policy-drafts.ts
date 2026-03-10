@@ -83,7 +83,7 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
         <td>${copyableId(d.policy_draft_id)} <span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
-        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"${d.justification ? ` title="${escapeHtml(d.justification)}"` : ''}>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
+        <td${d.justification ? ` title="${escapeHtml(d.justification)}"` : ''}>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
         <td>${formatTimestamp(d.created_at)}</td>
         <td>
           <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'approve')" ${disableActions ? 'disabled' : ''}>Approve</button>
@@ -136,15 +136,8 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
 
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Pending</h3>
-      <table style="table-layout:fixed">
-        <colgroup>
-          <col style="width:12%">
-          <col style="width:12%">
-          <col style="width:14%">
-          <col style="width:32%">
-          <col style="width:15%">
-          <col style="width:15%">
-        </colgroup>
+      <table>
+        <colgroup><col style="width:290px"><col><col><col><col style="width:170px"><col style="width:150px"></colgroup>
         <thead>
           <tr><th>ID</th><th>Suggested By</th><th>Applies To</th><th>Justification</th><th>Created</th><th>Actions</th></tr>
         </thead>
@@ -156,6 +149,7 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Resolved</h3>
       <table>
+        <colgroup><col style="width:290px"><col><col><col style="width:130px"><col style="width:290px"><col style="width:170px"></colgroup>
         <thead>
           <tr><th>ID</th><th>Suggested By</th><th>Applies To</th><th>Status</th><th>Result</th><th>Created</th></tr>
         </thead>

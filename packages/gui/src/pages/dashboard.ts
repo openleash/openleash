@@ -105,9 +105,10 @@ export function renderDashboard(data: DashboardData): string {
       <div class="card">
         <div class="card-title">Server Status</div>
         <table>
+          <colgroup><col style="width:160px"><col></colgroup>
           <tbody>
             <tr>
-              <td style="width:160px;color:var(--text-muted)">Health</td>
+              <td style="color:var(--text-muted)">Health</td>
               <td><span class="badge ${health.status === 'ok' ? 'badge-green' : 'badge-red'}">${escapeHtml(health.status)}</span></td>
             </tr>
             <tr>

@@ -11,7 +11,7 @@ export interface ConfigData {
 function renderSection(title: string, entries: [string, string][]): string {
   const rows = entries.map(([key, val]) => `
     <tr>
-      <td style="width:200px;color:var(--text-muted)">${escapeHtml(key)}</td>
+      <td style="color:var(--text-muted)">${escapeHtml(key)}</td>
       <td class="mono">${escapeHtml(val)}</td>
     </tr>
   `).join('');
@@ -19,7 +19,7 @@ function renderSection(title: string, entries: [string, string][]): string {
   return `
     <div class="card">
       <div class="card-title">${escapeHtml(title)}</div>
-      <table><tbody>${rows}</tbody></table>
+      <table><colgroup><col style="width:200px"><col></colgroup><tbody>${rows}</tbody></table>
     </div>
   `;
 }

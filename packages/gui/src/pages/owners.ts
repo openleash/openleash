@@ -184,6 +184,7 @@ export function renderOwners(owners: OwnerData[]): string {
 
     <div class="card">
       <table>
+        <colgroup><col style="width:290px"><col><col style="width:100px"><col style="width:130px"><col style="width:170px"><col style="width:140px"></colgroup>
         <thead>
           <tr>
             <th>Principal ID</th>
@@ -270,6 +271,7 @@ function renderContactIdentitiesCard(owner: OwnerData): string {
       <div class="card-title">Contact Identities (${contacts.length})</div>
       ${contacts.length > 0 ? `
       <table>
+        <colgroup><col style="width:140px"><col><col style="width:120px"><col style="width:120px"><col style="width:130px"></colgroup>
         <thead>
           <tr><th>Type</th><th>Value</th><th>Label</th><th>Platform</th><th>Status</th></tr>
         </thead>
@@ -298,6 +300,7 @@ function renderGovernmentIdsCard(owner: OwnerData): string {
       <div class="card-title">Government IDs (${ids.length})${infoIcon('admin-gov-verification', INFO_VERIFICATION_LEVEL)}</div>
       ${ids.length > 0 ? `
       <table>
+        <colgroup><col style="width:160px"><col style="width:180px"><col><col style="width:130px"></colgroup>
         <thead>
           <tr><th>Country</th><th>ID Type</th><th>Value</th><th>Status</th></tr>
         </thead>
@@ -326,6 +329,7 @@ function renderCompanyIdsCard(owner: OwnerData): string {
       <div class="card-title">Company IDs (${ids.length})${infoIcon('admin-company-verification', INFO_VERIFICATION_LEVEL)}</div>
       ${ids.length > 0 ? `
       <table>
+        <colgroup><col style="width:180px"><col style="width:160px"><col><col style="width:130px"></colgroup>
         <thead>
           <tr><th>Type</th><th>Country</th><th>Value</th><th>Status</th></tr>
         </thead>
@@ -361,6 +365,7 @@ function renderSignatoriesCard(
       <div class="card-title">Signatories (${signatories.length})</div>
       ${signatories.length > 0 ? `
       <table>
+        <colgroup><col><col style="width:140px"><col style="width:140px"><col></colgroup>
         <thead>
           <tr><th>Person</th><th>Role</th><th>Authority</th><th>Scope</th></tr>
         </thead>
@@ -389,6 +394,7 @@ function renderSignatoryRulesCard(owner: OwnerData): string {
       <div class="card-title">Signatory Rules (${rules.length})</div>
       ${rules.length > 0 ? `
       <table>
+        <colgroup><col><col style="width:100px"><col style="width:140px"><col></colgroup>
         <thead>
           <tr><th>Description</th><th>Required</th><th>Roles</th><th>Scope</th></tr>
         </thead>
@@ -464,9 +470,10 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     <div class="card">
       <div class="card-title">Details</div>
       <table>
+        <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
           <tr>
-            <td style="width:160px;color:var(--text-muted)">Principal ID</td>
+            <td style="color:var(--text-muted)">Principal ID</td>
             <td>${copyableId(owner.owner_principal_id, owner.owner_principal_id.length)}</td>
           </tr>
           <tr>
@@ -512,9 +519,10 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     <div class="card">
       <div class="card-title">Security</div>
       <table>
+        <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
           <tr>
-            <td style="width:160px;color:var(--text-muted)">Two-Factor Auth</td>
+            <td style="color:var(--text-muted)">Two-Factor Auth</td>
             <td>
               ${owner.totp_enabled
                 ? `<span class="badge badge-green">Enabled</span>${owner.totp_enabled_at ? ` <span style="font-size:12px;color:var(--text-muted)">since ${formatTimestamp(owner.totp_enabled_at)}</span>` : ''}`
@@ -534,7 +542,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     ${attrEntries.length > 0 ? `
     <div class="card">
       <div class="card-title">Attributes</div>
-      <table><tbody>${attrHtml}</tbody></table>
+      <table><colgroup><col style="width:160px"><col></colgroup><tbody>${attrHtml}</tbody></table>
     </div>
     ` : ''}
 
@@ -547,6 +555,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     <div class="card">
       <div class="card-title">Agents (${agents.length})</div>
       <table>
+        <colgroup><col><col style="width:290px"><col style="width:130px"><col style="width:170px"></colgroup>
         <thead>
           <tr>
             <th>Agent ID</th>
@@ -564,6 +573,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     <div class="card">
       <div class="card-title">Policies (${policies.length})</div>
       <table>
+        <colgroup><col style="width:290px"><col></colgroup>
         <thead>
           <tr>
             <th>Policy ID</th>
@@ -580,9 +590,10 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       <div class="card-title">Activity Log</div>
       ${audit.length > 0 ? `
       <table>
+        <colgroup><col style="width:36px"><col style="width:170px"><col></colgroup>
         <thead>
           <tr>
-            <th style="width:20px"></th>
+            <th></th>
             <th>Timestamp</th>
             <th>Event</th>
           </tr>

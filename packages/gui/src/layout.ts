@@ -173,12 +173,9 @@ export const INFO_MCP_GLOVE = `
     <dd>Profiles define how MCP tools map to OpenLeash action types. Each profile covers a specific upstream server (e.g. office365-outlook).</dd>
   </dl>`;
 
-export function copyableId(fullId: string, truncateLength = 8): string {
+export function copyableId(fullId: string, _truncateLength?: number): string {
   const escaped = escapeHtml(fullId);
-  const display = truncateLength >= fullId.length
-    ? escaped
-    : escapeHtml(fullId.slice(0, truncateLength)) + '...';
-  return `<span class="mono copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${display}</span>`;
+  return `<span class="mono copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${escaped}</span>`;
 }
 
 export function formatTimestamp(iso: string, dateOnly = false): string {
@@ -491,6 +488,7 @@ export function renderPage(title: string, content: string, activePath: string, c
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
+      table-layout: fixed;
     }
 
     thead th {
@@ -508,6 +506,20 @@ export function renderPage(title: string, content: string, activePath: string, c
       padding: 10px 12px;
       border-bottom: 1px solid rgba(136, 153, 170, 0.08);
       color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    tbody td:has(.badge), tbody td:has(.btn), tbody td:has(.material-symbols-outlined), tbody td:has(.chevron) {
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    .accordion-detail td {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
     }
 
     tbody tr:hover td {
