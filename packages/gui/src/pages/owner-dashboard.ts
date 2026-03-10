@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, infoIcon, INFO_DECISIONS } from '../layout.js';
 
 export interface OwnerDashboardData {
   display_name: string;
@@ -138,7 +138,7 @@ export function renderOwnerDashboard(data: OwnerDashboardData): string {
         <div class="card-title">Key Concepts</div>
         <div style="display:flex;flex-direction:column;gap:14px">
           <div>
-            <div style="font-weight:600;color:var(--text-primary);font-size:13px">Policy Decisions</div>
+            <div style="font-weight:600;color:var(--text-primary);font-size:13px">Policy Decisions${infoIcon('owner-decisions', INFO_DECISIONS)}</div>
             <p style="color:var(--text-secondary);font-size:12px;margin-top:2px;line-height:1.6">
               Policies evaluate to one of five decisions: <span class="badge badge-green">ALLOW</span> <span class="badge badge-red">DENY</span> <span class="badge badge-amber">REQUIRE_APPROVAL</span> <span class="badge badge-amber">REQUIRE_STEP_UP</span> <span class="badge badge-amber">REQUIRE_DEPOSIT</span>
             </p>

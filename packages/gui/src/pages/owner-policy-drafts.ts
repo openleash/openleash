@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId, formatTimestamp } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_POLICY_DRAFTS } from '../layout.js';
 
 export interface OwnerPolicyDraftEntry {
   policy_draft_id: string;
@@ -128,7 +128,7 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
     : '';
 
   const content = `
-    <h2>Policy Drafts</h2>
+    <h2>Policy Drafts${infoIcon('policy-drafts-info', INFO_POLICY_DRAFTS)}</h2>
     <p style="color:var(--text-secondary);font-size:13px;margin-top:4px;margin-bottom:8px">
       Your agents can propose new policies. Review and approve or deny them here.
     </p>

@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp, infoIcon, INFO_OWNER_STATUS } from '../layout.js';
 
 // ─── Country data ─────────────────────────────────────────────────────
 
@@ -189,7 +189,7 @@ export function renderOwners(owners: OwnerData[]): string {
             <th>Principal ID</th>
             <th>Display Name</th>
             <th>Type</th>
-            <th>Status</th>
+            <th>Status${infoIcon('owners-status', INFO_OWNER_STATUS)}</th>
             <th>Created</th>
             <th>Actions</th>
           </tr>

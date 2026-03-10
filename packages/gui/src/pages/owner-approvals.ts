@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId, formatTimestamp } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_APPROVAL_REQUESTS } from '../layout.js';
 
 export interface OwnerApprovalEntry {
   approval_request_id: string;
@@ -57,7 +57,7 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
     : '';
 
   const content = `
-    <h2>Approval Requests</h2>
+    <h2>Approval Requests${infoIcon('approvals-info', INFO_APPROVAL_REQUESTS)}</h2>
     ${totpBanner}
 
     <div class="card" style="padding:0;margin-top:20px">

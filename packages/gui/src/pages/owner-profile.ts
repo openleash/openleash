@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId, formatTimestamp } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_OWNER_STATUS, INFO_VERIFICATION_LEVEL } from '../layout.js';
 
 // ─── Country data ─────────────────────────────────────────────────────
 
@@ -132,15 +132,15 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
             </span>
           </td></tr>
           <tr><td style="color:var(--text-muted)">Type</td><td>${escapeHtml(data.principal_type)}</td></tr>
-          <tr><td style="color:var(--text-muted)">Status</td><td><span class="badge ${data.status === 'ACTIVE' ? 'badge-green' : 'badge-red'}">${escapeHtml(data.status)}</span></td></tr>
-          ${data.identity_assurance_level ? `<tr><td style="color:var(--text-muted)">Assurance Level</td><td>${escapeHtml(data.identity_assurance_level)}</td></tr>` : ''}
+          <tr><td style="color:var(--text-muted)">Status</td><td><span class="badge ${data.status === 'ACTIVE' ? 'badge-green' : 'badge-red'}">${escapeHtml(data.status)}</span>${infoIcon('owner-status', INFO_OWNER_STATUS)}</td></tr>
+          <tr><td style="color:var(--text-muted)">Assurance Level</td><td>${assuranceLevelDisplay(data.identity_assurance_level)}${infoIcon('assurance-level', ASSURANCE_LEVEL_POPOVER)}</td></tr>
           <tr><td style="color:var(--text-muted)">Created</td><td class="mono">${formatTimestamp(data.created_at)}</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="card">
-      <div class="card-title">Security</div>
+      <div class="card-title">Security${infoIcon('security-2fa', SECURITY_2FA_POPOVER)}</div>
       ${data.totp_enabled ? `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <span class="badge badge-green">2FA Enabled</span>
@@ -243,7 +243,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
     ${isHuman ? `
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Government IDs (${govIds.length})</div>
+        <div class="card-title" style="margin-bottom:0">Government IDs (${govIds.length})${infoIcon('gov-id-verification', INFO_VERIFICATION_LEVEL)}</div>
       </div>
       ${govIds.length > 0 ? `
       <table>
@@ -282,7 +282,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
     ${isOrg ? `
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Company IDs (${companyIds.length})</div>
+        <div class="card-title" style="margin-bottom:0">Company IDs (${companyIds.length})${infoIcon('company-id-verification', INFO_VERIFICATION_LEVEL)}</div>
       </div>
       ${companyIds.length > 0 ? `
       <table>
@@ -504,6 +504,41 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
     </script>
   `;
   return renderPage('Profile', content, '/gui/owner/profile', 'owner');
+}
+
+const ASSURANCE_LEVEL_INFO: Record<string, { badge: string; label: string }> = {
+  ID_VERIFIED:      { badge: 'badge-green', label: 'ID VERIFIED' },
+  ID_FORMAT_VALID:  { badge: 'badge-amber', label: 'ID FORMAT VALID' },
+  CONTACT_VERIFIED: { badge: 'badge-amber', label: 'CONTACT VERIFIED' },
+  SELF_DECLARED:    { badge: 'badge-muted', label: 'SELF DECLARED' },
+  NONE:             { badge: 'badge-muted', label: 'NONE' },
+};
+
+const ASSURANCE_LEVEL_POPOVER = `
+  <div class="info-title">Identity Assurance Levels</div>
+  <p style="margin-bottom:8px">Your assurance level is automatically computed from the identity information you provide. Policies can require a minimum level before allowing certain actions.</p>
+  <dl>
+    <dt><span class="badge badge-green">ID VERIFIED</span></dt>
+    <dd>A government or company ID has been fully verified</dd>
+    <dt><span class="badge badge-amber">ID FORMAT VALID</span></dt>
+    <dd>A government or company ID passes format validation but is not yet verified</dd>
+    <dt><span class="badge badge-amber">CONTACT VERIFIED</span></dt>
+    <dd>At least one contact identity (email, phone, etc.) has been verified</dd>
+    <dt><span class="badge badge-muted">SELF DECLARED</span></dt>
+    <dd>Identity information has been added but nothing is verified yet</dd>
+    <dt><span class="badge badge-muted">NONE</span></dt>
+    <dd>No identity information provided</dd>
+  </dl>`;
+
+const SECURITY_2FA_POPOVER = `
+  <div class="info-title">Two-Factor Authentication (2FA)</div>
+  <p style="margin-bottom:8px">2FA adds a second verification step using a Time-based One-Time Password (TOTP) from an authenticator app (e.g. Google Authenticator, Authy).</p>
+  <p style="margin-bottom:8px">When enabled, you will need to enter a 6-digit code from your authenticator app to approve or deny agent requests and policy drafts.</p>
+  <p><strong style="color:var(--text-primary)">Backup codes</strong> are single-use recovery codes in case you lose access to your authenticator app. Store them securely.</p>`;
+
+function assuranceLevelDisplay(level: string | undefined): string {
+  const info = ASSURANCE_LEVEL_INFO[level ?? 'NONE'] ?? ASSURANCE_LEVEL_INFO['NONE'];
+  return `<span class="badge ${info.badge}">${info.label}</span>`;
 }
 
 function verificationBadge(level: string): string {

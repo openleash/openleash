@@ -29,6 +29,105 @@ function escapeHtml(str: string): string {
 
 export { escapeHtml };
 
+/**
+ * Render an info icon with a click-to-toggle popover.
+ * @param id   Unique identifier (used as DOM id suffix)
+ * @param html Rich HTML content for the popover body
+ */
+export function infoIcon(id: string, html: string): string {
+  return `<span class="info-popover-wrap"><span class="material-symbols-outlined info-trigger" onclick="toggleInfo(event,'info-${escapeHtml(id)}')" tabindex="0" role="button" aria-label="More info">info</span><div class="info-popover" id="info-${escapeHtml(id)}">${html}</div></span>`;
+}
+
+// ─── Shared popover content ──────────────────────────────────────────
+
+export const INFO_DECISIONS = `
+  <div class="info-title">Policy Decisions</div>
+  <p style="margin-bottom:8px">When an agent requests authorization, the policy engine evaluates rules and returns one of these decisions:</p>
+  <dl>
+    <dt><span class="badge badge-green">ALLOW</span></dt>
+    <dd>The action is permitted. A cryptographic proof token is issued.</dd>
+    <dt><span class="badge badge-red">DENY</span></dt>
+    <dd>The action is blocked. No proof token is issued.</dd>
+    <dt><span class="badge badge-amber">REQUIRE_APPROVAL</span></dt>
+    <dd>The action needs explicit human approval from the owner before proceeding.</dd>
+    <dt><span class="badge badge-amber">REQUIRE_STEP_UP</span></dt>
+    <dd>The action requires a higher identity assurance level (e.g. verified ID) before proceeding.</dd>
+    <dt><span class="badge badge-amber">REQUIRE_DEPOSIT</span></dt>
+    <dd>The action requires a financial deposit or escrow before proceeding.</dd>
+  </dl>`;
+
+export const INFO_OBLIGATIONS = `
+  <div class="info-title">Obligations</div>
+  <p style="margin-bottom:8px">Obligations are additional requirements attached to a policy rule. They determine the decision type when a rule matches:</p>
+  <dl>
+    <dt><span class="badge badge-amber">HUMAN_APPROVAL</span></dt>
+    <dd>An owner must manually approve or deny the request. Produces a REQUIRE_APPROVAL decision.</dd>
+    <dt><span class="badge badge-amber">STEP_UP_AUTH</span></dt>
+    <dd>The requester must provide stronger identity verification. Produces a REQUIRE_STEP_UP decision.</dd>
+    <dt><span class="badge badge-amber">DEPOSIT</span></dt>
+    <dd>A financial deposit is required. Produces a REQUIRE_DEPOSIT decision.</dd>
+    <dt><span class="badge badge-muted">COUNTERPARTY_ATTESTATION</span></dt>
+    <dd>A third-party attestation is requested but does not block the action. Decision remains ALLOW.</dd>
+  </dl>`;
+
+export const INFO_OWNER_STATUS = `
+  <div class="info-title">Owner Status</div>
+  <dl>
+    <dt><span class="badge badge-green">ACTIVE</span></dt>
+    <dd>Account is fully operational. Agents can request authorization and policies are evaluated.</dd>
+    <dt><span class="badge badge-amber">SUSPENDED</span></dt>
+    <dd>Account is temporarily disabled. Agents cannot authorize new actions, but data is preserved.</dd>
+    <dt><span class="badge badge-red">REVOKED</span></dt>
+    <dd>Account is permanently deactivated. All associated agents are also revoked. Cannot be undone.</dd>
+  </dl>`;
+
+export const INFO_AGENT_STATUS = `
+  <div class="info-title">Agent Status</div>
+  <dl>
+    <dt><span class="badge badge-green">ACTIVE</span></dt>
+    <dd>The agent is operational and can request authorization from the policy engine.</dd>
+    <dt><span class="badge badge-red">REVOKED</span></dt>
+    <dd>The agent has been permanently deactivated. It can no longer request authorization. Revocation cannot be undone.</dd>
+  </dl>`;
+
+export const INFO_VERIFICATION_LEVEL = `
+  <div class="info-title">Verification Levels</div>
+  <p style="margin-bottom:8px">Each government or company ID goes through verification stages:</p>
+  <dl>
+    <dt><span class="badge badge-muted">UNVERIFIED</span></dt>
+    <dd>The ID has been added but not yet checked.</dd>
+    <dt><span class="badge badge-amber">FORMAT VALID</span></dt>
+    <dd>The ID value passes format validation (e.g. correct length, check digit) but has not been independently verified.</dd>
+    <dt><span class="badge badge-green">VERIFIED</span></dt>
+    <dd>The ID has been fully verified against an authoritative source.</dd>
+  </dl>`;
+
+export const INFO_POLICY_DRAFTS = `
+  <div class="info-title">Policy Drafts</div>
+  <p style="margin-bottom:8px">Agents can propose new policies when they need access to action types not yet covered by existing rules. These proposals appear here for your review.</p>
+  <dl>
+    <dt><span class="badge badge-amber">All agents</span></dt>
+    <dd>The proposed policy would apply to all your agents, not just the one suggesting it. Review carefully.</dd>
+    <dt>Self</dt>
+    <dd>The agent is proposing a policy that only applies to itself.</dd>
+    <dt><span class="badge badge-amber">Other agent</span></dt>
+    <dd>The agent is proposing a policy for a different agent. This is unusual and warrants careful review.</dd>
+  </dl>`;
+
+export const INFO_APPROVAL_REQUESTS = `
+  <div class="info-title">Approval Requests</div>
+  <p style="margin-bottom:8px">When a policy evaluates to REQUIRE_APPROVAL, the agent's action is paused and an approval request is created for you to review.</p>
+  <dl>
+    <dt><span class="badge badge-amber">PENDING</span></dt>
+    <dd>Waiting for your decision. The agent is blocked until you approve or deny.</dd>
+    <dt><span class="badge badge-green">APPROVED</span></dt>
+    <dd>You approved the request. The agent received a proof token and proceeded.</dd>
+    <dt><span class="badge badge-red">DENIED</span></dt>
+    <dd>You denied the request. The agent was not authorized to proceed.</dd>
+    <dt><span class="badge badge-red">EXPIRED</span></dt>
+    <dd>The request timed out before a decision was made.</dd>
+  </dl>`;
+
 export function copyableId(fullId: string, truncateLength = 8): string {
   const escaped = escapeHtml(fullId);
   const display = truncateLength >= fullId.length
@@ -691,6 +790,52 @@ export function renderPage(title: string, content: string, activePath: string, c
     }
     .copy-tooltip.show { opacity: 1; }
 
+    /* Info popover */
+    .info-popover-wrap { display: inline-flex; align-items: center; vertical-align: middle; }
+    .info-trigger {
+      font-size: 16px;
+      color: var(--text-muted);
+      cursor: pointer;
+      margin-left: 6px;
+      transition: color 0.15s var(--ease-out);
+      user-select: none;
+      line-height: 1;
+    }
+    .info-trigger:hover, .info-trigger:focus { color: var(--text-secondary); }
+    .info-popover {
+      display: none;
+      position: fixed;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      min-width: 300px;
+      max-width: 420px;
+      z-index: 900;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+    .info-popover::before {
+      content: '';
+      position: absolute;
+      top: -6px;
+      left: var(--arrow-left, 50%);
+      width: 10px;
+      height: 10px;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-accent);
+      border-top: 1px solid var(--border-accent);
+      transform: rotate(45deg);
+    }
+    .info-popover.open { display: block; }
+    .info-popover .info-title { font-weight: 600; color: var(--text-primary); font-size: 12px; margin-bottom: 8px; }
+    .info-popover dl { margin: 0; }
+    .info-popover dt { font-weight: 600; color: var(--text-primary); margin-top: 6px; }
+    .info-popover dt:first-child { margin-top: 0; }
+    .info-popover dd { margin: 0 0 0 0; color: var(--text-secondary); }
+
     /* Policy Builder Tree */
     .tree-node {
       border-bottom: 1px solid rgba(136, 153, 170, 0.06);
@@ -1006,6 +1151,9 @@ export function renderPage(title: string, content: string, activePath: string, c
     function applyTheme(t){var isLight=t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches);document.body.classList.toggle('theme-light',isLight);}
     (function(){var t=localStorage.getItem('ol_theme')||'system';document.querySelectorAll('.theme-btn').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-theme')===t);});window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',function(){var cur=localStorage.getItem('ol_theme')||'system';if(cur==='system')applyTheme('system');});})();
     (function(){function pad(n){return n<10?'0'+n:n;}function isoLocal(d,dateOnly){var y=d.getFullYear(),m=pad(d.getMonth()+1),day=pad(d.getDate());if(dateOnly)return y+'-'+m+'-'+day;return y+'-'+m+'-'+day+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());}try{var cells=document.querySelectorAll('.local-time[data-utc]');for(var i=0;i<cells.length;i++){var utc=cells[i].getAttribute('data-utc');var d=new Date(utc);if(!isNaN(d.getTime())){var dateOnly=cells[i].getAttribute('data-date-only')==='1';cells[i].textContent=isoLocal(d,dateOnly);cells[i].title='UTC: '+utc.slice(0,19).replace('T',' ');}}}catch(_){}})();
+    function closeAllPopovers(){document.querySelectorAll('.info-popover.open').forEach(function(p){p.classList.remove('open');var orig=document.querySelector('[data-info-return="'+p.id+'"]');if(orig){orig.appendChild(p);orig.removeAttribute('data-info-return');}});}
+    function toggleInfo(e,id){e.stopPropagation();var el=document.getElementById(id);if(!el)return;var wasOpen=el.classList.contains('open');closeAllPopovers();if(!wasOpen){var wrap=el.parentElement;if(wrap)wrap.setAttribute('data-info-return',id);document.body.appendChild(el);var trigger=e.currentTarget;var tr=trigger.getBoundingClientRect();el.style.left='-9999px';el.style.top='-9999px';el.classList.add('open');var pr=el.getBoundingClientRect();var left=tr.left+tr.width/2-pr.width/2;var top=tr.bottom+8;if(left<8)left=8;if(left+pr.width>window.innerWidth-8)left=window.innerWidth-8-pr.width;if(top+pr.height>window.innerHeight-8){top=tr.top-pr.height-8;}el.style.left=left+'px';el.style.top=top+'px';el.style.setProperty('--arrow-left',(tr.left+tr.width/2-left)+'px');}};
+    document.addEventListener('click',function(e){if(!e.target.closest('.info-popover') && !e.target.closest('.info-trigger')){closeAllPopovers();}});
     function copyId(el,id){navigator.clipboard.writeText(id);var t=el.querySelector('.copy-tooltip');if(!t){t=document.createElement('span');t.className='copy-tooltip';t.textContent='Copied!';el.appendChild(t);}t.classList.add('show');clearTimeout(el._copyTimer);el._copyTimer=setTimeout(function(){t.classList.remove('show');},1200);}
     var _olResolve=null;
     function olDialogCancel(){document.getElementById('ol-dialog').classList.remove('open');if(_olResolve){_olResolve(null);_olResolve=null;}}

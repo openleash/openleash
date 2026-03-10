@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId, formatTimestamp } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_AGENT_STATUS } from '../layout.js';
 
 export interface OwnerAgentEntry {
   agent_principal_id: string;
@@ -48,7 +48,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[]): string {
     <div class="card" style="padding:0;margin-top:20px">
       <table>
         <thead>
-          <tr><th>Agent ID</th><th>Principal ID</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+          <tr><th>Agent ID</th><th>Principal ID</th><th>Status${infoIcon('owner-agent-status', INFO_AGENT_STATUS)}</th><th>Created</th><th>Actions</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>

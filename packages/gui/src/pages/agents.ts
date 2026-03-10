@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp, infoIcon, INFO_AGENT_STATUS } from '../layout.js';
 
 export interface AgentData {
   agent_principal_id: string;
@@ -87,7 +87,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
             <th>Agent ID</th>
             <th>Principal ID</th>
             <th>Owner</th>
-            <th>Status</th>
+            <th>Status${infoIcon('agents-status', INFO_AGENT_STATUS)}</th>
             <th>Created</th>
             <th>Revoked</th>
           </tr>

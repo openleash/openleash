@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId, copyableId } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId, infoIcon, INFO_DECISIONS, INFO_OBLIGATIONS } from '../layout.js';
 
 export interface PolicyListEntry {
   policy_id: string;
@@ -56,11 +56,11 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
           <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
             Each policy has a <span class="mono" style="font-size:11px">default</span> decision (allow or deny) and a list of
             <span class="mono" style="font-size:11px">rules</span>. Rules match on action types and can include constraints
-            (e.g. amount limits, time windows) and obligations (e.g. require human approval).
+            (e.g. amount limits, time windows) and obligations${infoIcon('policy-obligations', INFO_OBLIGATIONS)} (e.g. require human approval).
           </p>
         </div>
         <div>
-          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Decisions</div>
+          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Decisions${infoIcon('policy-decisions', INFO_DECISIONS)}</div>
           <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
             Rules evaluate to one of five decisions:
             <span class="badge badge-green">ALLOW</span>

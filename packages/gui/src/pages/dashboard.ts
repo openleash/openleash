@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, copyableId, formatTimestamp } from '../layout.js';
+import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_DECISIONS } from '../layout.js';
 
 export interface DashboardData {
   state: {
@@ -175,7 +175,7 @@ export function renderDashboard(data: DashboardData): string {
         <div>
           <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Policies</div>
           <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
-            Policies are YAML-based rules that control what agents can do. They evaluate actions, resources, and context to produce decisions: ALLOW, DENY, REQUIRE_APPROVAL, REQUIRE_STEP_UP, or REQUIRE_DEPOSIT.
+            Policies are YAML-based rules that control what agents can do. They evaluate actions, resources, and context to produce decisions${infoIcon('admin-decisions', INFO_DECISIONS)}.
           </p>
         </div>
         <div>
