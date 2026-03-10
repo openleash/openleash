@@ -271,6 +271,7 @@ export function registerOwnerRoutes(
 
     appendAuditEvent(dataDir, 'OWNER_LOGIN', {
       owner_principal_id: body.owner_principal_id,
+      display_name: owner.display_name,
     });
 
     return {
@@ -505,6 +506,7 @@ export function registerOwnerRoutes(
     appendAuditEvent(dataDir, 'POLICY_UPSERTED', {
       policy_id: policyId,
       owner_principal_id: session.sub,
+      applies_to_agent_principal_id: appliesToAgent,
     });
 
     return {
@@ -876,6 +878,8 @@ export function registerOwnerRoutes(
       approval_request_id: id,
       owner_principal_id: session.sub,
       agent_id: req.agent_id,
+      action_type: req.action_type,
+      agent_principal_id: req.agent_principal_id,
     });
 
     return {
@@ -930,6 +934,8 @@ export function registerOwnerRoutes(
       approval_request_id: id,
       owner_principal_id: session.sub,
       agent_id: req.agent_id,
+      action_type: req.action_type,
+      agent_principal_id: req.agent_principal_id,
       reason: body?.reason ?? null,
     });
 
@@ -1065,6 +1071,8 @@ export function registerOwnerRoutes(
       policy_id: policyId,
       owner_principal_id: session.sub,
       agent_id: draft.agent_id,
+      agent_principal_id: draft.agent_principal_id,
+      applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
     });
 
     return {
@@ -1119,6 +1127,8 @@ export function registerOwnerRoutes(
       policy_draft_id: id,
       owner_principal_id: session.sub,
       agent_id: draft.agent_id,
+      agent_principal_id: draft.agent_principal_id,
+      applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
       reason: body?.reason ?? null,
     });
 

@@ -51,7 +51,15 @@ export function registerAuthorizeRoutes(
 
     appendAuditEvent(dataDir, 'AUTHORIZE_CALLED', {
       agent_id: action.principal.agent_id,
+      agent_principal_id: agentEntry.agent_principal_id,
+      owner_principal_id: agentEntry.owner_principal_id,
       action_type: action.action_type,
+      action_id: action.action_id,
+      payload: action.payload ?? null,
+      subject_principal_id: action.subject?.principal_id ?? null,
+      relying_party_domain: action.relying_party?.domain ?? null,
+      trust_profile: action.relying_party?.trust_profile ?? null,
+      requested_at: new Date().toISOString(),
     }, { action_id: action.action_id, principal_id: agentEntry.agent_principal_id });
 
     // ─── Approval token path ──────────────────────────────────────────
@@ -137,6 +145,8 @@ export function registerAuthorizeRoutes(
         approval_request_id: claims.approval_request_id,
         decision_id: decisionId,
         agent_id: action.principal.agent_id,
+        action_type: action.action_type,
+        owner_principal_id: agentEntry.owner_principal_id,
         action_hash: currentActionHash,
       }, { decision_id: decisionId, action_id: action.action_id, principal_id: agentEntry.agent_principal_id });
 
@@ -146,6 +156,12 @@ export function registerAuthorizeRoutes(
         matched_rule_id: null,
         action_hash: currentActionHash,
         via_approval: true,
+        action_type: action.action_type,
+        agent_id: action.principal.agent_id,
+        agent_principal_id: agentEntry.agent_principal_id,
+        owner_principal_id: agentEntry.owner_principal_id,
+        reason: 'Approved by owner',
+        obligations: [],
       }, { decision_id: decisionId, action_id: action.action_id, principal_id: agentEntry.agent_principal_id });
 
       return {
@@ -221,7 +237,12 @@ export function registerAuthorizeRoutes(
 
       appendAuditEvent(dataDir, 'PROOF_ISSUED', {
         decision_id: response.decision_id,
+        agent_id: action.principal.agent_id,
+        action_type: action.action_type,
         action_hash: response.action_hash,
+        ttl_seconds: ttl,
+        expires_at: proof.expiresAt,
+        trust_profile: action.relying_party?.trust_profile ?? null,
       }, { decision_id: response.decision_id, action_id: action.action_id });
     }
 
@@ -230,6 +251,14 @@ export function registerAuthorizeRoutes(
       result: response.result,
       matched_rule_id: response.matched_rule_id,
       action_hash: response.action_hash,
+      action_type: action.action_type,
+      agent_id: action.principal.agent_id,
+      agent_principal_id: agentEntry.agent_principal_id,
+      owner_principal_id: agentEntry.owner_principal_id,
+      reason: response.reason ?? null,
+      obligations: response.obligations ?? [],
+      policy_id: policyEntry.policy_id,
+      trace: engineResult.trace ?? null,
     }, { decision_id: response.decision_id, action_id: action.action_id, principal_id: agentEntry.agent_principal_id });
 
     return response;

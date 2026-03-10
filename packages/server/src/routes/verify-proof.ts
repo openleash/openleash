@@ -33,6 +33,12 @@ export function registerVerifyProofRoutes(app: FastifyInstance, dataDir: string)
     appendAuditEvent(dataDir, 'PROOF_VERIFIED', {
       valid: result.valid,
       reason: result.reason,
+      decision_id: result.claims?.decision_id ?? null,
+      agent_id: result.claims?.agent_id ?? null,
+      action_type: result.claims?.action_type ?? null,
+      action_hash: result.claims?.action_hash ?? null,
+      expected_action_hash: body.expected_action_hash ?? null,
+      expected_agent_id: body.expected_agent_id ?? null,
     });
 
     return {

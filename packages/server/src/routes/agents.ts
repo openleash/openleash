@@ -60,6 +60,8 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
     appendAuditEvent(dataDir, 'AGENT_CHALLENGE_ISSUED', {
       challenge_id: challengeId,
       agent_id: body.agent_id,
+      owner_principal_id: body.owner_principal_id ?? null,
+      expires_at: expiresAt,
     });
 
     return {
@@ -154,6 +156,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
       owner_principal_id: body.owner_principal_id,
+      agent_attributes_json: body.agent_attributes_json ?? null,
     });
 
     return {

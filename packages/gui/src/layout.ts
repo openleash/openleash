@@ -794,6 +794,95 @@ export function renderPage(title: string, content: string, activePath: string, c
       transform: rotate(90deg);
     }
 
+    /* Flow diagram */
+    .flow-diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 16px 8px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .flow-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 0 8px;
+      flex-shrink: 0;
+    }
+
+    .flow-node[title] {
+      cursor: help;
+    }
+
+    .flow-node .material-symbols-outlined {
+      font-size: 36px;
+      color: var(--text-secondary);
+    }
+
+    .flow-node > svg {
+      width: 36px;
+      height: 36px;
+      color: var(--green-bright);
+    }
+
+    .flow-node-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      max-width: 110px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+    }
+
+    .flow-arrow {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      padding: 0 2px;
+    }
+
+    .flow-arrow-line {
+      width: 44px;
+      height: 2px;
+      background: var(--text-muted);
+    }
+
+    .flow-arrow-head {
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-left: 8px solid var(--text-muted);
+    }
+
+    .flow-arrow-allow .flow-arrow-line { background: var(--green-bright); }
+    .flow-arrow-allow .flow-arrow-head { border-left-color: var(--green-bright); }
+    .flow-arrow-deny .flow-arrow-line { background: var(--red); }
+    .flow-arrow-deny .flow-arrow-head { border-left-color: var(--red); }
+    .flow-arrow-pending .flow-arrow-line { background: var(--amber); }
+    .flow-arrow-pending .flow-arrow-head { border-left-color: var(--amber); }
+
+    .flow-result-allow .material-symbols-outlined { color: var(--green-bright); }
+    .flow-result-deny .material-symbols-outlined { color: var(--red); }
+    .flow-result-pending .material-symbols-outlined { color: var(--amber); }
+    .flow-result-proof .material-symbols-outlined { color: var(--green-bright); }
+
+    .flow-arrow-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      position: relative;
+      top: -10px;
+      margin: 0 -10px;
+      text-align: center;
+    }
+
     /* Config display */
     .config-block {
       background: var(--bg-deep);

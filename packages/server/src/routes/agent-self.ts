@@ -124,6 +124,12 @@ export function registerAgentSelfRoutes(
       agent_principal_id: agentEntry.agent_principal_id,
       owner_principal_id: agentEntry.owner_principal_id,
       action_type: action.action_type,
+      decision_id: body.decision_id,
+      action_hash: actionHash,
+      justification: body.justification ?? null,
+      action_payload: action.payload ?? null,
+      subject_principal_id: action.subject?.principal_id ?? null,
+      expires_at: expiresAt.toISOString(),
     });
 
     return {
@@ -245,6 +251,8 @@ export function registerAgentSelfRoutes(
       agent_id: agent.agent_id,
       agent_principal_id: agentEntry.agent_principal_id,
       owner_principal_id: agentEntry.owner_principal_id,
+      justification: body.justification ?? null,
+      applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
     });
 
     return {

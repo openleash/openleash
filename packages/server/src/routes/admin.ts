@@ -138,6 +138,8 @@ export function registerAdminRoutes(app: FastifyInstance, dataDir: string, confi
     appendAuditEvent(dataDir, 'OWNER_CREATED', {
       owner_principal_id: ownerId,
       display_name: body.display_name,
+      principal_type: body.principal_type,
+      identity_assurance_level: owner.identity_assurance_level ?? null,
     });
 
     return {
@@ -187,6 +189,7 @@ export function registerAdminRoutes(app: FastifyInstance, dataDir: string, confi
     appendAuditEvent(dataDir, 'OWNER_SETUP_INVITE_CREATED', {
       owner_principal_id: ownerId,
       invite_id: inviteId,
+      expires_at: expiresAt,
     });
 
     return {
