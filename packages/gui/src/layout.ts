@@ -272,7 +272,7 @@ export function renderPage(title: string, content: string, activePath: string, c
       border-radius: var(--radius-md);
       padding: 20px;
       margin-bottom: 20px;
-      transition: border-color 0.25s var(--ease-out), transform 0.25s var(--ease-out);
+      transition: border-color 0.25s var(--ease-out);
     }
 
     .card:hover {
@@ -302,12 +302,11 @@ export function renderPage(title: string, content: string, activePath: string, c
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-md);
       padding: 20px;
-      transition: border-color 0.25s var(--ease-out), transform 0.25s var(--ease-out);
+      transition: border-color 0.25s var(--ease-out);
     }
 
     .summary-card:hover {
       border-color: var(--border-accent);
-      transform: translateY(-2px);
     }
 
     .summary-card .label {
@@ -395,7 +394,6 @@ export function renderPage(title: string, content: string, activePath: string, c
 
     .btn-primary:hover {
       background: rgba(16, 185, 129, 0.2);
-      transform: translateY(-1px);
     }
 
     .btn-secondary {
