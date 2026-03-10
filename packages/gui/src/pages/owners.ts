@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId } from '../layout.js';
 
 // ─── Country data ─────────────────────────────────────────────────────
 
@@ -406,8 +406,8 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
 
   const agentRows = agents.map((a) => `
     <tr>
-      <td class="mono">${escapeHtml(a.agent_id)}</td>
-      <td class="mono truncate" title="${escapeHtml(a.agent_principal_id)}">${escapeHtml(a.agent_principal_id.slice(0, 8))}...</td>
+      <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
+      <td>${copyableId(a.agent_principal_id)}</td>
       <td>${statusBadge(a.status)}</td>
       <td class="mono">${escapeHtml(a.created_at.slice(0, 10))}</td>
     </tr>
@@ -456,7 +456,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         ${statusBadge(owner.status)}
         ${assuranceBadge(owner.identity_assurance_level)}
       </div>
-      <p class="mono">${escapeHtml(owner.owner_principal_id)}</p>
+      <p>${copyableId(owner.owner_principal_id, owner.owner_principal_id.length)}</p>
     </div>
 
     <div id="invite-alert"></div>
@@ -467,7 +467,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         <tbody>
           <tr>
             <td style="width:160px;color:var(--text-muted)">Principal ID</td>
-            <td class="mono">${escapeHtml(owner.owner_principal_id)}</td>
+            <td>${copyableId(owner.owner_principal_id, owner.owner_principal_id.length)}</td>
           </tr>
           <tr>
             <td style="color:var(--text-muted)">Display Name</td>

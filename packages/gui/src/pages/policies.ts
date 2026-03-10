@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId } from '../layout.js';
 
 export interface PolicyListEntry {
   policy_id: string;
@@ -20,8 +20,8 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
       <td class="mono truncate" title="${escapeHtml(p.policy_id)}">
         <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id.slice(0, 8))}...</a>
       </td>
-      <td><span class="mono" style="font-size:12px">${escapeHtml(p.owner_principal_id.slice(0, 8))}...</span></td>
-      <td>${p.applies_to_agent_principal_id ? `<span class="mono" style="font-size:12px">${escapeHtml(p.applies_to_agent_principal_id.slice(0, 8))}...</span>` : '<span style="color:var(--text-muted)">all agents</span>'}</td>
+      <td>${copyableId(p.owner_principal_id)}</td>
+      <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span style="color:var(--text-muted)">all agents</span>'}</td>
       <td>
         <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="btn btn-secondary" style="padding:4px 10px;font-size:12px">View</a>
       </td>
@@ -139,7 +139,7 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
   const content = `
     <div class="page-header">
       <h2>View Policy</h2>
-      <p class="mono">${escapeHtml(policy.policy_id)}</p>
+      <p>${copyableId(policy.policy_id, policy.policy_id.length)}</p>
     </div>
 
     <div class="card">

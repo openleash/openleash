@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, copyableId } from '../layout.js';
 
 export interface OwnerPolicyDraftEntry {
   policy_draft_id: string;
@@ -30,10 +30,10 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
     ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No pending policy drafts</td></tr>'
     : pending.map((d) => `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
-        <td><span class="mono" style="font-size:12px">${escapeHtml(d.policy_draft_id.slice(0, 8))}...</span> <span class="chevron">&#9654;</span></td>
-        <td>${escapeHtml(d.agent_id)}</td>
+        <td>${copyableId(d.policy_draft_id)} <span class="chevron">&#9654;</span></td>
+        <td>${copyableId(d.agent_id, d.agent_id.length)}</td>
         <td>${d.applies_to_agent_principal_id
-          ? `<span class="mono" style="font-size:12px">${escapeHtml(d.applies_to_agent_principal_id.slice(0, 8))}...</span>`
+          ? copyableId(d.applies_to_agent_principal_id)
           : '<span style="color:var(--text-muted)">All agents</span>'}</td>
         <td>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
         <td>${new Date(d.created_at).toLocaleString()}</td>
@@ -56,11 +56,11 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
       const badge = d.status === 'APPROVED' ? 'badge-green' : d.status === 'DENIED' ? 'badge-red' : 'badge-muted';
       return `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
-        <td><span class="mono" style="font-size:12px">${escapeHtml(d.policy_draft_id.slice(0, 8))}...</span> <span class="chevron">&#9654;</span></td>
-        <td>${escapeHtml(d.agent_id)}</td>
+        <td>${copyableId(d.policy_draft_id)} <span class="chevron">&#9654;</span></td>
+        <td>${copyableId(d.agent_id, d.agent_id.length)}</td>
         <td><span class="badge ${badge}">${escapeHtml(d.status)}</span></td>
         <td>${d.resulting_policy_id
-          ? `<span class="mono" style="font-size:11px">${escapeHtml(d.resulting_policy_id.slice(0, 8))}...</span>`
+          ? copyableId(d.resulting_policy_id)
           : d.denial_reason ? escapeHtml(d.denial_reason) : '<span style="color:var(--text-muted)">-</span>'}</td>
         <td>${new Date(d.created_at).toLocaleString()}</td>
       </tr>

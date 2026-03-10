@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, copyableId } from '../layout.js';
 
 export interface OwnerPolicyEntry {
   policy_id: string;
@@ -11,9 +11,9 @@ export function renderOwnerPolicies(policies: OwnerPolicyEntry[]): string {
     ? '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:24px">No policies</td></tr>'
     : policies.map((p) => `
       <tr id="policy-row-${escapeHtml(p.policy_id)}">
-        <td><span class="mono" style="font-size:12px">${escapeHtml(p.policy_id.slice(0, 8))}...</span></td>
+        <td>${copyableId(p.policy_id)}</td>
         <td>${p.applies_to_agent_principal_id
-          ? `<span class="mono" style="font-size:12px">${escapeHtml(p.applies_to_agent_principal_id.slice(0, 8))}...</span>`
+          ? copyableId(p.applies_to_agent_principal_id)
           : '<span style="color:var(--text-muted)">All agents</span>'}</td>
         <td>
           <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="toggleEditor('${escapeHtml(p.policy_id)}')">Edit</button>

@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId } from '../layout.js';
 
 export interface AuditEntry {
   event_id: string;
@@ -40,7 +40,7 @@ function resolveId(uuid: string, nameMap: AuditNameMap): string | undefined {
 
 function principalDisplay(principalId: string | null, nameMap?: AuditNameMap): string {
   if (!principalId) return '<span style="color:var(--text-muted)">--</span>';
-  if (!nameMap) return `<span class="mono truncate" title="${escapeHtml(principalId)}">${escapeHtml(principalId.slice(0, 8))}...</span>`;
+  if (!nameMap) return copyableId(principalId);
   const name = resolveId(principalId, nameMap);
   return formatNameWithId(name, principalId);
 }
@@ -173,7 +173,7 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
         <td>${eventBadge(e.event_type)}</td>
         <td>${principalDisplay(e.principal_id, nameMap)}</td>
         <td>${summary || '<span style="color:var(--text-muted)">--</span>'}</td>
-        <td class="mono truncate" title="${escapeHtml(e.event_id)}">${escapeHtml(e.event_id.slice(0, 8))}...</td>
+        <td>${copyableId(e.event_id)}</td>
       </tr>
       <tr class="accordion-detail" id="detail-${idx}" data-event-type="${escapeHtml(e.event_type)}">
         <td colspan="6">

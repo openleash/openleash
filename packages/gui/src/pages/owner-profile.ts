@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, copyableId } from '../layout.js';
 
 // ─── Country data ─────────────────────────────────────────────────────
 
@@ -119,7 +119,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <div class="card-title">Details</div>
       <table>
         <tbody>
-          <tr><td style="color:var(--text-muted);width:160px">Principal ID</td><td class="mono">${escapeHtml(data.owner_principal_id)}</td></tr>
+          <tr><td style="color:var(--text-muted);width:160px">Principal ID</td><td>${copyableId(data.owner_principal_id, data.owner_principal_id.length)}</td></tr>
           <tr><td style="color:var(--text-muted)">Display Name</td><td>
             <span id="display-name-view" style="display:flex;align-items:center;gap:8px">
               <span>${escapeHtml(data.display_name)}</span>

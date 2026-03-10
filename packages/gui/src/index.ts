@@ -1,4 +1,4 @@
-export { renderPage, escapeHtml, formatNameWithId } from './layout.js';
+export { renderPage, escapeHtml, formatNameWithId, copyableId } from './layout.js';
 export { renderDashboard } from './pages/dashboard.js';
 export type { DashboardData } from './pages/dashboard.js';
 export { renderOwners, renderOwnerDetail } from './pages/owners.js';

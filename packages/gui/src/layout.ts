@@ -28,11 +28,20 @@ function escapeHtml(str: string): string {
 
 export { escapeHtml };
 
+export function copyableId(fullId: string, truncateLength = 8): string {
+  const escaped = escapeHtml(fullId);
+  const display = truncateLength >= fullId.length
+    ? escaped
+    : escapeHtml(fullId.slice(0, truncateLength)) + '...';
+  return `<span class="mono copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${display}</span>`;
+}
+
 export function formatNameWithId(name: string | undefined, uuid: string): string {
+  const escaped = escapeHtml(uuid);
   if (name) {
-    return `${escapeHtml(name)} <span class="mono muted" title="${escapeHtml(uuid)}" style="color:var(--text-muted);font-size:11px">(${escapeHtml(uuid.slice(0, 8))}...)</span>`;
+    return `${escapeHtml(name)} <span class="mono muted copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')" style="color:var(--text-muted);font-size:11px">(${escapeHtml(uuid.slice(0, 8))}...)</span>`;
   }
-  return `<span class="mono truncate" title="${escapeHtml(uuid)}">${escapeHtml(uuid.slice(0, 8))}...</span>`;
+  return `<span class="mono truncate copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${escapeHtml(uuid.slice(0, 8))}...</span>`;
 }
 
 export function renderPage(title: string, content: string, activePath: string, context?: 'admin' | 'owner'): string {
@@ -619,6 +628,10 @@ export function renderPage(title: string, content: string, activePath: string, c
       text-overflow: ellipsis;
     }
 
+    /* Copyable IDs */
+    .copyable { cursor: pointer; }
+    .copyable:hover { color: var(--green-bright) !important; }
+
     /* Policy Builder Tree */
     .tree-node {
       border-bottom: 1px solid rgba(136, 153, 170, 0.06);
@@ -834,6 +847,7 @@ export function renderPage(title: string, content: string, activePath: string, c
   <main class="main">
     ${content}
   </main>
+  <script>function copyId(el,id){navigator.clipboard.writeText(id);var o=el.innerHTML;el.textContent='Copied!';el.style.color='var(--green-bright)';setTimeout(function(){el.innerHTML=o;el.style.color='';},1200);}</script>
 </body>
 </html>`;
 }

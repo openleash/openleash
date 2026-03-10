@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, copyableId } from '../layout.js';
 
 export interface OwnerApprovalEntry {
   approval_request_id: string;
@@ -25,8 +25,8 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
     ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No pending approvals</td></tr>'
     : pending.map((a) => `
       <tr>
-        <td><span class="mono" style="font-size:12px">${escapeHtml(a.approval_request_id.slice(0, 8))}...</span></td>
-        <td>${escapeHtml(a.agent_id)}</td>
+        <td>${copyableId(a.approval_request_id)}</td>
+        <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
         <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span></td>
         <td>${a.justification ? escapeHtml(a.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
         <td>${new Date(a.created_at).toLocaleString()}</td>
@@ -43,8 +43,8 @@ export function renderOwnerApprovals(approvals: OwnerApprovalEntry[], options?: 
       const badge = a.status === 'APPROVED' ? 'badge-green' : a.status === 'DENIED' ? 'badge-red' : 'badge-muted';
       return `
       <tr>
-        <td><span class="mono" style="font-size:12px">${escapeHtml(a.approval_request_id.slice(0, 8))}...</span></td>
-        <td>${escapeHtml(a.agent_id)}</td>
+        <td>${copyableId(a.approval_request_id)}</td>
+        <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
         <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span></td>
         <td><span class="badge ${badge}">${escapeHtml(a.status)}</span></td>
         <td>${new Date(a.created_at).toLocaleString()}</td>

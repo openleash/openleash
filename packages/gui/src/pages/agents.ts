@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, formatNameWithId } from '../layout.js';
+import { renderPage, escapeHtml, formatNameWithId, copyableId } from '../layout.js';
 
 export interface AgentData {
   agent_principal_id: string;
@@ -29,8 +29,8 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
 
   const rows = agents.map((a) => `
     <tr>
-      <td class="mono">${escapeHtml(a.agent_id ?? '-')}</td>
-      <td class="mono truncate" title="${escapeHtml(a.agent_principal_id)}">${escapeHtml(a.agent_principal_id.slice(0, 8))}...</td>
+      <td>${a.agent_id ? copyableId(a.agent_id, a.agent_id.length) : '-'}</td>
+      <td>${copyableId(a.agent_principal_id)}</td>
       <td>${a.owner_principal_id ? formatNameWithId(ownerMap.get(a.owner_principal_id), a.owner_principal_id) : '-'}</td>
       <td>${statusBadge(a.status)}</td>
       <td class="mono">${escapeHtml(a.created_at?.slice(0, 10) ?? '-')}</td>

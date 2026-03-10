@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, copyableId } from '../layout.js';
 
 export interface DashboardData {
   state: {
@@ -124,7 +124,7 @@ export function renderDashboard(data: DashboardData): string {
             </tr>
             <tr>
               <td style="color:var(--text-muted)">Active Key ID</td>
-              <td class="mono truncate">${escapeHtml(state.active_kid)}</td>
+              <td>${copyableId(state.active_kid, state.active_kid.length)}</td>
             </tr>
           </tbody>
         </table>

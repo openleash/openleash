@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml } from '../layout.js';
+import { renderPage, escapeHtml, copyableId } from '../layout.js';
 
 export interface OwnerAgentEntry {
   agent_principal_id: string;
@@ -15,8 +15,8 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[]): string {
       const badge = a.status === 'ACTIVE' ? 'badge-green' : 'badge-red';
       return `
       <tr>
-        <td>${escapeHtml(a.agent_id)}</td>
-        <td><span class="mono" style="font-size:12px">${escapeHtml(a.agent_principal_id.slice(0, 8))}...</span></td>
+        <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
+        <td>${copyableId(a.agent_principal_id)}</td>
         <td><span class="badge ${badge}">${escapeHtml(a.status)}</span></td>
         <td>${new Date(a.created_at).toLocaleString()}</td>
         <td>
