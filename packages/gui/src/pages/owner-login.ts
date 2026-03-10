@@ -25,6 +25,21 @@ export function renderOwnerLogin(): string {
       --border-accent: rgba(52, 211, 153, 0.3);
       --radius-md: 12px;
     }
+    body.theme-light {
+      --bg-deep: #f5f7fa;
+      --bg-surface: #ffffff;
+      --bg-elevated: #f0f2f5;
+      --green-bright: #047e58;
+      --green-mid: #059669;
+      --green-dark: #d1fae5;
+      --amber-bright: #a75b04;
+      --red-bright: #d72222;
+      --text-primary: #1a1a2e;
+      --text-secondary: #4a5568;
+      --text-muted: #5c708c;
+      --border-subtle: rgba(0, 0, 0, 0.1);
+      --border-accent: rgba(4, 126, 88, 0.3);
+    }
     html { -webkit-font-smoothing: antialiased; }
     body {
       font-family: var(--font-body);
@@ -148,6 +163,7 @@ export function renderOwnerLogin(): string {
   </style>
 </head>
 <body>
+  <script>(function(){var t=localStorage.getItem('ol_theme')||'system';if(t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches))document.body.classList.add('theme-light');})();</script>
   <div class="login-card">
     <h1>OpenLeash</h1>
     <div class="subtitle">Owner Portal</div>

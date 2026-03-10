@@ -36,7 +36,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[]): string {
     <div id="alert-container"></div>
 
     <div id="invite-result" class="card" style="display:none;border-color:rgba(251,191,36,0.3)">
-      <div style="font-size:13px;font-weight:600;color:#fbbf24;margin-bottom:12px">Agent Invite URL (single use, expires in 24h)</div>
+      <div style="font-size:13px;font-weight:600;color:var(--amber-bright);margin-bottom:12px">Agent Invite URL (single use, expires in 24h)</div>
       <div id="invite-url" style="padding:10px 14px;background:var(--bg-elevated);border:1px solid rgba(251,191,36,0.3);border-radius:8px;font-family:var(--font-mono);font-size:12px;word-break:break-all;line-height:1.5;color:var(--text-primary)"></div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Copy this URL and give it to your agent. It contains everything the agent needs to register itself.</div>
       <div style="margin-top:12px;display:flex;gap:8px">

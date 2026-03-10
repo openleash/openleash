@@ -116,6 +116,25 @@ export function renderPage(title: string, content: string, activePath: string, c
       --sidebar-transition: 0.3s var(--ease-out);
     }
 
+    body.theme-light {
+      --bg-deep: #f5f7fa;
+      --bg-surface: #ffffff;
+      --bg-elevated: #f0f2f5;
+      --green-bright: #047e58;
+      --green-mid: #059669;
+      --green-dark: #d1fae5;
+      --amber-bright: #a75b04;
+      --amber-mid: #b96d08;
+      --red-bright: #d72222;
+      --red-mid: #dc2626;
+      --text-primary: #1a1a2e;
+      --text-secondary: #4a5568;
+      --text-muted: #5c708c;
+      --border-subtle: rgba(0, 0, 0, 0.1);
+      --border-accent: rgba(4, 126, 88, 0.3);
+      --surface-card: rgba(255, 255, 255, 0.8);
+    }
+
     html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
     body {
@@ -148,7 +167,7 @@ export function renderPage(title: string, content: string, activePath: string, c
     .sidebar-logo {
       padding: 0 20px 24px;
       border-bottom: 1px solid var(--border-subtle);
-      margin-bottom: 16px;
+      margin-bottom: 0;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -181,13 +200,12 @@ export function renderPage(title: string, content: string, activePath: string, c
       margin-top: 1px;
     }
 
+    .sidebar-switchers {
+      margin: 0 0 32px;
+      background: var(--bg-deep);
+    }
     .context-switcher {
       display: flex;
-      margin: 0 16px 16px;
-      border: 1px solid var(--border-subtle);
-      border-radius: 6px;
-      overflow: hidden;
-      background: var(--bg-deep);
     }
     .context-tab {
       flex: 1;
@@ -548,6 +566,9 @@ export function renderPage(title: string, content: string, activePath: string, c
       background-position: right 12px center;
       padding-right: 32px;
     }
+    body.theme-light .form-select {
+      background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%234a5568' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    }
 
     .form-help {
       font-size: 11px;
@@ -827,6 +848,27 @@ export function renderPage(title: string, content: string, activePath: string, c
     .mode-btn:hover { color: var(--text-primary); background: rgba(52, 211, 153, 0.05); }
     .mode-btn.active { background: var(--green-dark); color: var(--green-bright); }
 
+    /* Theme switcher */
+    .theme-switcher {
+      display: flex;
+    }
+    .theme-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 0;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.25s var(--ease-out);
+      font-family: var(--font-body);
+    }
+    .theme-btn:hover { color: var(--text-secondary); background: rgba(136,153,170,0.05); }
+    .theme-btn.active { background: var(--green-dark); color: var(--green-bright); cursor: default; }
+    .theme-btn .material-symbols-outlined { font-size: 16px; }
+
     /* Sidebar toggle button */
     .sidebar-toggle {
       display: flex;
@@ -866,7 +908,7 @@ export function renderPage(title: string, content: string, activePath: string, c
     body.sidebar-collapsed .nav-label { opacity: 0; width: 0; }
     body.sidebar-collapsed .nav-item { justify-content: center; padding: 10px; border-left-width: 0; gap: 0; }
     body.sidebar-collapsed .nav-item.active { border-left-width: 0; }
-    body.sidebar-collapsed .context-switcher { display: none; }
+    body.sidebar-collapsed .sidebar-switchers { display: none; }
     body.sidebar-collapsed .sidebar-toggle { justify-content: center; padding: 10px; }
     body.sidebar-collapsed .sidebar-toggle .collapse-icon { display: none; }
     body.sidebar-collapsed .sidebar-toggle .expand-icon { display: inline; }
@@ -879,15 +921,16 @@ export function renderPage(title: string, content: string, activePath: string, c
       .nav-label { opacity: 0; width: 0; }
       .nav-item { justify-content: center; padding: 10px; }
       .main { margin-left: var(--sidebar-collapsed-width); padding: 20px; }
-      .context-switcher { flex-direction: column; margin: 0 8px 12px; }
-      .context-tab { padding: 6px 0; font-size: 0; }
-      .context-tab-icon { display: inline; font-size: 18px; }
+      .sidebar-switchers { display: none; }
       .sidebar-toggle { display: none; }
     }
   </style>
 </head>
 <body>
-  <script>if(localStorage.getItem('ol_sidebar_collapsed')==='1')document.body.classList.add('sidebar-collapsed');</script>
+  <script>
+    if(localStorage.getItem('ol_sidebar_collapsed')==='1')document.body.classList.add('sidebar-collapsed');
+    (function(){var t=localStorage.getItem('ol_theme')||'system';if(t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches))document.body.classList.add('theme-light');})();
+  </script>
   <nav class="sidebar">
     <div class="sidebar-logo">
       <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="OpenLeash logo">
@@ -915,15 +958,22 @@ export function renderPage(title: string, content: string, activePath: string, c
         <span>${subtitle}</span>
       </div>
     </div>
-    <div class="context-switcher">
-      <a href="/gui/dashboard" class="context-tab${!isOwner ? ' active' : ''}">
-        <span class="context-tab-icon material-symbols-outlined">admin_panel_settings</span>
-        <span class="context-tab-label">Admin</span>
-      </a>
-      <a href="/gui/owner/dashboard" class="context-tab${isOwner ? ' active' : ''}">
-        <span class="context-tab-icon material-symbols-outlined">person</span>
-        <span class="context-tab-label">Owner</span>
-      </a>
+    <div class="sidebar-switchers">
+      <div class="context-switcher">
+        <a href="/gui/dashboard" class="context-tab${!isOwner ? ' active' : ''}">
+          <span class="context-tab-icon material-symbols-outlined">admin_panel_settings</span>
+          <span class="context-tab-label">Admin</span>
+        </a>
+        <a href="/gui/owner/dashboard" class="context-tab${isOwner ? ' active' : ''}">
+          <span class="context-tab-icon material-symbols-outlined">person</span>
+          <span class="context-tab-label">Owner</span>
+        </a>
+      </div>
+      <div class="theme-switcher">
+        <button class="theme-btn" data-theme="system" onclick="setTheme('system')" title="System theme"><span class="material-symbols-outlined">desktop_windows</span></button>
+        <button class="theme-btn" data-theme="light" onclick="setTheme('light')" title="Light theme"><span class="material-symbols-outlined">light_mode</span></button>
+        <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')" title="Dark theme"><span class="material-symbols-outlined">dark_mode</span></button>
+      </div>
     </div>
     ${navHtml}
     <div class="sidebar-bottom">
@@ -952,6 +1002,9 @@ export function renderPage(title: string, content: string, activePath: string, c
   </div>
   <script>
     function toggleSidebar(){document.body.classList.toggle('sidebar-collapsed');localStorage.setItem('ol_sidebar_collapsed',document.body.classList.contains('sidebar-collapsed')?'1':'0');}
+    function setTheme(t){localStorage.setItem('ol_theme',t);applyTheme(t);document.querySelectorAll('.theme-btn').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-theme')===t);});}
+    function applyTheme(t){var isLight=t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches);document.body.classList.toggle('theme-light',isLight);}
+    (function(){var t=localStorage.getItem('ol_theme')||'system';document.querySelectorAll('.theme-btn').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-theme')===t);});window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',function(){var cur=localStorage.getItem('ol_theme')||'system';if(cur==='system')applyTheme('system');});})();
     (function(){function pad(n){return n<10?'0'+n:n;}function isoLocal(d,dateOnly){var y=d.getFullYear(),m=pad(d.getMonth()+1),day=pad(d.getDate());if(dateOnly)return y+'-'+m+'-'+day;return y+'-'+m+'-'+day+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());}try{var cells=document.querySelectorAll('.local-time[data-utc]');for(var i=0;i<cells.length;i++){var utc=cells[i].getAttribute('data-utc');var d=new Date(utc);if(!isNaN(d.getTime())){var dateOnly=cells[i].getAttribute('data-date-only')==='1';cells[i].textContent=isoLocal(d,dateOnly);cells[i].title='UTC: '+utc.slice(0,19).replace('T',' ');}}}catch(_){}})();
     function copyId(el,id){navigator.clipboard.writeText(id);var t=el.querySelector('.copy-tooltip');if(!t){t=document.createElement('span');t.className='copy-tooltip';t.textContent='Copied!';el.appendChild(t);}t.classList.add('show');clearTimeout(el._copyTimer);el._copyTimer=setTimeout(function(){t.classList.remove('show');},1200);}
     var _olResolve=null;
