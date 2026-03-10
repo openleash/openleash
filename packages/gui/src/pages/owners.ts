@@ -426,7 +426,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
 
   const auditRows = audit.map((e, i) => `
     <tr class="accordion-row" onclick="toggleAccordion(${i})" id="row-${i}">
-      <td style="width:20px"><span class="chevron">&#9654;</span></td>
+      <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
       <td class="mono" style="white-space:nowrap">${escapeHtml(e.timestamp.slice(0, 19).replace('T', ' '))}</td>
       <td>${eventBadge(e.event_type)}</td>
     </tr>

@@ -134,23 +134,23 @@ export function renderDashboard(data: DashboardData): string {
         <div class="card-title">Quick Links</div>
         <div style="display:flex;flex-direction:column;gap:10px">
           <a href="https://github.com/openleash/openleash" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;color:var(--text-secondary);text-decoration:none;padding:8px 0;border-bottom:1px solid var(--border-subtle);transition:color 0.2s">
-            <span style="font-size:16px;width:20px;text-align:center">&#128279;</span>
+            <span class="material-symbols-outlined" style="font-size:18px;width:20px;text-align:center">code</span>
             <span>GitHub Repository</span>
           </a>
           <a href="https://github.com/openleash/openleash#readme" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;color:var(--text-secondary);text-decoration:none;padding:8px 0;border-bottom:1px solid var(--border-subtle);transition:color 0.2s">
-            <span style="font-size:16px;width:20px;text-align:center">&#128214;</span>
+            <span class="material-symbols-outlined" style="font-size:18px;width:20px;text-align:center">menu_book</span>
             <span>Documentation</span>
           </a>
           <a href="/gui/api-reference" style="display:flex;align-items:center;gap:10px;color:var(--text-secondary);text-decoration:none;padding:8px 0;border-bottom:1px solid var(--border-subtle);transition:color 0.2s">
-            <span style="font-size:16px;width:20px;text-align:center">&#128203;</span>
+            <span class="material-symbols-outlined" style="font-size:18px;width:20px;text-align:center">api</span>
             <span>API Reference</span>
           </a>
           <a href="/gui/mcp-glove" style="display:flex;align-items:center;gap:10px;color:var(--text-secondary);text-decoration:none;padding:8px 0;border-bottom:1px solid var(--border-subtle);transition:color 0.2s">
-            <span style="font-size:16px;width:20px;text-align:center">&#9830;</span>
+            <span class="material-symbols-outlined" style="font-size:18px;width:20px;text-align:center">handshake</span>
             <span>MCP Glove</span>
           </a>
           <a href="https://github.com/openleash/openleash/issues" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;color:var(--text-secondary);text-decoration:none;padding:8px 0;transition:color 0.2s">
-            <span style="font-size:16px;width:20px;text-align:center">&#128172;</span>
+            <span class="material-symbols-outlined" style="font-size:18px;width:20px;text-align:center">bug_report</span>
             <span>Report an Issue</span>
           </a>
         </div>

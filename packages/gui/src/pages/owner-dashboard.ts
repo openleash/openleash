@@ -56,7 +56,7 @@ export function renderOwnerDashboard(data: OwnerDashboardData): string {
       </p>
       <div style="display:flex;flex-direction:column;gap:12px">
         <div style="display:flex;align-items:flex-start;gap:12px">
-          <span style="background:var(--green-dark);color:var(--green-bright);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">&#10003;</span>
+          <span class="material-symbols-outlined" style="background:var(--green-dark);color:var(--green-bright);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">check</span>
           <div>
             <div style="font-weight:600;color:var(--text-primary);font-size:13px">Account Created</div>
             <div style="color:var(--green-bright);font-size:12px;margin-top:2px">You're logged in as ${escapeHtml(data.display_name)}.</div>

@@ -33,7 +33,7 @@ export function renderApiReferenceUnavailable(): string {
     </div>
 
     <div class="card" style="text-align:center;padding:48px 24px">
-      <div style="font-size:48px;margin-bottom:16px;opacity:0.3">&#128203;</div>
+      <div class="material-symbols-outlined" style="font-size:48px;margin-bottom:16px;opacity:0.3">api</div>
       <div style="font-weight:600;color:var(--text-primary);font-size:15px;margin-bottom:8px">API Reference Not Available</div>
       <p style="color:var(--text-secondary);font-size:13px;max-width:460px;margin:0 auto;line-height:1.7">
         The OpenAPI specification file was not found. To enable the API reference, ensure

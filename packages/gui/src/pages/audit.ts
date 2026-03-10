@@ -168,7 +168,7 @@ export function renderAudit(data: AuditData, cursor: number, nameMap?: AuditName
 
     return `
       <tr class="accordion-row" onclick="toggleAccordion(${idx})" id="row-${idx}" data-event-type="${escapeHtml(e.event_type)}">
-        <td style="width:20px"><span class="chevron">&#9654;</span></td>
+        <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td class="local-time" data-utc="${escapeHtml(isoTimestamp)}" title="UTC: ${escapeHtml(displayTimestamp)}" style="white-space:nowrap">${escapeHtml(displayTimestamp)}</td>
         <td>${eventBadge(e.event_type)}</td>
         <td>${principalDisplay(e.principal_id, nameMap)}</td>

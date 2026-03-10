@@ -57,6 +57,7 @@ File-based with a `state.md` index (YAML frontmatter). Subdirectories: `owners/`
 
 ## Code Conventions
 
+- **Icons**: Use **Google Material Symbols Outlined** exclusively. The CDN is loaded in `packages/gui/src/layout.ts`. Use `<span class="material-symbols-outlined">icon_name</span>` for all icons. Do not use Unicode symbols, emoji HTML entities, FontAwesome, or inline SVG for UI icons. Browse available icons at https://fonts.google.com/icons.
 - TypeScript strict mode, ES2022 target, Node16 module resolution
 - Use `.js` extensions in relative imports (ESM requirement)
 - Each package exports via barrel `index.ts`

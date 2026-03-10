@@ -1,22 +1,22 @@
 const NAV_ITEMS = [
-  { path: '/gui/dashboard', label: 'Dashboard', icon: '&#9632;' },
-  { path: '/gui/owners', label: 'Owners', icon: '&#9679;' },
-  { path: '/gui/agents', label: 'Agents', icon: '&#9670;' },
-  { path: '/gui/policies', label: 'Policies', icon: '&#9638;' },
-  { path: '/gui/config', label: 'Config', icon: '&#9881;' },
-  { path: '/gui/mcp-glove', label: 'MCP Glove', icon: '&#9830;' },
-  { path: '/gui/audit', label: 'Audit Log', icon: '&#9776;' },
-  { path: '/gui/api-reference', label: 'API Docs', icon: '&#123;&#125;' },
+  { path: '/gui/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { path: '/gui/owners', label: 'Owners', icon: 'group' },
+  { path: '/gui/agents', label: 'Agents', icon: 'smart_toy' },
+  { path: '/gui/policies', label: 'Policies', icon: 'policy' },
+  { path: '/gui/config', label: 'Config', icon: 'settings' },
+  { path: '/gui/mcp-glove', label: 'MCP Glove', icon: 'handshake' },
+  { path: '/gui/audit', label: 'Audit Log', icon: 'receipt_long' },
+  { path: '/gui/api-reference', label: 'API Docs', icon: 'api' },
 ];
 
 const OWNER_NAV_ITEMS = [
-  { path: '/gui/owner/dashboard', label: 'Dashboard', icon: '&#9632;' },
-  { path: '/gui/owner/agents', label: 'My Agents', icon: '&#9670;' },
-  { path: '/gui/owner/policies', label: 'My Policies', icon: '&#9638;' },
-  { path: '/gui/owner/approvals', label: 'Approvals', icon: '&#10003;' },
-  { path: '/gui/owner/policy-drafts', label: 'Policy Drafts', icon: '&#9998;' },
-  { path: '/gui/owner/audit', label: 'Audit Log', icon: '&#9776;' },
-  { path: '/gui/owner/profile', label: 'Profile', icon: '&#9679;' },
+  { path: '/gui/owner/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { path: '/gui/owner/agents', label: 'My Agents', icon: 'smart_toy' },
+  { path: '/gui/owner/policies', label: 'My Policies', icon: 'policy' },
+  { path: '/gui/owner/approvals', label: 'Approvals', icon: 'task_alt' },
+  { path: '/gui/owner/policy-drafts', label: 'Policy Drafts', icon: 'edit_note' },
+  { path: '/gui/owner/audit', label: 'Audit Log', icon: 'receipt_long' },
+  { path: '/gui/owner/profile', label: 'Profile', icon: 'account_circle' },
 ];
 
 function escapeHtml(str: string): string {
@@ -54,7 +54,7 @@ export function renderPage(title: string, content: string, activePath: string, c
   const navHtml = navItems.map((item) => {
     const active = activePath === item.path || (item.path !== dashboardPath && activePath.startsWith(item.path));
     return `<a href="${item.path}" class="nav-item${active ? ' active' : ''}">
-      <span class="nav-icon">${item.icon}</span>
+      <span class="nav-icon material-symbols-outlined">${item.icon}</span>
       <span class="nav-label">${item.label}</span>
     </a>`;
   }).join('\n');
@@ -67,7 +67,7 @@ export function renderPage(title: string, content: string, activePath: string, c
       window.location.href='/gui/owner/login';
       return false;
     ">
-      <span class="nav-icon">&#10005;</span>
+      <span class="nav-icon material-symbols-outlined">logout</span>
       <span class="nav-label">Logout</span>
     </a>` : '';
 
@@ -77,6 +77,7 @@ export function renderPage(title: string, content: string, activePath: string, c
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)} - OpenLeash</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 120 120' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2334d399'/%3E%3Cstop offset='100%25' stop-color='%23065f46'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M60 10C32 10 18 30 18 48C18 66 32 80 46 84L46 88L54 88L54 84C54 84 60 86 66 84L66 88L74 88L74 84C88 80 102 66 102 48C102 30 88 10 60 10Z' fill='url(%23g)'/%3E%3Cpath d='M22 38C8 34 2 43 6 52C10 61 20 57 24 48C27 42 24 38 22 38Z' fill='url(%23g)'/%3E%3Cpath d='M98 38C112 34 118 43 114 52C110 61 100 57 96 48C93 42 96 38 98 38Z' fill='url(%23g)'/%3E%3Ccircle cx='45' cy='30' r='5.5' fill='%23050a0e'/%3E%3Ccircle cx='75' cy='30' r='5.5' fill='%23050a0e'/%3E%3Ccircle cx='46' cy='29' r='2' fill='%23fbbf24'/%3E%3Ccircle cx='76' cy='29' r='2' fill='%23fbbf24'/%3E%3Cpath d='M28 56C42 64 78 64 92 56' stroke='%23fbbf24' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3Cpath d='M60 62L60 98Q58 106 50 108' stroke='%23fbbf24' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Cellipse cx='45' cy='109' rx='8' ry='4.5' fill='none' stroke='%23fbbf24' stroke-width='3'/%3E%3C/svg%3E">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -217,7 +218,7 @@ export function renderPage(title: string, content: string, activePath: string, c
       border-left-color: var(--green-bright);
     }
 
-    .nav-icon { font-size: 14px; width: 18px; text-align: center; }
+    .nav-icon { font-size: 18px; width: 20px; text-align: center; }
 
     /* Main content */
     .main {
@@ -591,8 +592,9 @@ export function renderPage(title: string, content: string, activePath: string, c
     .chevron {
       display: inline-block;
       transition: transform 0.2s var(--ease-out);
-      font-size: 10px;
+      font-size: 16px;
       color: var(--text-muted);
+      vertical-align: middle;
     }
 
     .accordion-row.expanded .chevron {
@@ -819,7 +821,7 @@ export function renderPage(title: string, content: string, activePath: string, c
       .main { margin-left: 60px; padding: 20px; }
       .context-switcher { flex-direction: column; margin: 0 8px 12px; }
       .context-tab { padding: 6px 0; font-size: 0; }
-      .context-tab-icon { display: inline; font-size: 14px; }
+      .context-tab-icon { display: inline; font-size: 18px; }
     }
   </style>
 </head>
@@ -853,11 +855,11 @@ export function renderPage(title: string, content: string, activePath: string, c
     </div>
     <div class="context-switcher">
       <a href="/gui/dashboard" class="context-tab${!isOwner ? ' active' : ''}">
-        <span class="context-tab-icon">&#9881;</span>
+        <span class="context-tab-icon material-symbols-outlined">admin_panel_settings</span>
         <span class="context-tab-label">Admin</span>
       </a>
       <a href="/gui/owner/dashboard" class="context-tab${isOwner ? ' active' : ''}">
-        <span class="context-tab-icon">&#9679;</span>
+        <span class="context-tab-icon material-symbols-outlined">person</span>
         <span class="context-tab-label">Owner</span>
       </a>
     </div>

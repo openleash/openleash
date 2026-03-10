@@ -30,7 +30,7 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
 
   const emptyState = `
     <div class="card" style="text-align:center;padding:48px 24px">
-      <div style="font-size:48px;margin-bottom:16px;opacity:0.3">&#128220;</div>
+      <div class="material-symbols-outlined" style="font-size:48px;margin-bottom:16px;opacity:0.3">policy</div>
       <div style="font-weight:600;color:var(--text-primary);font-size:15px;margin-bottom:8px">No Policies Yet</div>
       <p style="color:var(--text-secondary);font-size:13px;max-width:520px;margin:0 auto;line-height:1.7">
         Policies are created by owners through the

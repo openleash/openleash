@@ -80,7 +80,7 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
     ? '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No pending policy drafts</td></tr>'
     : pending.map((d) => `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
-        <td>${copyableId(d.policy_draft_id)} <span class="chevron">&#9654;</span></td>
+        <td>${copyableId(d.policy_draft_id)} <span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
@@ -105,7 +105,7 @@ export function renderOwnerPolicyDrafts(drafts: OwnerPolicyDraftEntry[], options
       const badge = d.status === 'APPROVED' ? 'badge-green' : d.status === 'DENIED' ? 'badge-red' : 'badge-muted';
       return `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
-        <td>${copyableId(d.policy_draft_id)} <span class="chevron">&#9654;</span></td>
+        <td>${copyableId(d.policy_draft_id)} <span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td><span class="badge ${badge}">${escapeHtml(d.status)}</span></td>
