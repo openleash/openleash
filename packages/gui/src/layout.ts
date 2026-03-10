@@ -630,8 +630,27 @@ export function renderPage(title: string, content: string, activePath: string, c
     }
 
     /* Copyable IDs */
-    .copyable { cursor: pointer; }
+    .copyable { cursor: pointer; position: relative; }
     .copyable:hover { color: var(--green-bright) !important; }
+    .copy-tooltip {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--green-dark);
+      color: var(--green-bright);
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-body);
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s var(--ease-out);
+      z-index: 100;
+    }
+    .copy-tooltip.show { opacity: 1; }
 
     /* Policy Builder Tree */
     .tree-node {
@@ -862,7 +881,7 @@ export function renderPage(title: string, content: string, activePath: string, c
     </div>
   </div>
   <script>
-    function copyId(el,id){navigator.clipboard.writeText(id);var o=el.innerHTML;el.textContent='Copied!';el.style.color='var(--green-bright)';setTimeout(function(){el.innerHTML=o;el.style.color='';},1200);}
+    function copyId(el,id){navigator.clipboard.writeText(id);var t=el.querySelector('.copy-tooltip');if(!t){t=document.createElement('span');t.className='copy-tooltip';t.textContent='Copied!';el.appendChild(t);}t.classList.add('show');clearTimeout(el._copyTimer);el._copyTimer=setTimeout(function(){t.classList.remove('show');},1200);}
     var _olResolve=null;
     function olDialogCancel(){document.getElementById('ol-dialog').classList.remove('open');if(_olResolve){_olResolve(null);_olResolve=null;}}
     function olDialogOk(){var d=document.getElementById('ol-dialog');var inp=document.getElementById('ol-dialog-input-wrap');d.classList.remove('open');if(_olResolve){_olResolve(inp.style.display!=='none'?document.getElementById('ol-dialog-input').value:true);_olResolve=null;}}
