@@ -23,7 +23,7 @@ export function toastStyles(): string {
       pointer-events: auto;
       min-width: 280px;
       max-width: 420px;
-      padding: 12px 36px 12px 14px;
+      padding: 12px 14px;
       border-radius: 8px;
       font-size: 13px;
       line-height: 1.45;
@@ -31,7 +31,9 @@ export function toastStyles(): string {
       background: var(--bg-elevated);
       border: 1px solid var(--border-subtle);
       box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
       transform: translateX(calc(100% + 24px));
       opacity: 0;
       transition: transform 0.3s ease, opacity 0.3s ease;
@@ -49,9 +51,8 @@ export function toastStyles(): string {
     .ol-toast-warning { border-left: 4px solid var(--color-warning); background: color-mix(in srgb, var(--color-warning) 10%, var(--bg-elevated)); }
     .ol-toast-info    { border-left: 4px solid var(--text-muted); }
     .ol-toast-close {
-      position: absolute;
-      top: 8px;
-      right: 8px;
+      flex-shrink: 0;
+      margin-left: auto;
       background: none;
       border: none;
       color: var(--text-muted);
@@ -75,7 +76,10 @@ export function toastScript(): string {
         variant = variant || 'info';
         var toast = document.createElement('div');
         toast.className = 'ol-toast ol-toast-' + variant;
-        toast.textContent = message;
+
+        var msgSpan = document.createElement('span');
+        msgSpan.textContent = message;
+        toast.appendChild(msgSpan);
 
         var closeBtn = document.createElement('button');
         closeBtn.className = 'ol-toast-close';
