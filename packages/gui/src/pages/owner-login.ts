@@ -1,4 +1,4 @@
-import { THEME_DARK, THEME_LIGHT } from "../theme.js";
+import { assetTags } from "../manifest.js";
 
 export function renderOwnerLogin(): string {
     return `<!DOCTYPE html>
@@ -7,135 +7,7 @@ export function renderOwnerLogin(): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Owner Login - OpenLeash</title>
-  <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    :root {
-${THEME_DARK}
-    }
-    body.theme-light {
-${THEME_LIGHT}
-    }
-    html { -webkit-font-smoothing: antialiased; }
-    body {
-      font-family: var(--font-body);
-      font-size: 14px;
-      line-height: 1.6;
-      color: var(--text-primary);
-      background: var(--bg-deep);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .login-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      padding: 40px;
-      width: 100%;
-      max-width: 420px;
-    }
-    .login-card h1 {
-      color: var(--green-bright);
-      font-size: 22px;
-      margin-bottom: 4px;
-    }
-    .login-card .subtitle {
-      color: var(--text-muted);
-      font-size: 13px;
-      margin-bottom: 28px;
-    }
-    .form-group {
-      margin-bottom: 18px;
-    }
-    .form-group label {
-      display: block;
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .form-group input {
-      width: 100%;
-      padding: 10px 14px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      color: var(--text-primary);
-      font-family: var(--font-mono);
-      font-size: 13px;
-      outline: none;
-    }
-    .form-group input:focus {
-      border-color: var(--color-primary);
-    }
-    .btn-login {
-      width: 100%;
-      padding: 12px;
-      background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 8px;
-    }
-    .btn-login:hover {
-      filter: brightness(1.1);
-    }
-    .error-msg {
-      color: var(--color-danger);
-      font-size: 13px;
-      margin-top: 12px;
-      display: none;
-    }
-    .admin-link {
-      display: block;
-      text-align: center;
-      margin-top: 20px;
-      color: var(--text-muted);
-      font-size: 12px;
-    }
-    .admin-link a {
-      color: var(--green-bright);
-      text-decoration: none;
-    }
-    .help-section {
-      margin-top: 24px;
-      border-top: 1px solid var(--border-subtle);
-      padding-top: 16px;
-    }
-    .help-section summary {
-      color: var(--text-muted);
-      font-size: 12px;
-      cursor: pointer;
-      user-select: none;
-    }
-    .help-section summary:hover {
-      color: var(--text-secondary);
-    }
-    .help-steps {
-      margin-top: 12px;
-      color: var(--text-secondary);
-      font-size: 12px;
-      line-height: 1.7;
-    }
-    .help-steps ol {
-      padding-left: 18px;
-    }
-    .help-steps li {
-      margin-bottom: 6px;
-    }
-    .help-steps code {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      background: var(--bg-elevated);
-      padding: 1px 5px;
-      border-radius: 4px;
-    }
-  </style>
+  ${assetTags("pages/owner-login.ts")}
 </head>
 <body>
   <script>(function(){var t=localStorage.getItem('ol_theme')||'system';if(t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches))document.body.classList.add('theme-light');})();</script>
@@ -169,47 +41,6 @@ ${THEME_LIGHT}
       <a href="/gui/dashboard">Admin Dashboard</a>
     </div>
   </div>
-  <script>
-    (function() {
-      var p = new URLSearchParams(window.location.search);
-      var oid = p.get('owner_id');
-      if (oid) document.getElementById('ownerId').value = oid;
-    })();
-
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const errorEl = document.getElementById('errorMsg');
-      errorEl.style.display = 'none';
-
-      const ownerId = document.getElementById('ownerId').value.trim();
-      const passphrase = document.getElementById('passphrase').value;
-
-      try {
-        const res = await fetch('/v1/owner/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ owner_principal_id: ownerId, passphrase }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          errorEl.textContent = olApiError(data, 'Login failed');
-          errorEl.style.display = 'block';
-          return;
-        }
-
-        // Store token in sessionStorage and cookie
-        sessionStorage.setItem('openleash_session', data.token);
-        document.cookie = 'openleash_session=' + data.token + '; path=/; SameSite=Strict';
-
-        window.location.href = '/gui/owner/dashboard';
-      } catch (err) {
-        errorEl.textContent = 'Network error';
-        errorEl.style.display = 'block';
-      }
-    });
-  </script>
 </body>
 </html>`;
 }
