@@ -231,10 +231,11 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
               <span>${escapeHtml(data.display_name)}</span>
               <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showNameEdit()">Edit</button>
             </span>
-            <span id="display-name-edit" style="display:none;align-items:center;gap:8px">
+            <span id="display-name-edit" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
               <input type="text" id="newDisplayName" value="${escapeHtml(data.display_name)}" class="form-input" style="width:220px;padding:4px 8px;font-size:13px">
               <button class="btn btn-primary" style="padding:4px 12px;font-size:12px" onclick="updateName()">Save</button>
               <button class="btn btn-secondary" style="padding:4px 12px;font-size:12px" onclick="hideNameEdit()">Cancel</button>
+              <div class="field-error" id="err-newDisplayName" style="width:100%"></div>
             </span>
           </td></tr>
           <tr><td style="color:var(--text-muted)">Type</td><td>${escapeHtml(data.principal_type)}</td></tr>
@@ -337,6 +338,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           <div>
             <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Value</label>
             <input type="text" id="contact-value" class="form-input" placeholder="e.g. user@example.com">
+            <div class="field-error" id="err-contact-value"></div>
           </div>
           <div>
             <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Label (optional)</label>
@@ -380,16 +382,19 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
               <option value="">Select country</option>
               ${countryOptions}
             </select>
+            <div class="field-error" id="err-gov-country"></div>
           </div>
           <div>
             <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">ID Type</label>
             <select id="gov-id-type" class="form-select">
               <option value="">Select country first</option>
             </select>
+            <div class="field-error" id="err-gov-id-type"></div>
           </div>
           <div>
             <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">ID Value</label>
             <input type="text" id="gov-id-value" class="form-input" placeholder="Enter ID number">
+            <div class="field-error" id="err-gov-id-value"></div>
           </div>
           <div style="grid-column:1/-1">
             <button class="btn btn-primary" style="font-size:12px" onclick="addGovId()">Add</button>
@@ -442,6 +447,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           <div>
             <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">ID Value</label>
             <input type="text" id="company-id-value" class="form-input" placeholder="Enter ID number">
+            <div class="field-error" id="err-company-id-value"></div>
           </div>
           <div style="grid-column:1/-1">
             <button class="btn btn-primary" style="font-size:12px" onclick="addCompanyId()">Add</button>
@@ -493,7 +499,8 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
 
       async function updateName() {
         var name = document.getElementById('newDisplayName').value.trim();
-        if (!name) { showAlert('Name cannot be empty', 'error'); return; }
+        olFieldError('newDisplayName', '');
+        if (!name) { olFieldError('newDisplayName', 'Name cannot be empty'); return; }
         if (await saveProfile({ display_name: name })) window.location.reload();
       }
 
@@ -502,7 +509,8 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         var value = document.getElementById('contact-value').value.trim();
         var label = document.getElementById('contact-label').value.trim();
         var platform = document.getElementById('contact-platform').value.trim();
-        if (!value) { showAlert('Value is required', 'error'); return; }
+        olFieldError('contact-value', '');
+        if (!value) { olFieldError('contact-value', 'Value is required'); return; }
         var entry = { type: type, value: value, added_at: new Date().toISOString(), verified: false, verified_at: null };
         if (label) entry.label = label;
         if (platform) entry.platform = platform;
@@ -535,7 +543,14 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         var country = document.getElementById('gov-country').value;
         var idType = document.getElementById('gov-id-type').value;
         var idValue = document.getElementById('gov-id-value').value.trim();
-        if (!country || !idType || !idValue) { showAlert('All fields are required', 'error'); return; }
+        olFieldError('gov-country', '');
+        olFieldError('gov-id-type', '');
+        olFieldError('gov-id-value', '');
+        var valid = true;
+        if (!country) { olFieldError('gov-country', 'Country is required'); valid = false; }
+        if (!idType) { olFieldError('gov-id-type', 'ID type is required'); valid = false; }
+        if (!idValue) { olFieldError('gov-id-value', 'ID value is required'); valid = false; }
+        if (!valid) return;
         var entry = { country: country, id_type: idType, id_value: idValue, verification_level: 'UNVERIFIED', verified_at: null, added_at: new Date().toISOString() };
         var updated = govIds.concat([entry]);
         if (await saveProfile({ government_ids: updated })) window.location.reload();
@@ -550,7 +565,8 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         var idType = document.getElementById('company-id-type').value;
         var country = document.getElementById('company-country').value;
         var idValue = document.getElementById('company-id-value').value.trim();
-        if (!idType || !idValue) { showAlert('Type and value are required', 'error'); return; }
+        olFieldError('company-id-value', '');
+        if (!idValue) { olFieldError('company-id-value', 'ID value is required'); return; }
         var entry = { id_type: idType, id_value: idValue, verification_level: 'UNVERIFIED', verified_at: null, added_at: new Date().toISOString() };
         if (country) entry.country = country;
         var updated = companyIds.concat([entry]);

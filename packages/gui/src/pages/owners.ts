@@ -256,6 +256,7 @@ export function renderOwners(owners: OwnerData[]): string {
       <div class="form-group">
         <label for="display-name">Display Name</label>
         <input type="text" id="display-name" class="form-input" placeholder="e.g. Alice Johnson">
+        <div class="field-error" id="err-display-name"></div>
       </div>
 
       <div class="form-group">
@@ -302,8 +303,9 @@ export function renderOwners(owners: OwnerData[]): string {
         const principalType = document.getElementById('principal-type').value;
         const btn = document.getElementById('create-btn');
 
+        olFieldError('display-name', '');
         if (!displayName) {
-          olToast('Display name is required', 'error');
+          olFieldError('display-name', 'Display name is required');
           return;
         }
 

@@ -77,6 +77,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
         <select id="owner-select" class="form-select">
           ${ownerOptions || "<option disabled>No owners available</option>"}
         </select>
+        <div class="field-error" id="err-owner-select"></div>
         <div class="form-help">The agent will be registered under this owner</div>
       </div>
 
@@ -124,8 +125,9 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
         var ownerPrincipalId = document.getElementById('owner-select').value;
         var btn = document.getElementById('invite-btn');
 
+        olFieldError('owner-select', '');
         if (!ownerPrincipalId) {
-          olToast('Please select an owner', 'error');
+          olFieldError('owner-select', 'Please select an owner');
           return;
         }
 
