@@ -15,6 +15,11 @@ export interface ApiErrorResponse {
 }
 
 type DialogValidator = (value: string) => string | null | Promise<string | null>;
+type DialogResolveValue = string | true | null;
+
+const _copyTooltips = new WeakMap<HTMLElement, HTMLElement>();
+const _copyTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+const _toastTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
 
 // ─── Sidebar ────────────────────────────────────────────────────────
 
@@ -167,22 +172,23 @@ document.addEventListener("click", (e) => {
 
 function copyId(el: HTMLElement, id: string) {
     navigator.clipboard.writeText(id);
-    let t = (el as any)._copyTooltip as HTMLElement | undefined;
+    let t = _copyTooltips.get(el);
     if (!t) {
         t = document.createElement("span");
         t.className = "copy-tooltip";
         t.textContent = "Copied!";
         document.body.appendChild(t);
-        (el as any)._copyTooltip = t;
+        _copyTooltips.set(el, t);
     }
     const r = el.getBoundingClientRect();
     t.style.left = r.left + r.width / 2 - t.offsetWidth / 2 + "px";
     t.style.top = r.top - t.offsetHeight - 6 + "px";
     t.classList.add("show");
-    clearTimeout((el as any)._copyTimer);
-    (el as any)._copyTimer = setTimeout(() => {
+    const prev = _copyTimers.get(el);
+    if (prev) clearTimeout(prev);
+    _copyTimers.set(el, setTimeout(() => {
         t!.classList.remove("show");
-    }, 1200);
+    }, 1200));
 }
 
 // ─── Field errors ───────────────────────────────────────────────────
@@ -227,7 +233,8 @@ _toastContainer.id = "ol-toast-container";
 document.body.appendChild(_toastContainer);
 
 function _dismissToast(el: HTMLElement) {
-    clearTimeout((el as any)._timer);
+    const timer = _toastTimers.get(el);
+    if (timer) clearTimeout(timer);
     el.classList.remove("ol-toast-visible");
     el.classList.add("ol-toast-exit");
     setTimeout(() => {
@@ -259,12 +266,12 @@ export function olToast(message: string, variant?: string) {
     });
 
     const duration = variant === "error" ? 6000 : 3500;
-    (toast as any)._timer = setTimeout(() => _dismissToast(toast), duration);
+    _toastTimers.set(toast, setTimeout(() => _dismissToast(toast), duration));
 }
 
 // ─── Dialog system ──────────────────────────────────────────────────
 
-let _olResolve: ((value: any) => void) | null = null;
+let _olResolve: ((value: DialogResolveValue) => void) | null = null;
 let _olDialogValidator: DialogValidator | null = null;
 
 function _olDialogReset() {
@@ -300,8 +307,8 @@ async function olDialogOk() {
         let err: string | null;
         try {
             err = await _olDialogValidator(val as string);
-        } catch (e: any) {
-            err = e.message || "An error occurred";
+        } catch (e: unknown) {
+            err = e instanceof Error ? e.message : "An error occurred";
         }
         btn.disabled = false;
         btn.textContent = orig;
@@ -331,9 +338,9 @@ export function olAlert(msg: string, title?: string): Promise<void> {
     });
 }
 
-export function olConfirm(msg: string, title?: string): Promise<unknown> {
+export function olConfirm(msg: string, title?: string): Promise<true | null> {
     return new Promise((r) => {
-        _olResolve = r;
+        _olResolve = (v) => r(v === true ? true : null);
         document.getElementById("ol-dialog-title")!.textContent = title || "Confirm";
         document.getElementById("ol-dialog-msg")!.textContent = msg;
         document.getElementById("ol-dialog-input-wrap")!.style.display = "none";
@@ -349,7 +356,7 @@ export function olPrompt(
     title?: string,
 ): Promise<string | null> {
     return new Promise((r) => {
-        _olResolve = r;
+        _olResolve = (v) => r(typeof v === "string" ? v : null);
         document.getElementById("ol-dialog-title")!.textContent = title || "Input";
         document.getElementById("ol-dialog-msg")!.textContent = msg;
         const inp = document.getElementById("ol-dialog-input") as HTMLInputElement;
@@ -367,7 +374,7 @@ export function ol2FA(
     onSubmit?: (code: string) => string | null | Promise<string | null>,
 ): Promise<string | null> {
     return new Promise((r) => {
-        _olResolve = (v) => r(v === null ? null : (v as string).replace(/\s/g, ""));
+        _olResolve = (v) => r(typeof v === "string" ? v.replace(/\s/g, "") : null);
         document.getElementById("ol-dialog-title")!.textContent = "Two-Factor Authentication";
         document.getElementById("ol-dialog-msg")!.textContent = "Enter your 2FA code:";
         const inp = document.getElementById("ol-dialog-input") as HTMLInputElement;
@@ -375,10 +382,10 @@ export function ol2FA(
         inp.placeholder = "000 000";
         inp.setAttribute("inputmode", "numeric");
         inp.setAttribute("maxlength", "7");
-        inp.oninput = function (this: HTMLInputElement) {
-            const raw = this.value.replace(/[^0-9]/g, "").slice(0, 6);
+        inp.oninput = () => {
+            const raw = inp.value.replace(/[^0-9]/g, "").slice(0, 6);
             const formatted = raw.length > 3 ? raw.slice(0, 3) + " " + raw.slice(3) : raw;
-            if (this.value !== formatted) this.value = formatted;
+            if (inp.value !== formatted) inp.value = formatted;
             olFieldError("ol-dialog-input", "");
         };
         document.getElementById("ol-dialog-input-wrap")!.style.display = "block";
