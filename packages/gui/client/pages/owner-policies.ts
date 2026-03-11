@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the owner policies page.
  */
+import "../styles/pages/yaml-editor.css";
 import { olToast, olConfirm, olPrompt, ol2FA, olApiError } from "../common";
 
 interface OwnerPoliciesPageData {

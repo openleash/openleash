@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the audit log page.
  */
+import "../styles/pages/audit.css";
 
 function filterEvents() {
     const val = (document.getElementById("event-filter") as HTMLSelectElement).value;

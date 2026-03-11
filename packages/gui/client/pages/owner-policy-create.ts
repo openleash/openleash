@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the create policy page.
  */
+import "../styles/pages/yaml-editor.css";
 import { olToast, olApiError } from "../common";
 
 async function createPolicy() {

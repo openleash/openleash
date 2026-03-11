@@ -1,4 +1,5 @@
 import { renderPage, escapeHtml, formatNameWithId, copyableId, infoIcon, INFO_DECISIONS, INFO_OBLIGATIONS } from '../layout.js';
+import { assetTags } from '../manifest.js';
 
 export interface PolicyListEntry {
   policy_id: string;
@@ -119,6 +120,8 @@ rules:
       </table>
     </div>
     `}
+
+    ${assetTags("pages/policies.ts")}
   `;
 
   return renderPage('Policies', content, '/gui/policies');
@@ -200,6 +203,8 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
       </table>
       ` : '<p style="color:var(--text-muted);padding:8px 0">No active bindings for this policy</p>'}
     </div>
+
+    ${assetTags("pages/policies.ts")}
   `;
 
   return renderPage('View Policy', content, '/gui/policies');

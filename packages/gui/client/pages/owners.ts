@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the admin owners pages (list + detail).
  */
+import "../styles/pages/config-block.css";
 import { olToast, olFieldError, olConfirm, olApiError } from "../common";
 
 interface OwnersPageData {

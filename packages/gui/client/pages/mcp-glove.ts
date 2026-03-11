@@ -1,6 +1,8 @@
 /**
  * Client-side logic for the MCP Glove config page.
  */
+import "../styles/pages/summary-grid.css";
+import "../styles/pages/config-block.css";
 
 function updateGloveConfig() {
     const profile = (document.getElementById("glove-profile") as HTMLSelectElement).value;

@@ -1,0 +1,18 @@
+/* ─── YAML editor (policy pages) ───────────────────────────────────── */
+.yaml-editor {
+  width: 100%;
+  min-height: 400px;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.25s var(--ease-out);
+}
+
+.yaml-editor:focus { border-color: var(--color-primary); }

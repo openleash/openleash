@@ -20,6 +20,8 @@ export default defineConfig({
                 "pages/agents": resolve(__dirname, "client/pages/agents.ts"),
                 "pages/owners": resolve(__dirname, "client/pages/owners.ts"),
                 "pages/audit": resolve(__dirname, "client/pages/audit.ts"),
+                "pages/dashboard": resolve(__dirname, "client/pages/dashboard.ts"),
+                "pages/policies": resolve(__dirname, "client/pages/policies.ts"),
                 "pages/mcp-glove": resolve(__dirname, "client/pages/mcp-glove.ts"),
                 "pages/api-reference": resolve(__dirname, "client/pages/api-reference.ts"),
                 "pages/owner-login": resolve(__dirname, "client/pages/owner-login.ts"),

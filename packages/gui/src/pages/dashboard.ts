@@ -7,6 +7,7 @@ import {
     INFO_DECISIONS,
     INFO_PROOF_TOKENS,
 } from "../layout.js";
+import { assetTags } from "../manifest.js";
 
 export interface DashboardData {
     state: {
@@ -211,6 +212,8 @@ export function renderDashboard(data: DashboardData): string {
         </div>
       </div>
     </div>
+
+    ${assetTags("pages/dashboard.ts")}
   `;
 
     return renderPage("Dashboard", content, "/gui/dashboard");
