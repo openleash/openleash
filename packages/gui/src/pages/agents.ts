@@ -1,57 +1,73 @@
-import { renderPage, escapeHtml, formatNameWithId, copyableId, formatTimestamp, infoIcon, INFO_AGENT_STATUS } from '../layout.js';
+import {
+    renderPage,
+    escapeHtml,
+    formatNameWithId,
+    copyableId,
+    formatTimestamp,
+    infoIcon,
+    INFO_AGENT_STATUS,
+} from "../layout.js";
 
 export interface AgentData {
-  agent_principal_id: string;
-  agent_id?: string;
-  owner_principal_id?: string;
-  status?: string;
-  created_at?: string;
-  revoked_at?: string | null;
-  error?: string;
+    agent_principal_id: string;
+    agent_id?: string;
+    owner_principal_id?: string;
+    status?: string;
+    created_at?: string;
+    revoked_at?: string | null;
+    error?: string;
 }
 
 export interface OwnerOption {
-  owner_principal_id: string;
-  display_name: string;
+    owner_principal_id: string;
+    display_name: string;
 }
 
 function statusBadge(status?: string): string {
-  if (!status) return '<span class="badge badge-muted">UNKNOWN</span>';
-  switch (status) {
-    case 'ACTIVE': return '<span class="badge badge-green">ACTIVE</span>';
-    case 'REVOKED': return '<span class="badge badge-red">REVOKED</span>';
-    default: return `<span class="badge badge-muted">${escapeHtml(status)}</span>`;
-  }
+    if (!status) return '<span class="badge badge-muted">UNKNOWN</span>';
+    switch (status) {
+        case "ACTIVE":
+            return '<span class="badge badge-green">ACTIVE</span>';
+        case "REVOKED":
+            return '<span class="badge badge-red">REVOKED</span>';
+        default:
+            return `<span class="badge badge-muted">${escapeHtml(status)}</span>`;
+    }
 }
 
 export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string {
-  const ownerMap = new Map(owners.map((o) => [o.owner_principal_id, o.display_name]));
+    const ownerMap = new Map(owners.map((o) => [o.owner_principal_id, o.display_name]));
 
-  const rows = agents.map((a) => `
+    const rows = agents
+        .map(
+            (a) => `
     <tr>
-      <td>${a.agent_id ? copyableId(a.agent_id, a.agent_id.length) : '-'}</td>
+      <td>${a.agent_id ? copyableId(a.agent_id, a.agent_id.length) : "-"}</td>
       <td>${copyableId(a.agent_principal_id)}</td>
-      <td>${a.owner_principal_id ? formatNameWithId(ownerMap.get(a.owner_principal_id), a.owner_principal_id) : '-'}</td>
+      <td>${a.owner_principal_id ? formatNameWithId(ownerMap.get(a.owner_principal_id), a.owner_principal_id) : "-"}</td>
       <td>${statusBadge(a.status)}</td>
-      <td class="mono">${a.created_at ? formatTimestamp(a.created_at, true) : '-'}</td>
-      <td class="mono">${a.revoked_at ? formatTimestamp(a.revoked_at, true) : '-'}</td>
+      <td class="mono">${a.created_at ? formatTimestamp(a.created_at, true) : "-"}</td>
+      <td class="mono">${a.revoked_at ? formatTimestamp(a.revoked_at, true) : "-"}</td>
     </tr>
-  `).join('');
+  `,
+        )
+        .join("");
 
-  const ownerOptions = owners.map((o) =>
-    `<option value="${escapeHtml(o.owner_principal_id)}">${escapeHtml(o.display_name)} (${escapeHtml(o.owner_principal_id.slice(0, 8))}...)</option>`
-  ).join('');
+    const ownerOptions = owners
+        .map(
+            (o) =>
+                `<option value="${escapeHtml(o.owner_principal_id)}">${escapeHtml(o.display_name)} (${escapeHtml(o.owner_principal_id.slice(0, 8))}...)</option>`,
+        )
+        .join("");
 
-  const content = `
+    const content = `
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
       <div>
         <h2>Agents</h2>
-        <p>${agents.length} registered agent${agents.length !== 1 ? 's' : ''}</p>
+        <p>${agents.length} registered agent${agents.length !== 1 ? "s" : ""}</p>
       </div>
       <button class="btn btn-primary" onclick="toggleInviteForm()">+ Create Agent Invite</button>
     </div>
-
-    <div id="alert-container"></div>
 
     <div id="invite-form" class="card hidden">
       <div class="card-title">Create Agent Invite</div>
@@ -59,7 +75,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
       <div class="form-group">
         <label for="owner-select">Owner</label>
         <select id="owner-select" class="form-select">
-          ${ownerOptions || '<option disabled>No owners available</option>'}
+          ${ownerOptions || "<option disabled>No owners available</option>"}
         </select>
         <div class="form-help">The agent will be registered under this owner</div>
       </div>
@@ -88,7 +104,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
             <th>Agent ID</th>
             <th>Principal ID</th>
             <th>Owner</th>
-            <th>Status${infoIcon('agents-status', INFO_AGENT_STATUS)}</th>
+            <th>Status${infoIcon("agents-status", INFO_AGENT_STATUS)}</th>
             <th>Created</th>
             <th>Revoked</th>
           </tr>
@@ -107,11 +123,9 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
       async function createAgentInvite() {
         var ownerPrincipalId = document.getElementById('owner-select').value;
         var btn = document.getElementById('invite-btn');
-        var alertContainer = document.getElementById('alert-container');
-        alertContainer.innerHTML = '';
 
         if (!ownerPrincipalId) {
-          alertContainer.innerHTML = '<div class="alert alert-error">Please select an owner</div>';
+          olToast('Please select an owner', 'error');
           return;
         }
 
@@ -138,9 +152,9 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
           document.getElementById('invite-result').classList.remove('hidden');
           document.getElementById('invite-form').classList.add('hidden');
 
-          alertContainer.innerHTML = '<div class="alert alert-success">Agent invite created successfully.</div>';
+          olToast('Agent invite created', 'success');
         } catch (err) {
-          alertContainer.innerHTML = '<div class="alert alert-error">' + String(err.message || err).replace(/</g, '&lt;') + '</div>';
+          olToast(String(err.message || err), 'error');
         } finally {
           btn.disabled = false;
           btn.textContent = 'Create Invite';
@@ -158,5 +172,5 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
     </script>
   `;
 
-  return renderPage('Agents', content, '/gui/agents');
+    return renderPage("Agents", content, "/gui/agents");
 }

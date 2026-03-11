@@ -1,116 +1,221 @@
-import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_OWNER_STATUS, INFO_VERIFICATION_LEVEL } from '../layout.js';
+import {
+    renderPage,
+    escapeHtml,
+    copyableId,
+    formatTimestamp,
+    infoIcon,
+    INFO_OWNER_STATUS,
+    INFO_VERIFICATION_LEVEL,
+} from "../layout.js";
 
 // ─── Country data ─────────────────────────────────────────────────────
 
 const EU_COUNTRY_NAMES: Record<string, string> = {
-  AT: 'Austria', BE: 'Belgium', BG: 'Bulgaria', HR: 'Croatia',
-  CY: 'Cyprus', CZ: 'Czech Republic', DK: 'Denmark', EE: 'Estonia',
-  FI: 'Finland', FR: 'France', DE: 'Germany', GR: 'Greece',
-  HU: 'Hungary', IE: 'Ireland', IT: 'Italy', LV: 'Latvia',
-  LT: 'Lithuania', LU: 'Luxembourg', MT: 'Malta', NL: 'Netherlands',
-  PL: 'Poland', PT: 'Portugal', RO: 'Romania', SK: 'Slovakia',
-  SI: 'Slovenia', ES: 'Spain', SE: 'Sweden',
+    AT: "Austria",
+    BE: "Belgium",
+    BG: "Bulgaria",
+    HR: "Croatia",
+    CY: "Cyprus",
+    CZ: "Czech Republic",
+    DK: "Denmark",
+    EE: "Estonia",
+    FI: "Finland",
+    FR: "France",
+    DE: "Germany",
+    GR: "Greece",
+    HU: "Hungary",
+    IE: "Ireland",
+    IT: "Italy",
+    LV: "Latvia",
+    LT: "Lithuania",
+    LU: "Luxembourg",
+    MT: "Malta",
+    NL: "Netherlands",
+    PL: "Poland",
+    PT: "Portugal",
+    RO: "Romania",
+    SK: "Slovakia",
+    SI: "Slovenia",
+    ES: "Spain",
+    SE: "Sweden",
 };
 
 const EU_PERSONAL_ID_TYPES: Record<string, string[]> = {
-  AT: ['ZMR'], BE: ['RIJKSREGISTERNUMMER'], BG: ['EGN'], HR: ['OIB'],
-  CY: ['ARC'], CZ: ['RODNE_CISLO'], DK: ['CPR'], EE: ['ISIKUKOOD'],
-  FI: ['HENKILOTUNNUS'], FR: ['NIR'], DE: ['STEUER_ID'], GR: ['AMKA'],
-  HU: ['SZEMELYI_SZAM', 'ADOAZONOSITO'], IE: ['PPSN'], IT: ['CODICE_FISCALE'],
-  LV: ['PERSONAS_KODS'], LT: ['ASMENS_KODAS'], LU: ['MATRICULE'],
-  MT: ['ID_CARD'], NL: ['BSN'], PL: ['PESEL'], PT: ['NIF'],
-  RO: ['CNP'], SK: ['RODNE_CISLO'], SI: ['EMSO'], ES: ['DNI', 'NIE'],
-  SE: ['PERSONNUMMER'],
+    AT: ["ZMR"],
+    BE: ["RIJKSREGISTERNUMMER"],
+    BG: ["EGN"],
+    HR: ["OIB"],
+    CY: ["ARC"],
+    CZ: ["RODNE_CISLO"],
+    DK: ["CPR"],
+    EE: ["ISIKUKOOD"],
+    FI: ["HENKILOTUNNUS"],
+    FR: ["NIR"],
+    DE: ["STEUER_ID"],
+    GR: ["AMKA"],
+    HU: ["SZEMELYI_SZAM", "ADOAZONOSITO"],
+    IE: ["PPSN"],
+    IT: ["CODICE_FISCALE"],
+    LV: ["PERSONAS_KODS"],
+    LT: ["ASMENS_KODAS"],
+    LU: ["MATRICULE"],
+    MT: ["ID_CARD"],
+    NL: ["BSN"],
+    PL: ["PESEL"],
+    PT: ["NIF"],
+    RO: ["CNP"],
+    SK: ["RODNE_CISLO"],
+    SI: ["EMSO"],
+    ES: ["DNI", "NIE"],
+    SE: ["PERSONNUMMER"],
 };
 
 const GOV_ID_LABELS: Record<string, string> = {
-  PERSONNUMMER: 'Personnummer', BSN: 'BSN (Burgerservicenummer)',
-  RIJKSREGISTERNUMMER: 'Rijksregisternummer', PESEL: 'PESEL',
-  HENKILOTUNNUS: 'Henkilötunnus', DNI: 'DNI', NIE: 'NIE (Foreigners)',
-  CODICE_FISCALE: 'Codice Fiscale', STEUER_ID: 'Steuer-ID',
-  NIR: 'NIR (Sécurité sociale)', OIB: 'OIB', EGN: 'EGN',
-  RODNE_CISLO: 'Rodné číslo', CPR: 'CPR-nummer', ISIKUKOOD: 'Isikukood',
-  AMKA: 'AMKA', PPSN: 'PPS Number', ASMENS_KODAS: 'Asmens kodas',
-  NIF: 'NIF', CNP: 'CNP', EMSO: 'EMŠO', ZMR: 'ZMR-Zahl',
-  ARC: 'ARC Number', SZEMELYI_SZAM: 'Személyi szám',
-  ADOAZONOSITO: 'Adóazonosító jel', PERSONAS_KODS: 'Personas kods',
-  MATRICULE: 'Matricule', ID_CARD: 'ID Card Number',
+    PERSONNUMMER: "Personnummer",
+    BSN: "BSN (Burgerservicenummer)",
+    RIJKSREGISTERNUMMER: "Rijksregisternummer",
+    PESEL: "PESEL",
+    HENKILOTUNNUS: "Henkilötunnus",
+    DNI: "DNI",
+    NIE: "NIE (Foreigners)",
+    CODICE_FISCALE: "Codice Fiscale",
+    STEUER_ID: "Steuer-ID",
+    NIR: "NIR (Sécurité sociale)",
+    OIB: "OIB",
+    EGN: "EGN",
+    RODNE_CISLO: "Rodné číslo",
+    CPR: "CPR-nummer",
+    ISIKUKOOD: "Isikukood",
+    AMKA: "AMKA",
+    PPSN: "PPS Number",
+    ASMENS_KODAS: "Asmens kodas",
+    NIF: "NIF",
+    CNP: "CNP",
+    EMSO: "EMŠO",
+    ZMR: "ZMR-Zahl",
+    ARC: "ARC Number",
+    SZEMELYI_SZAM: "Személyi szám",
+    ADOAZONOSITO: "Adóazonosító jel",
+    PERSONAS_KODS: "Personas kods",
+    MATRICULE: "Matricule",
+    ID_CARD: "ID Card Number",
 };
 
 function countryFlag(code: string): string {
-  return String.fromCodePoint(
-    ...code.toUpperCase().split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65),
-  );
+    return String.fromCodePoint(
+        ...code
+            .toUpperCase()
+            .split("")
+            .map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
+    );
 }
 
 // ─── Interfaces ───────────────────────────────────────────────────────
 
 export interface OwnerProfileData {
-  owner_principal_id: string;
-  principal_type: string;
-  display_name: string;
-  status: string;
-  identity_assurance_level?: string;
-  contact_identities?: Array<{ contact_id: string; type: string; value: string; label?: string; platform?: string; verified: boolean; verified_at: string | null; added_at: string }>;
-  government_ids?: Array<{ country: string; id_type: string; id_value: string; verification_level: string; verified_at: string | null; added_at: string }>;
-  company_ids?: Array<{ id_type: string; country?: string; id_value: string; verification_level: string; verified_at: string | null; added_at: string }>;
-  created_at: string;
-  totp_enabled?: boolean;
-  totp_enabled_at?: string;
-  totp_backup_codes_remaining?: number;
+    owner_principal_id: string;
+    principal_type: string;
+    display_name: string;
+    status: string;
+    identity_assurance_level?: string;
+    contact_identities?: Array<{
+        contact_id: string;
+        type: string;
+        value: string;
+        label?: string;
+        platform?: string;
+        verified: boolean;
+        verified_at: string | null;
+        added_at: string;
+    }>;
+    government_ids?: Array<{
+        country: string;
+        id_type: string;
+        id_value: string;
+        verification_level: string;
+        verified_at: string | null;
+        added_at: string;
+    }>;
+    company_ids?: Array<{
+        id_type: string;
+        country?: string;
+        id_value: string;
+        verification_level: string;
+        verified_at: string | null;
+        added_at: string;
+    }>;
+    created_at: string;
+    totp_enabled?: boolean;
+    totp_enabled_at?: string;
+    totp_backup_codes_remaining?: number;
 }
 
 // ─── Render ───────────────────────────────────────────────────────────
 
 export function renderOwnerProfile(data: OwnerProfileData): string {
-  const contacts = data.contact_identities ?? [];
-  const govIds = data.government_ids ?? [];
-  const companyIds = data.company_ids ?? [];
-  const isHuman = data.principal_type === 'HUMAN';
-  const isOrg = data.principal_type === 'ORG';
+    const contacts = data.contact_identities ?? [];
+    const govIds = data.government_ids ?? [];
+    const companyIds = data.company_ids ?? [];
+    const isHuman = data.principal_type === "HUMAN";
+    const isOrg = data.principal_type === "ORG";
 
-  const contactRows = contacts.map((c, i) => `
+    const contactRows = contacts
+        .map(
+            (c, i) => `
     <tr>
       <td><span class="badge badge-muted">${escapeHtml(c.type)}</span></td>
       <td>${escapeHtml(c.value)}</td>
-      <td>${escapeHtml(c.label ?? '-')}</td>
-      <td>${escapeHtml(c.platform ?? '-')}</td>
+      <td>${escapeHtml(c.label ?? "-")}</td>
+      <td>${escapeHtml(c.platform ?? "-")}</td>
       <td>${c.verified ? '<span class="badge badge-green">Verified</span>' : '<span class="badge badge-muted">Unverified</span>'}</td>
       <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="removeContact(${i})">Remove</button></td>
     </tr>
-  `).join('');
+  `,
+        )
+        .join("");
 
-  const govIdRows = govIds.map((g, i) => `
+    const govIdRows = govIds
+        .map(
+            (g, i) => `
     <tr>
-      <td>${countryFlag(g.country)} ${escapeHtml(g.country)} ${escapeHtml(EU_COUNTRY_NAMES[g.country] ?? '')}</td>
+      <td>${countryFlag(g.country)} ${escapeHtml(g.country)} ${escapeHtml(EU_COUNTRY_NAMES[g.country] ?? "")}</td>
       <td>${escapeHtml(GOV_ID_LABELS[g.id_type] ?? g.id_type)}</td>
       <td class="mono">${escapeHtml(g.id_value)}</td>
       <td>${verificationBadge(g.verification_level)}</td>
       <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="removeGovId(${i})">Remove</button></td>
     </tr>
-  `).join('');
+  `,
+        )
+        .join("");
 
-  const companyIdRows = companyIds.map((c, i) => `
+    const companyIdRows = companyIds
+        .map(
+            (c, i) => `
     <tr>
       <td>${escapeHtml(c.id_type)}</td>
-      <td>${c.country ? countryFlag(c.country) + ' ' + escapeHtml(c.country) : '-'}</td>
+      <td>${c.country ? countryFlag(c.country) + " " + escapeHtml(c.country) : "-"}</td>
       <td class="mono">${escapeHtml(c.id_value)}</td>
       <td>${verificationBadge(c.verification_level)}</td>
       <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="removeCompanyId(${i})">Remove</button></td>
     </tr>
-  `).join('');
+  `,
+        )
+        .join("");
 
-  // Build country options for gov ID form
-  const countryOptions = Object.entries(EU_COUNTRY_NAMES)
-    .sort(([, a], [, b]) => a.localeCompare(b))
-    .map(([code, name]) => `<option value="${code}">${countryFlag(code)} ${escapeHtml(name)}</option>`)
-    .join('');
+    // Build country options for gov ID form
+    const countryOptions = Object.entries(EU_COUNTRY_NAMES)
+        .sort(([, a], [, b]) => a.localeCompare(b))
+        .map(
+            ([code, name]) =>
+                `<option value="${code}">${countryFlag(code)} ${escapeHtml(name)}</option>`,
+        )
+        .join("");
 
-  // Build EU_PERSONAL_ID_TYPES as JSON for JS
-  const idTypesJson = JSON.stringify(EU_PERSONAL_ID_TYPES);
-  const idLabelsJson = JSON.stringify(GOV_ID_LABELS);
+    // Build EU_PERSONAL_ID_TYPES as JSON for JS
+    const idTypesJson = JSON.stringify(EU_PERSONAL_ID_TYPES);
+    const idLabelsJson = JSON.stringify(GOV_ID_LABELS);
 
-  const content = `
+    const content = `
     <div class="page-header">
       <h2>Profile</h2>
     </div>
@@ -133,26 +238,30 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
             </span>
           </td></tr>
           <tr><td style="color:var(--text-muted)">Type</td><td>${escapeHtml(data.principal_type)}</td></tr>
-          <tr><td style="color:var(--text-muted)">Status</td><td><span class="badge ${data.status === 'ACTIVE' ? 'badge-green' : 'badge-red'}">${escapeHtml(data.status)}</span>${infoIcon('owner-status', INFO_OWNER_STATUS)}</td></tr>
-          <tr><td style="color:var(--text-muted)">Assurance Level</td><td>${assuranceLevelDisplay(data.identity_assurance_level)}${infoIcon('assurance-level', ASSURANCE_LEVEL_POPOVER)}</td></tr>
+          <tr><td style="color:var(--text-muted)">Status</td><td><span class="badge ${data.status === "ACTIVE" ? "badge-green" : "badge-red"}">${escapeHtml(data.status)}</span>${infoIcon("owner-status", INFO_OWNER_STATUS)}</td></tr>
+          <tr><td style="color:var(--text-muted)">Assurance Level</td><td>${assuranceLevelDisplay(data.identity_assurance_level)}${infoIcon("assurance-level", ASSURANCE_LEVEL_POPOVER)}</td></tr>
           <tr><td style="color:var(--text-muted)">Created</td><td class="mono">${formatTimestamp(data.created_at)}</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="card">
-      <div class="card-title">Security${infoIcon('security-2fa', SECURITY_2FA_POPOVER)}</div>
-      ${data.totp_enabled ? `
+      <div class="card-title">Security${infoIcon("security-2fa", SECURITY_2FA_POPOVER)}</div>
+      ${
+          data.totp_enabled
+              ? `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <span class="badge badge-green">2FA Enabled</span>
-        ${data.totp_enabled_at ? `<span style="font-size:12px;color:var(--text-muted)">since ${formatTimestamp(data.totp_enabled_at)}</span>` : ''}
+        ${data.totp_enabled_at ? `<span style="font-size:12px;color:var(--text-muted)">since ${formatTimestamp(data.totp_enabled_at)}</span>` : ""}
       </div>
-      ${data.totp_backup_codes_remaining !== undefined ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">${data.totp_backup_codes_remaining} backup code${data.totp_backup_codes_remaining !== 1 ? 's' : ''} remaining</p>` : ''}
+      ${data.totp_backup_codes_remaining !== undefined ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">${data.totp_backup_codes_remaining} backup code${data.totp_backup_codes_remaining !== 1 ? "s" : ""} remaining</p>` : ""}
       <button class="btn btn-secondary" style="border-color:var(--red-bright);color:var(--red-bright)" onclick="openDisableModal()">Disable 2FA</button>
-      ` : `
+      `
+              : `
       <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Two-Factor Authentication: Not configured</p>
       <button class="btn btn-primary" onclick="setupTotp()">Enable 2FA</button>
-      `}
+      `
+      }
     </div>
 
     <!-- TOTP Setup Modal -->
@@ -198,19 +307,21 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       </div>
     </div>
 
-    <div id="alert-container"></div>
-
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div class="card-title" style="margin-bottom:0">Contact Identities (${contacts.length})</div>
       </div>
-      ${contacts.length > 0 ? `
+      ${
+          contacts.length > 0
+              ? `
       <table>
         <colgroup><col style="width:140px"><col><col style="width:120px"><col style="width:120px"><col style="width:130px"><col style="width:60px"></colgroup>
         <thead><tr><th>Type</th><th>Value</th><th>Label</th><th>Platform</th><th>Status</th><th></th></tr></thead>
         <tbody>${contactRows}</tbody>
       </table>
-      ` : '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No contact identities</p>'}
+      `
+              : '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No contact identities</p>'
+      }
       <details style="margin-top:12px">
         <summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Add contact identity</summary>
         <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -242,18 +353,24 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       </details>
     </div>
 
-    ${isHuman ? `
+    ${
+        isHuman
+            ? `
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Government IDs (${govIds.length})${infoIcon('gov-id-verification', INFO_VERIFICATION_LEVEL)}</div>
+        <div class="card-title" style="margin-bottom:0">Government IDs (${govIds.length})${infoIcon("gov-id-verification", INFO_VERIFICATION_LEVEL)}</div>
       </div>
-      ${govIds.length > 0 ? `
+      ${
+          govIds.length > 0
+              ? `
       <table>
         <colgroup><col style="width:160px"><col style="width:180px"><col><col style="width:130px"><col style="width:60px"></colgroup>
         <thead><tr><th>Country</th><th>ID Type</th><th>Value</th><th>Status</th><th></th></tr></thead>
         <tbody>${govIdRows}</tbody>
       </table>
-      ` : '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No government IDs</p>'}
+      `
+              : '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No government IDs</p>'
+      }
       <details style="margin-top:12px">
         <summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Add government ID</summary>
         <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
@@ -280,20 +397,28 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         </div>
       </details>
     </div>
-    ` : ''}
+    `
+            : ""
+    }
 
-    ${isOrg ? `
+    ${
+        isOrg
+            ? `
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Company IDs (${companyIds.length})${infoIcon('company-id-verification', INFO_VERIFICATION_LEVEL)}</div>
+        <div class="card-title" style="margin-bottom:0">Company IDs (${companyIds.length})${infoIcon("company-id-verification", INFO_VERIFICATION_LEVEL)}</div>
       </div>
-      ${companyIds.length > 0 ? `
+      ${
+          companyIds.length > 0
+              ? `
       <table>
         <colgroup><col style="width:180px"><col style="width:160px"><col><col style="width:130px"><col style="width:60px"></colgroup>
         <thead><tr><th>Type</th><th>Country</th><th>Value</th><th>Status</th><th></th></tr></thead>
         <tbody>${companyIdRows}</tbody>
       </table>
-      ` : '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No company IDs</p>'}
+      `
+              : '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No company IDs</p>'
+      }
       <details style="margin-top:12px">
         <summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Add company ID</summary>
         <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
@@ -324,7 +449,9 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         </div>
       </details>
     </div>
-    ` : ''}
+    `
+            : ""
+    }
 
     <script>
       var token = sessionStorage.getItem('openleash_session');
@@ -335,9 +462,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       var idLabelsMap = ${idLabelsJson};
 
       function showAlert(msg, type) {
-        var c = document.getElementById('alert-container');
-        c.innerHTML = '<div class="alert alert-' + type + '">' + msg + '</div>';
-        setTimeout(function() { c.innerHTML = ''; }, 4000);
+        olToast(msg, type);
       }
 
       async function saveProfile(body) {
@@ -507,15 +632,15 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       }
     </script>
   `;
-  return renderPage('Profile', content, '/gui/owner/profile', 'owner');
+    return renderPage("Profile", content, "/gui/owner/profile", "owner");
 }
 
 const ASSURANCE_LEVEL_INFO: Record<string, { badge: string; label: string }> = {
-  ID_VERIFIED:      { badge: 'badge-green', label: 'ID VERIFIED' },
-  ID_FORMAT_VALID:  { badge: 'badge-amber', label: 'ID FORMAT VALID' },
-  CONTACT_VERIFIED: { badge: 'badge-amber', label: 'CONTACT VERIFIED' },
-  SELF_DECLARED:    { badge: 'badge-muted', label: 'SELF DECLARED' },
-  NONE:             { badge: 'badge-muted', label: 'NONE' },
+    ID_VERIFIED: { badge: "badge-green", label: "ID VERIFIED" },
+    ID_FORMAT_VALID: { badge: "badge-amber", label: "ID FORMAT VALID" },
+    CONTACT_VERIFIED: { badge: "badge-amber", label: "CONTACT VERIFIED" },
+    SELF_DECLARED: { badge: "badge-muted", label: "SELF DECLARED" },
+    NONE: { badge: "badge-muted", label: "NONE" },
 };
 
 const ASSURANCE_LEVEL_POPOVER = `
@@ -541,14 +666,17 @@ const SECURITY_2FA_POPOVER = `
   <p><strong style="color:var(--text-primary)">Backup codes</strong> are single-use recovery codes in case you lose access to your authenticator app. Store them securely.</p>`;
 
 function assuranceLevelDisplay(level: string | undefined): string {
-  const info = ASSURANCE_LEVEL_INFO[level ?? 'NONE'] ?? ASSURANCE_LEVEL_INFO['NONE'];
-  return `<span class="badge ${info.badge}">${info.label}</span>`;
+    const info = ASSURANCE_LEVEL_INFO[level ?? "NONE"] ?? ASSURANCE_LEVEL_INFO["NONE"];
+    return `<span class="badge ${info.badge}">${info.label}</span>`;
 }
 
 function verificationBadge(level: string): string {
-  switch (level) {
-    case 'VERIFIED': return '<span class="badge badge-green">VERIFIED</span>';
-    case 'FORMAT_VALID': return '<span class="badge badge-amber">FORMAT VALID</span>';
-    default: return '<span class="badge badge-muted">UNVERIFIED</span>';
-  }
+    switch (level) {
+        case "VERIFIED":
+            return '<span class="badge badge-green">VERIFIED</span>';
+        case "FORMAT_VALID":
+            return '<span class="badge badge-amber">FORMAT VALID</span>';
+        default:
+            return '<span class="badge badge-muted">UNVERIFIED</span>';
+    }
 }

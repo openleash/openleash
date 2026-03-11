@@ -1,29 +1,31 @@
+import { toastStyles, toastScript } from "./toast.js";
+
 const NAV_ITEMS = [
-  { path: '/gui/dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { path: '/gui/owners', label: 'Owners', icon: 'group' },
-  { path: '/gui/agents', label: 'Agents', icon: 'smart_toy' },
-  { path: '/gui/policies', label: 'Policies', icon: 'policy' },
-  { path: '/gui/config', label: 'Config', icon: 'settings' },
-  { path: '/gui/mcp-glove', label: 'MCP Glove', icon: 'handshake' },
-  { path: '/gui/audit', label: 'Audit Log', icon: 'receipt_long' },
-  { path: '/gui/api-reference', label: 'API Docs', icon: 'api' },
+    { path: "/gui/dashboard", label: "Dashboard", icon: "dashboard" },
+    { path: "/gui/owners", label: "Owners", icon: "group" },
+    { path: "/gui/agents", label: "Agents", icon: "smart_toy" },
+    { path: "/gui/policies", label: "Policies", icon: "policy" },
+    { path: "/gui/config", label: "Config", icon: "settings" },
+    { path: "/gui/mcp-glove", label: "MCP Glove", icon: "handshake" },
+    { path: "/gui/audit", label: "Audit Log", icon: "receipt_long" },
+    { path: "/gui/api-reference", label: "API Docs", icon: "api" },
 ];
 
 const OWNER_NAV_ITEMS = [
-  { path: '/gui/owner/dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { path: '/gui/owner/profile', label: 'Profile', icon: 'account_circle' },
-  { path: '/gui/owner/agents', label: 'My Agents', icon: 'smart_toy' },
-  { path: '/gui/owner/policies', label: 'My Policies', icon: 'policy' },
-  { path: '/gui/owner/approvals', label: 'Approvals', icon: 'task_alt' },
-  { path: '/gui/owner/audit', label: 'Audit Log', icon: 'receipt_long' },
+    { path: "/gui/owner/dashboard", label: "Dashboard", icon: "dashboard" },
+    { path: "/gui/owner/profile", label: "Profile", icon: "account_circle" },
+    { path: "/gui/owner/agents", label: "My Agents", icon: "smart_toy" },
+    { path: "/gui/owner/policies", label: "My Policies", icon: "policy" },
+    { path: "/gui/owner/approvals", label: "Approvals", icon: "task_alt" },
+    { path: "/gui/owner/audit", label: "Audit Log", icon: "receipt_long" },
 ];
 
 function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
 }
 
 export { escapeHtml };
@@ -34,7 +36,7 @@ export { escapeHtml };
  * @param html Rich HTML content for the popover body
  */
 export function infoIcon(id: string, html: string): string {
-  return `<span class="info-popover-wrap"><span class="material-symbols-outlined info-trigger" onclick="toggleInfo(event,'info-${escapeHtml(id)}')" tabindex="0" role="button" aria-label="More info">info</span><div class="info-popover" id="info-${escapeHtml(id)}">${html}</div></span>`;
+    return `<span class="info-popover-wrap"><span class="material-symbols-outlined info-trigger" onclick="toggleInfo(event,'info-${escapeHtml(id)}')" tabindex="0" role="button" aria-label="More info">info</span><div class="info-popover" id="info-${escapeHtml(id)}">${html}</div></span>`;
 }
 
 // ─── Shared popover content ──────────────────────────────────────────
@@ -173,39 +175,49 @@ export const INFO_MCP_GLOVE = `
   </dl>`;
 
 export function copyableId(fullId: string, _truncateLength?: number): string {
-  const escaped = escapeHtml(fullId);
-  return `<span class="mono copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${escaped}</span>`;
+    const escaped = escapeHtml(fullId);
+    return `<span class="mono copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${escaped}</span>`;
 }
 
 export function formatTimestamp(iso: string, dateOnly = false): string {
-  const escaped = escapeHtml(iso);
-  const fallback = dateOnly ? iso.slice(0, 10) : iso.slice(0, 19).replace('T', ' ');
-  return `<span class="local-time" data-utc="${escaped}"${dateOnly ? ' data-date-only="1"' : ''} title="UTC: ${escapeHtml(fallback)}" style="white-space:nowrap">${escapeHtml(fallback)}</span>`;
+    const escaped = escapeHtml(iso);
+    const fallback = dateOnly ? iso.slice(0, 10) : iso.slice(0, 19).replace("T", " ");
+    return `<span class="local-time" data-utc="${escaped}"${dateOnly ? ' data-date-only="1"' : ""} title="UTC: ${escapeHtml(fallback)}" style="white-space:nowrap">${escapeHtml(fallback)}</span>`;
 }
 
 export function formatNameWithId(name: string | undefined, uuid: string): string {
-  const escaped = escapeHtml(uuid);
-  if (name) {
-    return `${escapeHtml(name)} <span class="mono muted copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')" style="color:var(--text-muted);font-size:11px">(${escapeHtml(uuid.slice(0, 8))}...)</span>`;
-  }
-  return `<span class="mono truncate copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${escapeHtml(uuid.slice(0, 8))}...</span>`;
+    const escaped = escapeHtml(uuid);
+    if (name) {
+        return `${escapeHtml(name)} <span class="mono muted copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')" style="color:var(--text-muted);font-size:11px">(${escapeHtml(uuid.slice(0, 8))}...)</span>`;
+    }
+    return `<span class="mono truncate copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${escapeHtml(uuid.slice(0, 8))}...</span>`;
 }
 
-export function renderPage(title: string, content: string, activePath: string, context?: 'admin' | 'owner'): string {
-  const isOwner = context === 'owner';
-  const navItems = isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS;
-  const subtitle = isOwner ? 'Owner Portal' : 'Authorization GUI';
-  const dashboardPath = isOwner ? '/gui/owner/dashboard' : '/gui/dashboard';
+export function renderPage(
+    title: string,
+    content: string,
+    activePath: string,
+    context?: "admin" | "owner",
+): string {
+    const isOwner = context === "owner";
+    const navItems = isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS;
+    const subtitle = isOwner ? "Owner Portal" : "Authorization GUI";
+    const dashboardPath = isOwner ? "/gui/owner/dashboard" : "/gui/dashboard";
 
-  const navHtml = navItems.map((item) => {
-    const active = activePath === item.path || (item.path !== dashboardPath && activePath.startsWith(item.path));
-    return `<a href="${item.path}" class="nav-item${active ? ' active' : ''}">
+    const navHtml = navItems
+        .map((item) => {
+            const active =
+                activePath === item.path ||
+                (item.path !== dashboardPath && activePath.startsWith(item.path));
+            return `<a href="${item.path}" class="nav-item${active ? " active" : ""}">
       <span class="nav-icon material-symbols-outlined">${item.icon}</span>
       <span class="nav-label">${item.label}</span>
     </a>`;
-  }).join('\n');
+        })
+        .join("\n");
 
-  const logoutHtml = isOwner ? `
+    const logoutHtml = isOwner
+        ? `
     <a href="#" class="nav-item" style="color:var(--red-bright)" onclick="
       fetch('/v1/owner/logout', {method:'POST',headers:{'Authorization':'Bearer '+sessionStorage.getItem('openleash_session')}});
       sessionStorage.removeItem('openleash_session');
@@ -215,9 +227,10 @@ export function renderPage(title: string, content: string, activePath: string, c
     ">
       <span class="nav-icon material-symbols-outlined">logout</span>
       <span class="nav-label">Logout</span>
-    </a>` : '';
+    </a>`
+        : "";
 
-  return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -1211,6 +1224,7 @@ export function renderPage(title: string, content: string, activePath: string, c
       .sidebar-switchers { display: none; }
       .sidebar-toggle { display: none; }
     }
+    ${toastStyles()}
   </style>
 </head>
 <body>
@@ -1247,11 +1261,11 @@ export function renderPage(title: string, content: string, activePath: string, c
     </div>
     <div class="sidebar-switchers">
       <div class="context-switcher">
-        <a href="/gui/dashboard" class="context-tab${!isOwner ? ' active' : ''}">
+        <a href="/gui/dashboard" class="context-tab${!isOwner ? " active" : ""}">
           <span class="context-tab-icon material-symbols-outlined">admin_panel_settings</span>
           <span class="context-tab-label">Admin</span>
         </a>
-        <a href="/gui/owner/dashboard" class="context-tab${isOwner ? ' active' : ''}">
+        <a href="/gui/owner/dashboard" class="context-tab${isOwner ? " active" : ""}">
           <span class="context-tab-icon material-symbols-outlined">person</span>
           <span class="context-tab-label">Owner</span>
         </a>
@@ -1304,6 +1318,7 @@ export function renderPage(title: string, content: string, activePath: string, c
     function olConfirm(msg,title){return new Promise(function(r){_olResolve=r;document.getElementById('ol-dialog-title').textContent=title||'Confirm';document.getElementById('ol-dialog-msg').textContent=msg;document.getElementById('ol-dialog-input-wrap').style.display='none';document.getElementById('ol-dialog-cancel').style.display='';document.getElementById('ol-dialog-ok').textContent='Confirm';document.getElementById('ol-dialog').classList.add('open');});}
     function olPrompt(msg,placeholder,title){return new Promise(function(r){_olResolve=r;document.getElementById('ol-dialog-title').textContent=title||'Input';document.getElementById('ol-dialog-msg').textContent=msg;var inp=document.getElementById('ol-dialog-input');inp.value='';inp.placeholder=placeholder||'';document.getElementById('ol-dialog-input-wrap').style.display='block';document.getElementById('ol-dialog-cancel').style.display='';document.getElementById('ol-dialog-ok').textContent='OK';document.getElementById('ol-dialog').classList.add('open');inp.focus();});}
   </script>
+  <script>${toastScript()}</script>
 </body>
 </html>`;
 }

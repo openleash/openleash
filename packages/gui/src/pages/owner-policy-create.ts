@@ -1,7 +1,7 @@
-import { renderPage } from '../layout.js';
+import { renderPage } from "../layout.js";
 
 export function renderOwnerPolicyCreate(): string {
-  const content = `
+    const content = `
     <h2>Create Policy</h2>
 
     <div class="card" style="padding:20px;margin-top:20px">
@@ -32,7 +32,6 @@ rules:
         <button class="btn btn-primary" onclick="createPolicy()">Create Policy</button>
         <a href="/gui/owner/policies" class="btn btn-secondary" style="text-decoration:none">Cancel</a>
       </div>
-      <div id="resultMsg" class="alert" style="display:none;margin-top:12px"></div>
     </div>
 
     <script>
@@ -52,13 +51,10 @@ rules:
           window.location.href = '/gui/owner/policies';
         } else {
           var data = await res.json();
-          var el = document.getElementById('resultMsg');
-          el.className = 'alert alert-error';
-          el.textContent = data.error?.message || 'Failed';
-          el.style.display = 'block';
+          olToast(data.error?.message || 'Failed to create policy', 'error');
         }
       }
     </script>
   `;
-  return renderPage('Create Policy', content, '/gui/owner/policies', 'owner');
+    return renderPage("Create Policy", content, "/gui/owner/policies", "owner");
 }

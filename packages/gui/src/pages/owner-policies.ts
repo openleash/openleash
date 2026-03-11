@@ -131,7 +131,6 @@ export function renderOwnerPolicies(
       </tr>
       <tr id="editor-row-${escapeHtml(p.policy_id)}" class="hidden">
         <td colspan="4" style="padding:12px 16px;background:var(--bg-elevated)">
-          <div id="editor-status-${escapeHtml(p.policy_id)}"></div>
           <div style="display:flex;gap:8px;margin-bottom:8px">
             <div style="flex:1">
               <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px">Name</label>
@@ -284,8 +283,6 @@ export function renderOwnerPolicies(
             : ""
     }
 
-    <div id="resultMsg" class="alert" style="display:none;margin-top:16px"></div>
-
     <script>
       var token = sessionStorage.getItem('openleash_session');
       var totpEnabled = ${totpEnabled};
@@ -306,8 +303,6 @@ export function renderOwnerPolicies(
         var yaml = document.getElementById('editor-yaml-' + policyId).value;
         var name = document.getElementById('editor-name-' + policyId).value;
         var desc = document.getElementById('editor-desc-' + policyId).value;
-        var statusDiv = document.getElementById('editor-status-' + policyId);
-        statusDiv.innerHTML = '';
 
         var res = await fetch('/v1/owner/policies/' + policyId, {
           method: 'PUT',
@@ -316,11 +311,10 @@ export function renderOwnerPolicies(
         });
 
         if (res.ok) {
-          statusDiv.innerHTML = '<div class="alert alert-success" style="margin-bottom:8px">Policy saved</div>';
-          setTimeout(function() { statusDiv.innerHTML = ''; }, 3000);
+          olToast('Policy saved', 'success');
         } else {
           var data = await res.json();
-          statusDiv.innerHTML = '<div class="alert alert-error" style="margin-bottom:8px">' + (data.error?.message || 'Failed to save').replace(/</g, '&lt;') + '</div>';
+          olToast(data.error?.message || 'Failed to save policy', 'error');
         }
       }
 
@@ -338,7 +332,7 @@ export function renderOwnerPolicies(
         if (res.ok) window.location.reload();
         else {
           var data = await res.json().catch(function() { return {}; });
-          olAlert(data.error?.message || 'Failed to delete policy', 'Error');
+          olToast(data.error?.message || 'Failed to delete policy', 'error');
         }
       }
 
@@ -365,13 +359,10 @@ export function renderOwnerPolicies(
             window.location.reload();
           } else {
             var data = await res.json();
-            var el = document.getElementById('resultMsg');
-            el.className = 'alert alert-error';
-            el.textContent = data.error?.message || 'Failed';
-            el.style.display = 'block';
+            olToast(data.error?.message || 'Failed', 'error');
           }
         } catch (err) {
-          olAlert('Network error', 'Error');
+          olToast('Network error', 'error');
         }
       }
     </script>
