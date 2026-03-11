@@ -87,9 +87,9 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
       </div>
     </div>
 
-    <div id="invite-result" class="card hidden" style="border-color:rgba(251,191,36,0.3)">
-      <div style="font-size:13px;font-weight:600;color:var(--amber-bright);margin-bottom:12px">Agent Invite URL (single use, expires in 24h)</div>
-      <div id="invite-url" style="padding:10px 14px;background:var(--bg-elevated);border:1px solid rgba(251,191,36,0.3);border-radius:8px;font-family:var(--font-mono);font-size:12px;word-break:break-all;line-height:1.5;color:var(--text-primary)"></div>
+    <div id="invite-result" class="card hidden" style="border-color:color-mix(in srgb, var(--color-warning) 30%, transparent)">
+      <div style="font-size:13px;font-weight:600;color:var(--color-warning);margin-bottom:12px">Agent Invite URL (single use, expires in 24h)</div>
+      <div id="invite-url" style="padding:10px 14px;background:var(--bg-elevated);border:1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);border-radius:8px;font-family:var(--font-mono);font-size:12px;word-break:break-all;line-height:1.5;color:var(--text-primary)"></div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Copy this URL and give it to the agent. It contains everything the agent needs to register itself.</div>
       <div class="toolbar" style="margin-top:12px">
         <button class="btn btn-primary" onclick="copyInviteUrl()">Copy to Clipboard</button>

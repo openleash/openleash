@@ -44,9 +44,9 @@ export function toastStyles(): string {
       transform: translateX(calc(100% + 24px));
       opacity: 0;
     }
-    .ol-toast-success { border-left: 4px solid var(--green-bright); }
-    .ol-toast-error   { border-left: 4px solid var(--red-bright); }
-    .ol-toast-warning { border-left: 4px solid var(--amber-bright); }
+    .ol-toast-success { border-left: 4px solid var(--color-success); background: color-mix(in srgb, var(--color-success) 10%, var(--bg-elevated)); }
+    .ol-toast-error   { border-left: 4px solid var(--color-danger); background: color-mix(in srgb, var(--color-danger) 10%, var(--bg-elevated)); }
+    .ol-toast-warning { border-left: 4px solid var(--color-warning); background: color-mix(in srgb, var(--color-warning) 10%, var(--bg-elevated)); }
     .ol-toast-info    { border-left: 4px solid var(--text-muted); }
     .ol-toast-close {
       position: absolute;

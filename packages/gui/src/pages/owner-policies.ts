@@ -70,12 +70,12 @@ function scopeWarning(d: OwnerPolicyDraftEntry): string {
     const isAll = !d.applies_to_agent_principal_id;
 
     if (isAll) {
-        return `<div class="alert" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);color:var(--amber-bright);padding:8px 12px;margin-top:8px;font-size:12px">
+        return `<div class="alert" style="background:color-mix(in srgb, var(--color-warning) 8%, transparent);border:1px solid color-mix(in srgb, var(--color-warning) 25%, transparent);color:var(--color-warning);padding:8px 12px;margin-top:8px;font-size:12px">
       <strong>Broad scope:</strong> Agent <span class="mono">${escapeHtml(d.agent_id)}</span> is proposing a policy that applies to <strong>all your agents</strong>, not just itself. Review carefully.
     </div>`;
     }
     if (!isSelf) {
-        return `<div class="alert" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);color:var(--amber-bright);padding:8px 12px;margin-top:8px;font-size:12px">
+        return `<div class="alert" style="background:color-mix(in srgb, var(--color-warning) 8%, transparent);border:1px solid color-mix(in srgb, var(--color-warning) 25%, transparent);color:var(--color-warning);padding:8px 12px;margin-top:8px;font-size:12px">
       <strong>Cross-agent:</strong> Agent <span class="mono">${escapeHtml(d.agent_id)}</span> is proposing a policy for a <strong>different agent</strong> (${copyableId(d.applies_to_agent_principal_id!)}). Review carefully.
     </div>`;
     }
@@ -126,7 +126,7 @@ export function renderOwnerPolicies(
         <td>${appliesTo}</td>
         <td>
           <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="toggleEditor('${escapeHtml(p.policy_id)}')">Edit</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="deletePolicy('${escapeHtml(p.policy_id)}')" ${disableActions ? "disabled" : ""}>Delete</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" onclick="deletePolicy('${escapeHtml(p.policy_id)}')" ${disableActions ? "disabled" : ""}>Delete</button>
         </td>
       </tr>
       <tr id="editor-row-${escapeHtml(p.policy_id)}" class="hidden">
@@ -134,11 +134,11 @@ export function renderOwnerPolicies(
           <div style="display:flex;gap:8px;margin-bottom:8px">
             <div style="flex:1">
               <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px">Name</label>
-              <input type="text" id="editor-name-${escapeHtml(p.policy_id)}" value="${escapeHtml(p.name ?? "")}" placeholder="e.g. Read-only access" style="width:100%;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-primary);font-size:13px">
+              <input type="text" id="editor-name-${escapeHtml(p.policy_id)}" class="form-input" value="${escapeHtml(p.name ?? "")}" placeholder="e.g. Read-only access">
             </div>
             <div style="flex:2">
               <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px">Description</label>
-              <input type="text" id="editor-desc-${escapeHtml(p.policy_id)}" value="${escapeHtml(p.description ?? "")}" placeholder="What does this policy do?" style="width:100%;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-primary);font-size:13px">
+              <input type="text" id="editor-desc-${escapeHtml(p.policy_id)}" class="form-input" value="${escapeHtml(p.description ?? "")}" placeholder="What does this policy do?">
             </div>
           </div>
           <textarea id="editor-yaml-${escapeHtml(p.policy_id)}" class="yaml-editor" style="width:100%;height:240px;margin-bottom:8px;font-size:13px">${escapeHtml(p.policy_yaml ?? "")}</textarea>
@@ -178,7 +178,7 @@ export function renderOwnerPolicies(
         <td>${formatTimestamp(d.created_at)}</td>
         <td>
           <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'approve')" ${disableActions ? "disabled" : ""}>Approve</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'deny')" ${disableActions ? "disabled" : ""}>Deny</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'deny')" ${disableActions ? "disabled" : ""}>Deny</button>
         </td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
@@ -218,7 +218,7 @@ export function renderOwnerPolicies(
         <td><span class="badge ${badge}">${escapeHtml(d.status)}</span></td>
         <td>${
             d.resulting_policy_id
-                ? `<a href="#policy-row-${escapeHtml(d.resulting_policy_id)}" style="color:var(--green-bright);text-decoration:none" title="Scroll to active policy">${copyableId(d.resulting_policy_id)}</a>`
+                ? `<a href="#policy-row-${escapeHtml(d.resulting_policy_id)}" style="color:var(--color-success);text-decoration:none" title="Scroll to active policy">${copyableId(d.resulting_policy_id)}</a>`
                 : d.denial_reason
                   ? escapeHtml(d.denial_reason)
                   : '<span style="color:var(--text-muted)">-</span>'

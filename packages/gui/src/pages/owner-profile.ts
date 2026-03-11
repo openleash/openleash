@@ -256,7 +256,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         ${data.totp_enabled_at ? `<span style="font-size:12px;color:var(--text-muted)">since ${formatTimestamp(data.totp_enabled_at)}</span>` : ""}
       </div>
       ${data.totp_backup_codes_remaining !== undefined ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">${data.totp_backup_codes_remaining} backup code${data.totp_backup_codes_remaining !== 1 ? "s" : ""} remaining</p>` : ""}
-      <button class="btn btn-secondary" style="border-color:var(--red-bright);color:var(--red-bright)" onclick="openDisableModal()">Disable 2FA</button>
+      <button class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger)" onclick="openDisableModal()">Disable 2FA</button>
       `
               : `
       <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Two-Factor Authentication: Not configured</p>
@@ -275,9 +275,9 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           <details style="margin-bottom:16px"><summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Or enter secret manually</summary>
             <div id="totp-secret-display" class="mono" style="background:var(--bg-deep);padding:8px 12px;border-radius:4px;font-size:13px;word-break:break-all;margin-top:8px"></div>
           </details>
-          <div style="background:var(--bg-deep);padding:12px;border-radius:4px;border:1px solid var(--amber-bright);margin-bottom:16px">
+          <div style="background:var(--bg-deep);padding:12px;border-radius:4px;border:1px solid var(--color-warning);margin-bottom:16px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-              <p style="font-size:13px;font-weight:600;color:var(--amber-bright)">Save these backup codes</p>
+              <p style="font-size:13px;font-weight:600;color:var(--color-warning)">Save these backup codes</p>
               <button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="downloadBackupCodes()"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">download</span>Download .txt</button>
             </div>
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Store them somewhere safe. Each code can only be used once.</p>
@@ -303,7 +303,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         <div id="totp-disable-error" class="modal-error"></div>
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="closeModal('totp-disable-modal')">Cancel</button>
-          <button class="btn btn-secondary" style="border-color:var(--red-bright);color:var(--red-bright)" onclick="confirmDisableTotp()">Disable 2FA</button>
+          <button class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger)" onclick="confirmDisableTotp()">Disable 2FA</button>
         </div>
       </div>
     </div>

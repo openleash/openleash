@@ -125,7 +125,7 @@ export function renderOwnerApprovals(
         <td>${formatTimestamp(a.expires_at)}</td>
         <td>
           <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="event.stopPropagation();handleApproval('${a.approval_request_id}', 'approve')" ${disableActions ? "disabled" : ""}>Approve</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="event.stopPropagation();handleApproval('${a.approval_request_id}', 'deny')" ${disableActions ? "disabled" : ""}>Deny</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" onclick="event.stopPropagation();handleApproval('${a.approval_request_id}', 'deny')" ${disableActions ? "disabled" : ""}>Deny</button>
         </td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(a.approval_request_id)}">

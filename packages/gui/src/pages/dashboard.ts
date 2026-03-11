@@ -1,25 +1,39 @@
-import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_DECISIONS, INFO_PROOF_TOKENS } from '../layout.js';
+import {
+    renderPage,
+    escapeHtml,
+    copyableId,
+    formatTimestamp,
+    infoIcon,
+    INFO_DECISIONS,
+    INFO_PROOF_TOKENS,
+} from "../layout.js";
 
 export interface DashboardData {
-  state: {
-    version: number;
-    created_at: string;
-    counts: { owners: number; agents: number; policies: number; bindings: number; keys: number };
-    active_kid: string;
-  };
-  health: {
-    status: string;
-    version: string;
-  };
+    state: {
+        version: number;
+        created_at: string;
+        counts: {
+            owners: number;
+            agents: number;
+            policies: number;
+            bindings: number;
+            keys: number;
+        };
+        active_kid: string;
+    };
+    health: {
+        status: string;
+        version: string;
+    };
 }
 
 export function renderDashboard(data: DashboardData): string {
-  const { state, health } = data;
-  const c = state.counts;
+    const { state, health } = data;
+    const c = state.counts;
 
-  const needsSetup = c.owners === 0 || c.agents === 0 || c.policies === 0;
+    const needsSetup = c.owners === 0 || c.agents === 0 || c.policies === 0;
 
-  const content = `
+    const content = `
     <div class="page-header">
       <h2>Dashboard</h2>
       <p>Server overview and status</p>
@@ -48,43 +62,51 @@ export function renderDashboard(data: DashboardData): string {
       </div>
     </div>
 
-    ${needsSetup ? `
-    <div class="card" style="border-left:3px solid var(--amber-bright);margin-bottom:24px">
+    ${
+        needsSetup
+            ? `
+    <div class="card" style="border-left:3px solid var(--color-warning);margin-bottom:24px">
       <div class="card-title">Getting Started</div>
       <p style="color:var(--text-secondary);margin-bottom:16px">
         Follow these steps to set up OpenLeash and start authorizing your AI agents.
       </p>
       <div style="display:flex;flex-direction:column;gap:12px">
         <div style="display:flex;align-items:flex-start;gap:12px">
-          <span style="background:${c.owners > 0 ? 'var(--green-dark)' : 'rgba(136,153,170,0.15)'};color:${c.owners > 0 ? 'var(--green-bright)' : 'var(--text-muted)'};width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">1</span>
+          <span style="background:${c.owners > 0 ? "var(--green-dark)" : "rgba(136,153,170,0.15)"};color:${c.owners > 0 ? "var(--green-bright)" : "var(--text-muted)"};width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">1</span>
           <div>
             <div style="font-weight:600;color:var(--text-primary);font-size:13px">Create an Owner</div>
             <div style="color:var(--text-secondary);font-size:12px;margin-top:2px">
-              ${c.owners > 0
-                ? '<span style="color:var(--green-bright)">Done</span>'
-                : 'Go to <a href="/gui/owners" style="color:var(--green-bright)">Owners</a> and create your first owner principal.'}
+              ${
+                  c.owners > 0
+                      ? '<span style="color:var(--color-success)">Done</span>'
+                      : 'Go to <a href="/gui/owners" style="color:var(--green-bright)">Owners</a> and create your first owner principal.'
+              }
             </div>
           </div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px">
-          <span style="background:${c.agents > 0 ? 'var(--green-dark)' : 'rgba(136,153,170,0.15)'};color:${c.agents > 0 ? 'var(--green-bright)' : 'var(--text-muted)'};width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">2</span>
+          <span style="background:${c.agents > 0 ? "var(--green-dark)" : "rgba(136,153,170,0.15)"};color:${c.agents > 0 ? "var(--green-bright)" : "var(--text-muted)"};width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">2</span>
           <div>
             <div style="font-weight:600;color:var(--text-primary);font-size:13px">Register an Agent</div>
             <div style="color:var(--text-secondary);font-size:12px;margin-top:2px">
-              ${c.agents > 0
-                ? '<span style="color:var(--green-bright)">Done</span>'
-                : 'Go to <a href="/gui/agents" style="color:var(--green-bright)">Agents</a> and register an AI agent with an Ed25519 keypair.'}
+              ${
+                  c.agents > 0
+                      ? '<span style="color:var(--color-success)">Done</span>'
+                      : 'Go to <a href="/gui/agents" style="color:var(--green-bright)">Agents</a> and register an AI agent with an Ed25519 keypair.'
+              }
             </div>
           </div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px">
-          <span style="background:${c.policies > 0 ? 'var(--green-dark)' : 'rgba(136,153,170,0.15)'};color:${c.policies > 0 ? 'var(--green-bright)' : 'var(--text-muted)'};width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">3</span>
+          <span style="background:${c.policies > 0 ? "var(--green-dark)" : "rgba(136,153,170,0.15)"};color:${c.policies > 0 ? "var(--green-bright)" : "var(--text-muted)"};width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">3</span>
           <div>
             <div style="font-weight:600;color:var(--text-primary);font-size:13px">Create a Policy</div>
             <div style="color:var(--text-secondary);font-size:12px;margin-top:2px">
-              ${c.policies > 0
-                ? '<span style="color:var(--green-bright)">Done</span>'
-                : 'Go to <a href="/gui/policies" style="color:var(--green-bright)">Policies</a> to define YAML-based authorization rules for your agents.'}
+              ${
+                  c.policies > 0
+                      ? '<span style="color:var(--color-success)">Done</span>'
+                      : 'Go to <a href="/gui/policies" style="color:var(--green-bright)">Policies</a> to define YAML-based authorization rules for your agents.'
+              }
             </div>
           </div>
         </div>
@@ -99,7 +121,9 @@ export function renderDashboard(data: DashboardData): string {
         </div>
       </div>
     </div>
-    ` : ''}
+    `
+            : ""
+    }
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
       <div class="card">
@@ -109,7 +133,7 @@ export function renderDashboard(data: DashboardData): string {
           <tbody>
             <tr>
               <td style="color:var(--text-muted)">Health</td>
-              <td><span class="badge ${health.status === 'ok' ? 'badge-green' : 'badge-red'}">${escapeHtml(health.status)}</span></td>
+              <td><span class="badge ${health.status === "ok" ? "badge-green" : "badge-red"}">${escapeHtml(health.status)}</span></td>
             </tr>
             <tr>
               <td style="color:var(--text-muted)">Version</td>
@@ -176,11 +200,11 @@ export function renderDashboard(data: DashboardData): string {
         <div>
           <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Policies</div>
           <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
-            Policies are YAML-based rules that control what agents can do. They evaluate actions, resources, and context to produce decisions${infoIcon('admin-decisions', INFO_DECISIONS)}.
+            Policies are YAML-based rules that control what agents can do. They evaluate actions, resources, and context to produce decisions${infoIcon("admin-decisions", INFO_DECISIONS)}.
           </p>
         </div>
         <div>
-          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Proof Tokens${infoIcon('admin-proof-tokens', INFO_PROOF_TOKENS)}</div>
+          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Proof Tokens${infoIcon("admin-proof-tokens", INFO_PROOF_TOKENS)}</div>
           <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
             When an action is authorized, OpenLeash issues a PASETO v4.public cryptographic proof token. Counterparties can verify these tokens offline using the server's public key, without contacting OpenLeash.
           </p>
@@ -189,5 +213,5 @@ export function renderDashboard(data: DashboardData): string {
     </div>
   `;
 
-  return renderPage('Dashboard', content, '/gui/dashboard');
+    return renderPage("Dashboard", content, "/gui/dashboard");
 }

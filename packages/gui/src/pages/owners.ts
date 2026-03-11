@@ -690,7 +690,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
           owner.totp_enabled
               ? `
       <div style="margin-top:12px">
-        <button class="btn btn-secondary" style="border-color:var(--red-bright);color:var(--red-bright);font-size:12px;padding:4px 12px" onclick="adminDisableTotp()">Disable 2FA</button>
+        <button class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger);font-size:12px;padding:4px 12px" onclick="adminDisableTotp()">Disable 2FA</button>
       </div>
       `
               : ""

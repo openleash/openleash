@@ -1,60 +1,94 @@
-import { renderPage, escapeHtml, infoIcon, INFO_MCP_GLOVE } from '../layout.js';
+import { renderPage, escapeHtml, infoIcon, INFO_MCP_GLOVE } from "../layout.js";
 
 export interface McpGlovePageData {
-  agents: { agent_id: string; display_name: string; owner_principal_id: string }[];
-  owners: { owner_principal_id: string; display_name: string }[];
-  server_url: string;
-  glove_activity: { total: number; allow: number; deny: number; require_approval: number };
+    agents: { agent_id: string; display_name: string; owner_principal_id: string }[];
+    owners: { owner_principal_id: string; display_name: string }[];
+    server_url: string;
+    glove_activity: { total: number; allow: number; deny: number; require_approval: number };
 }
 
 const PROFILE_TOOL_MAPPINGS = [
-  { tool: 'outlook_create_draft_email', action: 'communication.email.draft', type: 'write', description: 'Create a draft email' },
-  { tool: 'outlook_send_email', action: 'communication.email.send', type: 'write', description: 'Send an email' },
-  { tool: 'outlook_reply_to_email', action: 'communication.email.reply', type: 'write', description: 'Reply to an email' },
-  { tool: 'outlook_forward_email', action: 'communication.email.forward', type: 'write', description: 'Forward an email' },
-  { tool: 'outlook_delete_email', action: 'communication.email.delete', type: 'write', description: 'Delete an email' },
+    {
+        tool: "outlook_create_draft_email",
+        action: "communication.email.draft",
+        type: "write",
+        description: "Create a draft email",
+    },
+    {
+        tool: "outlook_send_email",
+        action: "communication.email.send",
+        type: "write",
+        description: "Send an email",
+    },
+    {
+        tool: "outlook_reply_to_email",
+        action: "communication.email.reply",
+        type: "write",
+        description: "Reply to an email",
+    },
+    {
+        tool: "outlook_forward_email",
+        action: "communication.email.forward",
+        type: "write",
+        description: "Forward an email",
+    },
+    {
+        tool: "outlook_delete_email",
+        action: "communication.email.delete",
+        type: "write",
+        description: "Delete an email",
+    },
 ];
 
 const PROFILE_PAYLOAD_FIELDS = [
-  { field: 'to_recipients', type: 'string[]', description: 'Email addresses of recipients' },
-  { field: 'cc_recipients', type: 'string[]', description: 'CC email addresses' },
-  { field: 'subject', type: 'string', description: 'Email subject line' },
-  { field: 'body_preview', type: 'string', description: 'First 200 characters of email body' },
-  { field: 'email_id', type: 'string', description: 'ID of email being acted upon (reply/forward/delete)' },
+    { field: "to_recipients", type: "string[]", description: "Email addresses of recipients" },
+    { field: "cc_recipients", type: "string[]", description: "CC email addresses" },
+    { field: "subject", type: "string", description: "Email subject line" },
+    { field: "body_preview", type: "string", description: "First 200 characters of email body" },
+    {
+        field: "email_id",
+        type: "string",
+        description: "ID of email being acted upon (reply/forward/delete)",
+    },
 ];
 
 export function renderMcpGlove(data: McpGlovePageData): string {
-  const { agents, owners, server_url, glove_activity } = data;
+    const { agents, owners, server_url, glove_activity } = data;
 
-  const ownerMap = new Map(owners.map((o) => [o.owner_principal_id, o.display_name]));
+    const ownerMap = new Map(owners.map((o) => [o.owner_principal_id, o.display_name]));
 
-  const agentOptions = agents.map((a) => {
-    const ownerName = ownerMap.get(a.owner_principal_id) ?? a.owner_principal_id.slice(0, 8);
-    return `<option value="${escapeHtml(a.agent_id)}">${escapeHtml(a.display_name || a.agent_id)} (${escapeHtml(ownerName)})</option>`;
-  }).join('\n');
+    const agentOptions = agents
+        .map((a) => {
+            const ownerName =
+                ownerMap.get(a.owner_principal_id) ?? a.owner_principal_id.slice(0, 8);
+            return `<option value="${escapeHtml(a.agent_id)}">${escapeHtml(a.display_name || a.agent_id)} (${escapeHtml(ownerName)})</option>`;
+        })
+        .join("\n");
 
-  const toolRows = PROFILE_TOOL_MAPPINGS.map((m) =>
-    `<tr>
+    const toolRows = PROFILE_TOOL_MAPPINGS.map(
+        (m) =>
+            `<tr>
       <td class="mono">${escapeHtml(m.tool)}</td>
       <td class="mono">${escapeHtml(m.action)}</td>
       <td><span class="badge badge-amber">${escapeHtml(m.type)}</span></td>
       <td>${escapeHtml(m.description)}</td>
-    </tr>`
-  ).join('');
+    </tr>`,
+    ).join("");
 
-  const payloadRows = PROFILE_PAYLOAD_FIELDS.map((f) =>
-    `<tr>
+    const payloadRows = PROFILE_PAYLOAD_FIELDS.map(
+        (f) =>
+            `<tr>
       <td class="mono">${escapeHtml(f.field)}</td>
       <td><span class="badge badge-muted">${escapeHtml(f.type)}</span></td>
       <td>${escapeHtml(f.description)}</td>
-    </tr>`
-  ).join('');
+    </tr>`,
+    ).join("");
 
-  const act = glove_activity;
+    const act = glove_activity;
 
-  const content = `
+    const content = `
     <div class="page-header">
-      <h2>MCP Glove${infoIcon('mcp-glove-info', INFO_MCP_GLOVE)}</h2>
+      <h2>MCP Glove${infoIcon("mcp-glove-info", INFO_MCP_GLOVE)}</h2>
       <p>Transparent MCP governance proxy &mdash; wraps upstream MCP servers and enforces OpenLeash policies on tool calls</p>
     </div>
 
@@ -65,19 +99,19 @@ export function renderMcpGlove(data: McpGlovePageData): string {
       </div>
       <div class="summary-card">
         <div class="label">Allowed</div>
-        <div class="value" style="color:var(--green-bright)">${act.allow}</div>
+        <div class="value" style="color:var(--color-success)">${act.allow}</div>
       </div>
       <div class="summary-card">
         <div class="label">Denied</div>
-        <div class="value" style="color:var(--red-bright)">${act.deny}</div>
+        <div class="value" style="color:var(--color-danger)">${act.deny}</div>
       </div>
       <div class="summary-card">
         <div class="label">Approval Required</div>
-        <div class="value" style="color:var(--amber-bright)">${act.require_approval}</div>
+        <div class="value" style="color:var(--color-warning)">${act.require_approval}</div>
       </div>
     </div>
 
-    ${act.total > 0 ? `<div style="margin-bottom:24px"><a href="/gui/audit?filter=communication." class="btn btn-secondary" style="font-size:12px">View filtered audit log</a></div>` : ''}
+    ${act.total > 0 ? `<div style="margin-bottom:24px"><a href="/gui/audit?filter=communication." class="btn btn-secondary" style="font-size:12px">View filtered audit log</a></div>` : ""}
 
     <div class="card">
       <div class="card-title">Config Generator</div>
@@ -188,5 +222,5 @@ export function renderMcpGlove(data: McpGlovePageData): string {
     </script>
   `;
 
-  return renderPage('MCP Glove', content, '/gui/mcp-glove');
+    return renderPage("MCP Glove", content, "/gui/mcp-glove");
 }

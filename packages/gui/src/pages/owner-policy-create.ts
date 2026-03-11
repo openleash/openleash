@@ -8,20 +8,20 @@ export function renderOwnerPolicyCreate(): string {
       <div style="display:flex;gap:12px;margin-bottom:12px">
         <div class="form-group" style="flex:1">
           <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px">Name</label>
-          <input type="text" id="policyName" placeholder="e.g. Read-only access" style="width:100%;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-primary);font-size:13px">
+          <input type="text" id="policyName" class="form-input" placeholder="e.g. Read-only access">
         </div>
         <div class="form-group" style="flex:2">
           <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px">Description</label>
-          <input type="text" id="policyDesc" placeholder="What does this policy do?" style="width:100%;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-primary);font-size:13px">
+          <input type="text" id="policyDesc" class="form-input" placeholder="What does this policy do?">
         </div>
       </div>
       <div class="form-group" style="margin-bottom:12px">
         <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px">Agent Principal ID (optional)</label>
-        <input type="text" id="agentId" placeholder="Leave empty for all agents" style="width:100%;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-primary);font-family:var(--font-mono);font-size:13px">
+        <input type="text" id="agentId" class="form-input" placeholder="Leave empty for all agents" style="font-family:var(--font-mono)">
       </div>
       <div class="form-group" style="margin-bottom:12px">
         <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px">Policy YAML</label>
-        <textarea id="policyYaml" class="yaml-editor" style="width:100%;height:200px;padding:12px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-primary);font-family:var(--font-mono);font-size:13px;resize:vertical">version: 1
+        <textarea id="policyYaml" class="yaml-editor" style="min-height:200px">version: 1
 default: deny
 rules:
   - id: allow_read

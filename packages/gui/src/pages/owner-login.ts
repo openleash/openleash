@@ -1,5 +1,7 @@
+import { THEME_DARK, THEME_LIGHT } from "../theme.js";
+
 export function renderOwnerLogin(): string {
-  return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -8,37 +10,10 @@ export function renderOwnerLogin(): string {
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-      --bg-deep: #050a0e;
-      --bg-surface: #0a1118;
-      --bg-elevated: #111d28;
-      --green-bright: #34d399;
-      --green-mid: #10b981;
-      --green-dark: #065f46;
-      --amber-bright: #fbbf24;
-      --red-bright: #f87171;
-      --text-primary: #e8f0f8;
-      --text-secondary: #8899aa;
-      --text-muted: #556677;
-      --border-subtle: rgba(136, 153, 170, 0.15);
-      --border-accent: rgba(52, 211, 153, 0.3);
-      --radius-md: 12px;
+${THEME_DARK}
     }
     body.theme-light {
-      --bg-deep: #f5f7fa;
-      --bg-surface: #ffffff;
-      --bg-elevated: #f0f2f5;
-      --green-bright: #047e58;
-      --green-mid: #059669;
-      --green-dark: #d1fae5;
-      --amber-bright: #a75b04;
-      --red-bright: #d72222;
-      --text-primary: #1a1a2e;
-      --text-secondary: #4a5568;
-      --text-muted: #5c708c;
-      --border-subtle: rgba(0, 0, 0, 0.1);
-      --border-accent: rgba(4, 126, 88, 0.3);
+${THEME_LIGHT}
     }
     html { -webkit-font-smoothing: antialiased; }
     body {
@@ -93,7 +68,7 @@ export function renderOwnerLogin(): string {
       outline: none;
     }
     .form-group input:focus {
-      border-color: var(--green-bright);
+      border-color: var(--color-primary);
     }
     .btn-login {
       width: 100%;
@@ -111,7 +86,7 @@ export function renderOwnerLogin(): string {
       filter: brightness(1.1);
     }
     .error-msg {
-      color: var(--red-bright);
+      color: var(--color-danger);
       font-size: 13px;
       margin-top: 12px;
       display: none;
