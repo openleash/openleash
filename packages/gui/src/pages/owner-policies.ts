@@ -97,7 +97,7 @@ export function renderOwnerPolicies(
     // --- Active Policies section ---
     const policyRows =
         policies.length === 0
-            ? '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">No policies</td></tr>'
+            ? '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:24px">No policies</td></tr>'
             : policies
                   .map((p) => {
                       let appliesTo: string;
@@ -130,7 +130,7 @@ export function renderOwnerPolicies(
         </td>
       </tr>
       <tr id="editor-row-${escapeHtml(p.policy_id)}" class="hidden">
-        <td colspan="4" style="padding:12px 16px;background:var(--bg-elevated)">
+        <td colspan="3" style="padding:12px 16px;background:var(--bg-elevated)">
           <div style="display:flex;gap:8px;margin-bottom:8px">
             <div style="flex:1">
               <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px">Name</label>
@@ -245,7 +245,7 @@ export function renderOwnerPolicies(
 
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Active Policies</h3>
-      <table>
+      <table style="table-layout:fixed">
         <colgroup><col><col style="width:200px"><col style="width:150px"></colgroup>
         <thead>
           <tr><th>Policy</th><th>Applies To</th><th>Actions</th></tr>
