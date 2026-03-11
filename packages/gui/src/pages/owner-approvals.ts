@@ -110,7 +110,7 @@ export function renderOwnerApprovals(
 
     const pendingRows =
         pending.length === 0
-            ? '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">No pending approvals</td></tr>'
+            ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No pending approvals</td></tr>'
             : pending
                   .map((a) => {
                       const agentName = agentNames?.get(a.agent_principal_id) ?? null;
@@ -119,7 +119,8 @@ export function renderOwnerApprovals(
                           : escapeHtml(a.agent_id);
                       return `
       <tr class="accordion-row" onclick="toggleApproval('${escapeHtml(a.approval_request_id)}')">
-        <td>${agentDisplay} <span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td>${agentDisplay}</td>
         <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span>${a.action_type.startsWith("communication.") ? ' <span class="badge badge-muted" style="margin-left:4px;font-size:10px">MCP Glove</span>' : ""}</td>
         <td>${formatTimestamp(a.created_at)}</td>
         <td>${formatTimestamp(a.expires_at)}</td>
@@ -129,7 +130,7 @@ export function renderOwnerApprovals(
         </td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(a.approval_request_id)}">
-        <td colspan="5" style="padding:0 12px 16px">
+        <td colspan="6" style="padding:0 12px 16px">
           ${renderDetailPanel(a, agentNames)}
         </td>
       </tr>`;
@@ -155,13 +156,14 @@ export function renderOwnerApprovals(
                           : escapeHtml(a.agent_id);
                       return `
       <tr class="accordion-row" onclick="toggleApproval('${escapeHtml(a.approval_request_id)}')">
-        <td>${agentDisplay} <span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td>${agentDisplay}</td>
         <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span>${a.action_type.startsWith("communication.") ? ' <span class="badge badge-muted" style="margin-left:4px;font-size:10px">MCP Glove</span>' : ""}</td>
         <td><span class="badge ${badge}">${escapeHtml(a.status)}</span></td>
         <td>${formatTimestamp(a.created_at)}</td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(a.approval_request_id)}">
-        <td colspan="4" style="padding:0 12px 16px">
+        <td colspan="5" style="padding:0 12px 16px">
           ${renderDetailPanel(a, agentNames)}
         </td>
       </tr>`;
@@ -180,9 +182,9 @@ export function renderOwnerApprovals(
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Pending</h3>
       <table>
-        <colgroup><col><col style="width:180px"><col style="width:170px"><col style="width:170px"><col style="width:160px"></colgroup>
+        <colgroup><col style="width:20px"><col><col style="width:180px"><col style="width:170px"><col style="width:170px"><col style="width:160px"></colgroup>
         <thead>
-          <tr><th>Agent</th><th>Action</th><th>Created</th><th>Expires</th><th>Actions</th></tr>
+          <tr><th></th><th>Agent</th><th>Action</th><th>Created</th><th>Expires</th><th>Actions</th></tr>
         </thead>
         <tbody>${pendingRows}</tbody>
       </table>
@@ -194,9 +196,9 @@ export function renderOwnerApprovals(
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Resolved</h3>
       <table>
-        <colgroup><col><col style="width:180px"><col style="width:130px"><col style="width:170px"></colgroup>
+        <colgroup><col style="width:20px"><col><col style="width:180px"><col style="width:130px"><col style="width:170px"></colgroup>
         <thead>
-          <tr><th>Agent</th><th>Action</th><th>Status</th><th>Created</th></tr>
+          <tr><th></th><th>Agent</th><th>Action</th><th>Status</th><th>Created</th></tr>
         </thead>
         <tbody>${resolvedRows}</tbody>
       </table>

@@ -160,7 +160,7 @@ export function renderOwnerPolicies(
 
     const pendingRows =
         pending.length === 0
-            ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No pending policy drafts</td></tr>'
+            ? '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No pending policy drafts</td></tr>'
             : pending
                   .map((d) => {
                       const draftName = d.name
@@ -171,7 +171,8 @@ export function renderOwnerPolicies(
                           : "";
                       return `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
-        <td>${draftName}${draftDesc}<div style="margin-top:${d.name ? "2px" : "0"}">${copyableId(d.policy_draft_id)}</div> <span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td>${draftName}${draftDesc}<div style="margin-top:${d.name ? "2px" : "0"}">${copyableId(d.policy_draft_id)}</div></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td${d.justification ? ` title="${escapeHtml(d.justification)}"` : ""}>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
@@ -182,7 +183,7 @@ export function renderOwnerPolicies(
         </td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
-        <td colspan="6" style="padding:0 12px 16px">
+        <td colspan="7" style="padding:0 12px 16px">
           ${scopeWarning(d)}
           <div style="margin-top:8px;margin-bottom:4px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Proposed Policy YAML</div>
           <div class="accordion-content">${escapeHtml(d.policy_yaml)}</div>
@@ -212,7 +213,8 @@ export function renderOwnerPolicies(
                           : "";
                       return `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
-        <td>${rName}${rDesc}<div style="margin-top:${d.name ? "2px" : "0"}">${copyableId(d.policy_draft_id)}</div> <span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td>${rName}${rDesc}<div style="margin-top:${d.name ? "2px" : "0"}">${copyableId(d.policy_draft_id)}</div></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td><span class="badge ${badge}">${escapeHtml(d.status)}</span></td>
@@ -226,7 +228,7 @@ export function renderOwnerPolicies(
         <td>${formatTimestamp(d.created_at)}</td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
-        <td colspan="6" style="padding:0 12px 16px">
+        <td colspan="7" style="padding:0 12px 16px">
           ${scopeWarning(d)}
           <div style="margin-top:8px;margin-bottom:4px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Proposed Policy YAML</div>
           <div class="accordion-content">${escapeHtml(d.policy_yaml)}</div>
@@ -259,9 +261,9 @@ export function renderOwnerPolicies(
       </p>
       ${totpBanner}
       <table>
-        <colgroup><col style="width:290px"><col><col><col><col style="width:170px"><col style="width:180px"></colgroup>
+        <colgroup><col style="width:20px"><col style="width:290px"><col><col><col><col style="width:170px"><col style="width:180px"></colgroup>
         <thead>
-          <tr><th>ID</th><th>Suggested By</th><th>Applies To</th><th>Justification</th><th>Created</th><th>Actions</th></tr>
+          <tr><th></th><th>ID</th><th>Suggested By</th><th>Applies To</th><th>Justification</th><th>Created</th><th>Actions</th></tr>
         </thead>
         <tbody>${pendingRows}</tbody>
       </table>
@@ -273,9 +275,9 @@ export function renderOwnerPolicies(
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Resolved Drafts</h3>
       <table>
-        <colgroup><col style="width:290px"><col><col><col style="width:130px"><col style="width:290px"><col style="width:170px"></colgroup>
+        <colgroup><col style="width:20px"><col style="width:290px"><col><col><col style="width:130px"><col style="width:290px"><col style="width:170px"></colgroup>
         <thead>
-          <tr><th>ID</th><th>Suggested By</th><th>Applies To</th><th>Status</th><th>Result</th><th>Created</th></tr>
+          <tr><th></th><th>ID</th><th>Suggested By</th><th>Applies To</th><th>Status</th><th>Result</th><th>Created</th></tr>
         </thead>
         <tbody>${resolvedRows}</tbody>
       </table>
