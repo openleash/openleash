@@ -5,6 +5,7 @@
     "rootDir": "./src"
   },
   "include": ["src/**/*"],
+  "exclude": ["client/**/*"],
   "references": [
     { "path": "../core" }
   ]

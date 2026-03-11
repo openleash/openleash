@@ -1,23 +1,23 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "composite": true
-  },
-  "include": [],
-  "references": [
-    { "path": "packages/core" },
-    { "path": "packages/gui" },
-    { "path": "packages/server" },
-    { "path": "packages/sdk-ts" },
-    { "path": "packages/cli" }
-  ]
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "composite": true
+    },
+    "include": [],
+    "references": [
+        { "path": "packages/core" },
+        { "path": "packages/gui" },
+        { "path": "packages/server" },
+        { "path": "packages/sdk-ts" },
+        { "path": "packages/cli" }
+    ]
 }

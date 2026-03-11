@@ -33,3 +33,4 @@ export type { OwnerProfileData } from "./pages/owner-profile.js";
 export { renderInitialSetup } from "./pages/initial-setup.js";
 export { renderApiReference, renderApiReferenceUnavailable } from "./pages/api-reference.js";
 export * from "./validation.js";
+export { initManifest, resolveAsset, resolveAssetCss, assetTags, getClientDir } from "./manifest.js";
