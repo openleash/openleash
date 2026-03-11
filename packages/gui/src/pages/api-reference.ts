@@ -14,12 +14,37 @@ export function renderApiReference(): string {
       </div>
       <div style="flex:1;min-height:0">
         <iframe
+          id="scalar-frame"
           src="/reference"
           style="width:100%;height:100%;border:none;display:block"
           title="OpenLeash API Reference"
         ></iframe>
       </div>
     </div>
+    <script>
+    (function(){
+      var frame=document.getElementById('scalar-frame');
+      function isLight(){
+        var t=localStorage.getItem('ol_theme')||'system';
+        return t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches);
+      }
+      function syncTheme(){
+        try{
+          var doc=frame.contentDocument;
+          if(!doc)return;
+          var el=doc.body;
+          if(!el)return;
+          var light=isLight();
+          el.classList.toggle('light-mode',light);
+          el.classList.toggle('dark-mode',!light);
+        }catch(e){}
+      }
+      frame.addEventListener('load',function(){syncTheme();});
+      var obs=new MutationObserver(function(){syncTheme();});
+      obs.observe(document.body,{attributes:true,attributeFilter:['class']});
+      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',function(){syncTheme();});
+    })();
+    </script>
   `;
 
   return renderPage('API Reference', content, '/gui/api-reference');
