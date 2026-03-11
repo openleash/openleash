@@ -143,7 +143,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
 
           if (!res.ok) {
             var err = await res.json();
-            throw new Error(err.error?.message || 'Failed to create invite');
+            throw new Error(olApiError(err, 'Failed to create invite'));
           }
 
           var data = await res.json();

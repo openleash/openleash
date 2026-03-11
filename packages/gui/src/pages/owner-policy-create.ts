@@ -51,7 +51,7 @@ rules:
           window.location.href = '/gui/owner/policies';
         } else {
           var data = await res.json();
-          olToast(data.error?.message || 'Failed to create policy', 'error');
+          olToast(olApiError(data, 'Failed to create policy'), 'error');
         }
       }
     </script>

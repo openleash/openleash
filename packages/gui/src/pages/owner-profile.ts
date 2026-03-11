@@ -479,8 +479,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         });
         if (!res.ok) {
           var data = await res.json().catch(function() { return {}; });
-          var msg = (data.error && data.error.message) ? data.error.message : 'Update failed';
-          showAlert(msg, 'error');
+          showAlert(olApiError(data, 'Update failed'), 'error');
           return false;
         }
         return true;
@@ -620,7 +619,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           window.location.reload();
         } else {
           var data = await res.json().catch(function() { return {}; });
-          errEl.textContent = (data.error && data.error.message) || 'Invalid code';
+          errEl.textContent = olApiError(data, 'Invalid code');
         }
       }
 
@@ -643,7 +642,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           window.location.reload();
         } else {
           var data = await res.json().catch(function() { return {}; });
-          errEl.textContent = (data.error && data.error.message) || 'Invalid code';
+          errEl.textContent = olApiError(data, 'Invalid code');
         }
       }
     </script>

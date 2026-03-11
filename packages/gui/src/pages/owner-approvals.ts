@@ -234,7 +234,7 @@ export function renderOwnerApprovals(
             });
             if (res.ok) return null;
             var data = await res.json();
-            return data.error?.message || 'Failed';
+            return olApiError(data, 'Failed');
           } catch (e) {
             return 'Network error';
           }

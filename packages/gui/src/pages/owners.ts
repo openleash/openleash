@@ -324,7 +324,7 @@ export function renderOwners(owners: OwnerData[]): string {
 
           if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.error?.message || 'Failed to create owner');
+            throw new Error(olApiError(err, 'Failed to create owner'));
           }
 
           const result = await res.json();

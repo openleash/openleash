@@ -194,7 +194,7 @@ ${THEME_LIGHT}
         const data = await res.json();
 
         if (!res.ok) {
-          errorEl.textContent = data.error?.message || 'Login failed';
+          errorEl.textContent = olApiError(data, 'Login failed');
           errorEl.style.display = 'block';
           return;
         }

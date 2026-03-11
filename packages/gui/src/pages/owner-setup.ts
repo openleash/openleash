@@ -280,7 +280,7 @@ ${THEME_LIGHT}
         var data = await res.json();
 
         if (!res.ok) {
-          errorEl.textContent = data.error ? data.error.message : 'Setup failed';
+          errorEl.textContent = olApiError(data, 'Setup failed');
           errorEl.style.display = 'block';
           btn.disabled = false;
           btn.textContent = 'Set Up Account';

@@ -316,7 +316,7 @@ export function renderOwnerPolicies(
           olToast('Policy saved', 'success');
         } else {
           var data = await res.json();
-          olToast(data.error?.message || 'Failed to save policy', 'error');
+          olToast(olApiError(data, 'Failed to save policy'), 'error');
         }
       }
 
@@ -332,7 +332,7 @@ export function renderOwnerPolicies(
           var res = await fetch('/v1/owner/policies/' + id, opts);
           if (res.ok) return null;
           var data = await res.json().catch(function() { return {}; });
-          return data.error?.message || 'Failed to delete policy';
+          return olApiError(data, 'Failed to delete policy');
         }
         if (totpEnabled) {
           var result = await ol2FA(doDelete);
@@ -361,7 +361,7 @@ export function renderOwnerPolicies(
             });
             if (res.ok) return null;
             var data = await res.json();
-            return data.error?.message || 'Failed';
+            return olApiError(data, 'Failed');
           } catch (e) {
             return 'Network error';
           }

@@ -94,7 +94,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
           });
           if (res.ok) return null;
           var data = await res.json().catch(function() { return {}; });
-          return data.error?.message || 'Failed to revoke agent';
+          return olApiError(data, 'Failed to revoke agent');
         }
         if (totpEnabled) {
           var result = await ol2FA(doRevoke);
