@@ -505,28 +505,48 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         return {
           approval_request_id: req.approval_request_id,
           agent_id: req.agent_id,
+          agent_principal_id: entry.agent_principal_id,
           action_type: req.action_type,
+          action_hash: req.action_hash ?? null,
+          decision_id: req.decision_id ?? null,
+          action: req.action ?? null,
+          context: req.context ?? null,
           justification: req.justification,
           status: req.status,
+          denial_reason: req.denial_reason ?? null,
           created_at: req.created_at,
           expires_at: req.expires_at,
+          resolved_at: req.resolved_at ?? null,
         };
       } catch {
         return {
           approval_request_id: entry.approval_request_id,
           agent_id: 'unknown',
+          agent_principal_id: entry.agent_principal_id,
           action_type: 'unknown',
+          action_hash: null,
+          decision_id: null,
+          action: null,
+          context: null,
           justification: null,
           status: entry.status,
+          denial_reason: null,
           created_at: '',
           expires_at: '',
+          resolved_at: null,
         };
       }
     });
     const approvalOwner = readOwnerFile(dataDir, session.sub);
+    const approvalAgentNames = new Map(
+      state.agents
+        .filter((a) => a.owner_principal_id === session.sub)
+        .map((a) => [a.agent_principal_id, a.agent_id])
+    );
     const html = renderOwnerApprovals(approvals, {
       totp_enabled: !!approvalOwner.totp_enabled,
       require_totp: !!config.security.require_totp,
+      agent_names: approvalAgentNames,
     });
     reply.type('text/html').send(html);
   });
