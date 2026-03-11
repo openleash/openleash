@@ -84,21 +84,26 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
       async function revokeAgent(principalId) {
         if (!await olConfirm('Are you sure you want to revoke this agent?', 'Revoke Agent')) return;
         var token = sessionStorage.getItem('openleash_session');
-        var bodyObj = { status: 'REVOKED' };
-        if (totpEnabled) {
-          var code = await olPrompt('Enter your 2FA code:', '000000', 'Two-Factor Authentication');
-          if (!code) return;
-          bodyObj.totp_code = code;
-        }
-        var res = await fetch('/v1/owner/agents/' + principalId, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify(bodyObj),
-        });
-        if (res.ok) window.location.reload();
-        else {
+        async function doRevoke(totpCode) {
+          var bodyObj = { status: 'REVOKED' };
+          if (totpCode) bodyObj.totp_code = totpCode;
+          var res = await fetch('/v1/owner/agents/' + principalId, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(bodyObj),
+          });
+          if (res.ok) return null;
           var data = await res.json().catch(function() { return {}; });
-          olToast(data.error?.message || 'Failed to revoke agent', 'error');
+          return data.error?.message || 'Failed to revoke agent';
+        }
+        if (totpEnabled) {
+          var result = await ol2FA(doRevoke);
+          if (!result) return;
+          window.location.reload();
+        } else {
+          var err = await doRevoke();
+          if (err) olToast(err, 'error');
+          else window.location.reload();
         }
       }
 

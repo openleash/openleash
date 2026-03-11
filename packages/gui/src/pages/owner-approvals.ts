@@ -222,26 +222,29 @@ export function renderOwnerApprovals(
           if (reason === null) return;
           if (reason) bodyObj.reason = reason;
         }
-        if (totpEnabled) {
-          var code = await olPrompt('Enter your 2FA code:', '000000', 'Two-Factor Authentication');
-          if (!code) return;
-          bodyObj.totp_code = code;
-        }
-        const body = JSON.stringify(bodyObj);
-        try {
-          const res = await fetch('/v1/owner/approval-requests/' + id + '/' + action, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-            body: body,
-          });
-          if (res.ok) {
-            window.location.reload();
-          } else {
-            const data = await res.json();
-            olToast(data.error?.message || 'Failed', 'error');
+        async function doApproval(totpCode) {
+          if (totpCode) bodyObj.totp_code = totpCode;
+          try {
+            var res = await fetch('/v1/owner/approval-requests/' + id + '/' + action, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+              body: JSON.stringify(bodyObj),
+            });
+            if (res.ok) return null;
+            var data = await res.json();
+            return data.error?.message || 'Failed';
+          } catch (e) {
+            return 'Network error';
           }
-        } catch (err) {
-          olToast('Network error', 'error');
+        }
+        if (totpEnabled) {
+          var result = await ol2FA(doApproval);
+          if (!result) return;
+          window.location.reload();
+        } else {
+          var err = await doApproval();
+          if (err) olToast(err, 'error');
+          else window.location.reload();
         }
       }
     </script>
