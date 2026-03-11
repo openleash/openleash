@@ -7,6 +7,7 @@ import {
     infoIcon,
     INFO_AUDIT_EVENTS,
 } from "../layout.js";
+import { assetTags } from "../manifest.js";
 
 export interface AuditEntry {
     event_id: string;
@@ -698,46 +699,7 @@ export function renderAudit(
       ${loadMoreHtml}
     </div>
 
-    <script>
-      function toggleAccordion(idx) {
-        var row = document.getElementById('row-' + idx);
-        var detail = document.getElementById('detail-' + idx);
-        var isOpen = detail.classList.contains('open');
-        if (isOpen) {
-          detail.classList.remove('open');
-          row.classList.remove('expanded');
-        } else {
-          detail.classList.add('open');
-          row.classList.add('expanded');
-        }
-      }
-
-      function filterEvents() {
-        var val = document.getElementById('event-filter').value;
-        var rows = document.querySelectorAll('tr[data-event-type]');
-        var visible = 0;
-        for (var i = 0; i < rows.length; i++) {
-          var row = rows[i];
-          var match = !val || row.getAttribute('data-event-type') === val;
-          row.style.display = match ? '' : 'none';
-          // Close hidden accordion details
-          if (!match && row.classList.contains('accordion-detail')) {
-            row.classList.remove('open');
-          }
-          if (!match && row.classList.contains('accordion-row')) {
-            row.classList.remove('expanded');
-          }
-          // Count visible main rows
-          if (match && row.classList.contains('accordion-row')) {
-            visible++;
-          }
-        }
-        var counter = document.getElementById('filter-count');
-        if (counter) {
-          counter.textContent = val ? visible + ' event' + (visible !== 1 ? 's' : '') : '';
-        }
-      }
-    </script>
+    ${assetTags("pages/audit.ts")}
   `;
 
     return renderPage("Audit Log", content, auditBasePath, context);

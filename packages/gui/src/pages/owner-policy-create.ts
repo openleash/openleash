@@ -1,4 +1,5 @@
 import { renderPage } from "../layout.js";
+import { assetTags } from "../manifest.js";
 
 export function renderOwnerPolicyCreate(): string {
     const content = `
@@ -34,27 +35,7 @@ rules:
       </div>
     </div>
 
-    <script>
-      var token = sessionStorage.getItem('openleash_session');
-
-      async function createPolicy() {
-        var name = document.getElementById('policyName').value.trim() || null;
-        var desc = document.getElementById('policyDesc').value.trim() || null;
-        var agentId = document.getElementById('agentId').value.trim() || null;
-        var yaml = document.getElementById('policyYaml').value;
-        var res = await fetch('/v1/owner/policies', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ policy_yaml: yaml, applies_to_agent_principal_id: agentId, name: name, description: desc }),
-        });
-        if (res.ok) {
-          window.location.href = '/gui/owner/policies';
-        } else {
-          var data = await res.json();
-          olToast(olApiError(data, 'Failed to create policy'), 'error');
-        }
-      }
-    </script>
+    ${assetTags("pages/owner-policy-create.ts")}
   `;
     return renderPage("Create Policy", content, "/gui/owner/policies", "owner");
 }

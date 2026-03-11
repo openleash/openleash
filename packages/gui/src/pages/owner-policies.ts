@@ -6,6 +6,7 @@ import {
     infoIcon,
     INFO_POLICY_DRAFTS,
 } from "../layout.js";
+import { assetTags } from "../manifest.js";
 
 export interface OwnerPolicyEntry {
     policy_id: string;
@@ -285,97 +286,8 @@ export function renderOwnerPolicies(
             : ""
     }
 
-    <script>
-      var token = sessionStorage.getItem('openleash_session');
-      var totpEnabled = ${totpEnabled};
-
-      function toggleEditor(policyId) {
-        var editorRow = document.getElementById('editor-row-' + policyId);
-        editorRow.classList.toggle('hidden');
-      }
-
-      function toggleDraft(id) {
-        var detail = document.getElementById('detail-' + id);
-        var row = detail.previousElementSibling;
-        detail.classList.toggle('open');
-        row.classList.toggle('expanded');
-      }
-
-      async function savePolicy(policyId) {
-        var yaml = document.getElementById('editor-yaml-' + policyId).value;
-        var name = document.getElementById('editor-name-' + policyId).value;
-        var desc = document.getElementById('editor-desc-' + policyId).value;
-
-        var res = await fetch('/v1/owner/policies/' + policyId, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ policy_yaml: yaml, name: name || null, description: desc || null }),
-        });
-
-        if (res.ok) {
-          olToast('Policy saved', 'success');
-        } else {
-          var data = await res.json();
-          olToast(olApiError(data, 'Failed to save policy'), 'error');
-        }
-      }
-
-      async function deletePolicy(id) {
-        if (!await olConfirm('Are you sure you want to delete this policy?', 'Delete Policy')) return;
-        async function doDelete(totpCode) {
-          var headers = { 'Authorization': 'Bearer ' + token };
-          var opts = { method: 'DELETE', headers: headers };
-          if (totpCode) {
-            headers['Content-Type'] = 'application/json';
-            opts.body = JSON.stringify({ totp_code: totpCode });
-          }
-          var res = await fetch('/v1/owner/policies/' + id, opts);
-          if (res.ok) return null;
-          var data = await res.json().catch(function() { return {}; });
-          return olApiError(data, 'Failed to delete policy');
-        }
-        if (totpEnabled) {
-          var result = await ol2FA(doDelete);
-          if (!result) return;
-        } else {
-          var err = await doDelete();
-          if (err) { olToast(err, 'error'); return; }
-        }
-        window.location.reload();
-      }
-
-      async function handleDraft(id, action) {
-        var bodyObj = {};
-        if (action === 'deny') {
-          var reason = await olPrompt('Reason for denial (optional):', 'Enter reason...', 'Deny Draft');
-          if (reason === null) return;
-          if (reason) bodyObj.reason = reason;
-        }
-        async function doDraft(totpCode) {
-          if (totpCode) bodyObj.totp_code = totpCode;
-          try {
-            var res = await fetch('/v1/owner/policy-drafts/' + id + '/' + action, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-              body: JSON.stringify(bodyObj),
-            });
-            if (res.ok) return null;
-            var data = await res.json();
-            return olApiError(data, 'Failed');
-          } catch (e) {
-            return 'Network error';
-          }
-        }
-        if (totpEnabled) {
-          var result = await ol2FA(doDraft);
-          if (!result) return;
-        } else {
-          var err = await doDraft();
-          if (err) { olToast(err, 'error'); return; }
-        }
-        window.location.reload();
-      }
-    </script>
+    <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled} };</script>
+    ${assetTags("pages/owner-policies.ts")}
   `;
     return renderPage("My Policies", content, "/gui/owner/policies", "owner");
 }

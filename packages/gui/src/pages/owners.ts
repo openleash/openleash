@@ -9,6 +9,7 @@ import {
     INFO_AGENT_STATUS,
     INFO_VERIFICATION_LEVEL,
 } from "../layout.js";
+import { assetTags } from "../manifest.js";
 
 // ─── Country data ─────────────────────────────────────────────────────
 
@@ -293,51 +294,8 @@ export function renderOwners(owners: OwnerData[]): string {
       </table>
     </div>
 
-    <script>
-      function toggleForm() {
-        document.getElementById('owner-form').classList.toggle('hidden');
-      }
-
-      async function createOwner() {
-        const displayName = document.getElementById('display-name').value.trim();
-        const principalType = document.getElementById('principal-type').value;
-        const btn = document.getElementById('create-btn');
-
-        olFieldError('display-name', '');
-        if (!displayName) {
-          olFieldError('display-name', 'Display name is required');
-          return;
-        }
-
-        btn.disabled = true;
-        btn.textContent = 'Creating...';
-
-        try {
-          const res = await fetch('/v1/admin/owners', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              principal_type: principalType,
-              display_name: displayName,
-            }),
-          });
-
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(olApiError(err, 'Failed to create owner'));
-          }
-
-          const result = await res.json();
-          olToast('Owner created (ID: ' + result.owner_principal_id.slice(0, 8) + '...)', 'success');
-          setTimeout(() => { window.location.reload(); }, 1000);
-        } catch (err) {
-          olToast(String(err.message || err), 'error');
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Create Owner';
-        }
-      }
-    </script>
+    <script>window.__PAGE_DATA__ = {};</script>
+    ${assetTags("pages/owners.ts")}
   `;
 
     return renderPage("Owners", content, "/gui/owners");
@@ -773,81 +731,8 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       <a href="/gui/owners" class="btn btn-secondary">Back to Owners</a>
     </div>
 
-    <script>
-      var ownerId = '${escapeHtml(owner.owner_principal_id)}';
-
-      function toggleAccordion(idx) {
-        var row = document.getElementById('row-' + idx);
-        var detail = document.getElementById('detail-' + idx);
-        var isOpen = detail.classList.contains('open');
-        if (isOpen) {
-          detail.classList.remove('open');
-          row.classList.remove('expanded');
-        } else {
-          detail.classList.add('open');
-          row.classList.add('expanded');
-        }
-      }
-
-      function copyLink() {
-        var linkText = document.getElementById('invite-link').textContent;
-        navigator.clipboard.writeText(linkText).then(function() {
-          var btn = document.getElementById('copy-btn');
-          btn.textContent = 'Copied!';
-          setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
-        });
-      }
-
-      async function adminDisableTotp() {
-        if (!await olConfirm('Are you sure you want to disable 2FA for this owner? They will need to set it up again.', 'Disable 2FA')) return;
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/disable-totp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: '{}',
-          });
-          if (res.ok) {
-            window.location.reload();
-          } else {
-            var err = await res.json();
-            olToast((err.error && err.error.message) || 'Failed to disable 2FA', 'error');
-          }
-        } catch (e) {
-          olToast('Network error', 'error');
-        }
-      }
-
-      async function generateInvite() {
-        var btn = document.getElementById('invite-btn');
-        btn.disabled = true;
-        btn.textContent = 'Generating...';
-
-        try {
-          var res = await fetch('/v1/admin/owners/' + ownerId + '/setup-invite', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
-          });
-
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(err.error ? err.error.message : 'Failed to generate invite');
-          }
-
-          var data = await res.json();
-          var resultDiv = document.getElementById('invite-result');
-          resultDiv.classList.remove('hidden');
-          var setupUrl = window.location.origin + '/gui/owner/setup?invite_id=' + encodeURIComponent(data.invite_id) + '&invite_token=' + encodeURIComponent(data.invite_token) + '&owner_id=' + encodeURIComponent(ownerId);
-          document.getElementById('invite-link').textContent = setupUrl;
-          btn.style.display = 'none';
-        } catch (err) {
-          olToast(String(err.message || err), 'error');
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Generate Setup Invite';
-        }
-      }
-    </script>
+    <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.owner_principal_id)}' };</script>
+    ${assetTags("pages/owners.ts")}
   `;
 
     return renderPage(owner.display_name ?? "Owner", content, "/gui/owners");

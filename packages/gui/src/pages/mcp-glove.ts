@@ -1,4 +1,5 @@
 import { renderPage, escapeHtml, infoIcon, INFO_MCP_GLOVE } from "../layout.js";
+import { assetTags } from "../manifest.js";
 
 export interface McpGlovePageData {
     agents: { agent_id: string; display_name: string; owner_principal_id: string }[];
@@ -179,47 +180,7 @@ export function renderMcpGlove(data: McpGlovePageData): string {
       </table>
     </div>
 
-    <script>
-      function updateGloveConfig() {
-        var profile = document.getElementById('glove-profile').value;
-        var agent = document.getElementById('glove-agent').value;
-        var upstream = document.getElementById('glove-upstream').value;
-        var url = document.getElementById('glove-url').value;
-        var timeout = document.getElementById('glove-timeout').value;
-
-        var upstreamParts = upstream.trim().split(/\\s+/);
-        var command = upstreamParts[0] || 'npx';
-        var args = upstreamParts.slice(1);
-
-        var config = {
-          "openleash-glove": {
-            "command": "npx",
-            "args": [
-              "-y", "@openleash/mcp-glove",
-              "--profile", profile,
-              "--agent-id", agent || "YOUR_AGENT_ID",
-              "--openleash-url", url,
-              "--approval-timeout", timeout || "120000",
-              "--private-key", "<PASTE_PRIVATE_KEY>",
-              "--upstream-command", command
-            ].concat(args.length > 0 ? ["--upstream-args"].concat(args) : [])
-          }
-        };
-
-        document.getElementById('glove-output').textContent = JSON.stringify(config, null, 2);
-      }
-
-      function copyGloveConfig() {
-        var text = document.getElementById('glove-output').textContent;
-        navigator.clipboard.writeText(text);
-        var btn = event.target;
-        var orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(function() { btn.textContent = orig; }, 1200);
-      }
-
-      updateGloveConfig();
-    </script>
+    ${assetTags("pages/mcp-glove.ts")}
   `;
 
     return renderPage("MCP Glove", content, "/gui/mcp-glove");

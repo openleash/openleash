@@ -6,6 +6,7 @@ import {
     infoIcon,
     INFO_AGENT_STATUS,
 } from "../layout.js";
+import { assetTags } from "../manifest.js";
 
 export interface OwnerAgentEntry {
     agent_principal_id: string;
@@ -78,70 +79,8 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
         <tbody>${rows}</tbody>
       </table>
     </div>
-    <script>
-      var totpEnabled = ${totpEnabled};
-
-      async function revokeAgent(principalId) {
-        if (!await olConfirm('Are you sure you want to revoke this agent?', 'Revoke Agent')) return;
-        var token = sessionStorage.getItem('openleash_session');
-        async function doRevoke(totpCode) {
-          var bodyObj = { status: 'REVOKED' };
-          if (totpCode) bodyObj.totp_code = totpCode;
-          var res = await fetch('/v1/owner/agents/' + principalId, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-            body: JSON.stringify(bodyObj),
-          });
-          if (res.ok) return null;
-          var data = await res.json().catch(function() { return {}; });
-          return olApiError(data, 'Failed to revoke agent');
-        }
-        if (totpEnabled) {
-          var result = await ol2FA(doRevoke);
-          if (!result) return;
-          window.location.reload();
-        } else {
-          var err = await doRevoke();
-          if (err) olToast(err, 'error');
-          else window.location.reload();
-        }
-      }
-
-      async function createAgentInvite() {
-        var token = sessionStorage.getItem('openleash_session');
-
-        try {
-          var res = await fetch('/v1/owner/agent-invites', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + token,
-            },
-            body: '{}',
-          });
-
-          if (!res.ok) throw new Error('Failed to create invite');
-
-          var data = await res.json();
-          var baseUrl = window.location.origin;
-          var inviteUrl = baseUrl + '/v1/agents/register-with-invite?invite_id=' + encodeURIComponent(data.invite_id) + '&invite_token=' + encodeURIComponent(data.invite_token);
-
-          document.getElementById('invite-url').textContent = inviteUrl;
-          document.getElementById('invite-result').style.display = 'block';
-        } catch (err) {
-          olToast('Failed to create agent invite', 'error');
-        }
-      }
-
-      async function copyInviteUrl() {
-        var url = document.getElementById('invite-url').textContent;
-        await navigator.clipboard.writeText(url);
-        var btn = event.target;
-        var orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(function() { btn.textContent = orig; }, 2000);
-      }
-    </script>
+    <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled} };</script>
+    ${assetTags("pages/owner-agents.ts")}
   `;
     return renderPage("My Agents", content, "/gui/owner/agents", "owner");
 }

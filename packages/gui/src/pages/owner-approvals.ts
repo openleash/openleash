@@ -6,6 +6,7 @@ import {
     infoIcon,
     INFO_APPROVAL_REQUESTS,
 } from "../layout.js";
+import { assetTags } from "../manifest.js";
 
 export interface OwnerApprovalEntry {
     approval_request_id: string;
@@ -206,50 +207,8 @@ export function renderOwnerApprovals(
             : ""
     }
 
-    <script>
-      var totpEnabled = ${totpEnabled};
-
-      function toggleApproval(id) {
-        var detail = document.getElementById('detail-' + id);
-        var row = detail.previousElementSibling;
-        detail.classList.toggle('open');
-        row.classList.toggle('expanded');
-      }
-
-      async function handleApproval(id, action) {
-        const token = sessionStorage.getItem('openleash_session');
-        var bodyObj = {};
-        if (action === 'deny') {
-          var reason = await olPrompt('Reason for denial (optional):', 'Enter reason...', 'Deny Request');
-          if (reason === null) return;
-          if (reason) bodyObj.reason = reason;
-        }
-        async function doApproval(totpCode) {
-          if (totpCode) bodyObj.totp_code = totpCode;
-          try {
-            var res = await fetch('/v1/owner/approval-requests/' + id + '/' + action, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-              body: JSON.stringify(bodyObj),
-            });
-            if (res.ok) return null;
-            var data = await res.json();
-            return olApiError(data, 'Failed');
-          } catch (e) {
-            return 'Network error';
-          }
-        }
-        if (totpEnabled) {
-          var result = await ol2FA(doApproval);
-          if (!result) return;
-          window.location.reload();
-        } else {
-          var err = await doApproval();
-          if (err) olToast(err, 'error');
-          else window.location.reload();
-        }
-      }
-    </script>
+    <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled} };</script>
+    ${assetTags("pages/owner-approvals.ts")}
   `;
     return renderPage("Approvals", content, "/gui/owner/approvals", "owner");
 }

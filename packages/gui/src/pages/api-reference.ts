@@ -1,4 +1,5 @@
 import { renderPage } from '../layout.js';
+import { assetTags } from '../manifest.js';
 
 export function renderApiReference(): string {
   const content = `
@@ -21,30 +22,7 @@ export function renderApiReference(): string {
         ></iframe>
       </div>
     </div>
-    <script>
-    (function(){
-      var frame=document.getElementById('scalar-frame');
-      function isLight(){
-        var t=localStorage.getItem('ol_theme')||'system';
-        return t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches);
-      }
-      function syncTheme(){
-        try{
-          var doc=frame.contentDocument;
-          if(!doc)return;
-          var el=doc.body;
-          if(!el)return;
-          var light=isLight();
-          el.classList.toggle('light-mode',light);
-          el.classList.toggle('dark-mode',!light);
-        }catch(e){}
-      }
-      frame.addEventListener('load',function(){syncTheme();});
-      var obs=new MutationObserver(function(){syncTheme();});
-      obs.observe(document.body,{attributes:true,attributeFilter:['class']});
-      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',function(){syncTheme();});
-    })();
-    </script>
+    ${assetTags("pages/api-reference.ts")}
   `;
 
   return renderPage('API Reference', content, '/gui/api-reference');

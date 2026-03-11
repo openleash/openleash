@@ -7,6 +7,7 @@ import {
     infoIcon,
     INFO_AGENT_STATUS,
 } from "../layout.js";
+import { assetTags } from "../manifest.js";
 
 export interface AgentData {
     agent_principal_id: string;
@@ -116,62 +117,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
       </table>
     </div>
 
-    <script>
-      function toggleInviteForm() {
-        document.getElementById('invite-form').classList.toggle('hidden');
-      }
-
-      async function createAgentInvite() {
-        var ownerPrincipalId = document.getElementById('owner-select').value;
-        var btn = document.getElementById('invite-btn');
-
-        olFieldError('owner-select', '');
-        if (!ownerPrincipalId) {
-          olFieldError('owner-select', 'Please select an owner');
-          return;
-        }
-
-        btn.disabled = true;
-        btn.textContent = 'Creating invite...';
-
-        try {
-          var res = await fetch('/v1/admin/owners/' + encodeURIComponent(ownerPrincipalId) + '/agent-invite', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: '{}',
-          });
-
-          if (!res.ok) {
-            var err = await res.json();
-            throw new Error(olApiError(err, 'Failed to create invite'));
-          }
-
-          var data = await res.json();
-          var baseUrl = window.location.origin;
-          var inviteUrl = baseUrl + '/v1/agents/register-with-invite?invite_id=' + encodeURIComponent(data.invite_id) + '&invite_token=' + encodeURIComponent(data.invite_token);
-
-          document.getElementById('invite-url').textContent = inviteUrl;
-          document.getElementById('invite-result').classList.remove('hidden');
-          document.getElementById('invite-form').classList.add('hidden');
-
-          olToast('Agent invite created', 'success');
-        } catch (err) {
-          olToast(String(err.message || err), 'error');
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Create Invite';
-        }
-      }
-
-      async function copyInviteUrl() {
-        var url = document.getElementById('invite-url').textContent;
-        await navigator.clipboard.writeText(url);
-        var btn = event.target;
-        var orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(function() { btn.textContent = orig; }, 2000);
-      }
-    </script>
+    ${assetTags("pages/agents.ts")}
   `;
 
     return renderPage("Agents", content, "/gui/agents");
