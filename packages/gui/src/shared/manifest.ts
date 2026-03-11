@@ -36,7 +36,7 @@ export function resolveAsset(entry: string): string | null {
     if (!cachedManifest) return null;
     const manifestEntry = cachedManifest[entry];
     if (!manifestEntry) return null;
-    return `/gui/assets/${manifestEntry.file}`;
+    return `/gui/${manifestEntry.file}`;
 }
 
 /**
@@ -46,7 +46,7 @@ export function resolveAssetCss(entry: string): string[] {
     if (!cachedManifest) return [];
     const manifestEntry = cachedManifest[entry];
     if (!manifestEntry?.css) return [];
-    return manifestEntry.css.map((f) => `/gui/assets/${f}`);
+    return manifestEntry.css.map((f) => `/gui/${f}`);
 }
 
 /**
