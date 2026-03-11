@@ -5,7 +5,12 @@
     "rootDir": "./src"
   },
   "include": ["src/**/*"],
-  "exclude": ["client/**/*"],
+  "exclude": [
+    "src/shared/common.ts",
+    "src/pages/*/client.ts",
+    "src/shared/styles/**",
+    "src/pages/**/*.css"
+  ],
   "references": [
     { "path": "../core" }
   ]

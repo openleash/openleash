@@ -2,31 +2,53 @@ import { defineConfig } from "vite";
 import { resolve } from "node:path";
 
 export default defineConfig({
-    root: resolve(__dirname, "client"),
+    root: resolve(__dirname, "src"),
     build: {
         outDir: resolve(__dirname, "dist/client"),
         manifest: true,
         rollupOptions: {
             input: {
-                common: resolve(__dirname, "client/common.ts"),
-                "pages/owner-profile": resolve(__dirname, "client/pages/owner-profile.ts"),
-                "pages/owner-policies": resolve(__dirname, "client/pages/owner-policies.ts"),
-                "pages/owner-agents": resolve(__dirname, "client/pages/owner-agents.ts"),
-                "pages/owner-approvals": resolve(__dirname, "client/pages/owner-approvals.ts"),
-                "pages/owner-policy-create": resolve(
+                "shared/common": resolve(__dirname, "src/shared/common.ts"),
+                "pages/audit/client": resolve(__dirname, "src/pages/audit/client.ts"),
+                "pages/owners/client": resolve(__dirname, "src/pages/owners/client.ts"),
+                "pages/agents/client": resolve(__dirname, "src/pages/agents/client.ts"),
+                "pages/mcp-glove/client": resolve(__dirname, "src/pages/mcp-glove/client.ts"),
+                "pages/api-reference/client": resolve(
                     __dirname,
-                    "client/pages/owner-policy-create.ts",
+                    "src/pages/api-reference/client.ts",
                 ),
-                "pages/agents": resolve(__dirname, "client/pages/agents.ts"),
-                "pages/owners": resolve(__dirname, "client/pages/owners.ts"),
-                "pages/audit": resolve(__dirname, "client/pages/audit.ts"),
-                "pages/dashboard": resolve(__dirname, "client/pages/dashboard.ts"),
-                "pages/policies": resolve(__dirname, "client/pages/policies.ts"),
-                "pages/mcp-glove": resolve(__dirname, "client/pages/mcp-glove.ts"),
-                "pages/api-reference": resolve(__dirname, "client/pages/api-reference.ts"),
-                "pages/owner-login": resolve(__dirname, "client/pages/owner-login.ts"),
-                "pages/owner-setup": resolve(__dirname, "client/pages/owner-setup.ts"),
-                "pages/initial-setup": resolve(__dirname, "client/pages/initial-setup.ts"),
+                "pages/owner-login/client": resolve(
+                    __dirname,
+                    "src/pages/owner-login/client.ts",
+                ),
+                "pages/owner-setup/client": resolve(
+                    __dirname,
+                    "src/pages/owner-setup/client.ts",
+                ),
+                "pages/owner-profile/client": resolve(
+                    __dirname,
+                    "src/pages/owner-profile/client.ts",
+                ),
+                "pages/owner-policies/client": resolve(
+                    __dirname,
+                    "src/pages/owner-policies/client.ts",
+                ),
+                "pages/owner-policy-create/client": resolve(
+                    __dirname,
+                    "src/pages/owner-policy-create/client.ts",
+                ),
+                "pages/owner-agents/client": resolve(
+                    __dirname,
+                    "src/pages/owner-agents/client.ts",
+                ),
+                "pages/owner-approvals/client": resolve(
+                    __dirname,
+                    "src/pages/owner-approvals/client.ts",
+                ),
+                "pages/initial-setup/client": resolve(
+                    __dirname,
+                    "src/pages/initial-setup/client.ts",
+                ),
             },
         },
     },
