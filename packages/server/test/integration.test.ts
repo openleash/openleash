@@ -103,6 +103,8 @@ rules:
       policy_id: policyId,
       owner_principal_id: ownerPrincipalId,
       applies_to_agent_principal_id: null,
+      name: null,
+      description: null,
       path: `./policies/${policyId}.yaml`,
     });
     // Replace existing bindings so our test policy is used

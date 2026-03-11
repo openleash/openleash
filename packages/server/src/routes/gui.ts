@@ -248,6 +248,8 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
         policy_id: policyId,
         owner_principal_id: entry.owner_principal_id,
         applies_to_agent_principal_id: entry.applies_to_agent_principal_id,
+        name: entry.name ?? null,
+        description: entry.description ?? null,
         policy_yaml: yaml,
       }, state.bindings, { owners: ownerNames as Map<string, string>, agents: agentNames });
       reply.type('text/html').send(html);
@@ -427,9 +429,9 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
       .map((entry) => {
         try {
           const yaml = readPolicyFile(dataDir, entry.policy_id);
-          return { policy_id: entry.policy_id, applies_to_agent_principal_id: entry.applies_to_agent_principal_id, policy_yaml: yaml };
+          return { policy_id: entry.policy_id, applies_to_agent_principal_id: entry.applies_to_agent_principal_id, name: entry.name ?? null, description: entry.description ?? null, policy_yaml: yaml };
         } catch {
-          return { policy_id: entry.policy_id, applies_to_agent_principal_id: entry.applies_to_agent_principal_id };
+          return { policy_id: entry.policy_id, applies_to_agent_principal_id: entry.applies_to_agent_principal_id, name: entry.name ?? null, description: entry.description ?? null };
         }
       });
     const draftEntries = (state.policy_drafts ?? [])
@@ -442,6 +444,8 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
           agent_id: draft.agent_id,
           agent_principal_id: draft.agent_principal_id,
           applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
+          name: draft.name ?? null,
+          description: draft.description ?? null,
           policy_yaml: draft.policy_yaml,
           justification: draft.justification,
           status: draft.status,
@@ -456,6 +460,8 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
           agent_id: 'unknown',
           agent_principal_id: entry.agent_principal_id,
           applies_to_agent_principal_id: null,
+          name: null,
+          description: null,
           policy_yaml: '',
           justification: null,
           status: entry.status,

@@ -294,6 +294,8 @@ export async function wizardCommand() {
     policy_id: policyId,
     owner_principal_id: ownerId,
     applies_to_agent_principal_id: null,
+    name: null,
+    description: null,
     path: `./policies/${policyId}.yaml`,
   });
   stateForPolicy.bindings.push({

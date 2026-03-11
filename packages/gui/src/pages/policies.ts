@@ -4,6 +4,8 @@ export interface PolicyListEntry {
   policy_id: string;
   owner_principal_id: string;
   applies_to_agent_principal_id: string | null;
+  name: string | null;
+  description: string | null;
   policy_yaml?: string;
   error?: string;
 }
@@ -15,18 +17,23 @@ export interface BindingEntry {
 }
 
 export function renderPolicies(policies: PolicyListEntry[]): string {
-  const rows = policies.map((p) => `
+  const rows = policies.map((p) => {
+    const displayName = p.name ? escapeHtml(p.name) : `<span style="color:var(--text-muted)">${escapeHtml(p.policy_id.slice(0, 8))}...</span>`;
+    const descLine = p.description ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${escapeHtml(p.description)}</div>` : '';
+    return `
     <tr>
-      <td class="mono truncate" title="${escapeHtml(p.policy_id)}">
-        <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id.slice(0, 8))}...</a>
+      <td>
+        <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${displayName}</a>
+        ${descLine}
+        <div style="margin-top:2px">${copyableId(p.policy_id)}</div>
       </td>
       <td>${copyableId(p.owner_principal_id)}</td>
       <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span style="color:var(--text-muted)">all agents</span>'}</td>
       <td>
         <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="btn btn-secondary" style="padding:4px 10px;font-size:12px">View</a>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 
   const emptyState = `
     <div class="card" style="text-align:center;padding:48px 24px">
@@ -97,10 +104,10 @@ rules:
     ${policies.length === 0 ? emptyState : `
     <div class="card">
       <table>
-        <colgroup><col style="width:290px"><col style="width:290px"><col><col style="width:140px"></colgroup>
+        <colgroup><col><col style="width:290px"><col style="width:200px"><col style="width:100px"></colgroup>
         <thead>
           <tr>
-            <th>Policy ID</th>
+            <th>Policy</th>
             <th>Owner</th>
             <th>Applies To</th>
             <th>Actions</th>
@@ -121,6 +128,8 @@ export interface PolicyDetail {
   policy_id: string;
   owner_principal_id: string;
   applies_to_agent_principal_id: string | null;
+  name: string | null;
+  description: string | null;
   policy_yaml: string;
 }
 
@@ -139,7 +148,8 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
 
   const content = `
     <div class="page-header">
-      <h2>View Policy</h2>
+      <h2>${policy.name ? escapeHtml(policy.name) : 'View Policy'}</h2>
+      ${policy.description ? `<p style="color:var(--text-secondary)">${escapeHtml(policy.description)}</p>` : ''}
       <p>${copyableId(policy.policy_id, policy.policy_id.length)}</p>
     </div>
 
@@ -148,6 +158,14 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
       <table style="margin-bottom:20px">
         <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
+          ${policy.name ? `<tr>
+            <td style="color:var(--text-muted)">Name</td>
+            <td>${escapeHtml(policy.name)}</td>
+          </tr>` : ''}
+          ${policy.description ? `<tr>
+            <td style="color:var(--text-muted)">Description</td>
+            <td>${escapeHtml(policy.description)}</td>
+          </tr>` : ''}
           <tr>
             <td style="color:var(--text-muted)">Owner</td>
             <td>${formatNameWithId(ownerMap.get(policy.owner_principal_id), policy.owner_principal_id)}</td>

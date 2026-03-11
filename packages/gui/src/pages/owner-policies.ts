@@ -3,6 +3,8 @@ import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_POL
 export interface OwnerPolicyEntry {
   policy_id: string;
   applies_to_agent_principal_id: string | null;
+  name: string | null;
+  description: string | null;
   policy_yaml?: string;
 }
 
@@ -11,6 +13,8 @@ export interface OwnerPolicyDraftEntry {
   agent_id: string;
   agent_principal_id: string;
   applies_to_agent_principal_id: string | null;
+  name: string | null;
+  description: string | null;
   policy_yaml: string;
   justification: string | null;
   status: string;
@@ -87,7 +91,7 @@ export function renderOwnerPolicies(
 
   // --- Active Policies section ---
   const policyRows = policies.length === 0
-    ? '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:24px">No policies</td></tr>'
+    ? '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">No policies</td></tr>'
     : policies.map((p) => {
       let appliesTo: string;
       if (!p.applies_to_agent_principal_id) {
@@ -96,9 +100,15 @@ export function renderOwnerPolicies(
         const name = agentNames?.get(p.applies_to_agent_principal_id) ?? null;
         appliesTo = name ? escapeHtml(name) : copyableId(p.applies_to_agent_principal_id);
       }
+      const displayName = p.name ? escapeHtml(p.name) : `<span style="color:var(--text-muted)">${escapeHtml(p.policy_id.slice(0, 8))}...</span>`;
+      const descLine = p.description ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${escapeHtml(p.description)}</div>` : '';
       return `
       <tr id="policy-row-${escapeHtml(p.policy_id)}">
-        <td>${copyableId(p.policy_id)}</td>
+        <td>
+          <div>${displayName}</div>
+          ${descLine}
+          <div style="margin-top:2px">${copyableId(p.policy_id)}</div>
+        </td>
         <td>${appliesTo}</td>
         <td>
           <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="toggleEditor('${escapeHtml(p.policy_id)}')">Edit</button>
@@ -106,8 +116,18 @@ export function renderOwnerPolicies(
         </td>
       </tr>
       <tr id="editor-row-${escapeHtml(p.policy_id)}" class="hidden">
-        <td colspan="3" style="padding:12px 16px;background:var(--bg-elevated)">
+        <td colspan="4" style="padding:12px 16px;background:var(--bg-elevated)">
           <div id="editor-status-${escapeHtml(p.policy_id)}"></div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <div style="flex:1">
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px">Name</label>
+              <input type="text" id="editor-name-${escapeHtml(p.policy_id)}" value="${escapeHtml(p.name ?? '')}" placeholder="e.g. Read-only access" style="width:100%;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-primary);font-size:13px">
+            </div>
+            <div style="flex:2">
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px">Description</label>
+              <input type="text" id="editor-desc-${escapeHtml(p.policy_id)}" value="${escapeHtml(p.description ?? '')}" placeholder="What does this policy do?" style="width:100%;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-primary);font-size:13px">
+            </div>
+          </div>
           <textarea id="editor-yaml-${escapeHtml(p.policy_id)}" class="yaml-editor" style="width:100%;height:240px;margin-bottom:8px;font-size:13px">${escapeHtml(p.policy_yaml ?? '')}</textarea>
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="savePolicy('${escapeHtml(p.policy_id)}')">Save</button>
@@ -124,9 +144,12 @@ export function renderOwnerPolicies(
 
   const pendingRows = pending.length === 0
     ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No pending policy drafts</td></tr>'
-    : pending.map((d) => `
+    : pending.map((d) => {
+      const draftName = d.name ? `<div style="font-weight:600">${escapeHtml(d.name)}</div>` : '';
+      const draftDesc = d.description ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${escapeHtml(d.description)}</div>` : '';
+      return `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
-        <td>${copyableId(d.policy_draft_id)} <span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td>${draftName}${draftDesc}<div style="margin-top:${d.name ? '2px' : '0'}">${copyableId(d.policy_draft_id)}</div> <span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td${d.justification ? ` title="${escapeHtml(d.justification)}"` : ''}>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
@@ -143,16 +166,18 @@ export function renderOwnerPolicies(
           <div class="accordion-content">${escapeHtml(d.policy_yaml)}</div>
         </td>
       </tr>
-    `).join('');
+    `;}).join('');
 
   // --- Resolved Drafts section ---
   const resolvedRows = resolved.length === 0
     ? ''
     : resolved.map((d) => {
       const badge = d.status === 'APPROVED' ? 'badge-green' : d.status === 'DENIED' ? 'badge-red' : 'badge-muted';
+      const rName = d.name ? `<div style="font-weight:600">${escapeHtml(d.name)}</div>` : '';
+      const rDesc = d.description ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${escapeHtml(d.description)}</div>` : '';
       return `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
-        <td>${copyableId(d.policy_draft_id)} <span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td>${rName}${rDesc}<div style="margin-top:${d.name ? '2px' : '0'}">${copyableId(d.policy_draft_id)}</div> <span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td><span class="badge ${badge}">${escapeHtml(d.status)}</span></td>
@@ -179,9 +204,9 @@ export function renderOwnerPolicies(
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Active Policies</h3>
       <table>
-        <colgroup><col style="width:290px"><col><col style="width:150px"></colgroup>
+        <colgroup><col><col style="width:200px"><col style="width:150px"></colgroup>
         <thead>
-          <tr><th>Policy ID</th><th>Applies To</th><th>Actions</th></tr>
+          <tr><th>Policy</th><th>Applies To</th><th>Actions</th></tr>
         </thead>
         <tbody>${policyRows}</tbody>
       </table>
@@ -234,13 +259,15 @@ export function renderOwnerPolicies(
 
       async function savePolicy(policyId) {
         var yaml = document.getElementById('editor-yaml-' + policyId).value;
+        var name = document.getElementById('editor-name-' + policyId).value;
+        var desc = document.getElementById('editor-desc-' + policyId).value;
         var statusDiv = document.getElementById('editor-status-' + policyId);
         statusDiv.innerHTML = '';
 
         var res = await fetch('/v1/owner/policies/' + policyId, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ policy_yaml: yaml }),
+          body: JSON.stringify({ policy_yaml: yaml, name: name || null, description: desc || null }),
         });
 
         if (res.ok) {

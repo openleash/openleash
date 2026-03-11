@@ -440,6 +440,8 @@ export async function createPolicyDraft(params: {
   privateKeyB64: string;
   policyYaml: string;
   appliesToAgentPrincipalId?: string | null;
+  name?: string;
+  description?: string;
   justification?: string;
 }): Promise<{
   policy_draft_id: string;
@@ -449,6 +451,8 @@ export async function createPolicyDraft(params: {
   const body: Record<string, unknown> = {
     policy_yaml: params.policyYaml,
     ...(params.appliesToAgentPrincipalId !== undefined && { applies_to_agent_principal_id: params.appliesToAgentPrincipalId }),
+    ...(params.name && { name: params.name }),
+    ...(params.description && { description: params.description }),
     ...(params.justification && { justification: params.justification }),
   };
   const bodyBytes = Buffer.from(JSON.stringify(body));
@@ -489,6 +493,8 @@ export async function getPolicyDraft(params: {
 }): Promise<{
   policy_draft_id: string;
   status: string;
+  name: string | null;
+  description: string | null;
   policy_yaml: string;
   applies_to_agent_principal_id: string | null;
   justification: string | null;
@@ -527,6 +533,8 @@ export async function getPolicyDraft(params: {
   return res.json() as Promise<{
     policy_draft_id: string;
     status: string;
+    name: string | null;
+    description: string | null;
     policy_yaml: string;
     applies_to_agent_principal_id: string | null;
     justification: string | null;
@@ -546,6 +554,8 @@ export async function listPolicyDrafts(params: {
   policy_drafts: Array<{
     policy_draft_id: string;
     status: string;
+    name: string | null;
+    description: string | null;
     justification: string | null;
     created_at: string;
     resolved_at: string | null;
@@ -586,6 +596,8 @@ export async function listPolicyDrafts(params: {
     policy_drafts: Array<{
       policy_draft_id: string;
       status: string;
+      name: string | null;
+      description: string | null;
       justification: string | null;
       created_at: string;
       resolved_at: string | null;

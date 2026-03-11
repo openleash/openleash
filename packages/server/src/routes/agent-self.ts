@@ -191,6 +191,8 @@ export function registerAgentSelfRoutes(
     const body = request.body as {
       policy_yaml: string;
       applies_to_agent_principal_id?: string | null;
+      name?: string;
+      description?: string;
       justification?: string;
     };
 
@@ -222,6 +224,8 @@ export function registerAgentSelfRoutes(
       applies_to_agent_principal_id: body.applies_to_agent_principal_id !== undefined
         ? body.applies_to_agent_principal_id
         : agentEntry.agent_principal_id,
+      name: body.name?.trim() || null,
+      description: body.description?.trim() || null,
       policy_yaml: body.policy_yaml,
       justification: body.justification ?? null,
       status: 'PENDING',
@@ -281,6 +285,8 @@ export function registerAgentSelfRoutes(
         return {
           policy_draft_id: draft.policy_draft_id,
           status: draft.status,
+          name: draft.name ?? null,
+          description: draft.description ?? null,
           justification: draft.justification,
           created_at: draft.created_at,
           resolved_at: draft.resolved_at,
@@ -317,6 +323,8 @@ export function registerAgentSelfRoutes(
       return {
         policy_draft_id: draft.policy_draft_id,
         status: draft.status,
+        name: draft.name ?? null,
+        description: draft.description ?? null,
         policy_yaml: draft.policy_yaml,
         applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
         justification: draft.justification,

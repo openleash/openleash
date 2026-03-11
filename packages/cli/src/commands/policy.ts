@@ -108,6 +108,8 @@ export async function policyUpsertCommand(args: string[]) {
     policy_id: newId,
     owner_principal_id: ownerPrincipalId,
     applies_to_agent_principal_id: appliesToAgent,
+    name: null,
+    description: null,
     path: `./policies/${newId}.yaml`,
   });
   state.bindings.push({

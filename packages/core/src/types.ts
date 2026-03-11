@@ -179,6 +179,8 @@ export interface StatePolicyEntry {
   policy_id: string;
   owner_principal_id: string;
   applies_to_agent_principal_id: string | null;
+  name: string | null;
+  description: string | null;
   path: string;
 }
 
@@ -303,6 +305,8 @@ export interface PolicyDraftFrontmatter {
   agent_id: string;
   owner_principal_id: string;
   applies_to_agent_principal_id: string | null;
+  name: string | null;
+  description: string | null;
   policy_yaml: string;
   justification: string | null;
   status: PolicyDraftStatus;

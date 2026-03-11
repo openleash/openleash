@@ -48,6 +48,8 @@ describe('GUI routes', () => {
       policy_id: policyId,
       owner_principal_id: ownerPrincipalId,
       applies_to_agent_principal_id: null,
+      name: null,
+      description: null,
       path: `./policies/${policyId}.yaml`,
     });
     state.bindings.push({
@@ -196,6 +198,8 @@ describe('admin API - new endpoints', () => {
       policy_id: policyId,
       owner_principal_id: ownerPrincipalId,
       applies_to_agent_principal_id: null,
+      name: null,
+      description: null,
       path: `./policies/${policyId}.yaml`,
     });
     writeState(dataDir, state);

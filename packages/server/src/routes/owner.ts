@@ -471,6 +471,8 @@ export function registerOwnerRoutes(
     const body = request.body as {
       applies_to_agent_principal_id?: string | null;
       policy_yaml: string;
+      name?: string;
+      description?: string;
     };
 
     try {
@@ -487,11 +489,15 @@ export function registerOwnerRoutes(
 
     const state = readState(dataDir);
     const appliesToAgent = body.applies_to_agent_principal_id ?? null;
+    const policyName = body.name?.trim() || null;
+    const policyDescription = body.description?.trim() || null;
 
     state.policies.push({
       policy_id: policyId,
       owner_principal_id: session.sub,
       applies_to_agent_principal_id: appliesToAgent,
+      name: policyName,
+      description: policyDescription,
       path: `./policies/${policyId}.yaml`,
     });
 
@@ -547,7 +553,7 @@ export function registerOwnerRoutes(
   app.put('/v1/owner/policies/:policyId', { preHandler: ownerAuth }, async (request, reply) => {
     const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
     const { policyId } = request.params as { policyId: string };
-    const body = request.body as { policy_yaml: string };
+    const body = request.body as { policy_yaml?: string; name?: string | null; description?: string | null };
 
     const state = readState(dataDir);
     const entry = state.policies.find(
@@ -561,16 +567,30 @@ export function registerOwnerRoutes(
       return;
     }
 
-    try {
-      parsePolicyYaml(body.policy_yaml);
-    } catch (e: unknown) {
-      reply.code(400).send({
-        error: { code: 'INVALID_POLICY', message: (e as Error).message },
-      });
-      return;
+    if (body.policy_yaml !== undefined) {
+      try {
+        parsePolicyYaml(body.policy_yaml);
+      } catch (e: unknown) {
+        reply.code(400).send({
+          error: { code: 'INVALID_POLICY', message: (e as Error).message },
+        });
+        return;
+      }
+      writePolicyFile(dataDir, policyId, body.policy_yaml);
     }
 
-    writePolicyFile(dataDir, policyId, body.policy_yaml);
+    let stateChanged = false;
+    if (body.name !== undefined) {
+      entry.name = body.name?.trim() || null;
+      stateChanged = true;
+    }
+    if (body.description !== undefined) {
+      entry.description = body.description?.trim() || null;
+      stateChanged = true;
+    }
+    if (stateChanged) {
+      writeState(dataDir, state);
+    }
 
     appendAuditEvent(dataDir, 'POLICY_UPDATED', {
       policy_id: policyId,
@@ -1047,6 +1067,8 @@ export function registerOwnerRoutes(
       policy_id: policyId,
       owner_principal_id: session.sub,
       applies_to_agent_principal_id: appliesToAgent,
+      name: draft.name ?? null,
+      description: draft.description ?? null,
       path: `./policies/${policyId}.yaml`,
     });
 
