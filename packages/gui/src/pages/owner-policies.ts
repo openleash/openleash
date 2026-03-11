@@ -1,108 +1,122 @@
-import { renderPage, escapeHtml, copyableId, formatTimestamp, infoIcon, INFO_POLICY_DRAFTS } from '../layout.js';
+import {
+    renderPage,
+    escapeHtml,
+    copyableId,
+    formatTimestamp,
+    infoIcon,
+    INFO_POLICY_DRAFTS,
+} from "../layout.js";
 
 export interface OwnerPolicyEntry {
-  policy_id: string;
-  applies_to_agent_principal_id: string | null;
-  name: string | null;
-  description: string | null;
-  policy_yaml?: string;
+    policy_id: string;
+    applies_to_agent_principal_id: string | null;
+    name: string | null;
+    description: string | null;
+    policy_yaml?: string;
 }
 
 export interface OwnerPolicyDraftEntry {
-  policy_draft_id: string;
-  agent_id: string;
-  agent_principal_id: string;
-  applies_to_agent_principal_id: string | null;
-  name: string | null;
-  description: string | null;
-  policy_yaml: string;
-  justification: string | null;
-  status: string;
-  resulting_policy_id: string | null;
-  denial_reason: string | null;
-  created_at: string;
-  resolved_at: string | null;
+    policy_draft_id: string;
+    agent_id: string;
+    agent_principal_id: string;
+    applies_to_agent_principal_id: string | null;
+    name: string | null;
+    description: string | null;
+    policy_yaml: string;
+    justification: string | null;
+    status: string;
+    resulting_policy_id: string | null;
+    denial_reason: string | null;
+    created_at: string;
+    resolved_at: string | null;
 }
 
 export interface OwnerPoliciesOptions {
-  totp_enabled?: boolean;
-  require_totp?: boolean;
-  agent_names?: Map<string, string>;
+    totp_enabled?: boolean;
+    require_totp?: boolean;
+    agent_names?: Map<string, string>;
 }
 
 function appliesToCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string>): string {
-  const isSelf = d.applies_to_agent_principal_id === d.agent_principal_id;
-  const isAll = !d.applies_to_agent_principal_id;
+    const isSelf = d.applies_to_agent_principal_id === d.agent_principal_id;
+    const isAll = !d.applies_to_agent_principal_id;
 
-  if (isAll) {
-    return `<span class="badge badge-amber" style="font-size:10px" title="This policy will apply to ALL your agents, not just the one suggesting it">All agents</span>`;
-  }
-  if (isSelf) {
+    if (isAll) {
+        return `<span class="badge badge-amber" style="font-size:10px" title="This policy will apply to ALL your agents, not just the one suggesting it">All agents</span>`;
+    }
+    if (isSelf) {
+        const name = agentNames?.get(d.applies_to_agent_principal_id!) ?? null;
+        const display = name
+            ? `${escapeHtml(name)} (self)`
+            : `${copyableId(d.applies_to_agent_principal_id!)} <span style="color:var(--text-muted);font-size:11px">(self)</span>`;
+        return display;
+    }
+    // Other agent
     const name = agentNames?.get(d.applies_to_agent_principal_id!) ?? null;
-    const display = name
-      ? `${escapeHtml(name)} (self)`
-      : `${copyableId(d.applies_to_agent_principal_id!)} <span style="color:var(--text-muted);font-size:11px">(self)</span>`;
-    return display;
-  }
-  // Other agent
-  const name = agentNames?.get(d.applies_to_agent_principal_id!) ?? null;
-  const display = name
-    ? escapeHtml(name)
-    : copyableId(d.applies_to_agent_principal_id!);
-  return `${display} <span class="badge badge-amber" style="font-size:10px;margin-left:4px" title="This agent is suggesting a policy for a DIFFERENT agent">other agent</span>`;
+    const display = name ? escapeHtml(name) : copyableId(d.applies_to_agent_principal_id!);
+    return `${display} <span class="badge badge-amber" style="font-size:10px;margin-left:4px" title="This agent is suggesting a policy for a DIFFERENT agent">other agent</span>`;
 }
 
 function suggestedByCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string>): string {
-  const name = agentNames?.get(d.agent_principal_id) ?? null;
-  if (name) {
-    return escapeHtml(name);
-  }
-  return copyableId(d.agent_id, d.agent_id.length);
+    const name = agentNames?.get(d.agent_principal_id) ?? null;
+    if (name) {
+        return escapeHtml(name);
+    }
+    return copyableId(d.agent_id, d.agent_id.length);
 }
 
 function scopeWarning(d: OwnerPolicyDraftEntry): string {
-  const isSelf = d.applies_to_agent_principal_id === d.agent_principal_id;
-  const isAll = !d.applies_to_agent_principal_id;
+    const isSelf = d.applies_to_agent_principal_id === d.agent_principal_id;
+    const isAll = !d.applies_to_agent_principal_id;
 
-  if (isAll) {
-    return `<div class="alert" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);color:var(--amber-bright);padding:8px 12px;margin-top:8px;font-size:12px">
+    if (isAll) {
+        return `<div class="alert" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);color:var(--amber-bright);padding:8px 12px;margin-top:8px;font-size:12px">
       <strong>Broad scope:</strong> Agent <span class="mono">${escapeHtml(d.agent_id)}</span> is proposing a policy that applies to <strong>all your agents</strong>, not just itself. Review carefully.
     </div>`;
-  }
-  if (!isSelf) {
-    return `<div class="alert" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);color:var(--amber-bright);padding:8px 12px;margin-top:8px;font-size:12px">
+    }
+    if (!isSelf) {
+        return `<div class="alert" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);color:var(--amber-bright);padding:8px 12px;margin-top:8px;font-size:12px">
       <strong>Cross-agent:</strong> Agent <span class="mono">${escapeHtml(d.agent_id)}</span> is proposing a policy for a <strong>different agent</strong> (${copyableId(d.applies_to_agent_principal_id!)}). Review carefully.
     </div>`;
-  }
-  return '';
+    }
+    return "";
 }
 
 export function renderOwnerPolicies(
-  policies: OwnerPolicyEntry[],
-  drafts: OwnerPolicyDraftEntry[],
-  options?: OwnerPoliciesOptions
+    policies: OwnerPolicyEntry[],
+    drafts: OwnerPolicyDraftEntry[],
+    options?: OwnerPoliciesOptions,
 ): string {
-  const totpEnabled = options?.totp_enabled ?? false;
-  const requireTotp = options?.require_totp ?? false;
-  const agentNames = options?.agent_names;
-  const disableActions = requireTotp && !totpEnabled;
-  const pending = drafts.filter((d) => d.status === 'PENDING');
-  const resolved = drafts.filter((d) => d.status !== 'PENDING');
+    const totpEnabled = options?.totp_enabled ?? false;
+    const requireTotp = options?.require_totp ?? false;
+    const agentNames = options?.agent_names;
+    const disableActions = requireTotp && !totpEnabled;
+    const pending = drafts.filter((d) => d.status === "PENDING");
+    const resolved = drafts.filter((d) => d.status !== "PENDING");
 
-  // --- Active Policies section ---
-  const policyRows = policies.length === 0
-    ? '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">No policies</td></tr>'
-    : policies.map((p) => {
-      let appliesTo: string;
-      if (!p.applies_to_agent_principal_id) {
-        appliesTo = '<span class="badge badge-amber" style="font-size:10px" title="This policy applies to ALL your agents">All agents</span>';
-      } else {
-        const name = agentNames?.get(p.applies_to_agent_principal_id) ?? null;
-        appliesTo = name ? escapeHtml(name) : copyableId(p.applies_to_agent_principal_id);
-      }
-      const displayName = p.name ? escapeHtml(p.name) : `<span style="color:var(--text-muted)">${escapeHtml(p.policy_id.slice(0, 8))}...</span>`;
-      const descLine = p.description ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${escapeHtml(p.description)}</div>` : '';
-      return `
+    // --- Active Policies section ---
+    const policyRows =
+        policies.length === 0
+            ? '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">No policies</td></tr>'
+            : policies
+                  .map((p) => {
+                      let appliesTo: string;
+                      if (!p.applies_to_agent_principal_id) {
+                          appliesTo =
+                              '<span class="badge badge-amber" style="font-size:10px" title="This policy applies to ALL your agents">All agents</span>';
+                      } else {
+                          const name = agentNames?.get(p.applies_to_agent_principal_id) ?? null;
+                          appliesTo = name
+                              ? escapeHtml(name)
+                              : copyableId(p.applies_to_agent_principal_id);
+                      }
+                      const displayName = p.name
+                          ? escapeHtml(p.name)
+                          : `<span style="color:var(--text-muted)">${escapeHtml(p.policy_id.slice(0, 8))}...</span>`;
+                      const descLine = p.description
+                          ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${escapeHtml(p.description)}</div>`
+                          : "";
+                      return `
       <tr id="policy-row-${escapeHtml(p.policy_id)}">
         <td>
           <div>${displayName}</div>
@@ -112,7 +126,7 @@ export function renderOwnerPolicies(
         <td>${appliesTo}</td>
         <td>
           <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="toggleEditor('${escapeHtml(p.policy_id)}')">Edit</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="deletePolicy('${escapeHtml(p.policy_id)}')">Delete</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="deletePolicy('${escapeHtml(p.policy_id)}')" ${disableActions ? "disabled" : ""}>Delete</button>
         </td>
       </tr>
       <tr id="editor-row-${escapeHtml(p.policy_id)}" class="hidden">
@@ -121,42 +135,51 @@ export function renderOwnerPolicies(
           <div style="display:flex;gap:8px;margin-bottom:8px">
             <div style="flex:1">
               <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px">Name</label>
-              <input type="text" id="editor-name-${escapeHtml(p.policy_id)}" value="${escapeHtml(p.name ?? '')}" placeholder="e.g. Read-only access" style="width:100%;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-primary);font-size:13px">
+              <input type="text" id="editor-name-${escapeHtml(p.policy_id)}" value="${escapeHtml(p.name ?? "")}" placeholder="e.g. Read-only access" style="width:100%;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-primary);font-size:13px">
             </div>
             <div style="flex:2">
               <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px">Description</label>
-              <input type="text" id="editor-desc-${escapeHtml(p.policy_id)}" value="${escapeHtml(p.description ?? '')}" placeholder="What does this policy do?" style="width:100%;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-primary);font-size:13px">
+              <input type="text" id="editor-desc-${escapeHtml(p.policy_id)}" value="${escapeHtml(p.description ?? "")}" placeholder="What does this policy do?" style="width:100%;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-primary);font-size:13px">
             </div>
           </div>
-          <textarea id="editor-yaml-${escapeHtml(p.policy_id)}" class="yaml-editor" style="width:100%;height:240px;margin-bottom:8px;font-size:13px">${escapeHtml(p.policy_yaml ?? '')}</textarea>
+          <textarea id="editor-yaml-${escapeHtml(p.policy_id)}" class="yaml-editor" style="width:100%;height:240px;margin-bottom:8px;font-size:13px">${escapeHtml(p.policy_yaml ?? "")}</textarea>
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="savePolicy('${escapeHtml(p.policy_id)}')">Save</button>
             <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="toggleEditor('${escapeHtml(p.policy_id)}')">Cancel</button>
           </div>
         </td>
       </tr>
-    `;}).join('');
+    `;
+                  })
+                  .join("");
 
-  // --- Pending Drafts section ---
-  const totpBanner = requireTotp && !totpEnabled
-    ? '<div class="alert alert-error" style="margin-top:16px">Two-factor authentication is required to approve or deny drafts. <a href="/gui/owner/profile" style="color:inherit;text-decoration:underline">Set up 2FA in your Profile.</a></div>'
-    : '';
+    // --- Pending Drafts section ---
+    const totpBanner =
+        requireTotp && !totpEnabled
+            ? '<div class="alert alert-error" style="margin-top:16px">Two-factor authentication is required to delete policies or approve/deny drafts. <a href="/gui/owner/profile" style="color:inherit;text-decoration:underline">Set up 2FA in your Profile.</a></div>'
+            : "";
 
-  const pendingRows = pending.length === 0
-    ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No pending policy drafts</td></tr>'
-    : pending.map((d) => {
-      const draftName = d.name ? `<div style="font-weight:600">${escapeHtml(d.name)}</div>` : '';
-      const draftDesc = d.description ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${escapeHtml(d.description)}</div>` : '';
-      return `
+    const pendingRows =
+        pending.length === 0
+            ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No pending policy drafts</td></tr>'
+            : pending
+                  .map((d) => {
+                      const draftName = d.name
+                          ? `<div style="font-weight:600">${escapeHtml(d.name)}</div>`
+                          : "";
+                      const draftDesc = d.description
+                          ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${escapeHtml(d.description)}</div>`
+                          : "";
+                      return `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
-        <td>${draftName}${draftDesc}<div style="margin-top:${d.name ? '2px' : '0'}">${copyableId(d.policy_draft_id)}</div> <span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td>${draftName}${draftDesc}<div style="margin-top:${d.name ? "2px" : "0"}">${copyableId(d.policy_draft_id)}</div> <span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
-        <td${d.justification ? ` title="${escapeHtml(d.justification)}"` : ''}>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
+        <td${d.justification ? ` title="${escapeHtml(d.justification)}"` : ""}>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
         <td>${formatTimestamp(d.created_at)}</td>
         <td>
-          <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'approve')" ${disableActions ? 'disabled' : ''}>Approve</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'deny')" ${disableActions ? 'disabled' : ''}>Deny</button>
+          <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'approve')" ${disableActions ? "disabled" : ""}>Approve</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--red-bright);color:var(--red-bright)" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'deny')" ${disableActions ? "disabled" : ""}>Deny</button>
         </td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
@@ -166,24 +189,41 @@ export function renderOwnerPolicies(
           <div class="accordion-content">${escapeHtml(d.policy_yaml)}</div>
         </td>
       </tr>
-    `;}).join('');
+    `;
+                  })
+                  .join("");
 
-  // --- Resolved Drafts section ---
-  const resolvedRows = resolved.length === 0
-    ? ''
-    : resolved.map((d) => {
-      const badge = d.status === 'APPROVED' ? 'badge-green' : d.status === 'DENIED' ? 'badge-red' : 'badge-muted';
-      const rName = d.name ? `<div style="font-weight:600">${escapeHtml(d.name)}</div>` : '';
-      const rDesc = d.description ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${escapeHtml(d.description)}</div>` : '';
-      return `
+    // --- Resolved Drafts section ---
+    const resolvedRows =
+        resolved.length === 0
+            ? ""
+            : resolved
+                  .map((d) => {
+                      const badge =
+                          d.status === "APPROVED"
+                              ? "badge-green"
+                              : d.status === "DENIED"
+                                ? "badge-red"
+                                : "badge-muted";
+                      const rName = d.name
+                          ? `<div style="font-weight:600">${escapeHtml(d.name)}</div>`
+                          : "";
+                      const rDesc = d.description
+                          ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${escapeHtml(d.description)}</div>`
+                          : "";
+                      return `
       <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
-        <td>${rName}${rDesc}<div style="margin-top:${d.name ? '2px' : '0'}">${copyableId(d.policy_draft_id)}</div> <span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td>${rName}${rDesc}<div style="margin-top:${d.name ? "2px" : "0"}">${copyableId(d.policy_draft_id)}</div> <span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td><span class="badge ${badge}">${escapeHtml(d.status)}</span></td>
-        <td>${d.resulting_policy_id
-          ? `<a href="#policy-row-${escapeHtml(d.resulting_policy_id)}" style="color:var(--green-bright);text-decoration:none" title="Scroll to active policy">${copyableId(d.resulting_policy_id)}</a>`
-          : d.denial_reason ? escapeHtml(d.denial_reason) : '<span style="color:var(--text-muted)">-</span>'}</td>
+        <td>${
+            d.resulting_policy_id
+                ? `<a href="#policy-row-${escapeHtml(d.resulting_policy_id)}" style="color:var(--green-bright);text-decoration:none" title="Scroll to active policy">${copyableId(d.resulting_policy_id)}</a>`
+                : d.denial_reason
+                  ? escapeHtml(d.denial_reason)
+                  : '<span style="color:var(--text-muted)">-</span>'
+        }</td>
         <td>${formatTimestamp(d.created_at)}</td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
@@ -193,9 +233,10 @@ export function renderOwnerPolicies(
           <div class="accordion-content">${escapeHtml(d.policy_yaml)}</div>
         </td>
       </tr>`;
-    }).join('');
+                  })
+                  .join("");
 
-  const content = `
+    const content = `
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
       <h2>My Policies</h2>
       <a href="/gui/owner/policies/create" class="btn btn-primary" style="text-decoration:none"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">add</span>Create Policy</a>
@@ -213,7 +254,7 @@ export function renderOwnerPolicies(
     </div>
 
     <div class="card" style="padding:0;margin-top:20px">
-      <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Pending Drafts${infoIcon('policy-drafts-info', INFO_POLICY_DRAFTS)}</h3>
+      <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Pending Drafts${infoIcon("policy-drafts-info", INFO_POLICY_DRAFTS)}</h3>
       <p style="color:var(--text-secondary);font-size:13px;padding:0 20px;margin:8px 0">
         Your agents can propose new policies. Review and approve or deny them here.
       </p>
@@ -227,7 +268,9 @@ export function renderOwnerPolicies(
       </table>
     </div>
 
-    ${resolved.length > 0 ? `
+    ${
+        resolved.length > 0
+            ? `
     <div class="card" style="padding:0;margin-top:20px">
       <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Resolved Drafts</h3>
       <table>
@@ -237,7 +280,9 @@ export function renderOwnerPolicies(
         </thead>
         <tbody>${resolvedRows}</tbody>
       </table>
-    </div>` : ''}
+    </div>`
+            : ""
+    }
 
     <div id="resultMsg" class="alert" style="display:none;margin-top:16px"></div>
 
@@ -281,12 +326,20 @@ export function renderOwnerPolicies(
 
       async function deletePolicy(id) {
         if (!await olConfirm('Are you sure you want to delete this policy?', 'Delete Policy')) return;
-        var res = await fetch('/v1/owner/policies/' + id, {
-          method: 'DELETE',
-          headers: { 'Authorization': 'Bearer ' + token },
-        });
+        var headers = { 'Authorization': 'Bearer ' + token };
+        var opts = { method: 'DELETE', headers: headers };
+        if (totpEnabled) {
+          var code = await olPrompt('Enter your 2FA code:', '000000', 'Two-Factor Authentication');
+          if (!code) return;
+          headers['Content-Type'] = 'application/json';
+          opts.body = JSON.stringify({ totp_code: code });
+        }
+        var res = await fetch('/v1/owner/policies/' + id, opts);
         if (res.ok) window.location.reload();
-        else olAlert('Failed to delete policy', 'Error');
+        else {
+          var data = await res.json().catch(function() { return {}; });
+          olAlert(data.error?.message || 'Failed to delete policy', 'Error');
+        }
       }
 
       async function handleDraft(id, action) {
@@ -323,5 +376,5 @@ export function renderOwnerPolicies(
       }
     </script>
   `;
-  return renderPage('My Policies', content, '/gui/owner/policies', 'owner');
+    return renderPage("My Policies", content, "/gui/owner/policies", "owner");
 }
