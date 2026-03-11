@@ -322,6 +322,107 @@ a.table-link:hover { color: var(--amber-bright); }
   word-break: break-word;
 }
 
+/* ─── Text utilities ────────────────────────────────────────────────── */
+.text-muted { color: var(--text-muted); }
+.text-secondary { color: var(--text-secondary); }
+.text-success { color: var(--color-success); }
+.text-danger { color: var(--color-danger); }
+.text-primary-force { color: var(--text-primary); }
+
+/* ─── Detail patterns ──────────────────────────────────────────────── */
+.detail-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.detail-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.detail-text {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.detail-hint {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* ─── Card sections ────────────────────────────────────────────────── */
+.card-section {
+  padding: 16px 20px;
+  margin: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.card-section:last-child { border-bottom: none; }
+
+/* ─── Empty state ──────────────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 48px 24px; }
+.empty-state .material-symbols-outlined { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+.empty-state-title { font-weight: 600; color: var(--text-primary); font-size: 15px; margin-bottom: 8px; }
+.empty-state-text { color: var(--text-secondary); font-size: 13px; max-width: 520px; margin: 0 auto; line-height: 1.7; }
+
+/* ─── Button sizes ─────────────────────────────────────────────────── */
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* ─── Link colors ──────────────────────────────────────────────────── */
+.link-green { color: var(--green-bright); text-decoration: none; }
+.link-green:hover { color: var(--amber-bright); }
+
+/* ─── Grid/flex helpers ────────────────────────────────────────────── */
+.grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-auto-fill { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-row { display: flex; align-items: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.gap-8 { gap: 8px; }
+.gap-10 { gap: 10px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.gap-20 { gap: 20px; }
+.gap-24 { gap: 24px; }
+
+/* ─── Step indicator ───────────────────────────────────────────────── */
+.step-number {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.step-number-done { background: var(--green-dark); color: var(--green-bright); }
+.step-number-pending { background: rgba(136,153,170,0.15); color: var(--text-muted); }
+
+/* ─── Quick links list ─────────────────────────────────────────────── */
+.quick-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: color 0.2s;
+}
+.quick-link:last-child { border-bottom: none; }
+.quick-link:hover { color: var(--text-primary); }
+.quick-link .material-symbols-outlined { font-size: 18px; width: 20px; text-align: center; }
+
 /* ─── Alerts ────────────────────────────────────────────────────────── */
 .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; }
 .alert-error { background: color-mix(in srgb, var(--color-danger) 10%, transparent); border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent); color: var(--color-danger); }

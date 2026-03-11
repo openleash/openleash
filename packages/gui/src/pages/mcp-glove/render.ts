@@ -100,26 +100,26 @@ export function renderMcpGlove(data: McpGlovePageData): string {
       </div>
       <div class="summary-card">
         <div class="label">Allowed</div>
-        <div class="value" style="color:var(--color-success)">${act.allow}</div>
+        <div class="value text-success">${act.allow}</div>
       </div>
       <div class="summary-card">
         <div class="label">Denied</div>
-        <div class="value" style="color:var(--color-danger)">${act.deny}</div>
+        <div class="value text-danger">${act.deny}</div>
       </div>
       <div class="summary-card">
         <div class="label">Approval Required</div>
-        <div class="value" style="color:var(--color-warning)">${act.require_approval}</div>
+        <div class="value glove-text-warning">${act.require_approval}</div>
       </div>
     </div>
 
-    ${act.total > 0 ? `<div style="margin-bottom:24px"><a href="/gui/audit?filter=communication." class="btn btn-secondary" style="font-size:12px">View filtered audit log</a></div>` : ""}
+    ${act.total > 0 ? `<div class="glove-audit-link"><a href="/gui/audit?filter=communication." class="btn btn-secondary glove-btn-audit">View filtered audit log</a></div>` : ""}
 
     <div class="card">
       <div class="card-title">Config Generator</div>
-      <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">
+      <p class="glove-description">
         Generate the MCP client JSON config snippet to add to your MCP client configuration (e.g. Claude Desktop, Cursor).
       </p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="glove-config-grid">
         <div>
           <div class="form-group">
             <label>Profile</label>
@@ -149,19 +149,19 @@ export function renderMcpGlove(data: McpGlovePageData): string {
           </div>
         </div>
         <div>
-          <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em">Generated Config</label>
-          <pre id="glove-output" class="config-block" style="min-height:260px;margin-bottom:8px"></pre>
-          <button id="btn-copy-glove" class="btn btn-primary" style="font-size:12px">Copy to Clipboard</button>
+          <label class="glove-config-label">Generated Config</label>
+          <pre id="glove-output" class="config-block glove-config-output"></pre>
+          <button id="btn-copy-glove" class="btn btn-primary glove-btn-copy">Copy to Clipboard</button>
         </div>
       </div>
     </div>
 
     <div class="card">
       <div class="card-title">Profile Reference: office365-outlook</div>
-      <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">
+      <p class="glove-description">
         Tool-to-action mappings used by the <span class="mono">office365-outlook</span> glove profile.
       </p>
-      <h4 style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">Tool Mappings</h4>
+      <h4 class="glove-ref-heading">Tool Mappings</h4>
       <table>
         <colgroup><col style="width:200px"><col style="width:180px"><col style="width:100px"><col></colgroup>
         <thead>
@@ -170,7 +170,7 @@ export function renderMcpGlove(data: McpGlovePageData): string {
         <tbody>${toolRows}</tbody>
       </table>
 
-      <h4 style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:20px 0 8px">Extracted Payload Fields</h4>
+      <h4 class="glove-ref-heading-spaced">Extracted Payload Fields</h4>
       <table>
         <colgroup><col style="width:200px"><col style="width:120px"><col></colgroup>
         <thead>

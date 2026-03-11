@@ -2,6 +2,7 @@
  * Client-side logic for the initial setup page.
  */
 import "../../shared/styles/auth.css";
+import "./style.css";
 
 let sessionToken: string | null = null;
 let ownerPrincipalId: string | null = null;

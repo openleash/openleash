@@ -62,7 +62,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
         .join("");
 
     const content = `
-    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+    <div class="page-header agents-page-header">
       <div>
         <h2>Agents</h2>
         <p>${agents.length} registered agent${agents.length !== 1 ? "s" : ""}</p>
@@ -88,11 +88,11 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
       </div>
     </div>
 
-    <div id="invite-result" class="card hidden" style="border-color:color-mix(in srgb, var(--color-warning) 30%, transparent)">
-      <div style="font-size:13px;font-weight:600;color:var(--color-warning);margin-bottom:12px">Agent Invite URL (single use, expires in 24h)</div>
-      <div id="invite-url" style="padding:10px 14px;background:var(--bg-elevated);border:1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);border-radius:8px;font-family:var(--font-mono);font-size:12px;word-break:break-all;line-height:1.5;color:var(--text-primary)"></div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Copy this URL and give it to the agent. It contains everything the agent needs to register itself.</div>
-      <div class="toolbar" style="margin-top:12px">
+    <div id="invite-result" class="card hidden agents-invite-result">
+      <div class="agents-invite-heading">Agent Invite URL (single use, expires in 24h)</div>
+      <div id="invite-url" class="agents-invite-url"></div>
+      <div class="agents-invite-hint">Copy this URL and give it to the agent. It contains everything the agent needs to register itself.</div>
+      <div class="toolbar agents-invite-toolbar">
         <button id="btn-copy-invite" class="btn btn-primary">Copy to Clipboard</button>
         <button id="btn-dismiss-invite" class="btn btn-secondary">Dismiss</button>
       </div>
@@ -112,7 +112,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:24px">No agents registered</td></tr>'}
+          ${rows || '<tr><td colspan="6" class="agents-table-empty">No agents registered</td></tr>'}
         </tbody>
       </table>
     </div>

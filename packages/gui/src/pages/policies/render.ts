@@ -1,4 +1,5 @@
 import { renderPage, escapeHtml, formatNameWithId, copyableId, infoIcon, INFO_DECISIONS, INFO_OBLIGATIONS } from '../../shared/layout.js';
+import { assetTags } from '../../shared/manifest.js';
 
 
 export interface PolicyListEntry {
@@ -19,57 +20,57 @@ export interface BindingEntry {
 
 export function renderPolicies(policies: PolicyListEntry[]): string {
   const rows = policies.map((p) => {
-    const displayName = p.name ? escapeHtml(p.name) : `<span style="color:var(--text-muted)">${escapeHtml(p.policy_id.slice(0, 8))}...</span>`;
-    const descLine = p.description ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${escapeHtml(p.description)}</div>` : '';
+    const displayName = p.name ? escapeHtml(p.name) : `<span class="text-muted">${escapeHtml(p.policy_id.slice(0, 8))}...</span>`;
+    const descLine = p.description ? `<div class="policies-description">${escapeHtml(p.description)}</div>` : '';
     return `
     <tr>
       <td>
         <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${displayName}</a>
         ${descLine}
-        <div style="margin-top:2px">${copyableId(p.policy_id)}</div>
+        <div class="policies-copyable-wrap">${copyableId(p.policy_id)}</div>
       </td>
       <td>${copyableId(p.owner_principal_id)}</td>
-      <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span style="color:var(--text-muted)">all agents</span>'}</td>
+      <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
       <td>
-        <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="btn btn-secondary" style="padding:4px 10px;font-size:12px">View</a>
+        <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="btn btn-secondary btn-sm">View</a>
       </td>
     </tr>`;
   }).join('');
 
   const emptyState = `
-    <div class="card" style="text-align:center;padding:48px 24px">
-      <div class="material-symbols-outlined" style="font-size:48px;margin-bottom:16px;opacity:0.3">policy</div>
-      <div style="font-weight:600;color:var(--text-primary);font-size:15px;margin-bottom:8px">No Policies Yet</div>
-      <p style="color:var(--text-secondary);font-size:13px;max-width:520px;margin:0 auto;line-height:1.7">
+    <div class="card empty-state">
+      <div class="material-symbols-outlined">policy</div>
+      <div class="empty-state-title">No Policies Yet</div>
+      <p class="empty-state-text">
         Policies are created by owners through the
-        <a href="/gui/owner/login" style="color:var(--green-bright)">Owner Portal</a>.
+        <a href="/gui/owner/login" class="link-green">Owner Portal</a>.
         Each owner can create YAML-based authorization rules for their agents from the
-        <strong style="color:var(--text-primary)">My Policies</strong> section of their portal.
+        <strong class="text-primary-force">My Policies</strong> section of their portal.
       </p>
     </div>
 
     <div class="card">
       <div class="card-title">How Policies Work</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div class="grid-2col gap-24">
         <div>
-          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Creating Policies</div>
-          <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
-            Owners create policies in the Owner Portal under <strong style="color:var(--text-primary)">My Policies</strong>.
+          <div class="detail-title">Creating Policies</div>
+          <p class="detail-text">
+            Owners create policies in the Owner Portal under <strong class="text-primary-force">My Policies</strong>.
             Policies are written in YAML and define rules that control what actions an agent is allowed to perform.
             A policy can apply to a specific agent or to all of an owner's agents.
           </p>
         </div>
         <div>
-          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Policy Structure</div>
-          <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
-            Each policy has a <span class="mono" style="font-size:11px">default</span> decision (allow or deny) and a list of
-            <span class="mono" style="font-size:11px">rules</span>. Rules match on action types and can include constraints
+          <div class="detail-title">Policy Structure</div>
+          <p class="detail-text">
+            Each policy has a <span class="mono policies-mono-sm">default</span> decision (allow or deny) and a list of
+            <span class="mono policies-mono-sm">rules</span>. Rules match on action types and can include constraints
             (e.g. amount limits, time windows) and obligations${infoIcon('policy-obligations', INFO_OBLIGATIONS)} (e.g. require human approval).
           </p>
         </div>
         <div>
-          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Decisions${infoIcon('policy-decisions', INFO_DECISIONS)}</div>
-          <p style="color:var(--text-secondary);font-size:12px;line-height:1.7">
+          <div class="detail-title">Decisions${infoIcon('policy-decisions', INFO_DECISIONS)}</div>
+          <p class="detail-text">
             Rules evaluate to one of five decisions:
             <span class="badge badge-green">ALLOW</span>
             <span class="badge badge-red">DENY</span>
@@ -79,8 +80,8 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
           </p>
         </div>
         <div>
-          <div style="font-weight:600;color:var(--text-primary);font-size:13px;margin-bottom:6px">Example</div>
-          <div class="config-block" style="font-size:11px;line-height:1.6">version: 1
+          <div class="detail-title">Example</div>
+          <div class="config-block policies-example">version: 1
 default: deny
 rules:
   - id: allow_read
@@ -120,6 +121,8 @@ rules:
       </table>
     </div>
     `}
+
+    ${assetTags("pages/policies/client.ts")}
   `;
 
   return renderPage('Policies', content, '/gui/policies');
@@ -143,36 +146,36 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
   const bindingRows = policyBindings.map((b) => `
     <tr>
       <td>${formatNameWithId(ownerMap.get(b.owner_principal_id), b.owner_principal_id)}</td>
-      <td>${b.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(b.applies_to_agent_principal_id), b.applies_to_agent_principal_id) : '<span style="color:var(--text-muted)">all agents</span>'}</td>
+      <td>${b.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(b.applies_to_agent_principal_id), b.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
     </tr>
   `).join('');
 
   const content = `
     <div class="page-header">
       <h2>${policy.name ? escapeHtml(policy.name) : 'View Policy'}</h2>
-      ${policy.description ? `<p style="color:var(--text-secondary)">${escapeHtml(policy.description)}</p>` : ''}
+      ${policy.description ? `<p class="text-secondary">${escapeHtml(policy.description)}</p>` : ''}
       <p>${copyableId(policy.policy_id, policy.policy_id.length)}</p>
     </div>
 
     <div class="card">
       <div class="card-title">Policy Details</div>
-      <table style="margin-bottom:20px">
+      <table class="policies-table-bottom">
         <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
           ${policy.name ? `<tr>
-            <td style="color:var(--text-muted)">Name</td>
+            <td class="text-muted">Name</td>
             <td>${escapeHtml(policy.name)}</td>
           </tr>` : ''}
           ${policy.description ? `<tr>
-            <td style="color:var(--text-muted)">Description</td>
+            <td class="text-muted">Description</td>
             <td>${escapeHtml(policy.description)}</td>
           </tr>` : ''}
           <tr>
-            <td style="color:var(--text-muted)">Owner</td>
+            <td class="text-muted">Owner</td>
             <td>${formatNameWithId(ownerMap.get(policy.owner_principal_id), policy.owner_principal_id)}</td>
           </tr>
           <tr>
-            <td style="color:var(--text-muted)">Applies To</td>
+            <td class="text-muted">Applies To</td>
             <td>${policy.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(policy.applies_to_agent_principal_id), policy.applies_to_agent_principal_id) : 'All agents'}</td>
           </tr>
         </tbody>
@@ -181,7 +184,7 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
       <div class="card-title">Policy YAML</div>
       <textarea class="yaml-editor" readonly>${escapeHtml(policy.policy_yaml)}</textarea>
 
-      <div class="toolbar" style="margin-top:16px">
+      <div class="toolbar policies-toolbar">
         <a href="/gui/policies" class="btn btn-secondary">Back to List</a>
       </div>
     </div>
@@ -199,8 +202,10 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
         </thead>
         <tbody>${bindingRows}</tbody>
       </table>
-      ` : '<p style="color:var(--text-muted);padding:8px 0">No active bindings for this policy</p>'}
+      ` : '<p class="policies-no-bindings">No active bindings for this policy</p>'}
     </div>
+
+    ${assetTags("pages/policies/client.ts")}
   `;
 
   return renderPage('View Policy', content, '/gui/policies');

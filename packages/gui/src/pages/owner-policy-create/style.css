@@ -1,0 +1,33 @@
+/* ─── Owner policy create page ─────────────────────────────────────── */
+
+.policy-create-card {
+  margin-top: 20px;
+}
+
+.policy-create-fields {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.policy-create-field-name { flex: 1; }
+.policy-create-field-desc { flex: 2; }
+
+.policy-create-card .form-group { margin-bottom: 12px; }
+
+.policy-create-card .form-group label {
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  margin-bottom: 4px;
+}
+
+.policy-create-agent-input { font-family: var(--font-mono); }
+
+.policy-create-yaml { min-height: 200px; }
+
+.policy-create-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

@@ -1,0 +1,150 @@
+/* ─── Owners page styles ───────────────────────────────────────────── */
+
+/* List + detail shared */
+.owners-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Detail page */
+.owners-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.owners-detail-label {
+  color: var(--text-muted);
+}
+
+.owners-table-empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 24px;
+}
+
+.owners-table-empty-sm {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 16px;
+}
+
+.owners-empty-section {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.owners-empty-audit {
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+/* Invite / reset passphrase card */
+.owners-invite-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.owners-invite-header .card-title {
+  margin-bottom: 0;
+}
+
+.owners-invite-desc {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.owners-invite-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+}
+
+.owners-invite-result {
+  margin-top: 12px;
+}
+
+.owners-invite-result .card-title {
+  font-size: 12px;
+}
+
+.owners-invite-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.owners-invite-link-block {
+  word-break: break-all;
+  white-space: pre-wrap;
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.owners-copy-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  white-space: nowrap;
+  align-self: start;
+}
+
+.owners-badge-sm {
+  font-size: 11px;
+}
+
+/* Security card */
+.owners-totp-since {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.owners-totp-actions {
+  margin-top: 12px;
+}
+
+.owners-btn-danger-outline {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
+/* Attributes table */
+.owners-attr-key {
+  width: 160px;
+  color: var(--text-muted);
+}
+
+/* Policy "all agents" label */
+.owners-all-agents {
+  color: var(--text-muted);
+}
+
+/* Audit log metadata */
+.owners-meta-entry {
+  margin-bottom: 6px;
+}
+
+.owners-meta-key {
+  color: var(--green-bright);
+}
+
+.owners-meta-value {
+  color: var(--text-primary);
+}
+
+.owners-meta-empty {
+  color: var(--text-muted);
+}
+
+.owners-audit-ts {
+  white-space: nowrap;
+}
+
+.owners-chevron-cell {
+  width: 20px;
+}

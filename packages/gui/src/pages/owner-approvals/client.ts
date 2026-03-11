@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the owner approvals page.
  */
+import "./style.css";
 import { olToast, olPrompt, ol2FA, olApiError } from "../../shared/common";
 
 interface OwnerApprovalsPageData {

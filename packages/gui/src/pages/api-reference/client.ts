@@ -2,6 +2,7 @@
  * Client-side logic for the API reference page.
  * Syncs light/dark theme from app to the Scalar iframe.
  */
+import "./style.css";
 
 (function () {
     const frame = document.getElementById("scalar-frame") as HTMLIFrameElement;

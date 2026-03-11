@@ -1,0 +1,10 @@
+/* ─── Initial Setup page styles ────────────────────────────────────── */
+
+/* Hidden by default — toggled via JS */
+.isetup-hidden { display: none; }
+
+/* "Register agent?" prompt spacing */
+.isetup-prompt-text { margin-bottom: 12px; }
+
+/* Copy-to-clipboard button spacing */
+.isetup-btn-copy { margin-top: 12px; }

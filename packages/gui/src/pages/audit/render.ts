@@ -48,7 +48,7 @@ function resolveId(uuid: string, nameMap: AuditNameMap): string | undefined {
 }
 
 function principalDisplay(principalId: string | null, nameMap?: AuditNameMap): string {
-    if (!principalId) return '<span style="color:var(--text-muted)">--</span>';
+    if (!principalId) return '<span class="text-muted">--</span>';
     if (!nameMap) return copyableId(principalId);
     const name = resolveId(principalId, nameMap);
     return formatNameWithId(name, principalId);
@@ -124,7 +124,7 @@ function eventSummary(
 
 // ─── Flow diagram helpers ──────────────────────────────────────────
 
-const OPENLEASH_ICON = `<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
+const OPENLEASH_ICON = `<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="audit-icon-inline">
   <path d="M60 10 C32 10 18 30 18 48 C18 66 32 80 46 84 L46 88 L54 88 L54 84 C54 84 60 86 66 84 L66 88 L74 88 L74 84 C88 80 102 66 102 48 C102 30 88 10 60 10Z" stroke="currentColor" stroke-width="4" fill="none"/>
   <path d="M22 38 C8 34 2 43 6 52 C10 61 20 57 24 48 C27 42 24 38 22 38Z" stroke="currentColor" stroke-width="3" fill="none"/>
   <path d="M98 38 C112 34 118 43 114 52 C110 61 100 57 96 48 C93 42 96 38 98 38Z" stroke="currentColor" stroke-width="3" fill="none"/>
@@ -477,28 +477,28 @@ function formatTrace(trace: {
     }>;
 }): string {
     if (!trace?.rules?.length)
-        return '<span style="color:var(--text-muted)">No rules traced</span>';
+        return '<span class="text-muted">No rules traced</span>';
     return trace.rules
         .map((r) => {
             const pat = r.pattern_match
-                ? '<span style="color:var(--color-success)">✓</span>'
-                : '<span style="color:var(--color-danger)">✗</span>';
+                ? '<span class="text-success">✓</span>'
+                : '<span class="text-danger">✗</span>';
             const when =
                 r.when_match === null
                     ? ""
                     : r.when_match
-                      ? ' <span style="color:var(--color-success)">✓</span>'
-                      : ' <span style="color:var(--color-danger)">✗</span>';
+                      ? ' <span class="text-success">✓</span>'
+                      : ' <span class="text-danger">✗</span>';
             const result = r.final_match
                 ? '<span class="badge badge-green">MATCH</span>'
                 : '<span class="badge badge-muted">skip</span>';
-            return `<div style="margin-bottom:4px"><span class="mono">${escapeHtml(r.rule_id)}</span> [pattern: ${pat}]${when ? ` [when: ${when}]` : ""} → ${result}</div>`;
+            return `<div class="audit-trace-row"><span class="mono">${escapeHtml(r.rule_id)}</span> [pattern: ${pat}]${when ? ` [when: ${when}]` : ""} → ${result}</div>`;
         })
         .join("");
 }
 
 function formatObligations(obligations: Array<{ type: string; [key: string]: unknown }>): string {
-    if (!obligations?.length) return '<span style="color:var(--text-muted)">None</span>';
+    if (!obligations?.length) return '<span class="text-muted">None</span>';
     return obligations
         .map((o) => {
             const badge = `<span class="badge badge-amber">${escapeHtml(o.type)}</span>`;
@@ -506,7 +506,7 @@ function formatObligations(obligations: Array<{ type: string; [key: string]: unk
                 .filter(([k]) => k !== "type")
                 .map(([k, v]) => `${escapeHtml(k)}=${escapeHtml(String(v))}`)
                 .join(", ");
-            return `<div style="margin-bottom:4px">${badge}${extra ? ` <span class="mono" style="font-size:11px;color:var(--text-muted)">${extra}</span>` : ""}</div>`;
+            return `<div class="audit-trace-row">${badge}${extra ? ` <span class="mono audit-meta-extra">${extra}</span>` : ""}</div>`;
         })
         .join("");
 }
@@ -515,10 +515,10 @@ function formatJsonCollapsible(key: string, val: unknown): string {
     const json = JSON.stringify(val, null, 2);
     const escaped = escapeHtml(json);
     if (json.length < 80) {
-        return `<span style="color:var(--text-primary)" class="mono">${escaped}</span>`;
+        return `<span class="mono text-primary-force">${escaped}</span>`;
     }
     const id = "json-" + Math.random().toString(36).slice(2, 8);
-    return `<details id="${id}" style="display:inline"><summary style="cursor:pointer;color:var(--text-muted);font-size:11px">expand</summary><pre class="mono" style="margin:4px 0;font-size:11px;color:var(--text-primary);white-space:pre-wrap">${escaped}</pre></details>`;
+    return `<details id="${id}" class="audit-collapsible"><summary class="audit-collapsible-summary">expand</summary><pre class="mono audit-collapsible-body">${escaped}</pre></details>`;
 }
 
 function formatMetadata(
@@ -527,11 +527,11 @@ function formatMetadata(
     policyBasePath = "/gui/policies",
 ): string {
     const entries = Object.entries(meta);
-    if (entries.length === 0) return '<span style="color:var(--text-muted)">No metadata</span>';
+    if (entries.length === 0) return '<span class="text-muted">No metadata</span>';
 
     return entries
         .map(([key, val]) => {
-            const keyHtml = `<span style="color:var(--green-bright)">${escapeHtml(key)}</span>`;
+            const keyHtml = `<span class="audit-meta-key">${escapeHtml(key)}</span>`;
 
             // Resolve owner/agent principal IDs to names
             if (
@@ -541,35 +541,35 @@ function formatMetadata(
             ) {
                 const name = resolveId(val, nameMap);
                 const display = formatNameWithId(name, val);
-                return `<div style="margin-bottom:6px">${keyHtml}: <span style="color:var(--text-primary)">${display}</span></div>`;
+                return `<div class="audit-meta-row">${keyHtml}: <span class="text-primary-force">${display}</span></div>`;
             }
 
             // Link policy_id to editor (admin only — owner has no detail view)
             if (key === "policy_id" && typeof val === "string") {
                 if (policyBasePath === "/gui/owner/policies") {
-                    return `<div style="margin-bottom:6px">${keyHtml}: <span class="mono">${escapeHtml(val)}</span></div>`;
+                    return `<div class="audit-meta-row">${keyHtml}: <span class="mono">${escapeHtml(val)}</span></div>`;
                 }
-                return `<div style="margin-bottom:6px">${keyHtml}: <a href="${policyBasePath}/${escapeHtml(val)}" class="table-link mono">${escapeHtml(val)}</a></div>`;
+                return `<div class="audit-meta-row">${keyHtml}: <a href="${policyBasePath}/${escapeHtml(val)}" class="table-link mono">${escapeHtml(val)}</a></div>`;
             }
 
             // Badge for result
             if (key === "result" && typeof val === "string") {
-                return `<div style="margin-bottom:6px">${keyHtml}: ${resultBadge(val)}</div>`;
+                return `<div class="audit-meta-row">${keyHtml}: ${resultBadge(val)}</div>`;
             }
 
             // Badge for valid
             if (key === "valid" && typeof val === "boolean") {
-                return `<div style="margin-bottom:6px">${keyHtml}: ${validBadge(val)}</div>`;
+                return `<div class="audit-meta-row">${keyHtml}: ${validBadge(val)}</div>`;
             }
 
             // Trace rendering
             if (key === "trace" && val && typeof val === "object" && !Array.isArray(val)) {
-                return `<div style="margin-bottom:6px">${keyHtml}:<div style="margin-left:12px;margin-top:4px">${formatTrace(val as { rules?: Array<{ rule_id: string; pattern_match: boolean; when_match: boolean | null; final_match: boolean }> })}</div></div>`;
+                return `<div class="audit-meta-row">${keyHtml}:<div class="audit-nested-block">${formatTrace(val as { rules?: Array<{ rule_id: string; pattern_match: boolean; when_match: boolean | null; final_match: boolean }> })}</div></div>`;
             }
 
             // Obligations rendering
             if (key === "obligations" && Array.isArray(val)) {
-                return `<div style="margin-bottom:6px">${keyHtml}:<div style="margin-left:12px;margin-top:4px">${formatObligations(val as Array<{ type: string }>)}</div></div>`;
+                return `<div class="audit-meta-row">${keyHtml}:<div class="audit-nested-block">${formatObligations(val as Array<{ type: string }>)}</div></div>`;
             }
 
             // Collapsible JSON for payload objects
@@ -580,11 +580,11 @@ function formatMetadata(
                 val &&
                 typeof val === "object"
             ) {
-                return `<div style="margin-bottom:6px">${keyHtml}: ${formatJsonCollapsible(key, val)}</div>`;
+                return `<div class="audit-meta-row">${keyHtml}: ${formatJsonCollapsible(key, val)}</div>`;
             }
 
             const valStr = typeof val === "object" ? JSON.stringify(val, null, 2) : String(val);
-            return `<div style="margin-bottom:6px">${keyHtml}: <span style="color:var(--text-primary)">${escapeHtml(valStr)}</span></div>`;
+            return `<div class="audit-meta-row">${keyHtml}: <span class="text-primary-force">${escapeHtml(valStr)}</span></div>`;
         })
         .join("");
 }
@@ -610,30 +610,30 @@ export function renderAudit(
                 const resolvedName =
                     nameMap?.owners.get(e.principal_id) ?? nameMap?.agents.get(e.principal_id);
                 const pDisplay = resolvedName
-                    ? `${escapeHtml(resolvedName)} <span class="mono" style="color:var(--text-muted);font-size:11px">(${escapeHtml(e.principal_id)})</span>`
+                    ? `${escapeHtml(resolvedName)} <span class="mono audit-id-suffix">(${escapeHtml(e.principal_id)})</span>`
                     : escapeHtml(e.principal_id);
                 extraFields.push(
-                    `<div style="margin-bottom:6px"><span style="color:var(--green-bright)">principal_id</span>: <span style="color:var(--text-primary)">${pDisplay}</span></div>`,
+                    `<div class="audit-meta-row"><span class="audit-meta-key">principal_id</span>: <span class="text-primary-force">${pDisplay}</span></div>`,
                 );
             }
             if (e.action_id)
                 extraFields.push(
-                    `<div style="margin-bottom:6px"><span style="color:var(--green-bright)">action_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.action_id)}</span></div>`,
+                    `<div class="audit-meta-row"><span class="audit-meta-key">action_id</span>: <span class="text-primary-force">${escapeHtml(e.action_id)}</span></div>`,
                 );
             if (e.decision_id)
                 extraFields.push(
-                    `<div style="margin-bottom:6px"><span style="color:var(--green-bright)">decision_id</span>: <span style="color:var(--text-primary)">${escapeHtml(e.decision_id)}</span></div>`,
+                    `<div class="audit-meta-row"><span class="audit-meta-key">decision_id</span>: <span class="text-primary-force">${escapeHtml(e.decision_id)}</span></div>`,
                 );
 
             const summary = eventSummary(e, nameMap, policyBasePath);
 
             return `
       <tr class="accordion-row" id="row-${idx}" data-event-type="${escapeHtml(e.event_type)}">
-        <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td class="audit-chevron-cell"><span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${formatTimestamp(e.timestamp)}</td>
         <td>${eventBadge(e.event_type)}</td>
         <td>${principalDisplay(e.principal_id, nameMap)}</td>
-        <td>${summary || '<span style="color:var(--text-muted)">--</span>'}</td>
+        <td>${summary || '<span class="text-muted">--</span>'}</td>
         <td>${copyableId(e.event_id)}</td>
       </tr>
       <tr class="accordion-detail" id="detail-${idx}" data-event-type="${escapeHtml(e.event_type)}">
@@ -651,7 +651,7 @@ export function renderAudit(
 
     const nextCursor = data.next_cursor;
     const loadMoreHtml = nextCursor
-        ? `<div style="text-align:center;margin-top:16px"><a href="${auditBasePath}?cursor=${escapeHtml(nextCursor)}" class="btn btn-secondary">Load More</a></div>`
+        ? `<div class="audit-load-more"><a href="${auditBasePath}?cursor=${escapeHtml(nextCursor)}" class="btn btn-secondary">Load More</a></div>`
         : "";
 
     // Build event type filter options
@@ -663,11 +663,11 @@ export function renderAudit(
     const filterHtml =
         eventTypes.length > 0
             ? `<div class="toolbar">
-        <select id="event-filter" class="form-select" style="width:auto;min-width:220px">
+        <select id="event-filter" class="form-select audit-filter-select">
           <option value="">All event types</option>
           ${filterOptions}
         </select>
-        <span id="filter-count" style="color:var(--text-muted);font-size:12px"></span>
+        <span id="filter-count" class="audit-filter-count"></span>
       </div>`
             : "";
 
@@ -693,7 +693,7 @@ export function renderAudit(
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:24px">No audit events</td></tr>'}
+          ${rows || '<tr><td colspan="6" class="audit-empty-row">No audit events</td></tr>'}
         </tbody>
       </table>
       ${loadMoreHtml}

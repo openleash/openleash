@@ -1,0 +1,122 @@
+/* ─── Owner Policies page styles ───────────────────────────────────── */
+
+/* Card heading inside flush card */
+.opol-card-heading {
+  padding: 16px 20px;
+  margin: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Card with no padding and top margin (for table sections) */
+.opol-card-flush { padding: 0; margin-top: 20px; }
+
+/* Table with fixed layout */
+.opol-table-fixed { table-layout: fixed; }
+
+/* Action button in tables (Edit, Save, Cancel, Approve) */
+.opol-btn-action { font-size: 12px; padding: 4px 12px; }
+
+/* Left margin on adjacent buttons */
+.opol-btn-ml { margin-left: 4px; }
+
+/* Danger-outlined button (Delete, Deny) */
+.opol-btn-danger-outline { border-color: var(--color-danger); color: var(--color-danger); }
+
+/* Empty state cell in tables */
+.opol-empty-cell { text-align: center; color: var(--text-muted); padding: 24px; }
+
+/* Muted inline text (e.g. truncated ID fallback for unnamed policy) */
+.opol-muted-name { color: var(--text-muted); }
+
+/* Policy description line below name */
+.opol-desc-line { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+/* Copyable ID line below policy name */
+.opol-id-line { margin-top: 2px; }
+
+/* Editor cell for inline policy editing */
+.opol-editor-cell { padding: 12px 16px; background: var(--bg-elevated); }
+
+/* Editor fields row (name + description) */
+.opol-editor-fields { display: flex; gap: 8px; margin-bottom: 8px; }
+
+/* Narrow editor field (name) */
+.opol-editor-field-sm { flex: 1; }
+
+/* Wide editor field (description) */
+.opol-editor-field-lg { flex: 2; }
+
+/* Editor field label */
+.opol-editor-label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+
+/* Inline YAML textarea (shorter height for editing) */
+.opol-yaml-inline { width: 100%; height: 240px; margin-bottom: 8px; font-size: 13px; }
+
+/* Editor button row */
+.opol-editor-actions { display: flex; gap: 8px; }
+
+/* Section description below card heading */
+.opol-section-desc { color: var(--text-secondary); font-size: 13px; padding: 0 20px; margin: 8px 0; }
+
+/* TOTP banner spacing */
+.opol-totp-banner { margin-top: 16px; }
+
+/* Alert link that inherits color */
+.opol-alert-link { color: inherit; text-decoration: underline; }
+
+/* Chevron cell width */
+.opol-chevron-cell { width: 20px; }
+
+/* Accordion detail cell */
+.opol-detail-cell { padding: 0 12px 16px; }
+
+/* "Proposed Policy YAML" label */
+.opol-yaml-label {
+  margin-top: 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Scope warning alert (broad scope / cross-agent) */
+.opol-scope-warning {
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 25%, transparent);
+  color: var(--color-warning);
+  padding: 8px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+/* Small badge variant (10px) for scope indicators */
+.opol-badge-sm { font-size: 10px; }
+
+/* Small badge with left margin (for "other agent" label) */
+.opol-badge-sm-ml { font-size: 10px; margin-left: 4px; }
+
+/* "(self)" label next to agent ID */
+.opol-self-label { color: var(--text-muted); font-size: 11px; }
+
+/* Draft name in bold */
+.opol-draft-name { font-weight: 600; }
+
+/* Draft description text */
+.opol-draft-desc { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+
+/* Result link to active policy */
+.opol-result-link { color: var(--color-success); text-decoration: none; }
+
+/* Create Policy button link */
+.opol-create-link { text-decoration: none; }
+
+/* Small icon inside create button */
+.opol-btn-icon { font-size: 18px; vertical-align: middle; margin-right: 4px; }
+
+/* Muted dash placeholder */
+.opol-dash { color: var(--text-muted); }
+
+/* Dynamic margin-top for id-line when name is present vs absent */
+.opol-id-line-no-gap { margin-top: 0; }

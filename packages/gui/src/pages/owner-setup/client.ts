@@ -2,6 +2,7 @@
  * Client-side logic for the owner setup page.
  */
 import "../../shared/styles/auth.css";
+import "./style.css";
 
 const params = new URLSearchParams(window.location.search);
 const inviteId = params.get("invite_id");

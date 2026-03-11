@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the owner agents page.
  */
+import "./style.css";
 import { olToast, olConfirm, ol2FA, olApiError } from "../../shared/common";
 
 interface OwnerAgentsPageData {

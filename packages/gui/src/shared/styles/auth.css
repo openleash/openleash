@@ -259,6 +259,9 @@ body {
   border-radius: 4px;
 }
 
+.link-green { color: var(--green-bright); text-decoration: none; }
+.link-green:hover { color: var(--text-primary); }
+
 /* ─── Setup-specific ─────────────────────────────────────────────── */
 
 .missing-params {

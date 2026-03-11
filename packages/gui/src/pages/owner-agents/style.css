@@ -1,0 +1,75 @@
+/* ─── Owner Agents ──────────────────────────────────────────────────── */
+
+.agents-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.agents-empty-row {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 24px;
+}
+
+.agents-btn-revoke {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.agents-card {
+  padding: 0;
+  margin-top: 20px;
+}
+
+.agents-totp-banner {
+  margin-bottom: 16px;
+}
+
+.agents-totp-link {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.agents-invite-card {
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+.agents-invite-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-warning);
+  margin-bottom: 12px;
+}
+
+.agents-invite-url {
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-all;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.agents-invite-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.agents-invite-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.agents-invite-btn {
+  font-size: 12px;
+  padding: 6px 16px;
+}

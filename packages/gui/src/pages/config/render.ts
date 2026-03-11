@@ -1,4 +1,5 @@
 import { renderPage, escapeHtml } from '../../shared/layout.js';
+import { assetTags } from '../../shared/manifest.js';
 
 export interface ConfigData {
   server: { bind_address: string };
@@ -11,7 +12,7 @@ export interface ConfigData {
 function renderSection(title: string, entries: [string, string][]): string {
   const rows = entries.map(([key, val]) => `
     <tr>
-      <td style="color:var(--text-muted)">${escapeHtml(key)}</td>
+      <td class="config-label">${escapeHtml(key)}</td>
       <td class="mono">${escapeHtml(val)}</td>
     </tr>
   `).join('');
@@ -55,6 +56,8 @@ export function renderConfig(data: ConfigData): string {
     ${data.gui ? renderSection('GUI', [
       ['Enabled', data.gui.enabled ? 'Yes' : 'No'],
     ]) : ''}
+
+    ${assetTags("pages/config/client.ts")}
   `;
 
   return renderPage('Configuration', content, '/gui/config');

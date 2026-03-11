@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the owner policies page.
  */
+import "./style.css";
 import { olToast, olConfirm, olPrompt, ol2FA, olApiError } from "../../shared/common";
 
 interface OwnerPoliciesPageData {

@@ -6,18 +6,18 @@ export function renderApiReference(): string {
     <style>
       .api-ref-main .main { padding: 0 !important; }
     </style>
-    <div style="margin:-32px -40px;height:calc(100vh);display:flex;flex-direction:column">
-      <div style="padding:20px 24px 0">
-        <div class="page-header" style="margin-bottom:16px">
+    <div class="api-ref-fullbleed">
+      <div class="api-ref-header-wrap">
+        <div class="page-header">
           <h2>API Reference</h2>
           <p>Interactive documentation for all OpenLeash API endpoints, powered by Scalar</p>
         </div>
       </div>
-      <div style="flex:1;min-height:0">
+      <div class="api-ref-iframe-wrap">
         <iframe
           id="scalar-frame"
           src="/reference"
-          style="width:100%;height:100%;border:none;display:block"
+          class="api-ref-iframe"
           title="OpenLeash API Reference"
         ></iframe>
       </div>
@@ -35,14 +35,14 @@ export function renderApiReferenceUnavailable(): string {
       <p>Interactive API documentation</p>
     </div>
 
-    <div class="card" style="text-align:center;padding:48px 24px">
-      <div class="material-symbols-outlined" style="font-size:48px;margin-bottom:16px;opacity:0.3">api</div>
-      <div style="font-weight:600;color:var(--text-primary);font-size:15px;margin-bottom:8px">API Reference Not Available</div>
-      <p style="color:var(--text-secondary);font-size:13px;max-width:460px;margin:0 auto;line-height:1.7">
+    <div class="card empty-state">
+      <div class="material-symbols-outlined">api</div>
+      <div class="empty-state-title">API Reference Not Available</div>
+      <p class="empty-state-text api-ref-unavailable-text">
         The OpenAPI specification file was not found. To enable the API reference, ensure
-        <span class="mono" style="font-size:12px">openapi/openapi.yaml</span> exists in your project root.
+        <span class="mono api-ref-unavailable-mono">openapi/openapi.yaml</span> exists in your project root.
       </p>
-      <div style="margin-top:24px">
+      <div class="api-ref-unavailable-actions">
         <a href="https://github.com/openleash/openleash" target="_blank" rel="noopener" class="btn btn-primary">
           View on GitHub
         </a>

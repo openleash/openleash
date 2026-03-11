@@ -1,0 +1,5 @@
+/* ─── Config page ──────────────────────────────────────────────────── */
+
+.config-label {
+  color: var(--text-muted);
+}

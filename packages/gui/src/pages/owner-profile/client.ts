@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the owner profile page.
  */
+import "./style.css";
 import { olToast, olFieldError, olApiError } from "../../shared/common";
 
 // ─── Types ──────────────────────────────────────────────────────────

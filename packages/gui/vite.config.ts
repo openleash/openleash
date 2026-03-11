@@ -49,6 +49,22 @@ export default defineConfig({
                     __dirname,
                     "src/pages/initial-setup/client.ts",
                 ),
+                "pages/policies/client": resolve(
+                    __dirname,
+                    "src/pages/policies/client.ts",
+                ),
+                "pages/config/client": resolve(
+                    __dirname,
+                    "src/pages/config/client.ts",
+                ),
+                "pages/dashboard/client": resolve(
+                    __dirname,
+                    "src/pages/dashboard/client.ts",
+                ),
+                "pages/owner-dashboard/client": resolve(
+                    __dirname,
+                    "src/pages/owner-dashboard/client.ts",
+                ),
             },
         },
     },

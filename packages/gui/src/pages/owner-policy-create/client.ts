@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the create policy page.
  */
+import "./style.css";
 import { olToast, olApiError } from "../../shared/common";
 
 async function createPolicy() {

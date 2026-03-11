@@ -235,7 +235,7 @@ export function renderOwners(owners: OwnerData[]): string {
       <td>${statusBadge(o.status)}</td>
       <td class="mono">${o.created_at ? formatTimestamp(o.created_at, true) : "-"}</td>
       <td>
-        <a href="/gui/owners/${escapeHtml(o.owner_principal_id)}" class="btn btn-secondary" style="padding:4px 10px;font-size:12px">View</a>
+        <a href="/gui/owners/${escapeHtml(o.owner_principal_id)}" class="btn btn-secondary btn-sm">View</a>
       </td>
     </tr>
   `,
@@ -243,7 +243,7 @@ export function renderOwners(owners: OwnerData[]): string {
         .join("");
 
     const content = `
-    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+    <div class="page-header owners-page-header">
       <div>
         <h2>Owners</h2>
         <p>${owners.length} registered owner${owners.length !== 1 ? "s" : ""}</p>
@@ -289,7 +289,7 @@ export function renderOwners(owners: OwnerData[]): string {
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:24px">No owners registered</td></tr>'}
+          ${rows || '<tr><td colspan="6" class="owners-table-empty">No owners registered</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -333,7 +333,7 @@ function renderContactIdentitiesCard(owner: OwnerData): string {
         <tbody>${rows}</tbody>
       </table>
       `
-              : '<p style="color:var(--text-muted);font-size:13px">No contact identities</p>'
+              : '<p class="owners-empty-section">No contact identities</p>'
       }
     </div>
   `;
@@ -370,7 +370,7 @@ function renderGovernmentIdsCard(owner: OwnerData): string {
         <tbody>${rows}</tbody>
       </table>
       `
-              : '<p style="color:var(--text-muted);font-size:13px">No government IDs</p>'
+              : '<p class="owners-empty-section">No government IDs</p>'
       }
     </div>
   `;
@@ -407,7 +407,7 @@ function renderCompanyIdsCard(owner: OwnerData): string {
         <tbody>${rows}</tbody>
       </table>
       `
-              : '<p style="color:var(--text-muted);font-size:13px">No company IDs</p>'
+              : '<p class="owners-empty-section">No company IDs</p>'
       }
     </div>
   `;
@@ -451,7 +451,7 @@ function renderSignatoriesCard(
         <tbody>${rows}</tbody>
       </table>
       `
-              : '<p style="color:var(--text-muted);font-size:13px">No signatories</p>'
+              : '<p class="owners-empty-section">No signatories</p>'
       }
     </div>
   `;
@@ -488,7 +488,7 @@ function renderSignatoryRulesCard(owner: OwnerData): string {
         <tbody>${rows}</tbody>
       </table>
       `
-              : '<p style="color:var(--text-muted);font-size:13px">No signatory rules</p>'
+              : '<p class="owners-empty-section">No signatory rules</p>'
       }
     </div>
   `;
@@ -521,7 +521,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       <td class="mono truncate" title="${escapeHtml(p.policy_id)}">
         <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id.slice(0, 8))}...</a>
       </td>
-      <td>${p.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(p.applies_to_agent_principal_id), p.applies_to_agent_principal_id) : '<span style="color:var(--text-muted)">all agents</span>'}</td>
+      <td>${p.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(p.applies_to_agent_principal_id), p.applies_to_agent_principal_id) : '<span class="owners-all-agents">all agents</span>'}</td>
     </tr>
   `,
         )
@@ -531,8 +531,8 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         .map(
             (e, i) => `
     <tr class="accordion-row" id="row-${i}">
-      <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
-      <td class="mono" style="white-space:nowrap">${escapeHtml(e.timestamp.slice(0, 19).replace("T", " "))}</td>
+      <td class="owners-chevron-cell"><span class="chevron material-symbols-outlined">chevron_right</span></td>
+      <td class="mono owners-audit-ts">${escapeHtml(e.timestamp.slice(0, 19).replace("T", " "))}</td>
       <td>${eventBadge(e.event_type)}</td>
     </tr>
     <tr class="accordion-detail" id="detail-${i}">
@@ -541,9 +541,9 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
             Object.entries(e.metadata_json)
                 .map(
                     ([k, v]) =>
-                        `<div style="margin-bottom:6px"><span style="color:var(--green-bright)">${escapeHtml(k)}</span>: <span style="color:var(--text-primary)">${escapeHtml(typeof v === "object" ? JSON.stringify(v, null, 2) : String(v))}</span></div>`,
+                        `<div class="owners-meta-entry"><span class="owners-meta-key">${escapeHtml(k)}</span>: <span class="owners-meta-value">${escapeHtml(typeof v === "object" ? JSON.stringify(v, null, 2) : String(v))}</span></div>`,
                 )
-                .join("") || '<span style="color:var(--text-muted)">No metadata</span>'
+                .join("") || '<span class="owners-meta-empty">No metadata</span>'
         }</div>
       </td>
     </tr>
@@ -558,17 +558,17 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
                   .map(
                       ([k, v]) => `
       <tr>
-        <td style="width:160px;color:var(--text-muted)">${escapeHtml(k)}</td>
+        <td class="owners-attr-key">${escapeHtml(k)}</td>
         <td class="mono">${escapeHtml(typeof v === "object" ? JSON.stringify(v) : String(v))}</td>
       </tr>
     `,
                   )
                   .join("")
-            : '<tr><td colspan="2" style="color:var(--text-muted)">No custom attributes</td></tr>';
+            : '<tr><td colspan="2" class="owners-detail-label">No custom attributes</td></tr>';
 
     const content = `
     <div class="page-header">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
+      <div class="owners-detail-heading">
         <h2>${escapeHtml(owner.display_name ?? "Owner")}</h2>
         ${statusBadge(owner.status)}${infoIcon("detail-owner-status", INFO_OWNER_STATUS)}
         ${assuranceBadge(owner.identity_assurance_level)}
@@ -582,23 +582,23 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
           <tr>
-            <td style="color:var(--text-muted)">Principal ID</td>
+            <td class="owners-detail-label">Principal ID</td>
             <td>${copyableId(owner.owner_principal_id, owner.owner_principal_id.length)}</td>
           </tr>
           <tr>
-            <td style="color:var(--text-muted)">Display Name</td>
+            <td class="owners-detail-label">Display Name</td>
             <td>${escapeHtml(owner.display_name ?? "-")}</td>
           </tr>
           <tr>
-            <td style="color:var(--text-muted)">Type</td>
+            <td class="owners-detail-label">Type</td>
             <td>${escapeHtml(owner.principal_type ?? "-")}</td>
           </tr>
           <tr>
-            <td style="color:var(--text-muted)">Status</td>
+            <td class="owners-detail-label">Status</td>
             <td>${statusBadge(owner.status)}</td>
           </tr>
           <tr>
-            <td style="color:var(--text-muted)">Created</td>
+            <td class="owners-detail-label">Created</td>
             <td class="mono">${owner.created_at ? formatTimestamp(owner.created_at) : "-"}</td>
           </tr>
         </tbody>
@@ -606,23 +606,23 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     </div>
 
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">${owner.has_passphrase ? "Reset Passphrase" : "Setup Invite"}</div>
-        ${owner.has_passphrase ? '<span class="badge badge-green" style="font-size:11px">Setup complete</span>' : '<span class="badge badge-amber" style="font-size:11px">Setup pending</span>'}
+      <div class="owners-invite-header">
+        <div class="card-title">${owner.has_passphrase ? "Reset Passphrase" : "Setup Invite"}</div>
+        ${owner.has_passphrase ? '<span class="badge badge-green owners-badge-sm">Setup complete</span>' : '<span class="badge badge-amber owners-badge-sm">Setup pending</span>'}
       </div>
-      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">
+      <p class="owners-invite-desc">
         ${
             owner.has_passphrase
                 ? "Generate a one-time link to let this owner reset their passphrase."
                 : "Generate a one-time setup invite link for this owner to set up their account (passphrase, contact info, IDs)."
         }
       </p>
-      <button id="invite-btn" class="btn ${owner.has_passphrase ? "btn-secondary" : "btn-primary"}" style="padding:6px 14px;font-size:12px">${owner.has_passphrase ? "Generate Reset Link" : "Generate Setup Invite"}</button>
-      <div id="invite-result" class="hidden" style="margin-top:12px">
-        <div class="card-title" style="font-size:12px">${owner.has_passphrase ? "Reset Link" : "Setup Link"} (copy and share securely — shown once)</div>
-        <div style="display:flex;gap:8px;align-items:stretch">
-          <pre id="invite-link" class="config-block" style="word-break:break-all;white-space:pre-wrap;margin-bottom:0;flex:1"></pre>
-          <button type="button" id="copy-btn" class="btn btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;align-self:start">Copy</button>
+      <button id="invite-btn" class="btn ${owner.has_passphrase ? "btn-secondary" : "btn-primary"} owners-invite-btn">${owner.has_passphrase ? "Generate Reset Link" : "Generate Setup Invite"}</button>
+      <div id="invite-result" class="hidden owners-invite-result">
+        <div class="card-title">${owner.has_passphrase ? "Reset Link" : "Setup Link"} (copy and share securely — shown once)</div>
+        <div class="owners-invite-link-row">
+          <pre id="invite-link" class="config-block owners-invite-link-block"></pre>
+          <button type="button" id="copy-btn" class="btn btn-secondary owners-copy-btn">Copy</button>
         </div>
       </div>
     </div>
@@ -633,11 +633,11 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
           <tr>
-            <td style="color:var(--text-muted)">Two-Factor Auth</td>
+            <td class="owners-detail-label">Two-Factor Auth</td>
             <td>
               ${
                   owner.totp_enabled
-                      ? `<span class="badge badge-green">Enabled</span>${owner.totp_enabled_at ? ` <span style="font-size:12px;color:var(--text-muted)">since ${formatTimestamp(owner.totp_enabled_at)}</span>` : ""}`
+                      ? `<span class="badge badge-green">Enabled</span>${owner.totp_enabled_at ? ` <span class="owners-totp-since">since ${formatTimestamp(owner.totp_enabled_at)}</span>` : ""}`
                       : '<span class="badge badge-muted">Not configured</span>'
               }
             </td>
@@ -647,8 +647,8 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       ${
           owner.totp_enabled
               ? `
-      <div style="margin-top:12px">
-        <button id="btn-admin-disable-totp" class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger);font-size:12px;padding:4px 12px">Disable 2FA</button>
+      <div class="owners-totp-actions">
+        <button id="btn-admin-disable-totp" class="btn btn-secondary owners-btn-danger-outline">Disable 2FA</button>
       </div>
       `
               : ""
@@ -685,7 +685,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
           </tr>
         </thead>
         <tbody>
-          ${agentRows || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:16px">No agents registered under this owner</td></tr>'}
+          ${agentRows || '<tr><td colspan="4" class="owners-table-empty-sm">No agents registered under this owner</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -701,7 +701,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
           </tr>
         </thead>
         <tbody>
-          ${policyRows || '<tr><td colspan="2" style="color:var(--text-muted);text-align:center;padding:16px">No policies for this owner</td></tr>'}
+          ${policyRows || '<tr><td colspan="2" class="owners-table-empty-sm">No policies for this owner</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -723,7 +723,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         <tbody>${auditRows}</tbody>
       </table>
       `
-              : '<p style="color:var(--text-muted);padding:8px 0">No activity recorded for this owner</p>'
+              : '<p class="owners-empty-audit">No activity recorded for this owner</p>'
       }
     </div>
 

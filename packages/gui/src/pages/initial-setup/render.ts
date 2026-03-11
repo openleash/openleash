@@ -38,25 +38,25 @@ export function renderInitialSetup(): string {
       <button type="submit" class="btn-setup" id="submitBtn">Create Owner</button>
       <div class="error-msg" id="errorMsg"></div>
     </form>
-    <div id="successMsg" class="success-msg" style="display:none">
+    <div id="successMsg" class="success-msg isetup-hidden">
       <h2>Setup complete</h2>
       <p>Your owner account has been created.</p>
 
       <hr class="divider">
 
-      <p style="margin-bottom:12px">Would you like to register an agent?</p>
+      <p class="isetup-prompt-text">Would you like to register an agent?</p>
       <button class="btn-setup" id="createInviteBtn">Create Agent Invite</button>
       <button class="btn-secondary" id="skipBtn" data-show-links>Skip for now</button>
 
-      <div id="inviteResult" class="invite-result" style="display:none">
+      <div id="inviteResult" class="invite-result isetup-hidden">
         <label>Agent invite URL (single use, expires in 24h)</label>
         <div id="inviteUrlBox" class="invite-url-box"></div>
         <div class="invite-hint">Copy this URL and give it to your agent. It contains everything the agent needs to register itself.</div>
-        <button class="btn-setup" style="margin-top:12px" id="btn-copy-invite">Copy to Clipboard</button>
+        <button class="btn-setup isetup-btn-copy" id="btn-copy-invite">Copy to Clipboard</button>
         <button class="btn-secondary" data-show-links>Continue</button>
       </div>
 
-      <div id="successLinks" class="success-links" style="display:none">
+      <div id="successLinks" class="success-links isetup-hidden">
         <a href="/gui/dashboard">Admin Dashboard</a>
         <a id="loginLink" href="/gui/owner/login">Owner Login</a>
       </div>

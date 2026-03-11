@@ -43,19 +43,19 @@ function appliesToCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string
     const isAll = !d.applies_to_agent_principal_id;
 
     if (isAll) {
-        return `<span class="badge badge-amber" style="font-size:10px" title="This policy will apply to ALL your agents, not just the one suggesting it">All agents</span>`;
+        return `<span class="badge badge-amber opol-badge-sm" title="This policy will apply to ALL your agents, not just the one suggesting it">All agents</span>`;
     }
     if (isSelf) {
         const name = agentNames?.get(d.applies_to_agent_principal_id!) ?? null;
         const display = name
             ? `${escapeHtml(name)} (self)`
-            : `${copyableId(d.applies_to_agent_principal_id!)} <span style="color:var(--text-muted);font-size:11px">(self)</span>`;
+            : `${copyableId(d.applies_to_agent_principal_id!)} <span class="opol-self-label">(self)</span>`;
         return display;
     }
     // Other agent
     const name = agentNames?.get(d.applies_to_agent_principal_id!) ?? null;
     const display = name ? escapeHtml(name) : copyableId(d.applies_to_agent_principal_id!);
-    return `${display} <span class="badge badge-amber" style="font-size:10px;margin-left:4px" title="This agent is suggesting a policy for a DIFFERENT agent">other agent</span>`;
+    return `${display} <span class="badge badge-amber opol-badge-sm-ml" title="This agent is suggesting a policy for a DIFFERENT agent">other agent</span>`;
 }
 
 function suggestedByCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string>): string {
@@ -71,12 +71,12 @@ function scopeWarning(d: OwnerPolicyDraftEntry): string {
     const isAll = !d.applies_to_agent_principal_id;
 
     if (isAll) {
-        return `<div class="alert" style="background:color-mix(in srgb, var(--color-warning) 8%, transparent);border:1px solid color-mix(in srgb, var(--color-warning) 25%, transparent);color:var(--color-warning);padding:8px 12px;margin-top:8px;font-size:12px">
+        return `<div class="alert opol-scope-warning">
       <strong>Broad scope:</strong> Agent <span class="mono">${escapeHtml(d.agent_id)}</span> is proposing a policy that applies to <strong>all your agents</strong>, not just itself. Review carefully.
     </div>`;
     }
     if (!isSelf) {
-        return `<div class="alert" style="background:color-mix(in srgb, var(--color-warning) 8%, transparent);border:1px solid color-mix(in srgb, var(--color-warning) 25%, transparent);color:var(--color-warning);padding:8px 12px;margin-top:8px;font-size:12px">
+        return `<div class="alert opol-scope-warning">
       <strong>Cross-agent:</strong> Agent <span class="mono">${escapeHtml(d.agent_id)}</span> is proposing a policy for a <strong>different agent</strong> (${copyableId(d.applies_to_agent_principal_id!)}). Review carefully.
     </div>`;
     }
@@ -98,13 +98,13 @@ export function renderOwnerPolicies(
     // --- Active Policies section ---
     const policyRows =
         policies.length === 0
-            ? '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:24px">No policies</td></tr>'
+            ? '<tr><td colspan="3" class="opol-empty-cell">No policies</td></tr>'
             : policies
                   .map((p) => {
                       let appliesTo: string;
                       if (!p.applies_to_agent_principal_id) {
                           appliesTo =
-                              '<span class="badge badge-amber" style="font-size:10px" title="This policy applies to ALL your agents">All agents</span>';
+                              '<span class="badge badge-amber opol-badge-sm" title="This policy applies to ALL your agents">All agents</span>';
                       } else {
                           const name = agentNames?.get(p.applies_to_agent_principal_id) ?? null;
                           appliesTo = name
@@ -113,39 +113,39 @@ export function renderOwnerPolicies(
                       }
                       const displayName = p.name
                           ? escapeHtml(p.name)
-                          : `<span style="color:var(--text-muted)">${escapeHtml(p.policy_id.slice(0, 8))}...</span>`;
+                          : `<span class="text-muted">${escapeHtml(p.policy_id.slice(0, 8))}...</span>`;
                       const descLine = p.description
-                          ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${escapeHtml(p.description)}</div>`
+                          ? `<div class="opol-desc-line">${escapeHtml(p.description)}</div>`
                           : "";
                       return `
       <tr id="policy-row-${escapeHtml(p.policy_id)}">
         <td>
           <div>${displayName}</div>
           ${descLine}
-          <div style="margin-top:2px">${copyableId(p.policy_id)}</div>
+          <div class="opol-id-line">${copyableId(p.policy_id)}</div>
         </td>
         <td>${appliesTo}</td>
         <td>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" data-toggle-editor="${escapeHtml(p.policy_id)}">Edit</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" data-delete-policy="${escapeHtml(p.policy_id)}" ${disableActions ? "disabled" : ""}>Delete</button>
+          <button class="btn btn-secondary opol-btn-action" data-toggle-editor="${escapeHtml(p.policy_id)}">Edit</button>
+          <button class="btn btn-secondary opol-btn-action opol-btn-ml opol-btn-danger-outline" data-delete-policy="${escapeHtml(p.policy_id)}" ${disableActions ? "disabled" : ""}>Delete</button>
         </td>
       </tr>
       <tr id="editor-row-${escapeHtml(p.policy_id)}" class="hidden">
-        <td colspan="3" style="padding:12px 16px;background:var(--bg-elevated)">
-          <div style="display:flex;gap:8px;margin-bottom:8px">
-            <div style="flex:1">
-              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px">Name</label>
+        <td colspan="3" class="opol-editor-cell">
+          <div class="opol-editor-fields">
+            <div class="opol-editor-field-sm">
+              <label class="opol-editor-label">Name</label>
               <input type="text" id="editor-name-${escapeHtml(p.policy_id)}" class="form-input" value="${escapeHtml(p.name ?? "")}" placeholder="e.g. Read-only access">
             </div>
-            <div style="flex:2">
-              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px">Description</label>
+            <div class="opol-editor-field-lg">
+              <label class="opol-editor-label">Description</label>
               <input type="text" id="editor-desc-${escapeHtml(p.policy_id)}" class="form-input" value="${escapeHtml(p.description ?? "")}" placeholder="What does this policy do?">
             </div>
           </div>
-          <textarea id="editor-yaml-${escapeHtml(p.policy_id)}" class="yaml-editor" style="width:100%;height:240px;margin-bottom:8px;font-size:13px">${escapeHtml(p.policy_yaml ?? "")}</textarea>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" data-save-policy="${escapeHtml(p.policy_id)}">Save</button>
-            <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" data-toggle-editor="${escapeHtml(p.policy_id)}">Cancel</button>
+          <textarea id="editor-yaml-${escapeHtml(p.policy_id)}" class="yaml-editor opol-yaml-inline">${escapeHtml(p.policy_yaml ?? "")}</textarea>
+          <div class="opol-editor-actions">
+            <button class="btn btn-primary opol-btn-action" data-save-policy="${escapeHtml(p.policy_id)}">Save</button>
+            <button class="btn btn-secondary opol-btn-action" data-toggle-editor="${escapeHtml(p.policy_id)}">Cancel</button>
           </div>
         </td>
       </tr>
@@ -156,37 +156,37 @@ export function renderOwnerPolicies(
     // --- Pending Drafts section ---
     const totpBanner =
         requireTotp && !totpEnabled
-            ? '<div class="alert alert-error" style="margin-top:16px">Two-factor authentication is required to delete policies or approve/deny drafts. <a href="/gui/owner/profile" style="color:inherit;text-decoration:underline">Set up 2FA in your Profile.</a></div>'
+            ? '<div class="alert alert-error opol-totp-banner">Two-factor authentication is required to delete policies or approve/deny drafts. <a href="/gui/owner/profile" class="opol-alert-link">Set up 2FA in your Profile.</a></div>'
             : "";
 
     const pendingRows =
         pending.length === 0
-            ? '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No pending policy drafts</td></tr>'
+            ? '<tr><td colspan="7" class="opol-empty-cell">No pending policy drafts</td></tr>'
             : pending
                   .map((d) => {
                       const draftName = d.name
-                          ? `<div style="font-weight:600">${escapeHtml(d.name)}</div>`
+                          ? `<div class="opol-draft-name">${escapeHtml(d.name)}</div>`
                           : "";
                       const draftDesc = d.description
-                          ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${escapeHtml(d.description)}</div>`
+                          ? `<div class="opol-draft-desc">${escapeHtml(d.description)}</div>`
                           : "";
                       return `
       <tr class="accordion-row">
-        <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
-        <td>${draftName}${draftDesc}<div style="margin-top:${d.name ? "2px" : "0"}">${copyableId(d.policy_draft_id)}</div></td>
+        <td class="opol-chevron-cell"><span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td>${draftName}${draftDesc}<div class="${d.name ? "opol-id-line" : "opol-id-line-no-gap"}">${copyableId(d.policy_draft_id)}</div></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
-        <td${d.justification ? ` title="${escapeHtml(d.justification)}"` : ""}>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
+        <td${d.justification ? ` title="${escapeHtml(d.justification)}"` : ""}>${d.justification ? escapeHtml(d.justification) : '<span class="opol-dash">-</span>'}</td>
         <td>${formatTimestamp(d.created_at)}</td>
         <td>
-          <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" data-handle-draft="${d.policy_draft_id}" data-draft-action="approve" ${disableActions ? "disabled" : ""}>Approve</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" data-handle-draft="${d.policy_draft_id}" data-draft-action="deny" ${disableActions ? "disabled" : ""}>Deny</button>
+          <button class="btn btn-primary opol-btn-action" data-handle-draft="${d.policy_draft_id}" data-draft-action="approve" ${disableActions ? "disabled" : ""}>Approve</button>
+          <button class="btn btn-secondary opol-btn-action opol-btn-ml opol-btn-danger-outline" data-handle-draft="${d.policy_draft_id}" data-draft-action="deny" ${disableActions ? "disabled" : ""}>Deny</button>
         </td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
-        <td colspan="7" style="padding:0 12px 16px">
+        <td colspan="7" class="opol-detail-cell">
           ${scopeWarning(d)}
-          <div style="margin-top:8px;margin-bottom:4px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Proposed Policy YAML</div>
+          <div class="opol-yaml-label">Proposed Policy YAML</div>
           <div class="accordion-content">${escapeHtml(d.policy_yaml)}</div>
         </td>
       </tr>
@@ -207,31 +207,31 @@ export function renderOwnerPolicies(
                                 ? "badge-red"
                                 : "badge-muted";
                       const rName = d.name
-                          ? `<div style="font-weight:600">${escapeHtml(d.name)}</div>`
+                          ? `<div class="opol-draft-name">${escapeHtml(d.name)}</div>`
                           : "";
                       const rDesc = d.description
-                          ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${escapeHtml(d.description)}</div>`
+                          ? `<div class="opol-draft-desc">${escapeHtml(d.description)}</div>`
                           : "";
                       return `
       <tr class="accordion-row">
-        <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
-        <td>${rName}${rDesc}<div style="margin-top:${d.name ? "2px" : "0"}">${copyableId(d.policy_draft_id)}</div></td>
+        <td class="opol-chevron-cell"><span class="chevron material-symbols-outlined">chevron_right</span></td>
+        <td>${rName}${rDesc}<div class="${d.name ? "opol-id-line" : "opol-id-line-no-gap"}">${copyableId(d.policy_draft_id)}</div></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td><span class="badge ${badge}">${escapeHtml(d.status)}</span></td>
         <td>${
             d.resulting_policy_id
-                ? `<a href="#policy-row-${escapeHtml(d.resulting_policy_id)}" style="color:var(--color-success);text-decoration:none" title="Scroll to active policy">${copyableId(d.resulting_policy_id)}</a>`
+                ? `<a href="#policy-row-${escapeHtml(d.resulting_policy_id)}" class="opol-result-link" title="Scroll to active policy">${copyableId(d.resulting_policy_id)}</a>`
                 : d.denial_reason
                   ? escapeHtml(d.denial_reason)
-                  : '<span style="color:var(--text-muted)">-</span>'
+                  : '<span class="opol-dash">-</span>'
         }</td>
         <td>${formatTimestamp(d.created_at)}</td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
-        <td colspan="7" style="padding:0 12px 16px">
+        <td colspan="7" class="opol-detail-cell">
           ${scopeWarning(d)}
-          <div style="margin-top:8px;margin-bottom:4px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Proposed Policy YAML</div>
+          <div class="opol-yaml-label">Proposed Policy YAML</div>
           <div class="accordion-content">${escapeHtml(d.policy_yaml)}</div>
         </td>
       </tr>`;
@@ -239,14 +239,14 @@ export function renderOwnerPolicies(
                   .join("");
 
     const content = `
-    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+    <div class="page-header flex-between">
       <h2>My Policies</h2>
-      <a href="/gui/owner/policies/create" class="btn btn-primary" style="text-decoration:none"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">add</span>Create Policy</a>
+      <a href="/gui/owner/policies/create" class="btn btn-primary opol-create-link"><span class="material-symbols-outlined opol-btn-icon">add</span>Create Policy</a>
     </div>
 
-    <div class="card" style="padding:0;margin-top:20px">
-      <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Active Policies</h3>
-      <table style="table-layout:fixed">
+    <div class="card opol-card-flush">
+      <h3 class="opol-card-heading">Active Policies</h3>
+      <table class="opol-table-fixed">
         <colgroup><col><col style="width:200px"><col style="width:150px"></colgroup>
         <thead>
           <tr><th>Policy</th><th>Applies To</th><th>Actions</th></tr>
@@ -255,9 +255,9 @@ export function renderOwnerPolicies(
       </table>
     </div>
 
-    <div class="card" style="padding:0;margin-top:20px">
-      <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Pending Drafts${infoIcon("policy-drafts-info", INFO_POLICY_DRAFTS)}</h3>
-      <p style="color:var(--text-secondary);font-size:13px;padding:0 20px;margin:8px 0">
+    <div class="card opol-card-flush">
+      <h3 class="opol-card-heading">Pending Drafts${infoIcon("policy-drafts-info", INFO_POLICY_DRAFTS)}</h3>
+      <p class="opol-section-desc">
         Your agents can propose new policies. Review and approve or deny them here.
       </p>
       ${totpBanner}
@@ -273,8 +273,8 @@ export function renderOwnerPolicies(
     ${
         resolved.length > 0
             ? `
-    <div class="card" style="padding:0;margin-top:20px">
-      <h3 style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-subtle)">Resolved Drafts</h3>
+    <div class="card opol-card-flush">
+      <h3 class="opol-card-heading">Resolved Drafts</h3>
       <table>
         <colgroup><col style="width:20px"><col style="width:290px"><col><col><col style="width:130px"><col style="width:290px"><col style="width:170px"></colgroup>
         <thead>

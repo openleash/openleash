@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the admin agents page.
  */
+import "./style.css";
 import { olToast, olFieldError, olApiError } from "../../shared/common";
 
 function toggleInviteForm() {

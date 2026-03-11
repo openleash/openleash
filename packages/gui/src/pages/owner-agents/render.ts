@@ -27,7 +27,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
     const disableActions = requireTotp && !totpEnabled;
     const rows =
         agents.length === 0
-            ? '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">No agents registered</td></tr>'
+            ? '<tr><td colspan="5" class="agents-empty-row">No agents registered</td></tr>'
             : agents
                   .map((a) => {
                       const badge = a.status === "ACTIVE" ? "badge-green" : "badge-red";
@@ -40,8 +40,8 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
         <td>
           ${
               a.status === "ACTIVE"
-                  ? `<button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;border-color:var(--color-danger);color:var(--color-danger)" data-revoke-agent="${a.agent_principal_id}" ${disableActions ? "disabled" : ""}>Revoke</button>`
-                  : '<span style="color:var(--text-muted)">-</span>'
+                  ? `<button class="btn btn-secondary agents-btn-revoke" data-revoke-agent="${a.agent_principal_id}" ${disableActions ? "disabled" : ""}>Revoke</button>`
+                  : '<span class="text-muted">-</span>'
           }
         </td>
       </tr>`;
@@ -49,28 +49,28 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
                   .join("");
 
     const content = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div class="agents-header">
       <h2>My Agents</h2>
       <button class="btn btn-primary" id="btn-create-invite">+ Create Agent Invite</button>
     </div>
 
     ${
         requireTotp && !totpEnabled
-            ? '<div class="alert alert-error" style="margin-bottom:16px">Two-factor authentication is required to revoke agents. <a href="/gui/owner/profile" style="color:inherit;text-decoration:underline">Set up 2FA in your Profile.</a></div>'
+            ? '<div class="alert alert-error agents-totp-banner">Two-factor authentication is required to revoke agents. <a href="/gui/owner/profile" class="agents-totp-link">Set up 2FA in your Profile.</a></div>'
             : ""
     }
 
-    <div id="invite-result" class="card" style="display:none;border-color:color-mix(in srgb, var(--color-warning) 30%, transparent)">
-      <div style="font-size:13px;font-weight:600;color:var(--color-warning);margin-bottom:12px">Agent Invite URL (single use, expires in 24h)</div>
-      <div id="invite-url" style="padding:10px 14px;background:var(--bg-elevated);border:1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);border-radius:8px;font-family:var(--font-mono);font-size:12px;word-break:break-all;line-height:1.5;color:var(--text-primary)"></div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Copy this URL and give it to your agent. It contains everything the agent needs to register itself.</div>
-      <div style="margin-top:12px;display:flex;gap:8px">
-        <button class="btn btn-primary" style="font-size:12px;padding:6px 16px" id="btn-copy-invite">Copy to Clipboard</button>
-        <button class="btn btn-secondary" style="font-size:12px;padding:6px 16px" id="btn-dismiss-invite">Dismiss</button>
+    <div id="invite-result" class="card hidden agents-invite-card">
+      <div class="agents-invite-title">Agent Invite URL (single use, expires in 24h)</div>
+      <div id="invite-url" class="agents-invite-url"></div>
+      <div class="agents-invite-hint">Copy this URL and give it to your agent. It contains everything the agent needs to register itself.</div>
+      <div class="agents-invite-actions">
+        <button class="btn btn-primary agents-invite-btn" id="btn-copy-invite">Copy to Clipboard</button>
+        <button class="btn btn-secondary agents-invite-btn" id="btn-dismiss-invite">Dismiss</button>
       </div>
     </div>
 
-    <div class="card" style="padding:0;margin-top:20px">
+    <div class="card agents-card">
       <table>
         <colgroup><col><col style="width:290px"><col style="width:130px"><col style="width:170px"><col style="width:140px"></colgroup>
         <thead>

@@ -169,7 +169,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <td>${escapeHtml(c.label ?? "-")}</td>
       <td>${escapeHtml(c.platform ?? "-")}</td>
       <td>${c.verified ? '<span class="badge badge-green">Verified</span>' : '<span class="badge badge-muted">Unverified</span>'}</td>
-      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" data-action="remove-contact" data-index="${i}">Remove</button></td>
+      <td><button class="btn btn-secondary profile-btn-remove" data-action="remove-contact" data-index="${i}">Remove</button></td>
     </tr>
   `,
         )
@@ -183,7 +183,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <td>${escapeHtml(GOV_ID_LABELS[g.id_type] ?? g.id_type)}</td>
       <td class="mono">${escapeHtml(g.id_value)}</td>
       <td>${verificationBadge(g.verification_level)}</td>
-      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" data-action="remove-gov-id" data-index="${i}">Remove</button></td>
+      <td><button class="btn btn-secondary profile-btn-remove" data-action="remove-gov-id" data-index="${i}">Remove</button></td>
     </tr>
   `,
         )
@@ -197,7 +197,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <td>${c.country ? countryFlag(c.country) + " " + escapeHtml(c.country) : "-"}</td>
       <td class="mono">${escapeHtml(c.id_value)}</td>
       <td>${verificationBadge(c.verification_level)}</td>
-      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" data-action="remove-company-id" data-index="${i}">Remove</button></td>
+      <td><button class="btn btn-secondary profile-btn-remove" data-action="remove-company-id" data-index="${i}">Remove</button></td>
     </tr>
   `,
         )
@@ -226,23 +226,23 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <table>
         <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
-          <tr><td style="color:var(--text-muted)">Principal ID</td><td>${copyableId(data.owner_principal_id, data.owner_principal_id.length)}</td></tr>
-          <tr><td style="color:var(--text-muted)">Display Name</td><td>
-            <span id="display-name-view" style="display:flex;align-items:center;gap:8px">
+          <tr><td class="text-muted">Principal ID</td><td>${copyableId(data.owner_principal_id, data.owner_principal_id.length)}</td></tr>
+          <tr><td class="text-muted">Display Name</td><td>
+            <span id="display-name-view" class="profile-name-view">
               <span>${escapeHtml(data.display_name)}</span>
-              <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" id="btn-show-name-edit">Edit</button>
+              <button class="btn btn-secondary profile-btn-inline-edit" id="btn-show-name-edit">Edit</button>
             </span>
-            <span id="display-name-edit" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
-              <input type="text" id="newDisplayName" value="${escapeHtml(data.display_name)}" class="form-input" style="width:220px;padding:4px 8px;font-size:13px">
-              <button class="btn btn-primary" style="padding:4px 12px;font-size:12px" id="btn-update-name">Save</button>
-              <button class="btn btn-secondary" style="padding:4px 12px;font-size:12px" id="btn-hide-name-edit">Cancel</button>
-              <div class="field-error" id="err-newDisplayName" style="width:100%"></div>
+            <span id="display-name-edit" class="profile-name-edit">
+              <input type="text" id="newDisplayName" value="${escapeHtml(data.display_name)}" class="form-input profile-name-input">
+              <button class="btn btn-primary profile-btn-action" id="btn-update-name">Save</button>
+              <button class="btn btn-secondary profile-btn-action" id="btn-hide-name-edit">Cancel</button>
+              <div class="field-error profile-field-error-full" id="err-newDisplayName"></div>
             </span>
           </td></tr>
-          <tr><td style="color:var(--text-muted)">Type</td><td>${escapeHtml(data.principal_type)}</td></tr>
-          <tr><td style="color:var(--text-muted)">Status</td><td><span class="badge ${data.status === "ACTIVE" ? "badge-green" : "badge-red"}">${escapeHtml(data.status)}</span>${infoIcon("owner-status", INFO_OWNER_STATUS)}</td></tr>
-          <tr><td style="color:var(--text-muted)">Assurance Level</td><td>${assuranceLevelDisplay(data.identity_assurance_level)}${infoIcon("assurance-level", ASSURANCE_LEVEL_POPOVER)}</td></tr>
-          <tr><td style="color:var(--text-muted)">Created</td><td class="mono">${formatTimestamp(data.created_at)}</td></tr>
+          <tr><td class="text-muted">Type</td><td>${escapeHtml(data.principal_type)}</td></tr>
+          <tr><td class="text-muted">Status</td><td><span class="badge ${data.status === "ACTIVE" ? "badge-green" : "badge-red"}">${escapeHtml(data.status)}</span>${infoIcon("owner-status", INFO_OWNER_STATUS)}</td></tr>
+          <tr><td class="text-muted">Assurance Level</td><td>${assuranceLevelDisplay(data.identity_assurance_level)}${infoIcon("assurance-level", ASSURANCE_LEVEL_POPOVER)}</td></tr>
+          <tr><td class="text-muted">Created</td><td class="mono">${formatTimestamp(data.created_at)}</td></tr>
         </tbody>
       </table>
     </div>
@@ -252,15 +252,15 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       ${
           data.totp_enabled
               ? `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div class="profile-security-status">
         <span class="badge badge-green">2FA Enabled</span>
-        ${data.totp_enabled_at ? `<span style="font-size:12px;color:var(--text-muted)">since ${formatTimestamp(data.totp_enabled_at)}</span>` : ""}
+        ${data.totp_enabled_at ? `<span class="profile-security-since">since ${formatTimestamp(data.totp_enabled_at)}</span>` : ""}
       </div>
-      ${data.totp_backup_codes_remaining !== undefined ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">${data.totp_backup_codes_remaining} backup code${data.totp_backup_codes_remaining !== 1 ? "s" : ""} remaining</p>` : ""}
-      <button class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger)" id="btn-open-disable-modal">Disable 2FA</button>
+      ${data.totp_backup_codes_remaining !== undefined ? `<p class="profile-hint">${data.totp_backup_codes_remaining} backup code${data.totp_backup_codes_remaining !== 1 ? "s" : ""} remaining</p>` : ""}
+      <button class="btn btn-secondary btn-danger-outline" id="btn-open-disable-modal">Disable 2FA</button>
       `
               : `
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Two-Factor Authentication: Not configured</p>
+      <p class="profile-hint">Two-Factor Authentication: Not configured</p>
       <button class="btn btn-primary" id="btn-setup-totp">Enable 2FA</button>
       `
       }
@@ -271,21 +271,21 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <div class="modal">
         <div class="modal-title">Enable Two-Factor Authentication</div>
         <div id="totp-setup-step1">
-          <p style="font-size:13px;margin-bottom:16px">Scan this QR code with your authenticator app:</p>
-          <div id="totp-qr" style="text-align:center;margin-bottom:16px;background:#fff;display:inline-block;padding:8px;border-radius:4px;width:100%"></div>
-          <details style="margin-bottom:16px"><summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Or enter secret manually</summary>
-            <div id="totp-secret-display" class="mono" style="background:var(--bg-deep);padding:8px 12px;border-radius:4px;font-size:13px;word-break:break-all;margin-top:8px"></div>
+          <p class="profile-modal-text">Scan this QR code with your authenticator app:</p>
+          <div id="totp-qr" class="profile-qr-wrap"></div>
+          <details class="profile-details-section"><summary class="profile-summary">Or enter secret manually</summary>
+            <div id="totp-secret-display" class="mono profile-secret-display"></div>
           </details>
-          <div style="background:var(--bg-deep);padding:12px;border-radius:4px;border:1px solid var(--color-warning);margin-bottom:16px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-              <p style="font-size:13px;font-weight:600;color:var(--color-warning)">Save these backup codes</p>
-              <button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" id="btn-download-codes"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">download</span>Download .txt</button>
+          <div class="profile-backup-box">
+            <div class="profile-backup-header">
+              <p class="profile-backup-title">Save these backup codes</p>
+              <button class="btn btn-secondary profile-btn-download" id="btn-download-codes"><span class="material-symbols-outlined profile-btn-icon">download</span>Download .txt</button>
             </div>
-            <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Store them somewhere safe. Each code can only be used once.</p>
-            <div id="totp-backup-codes" class="mono" style="font-size:13px;line-height:1.8"></div>
+            <p class="profile-backup-hint">Store them somewhere safe. Each code can only be used once.</p>
+            <div id="totp-backup-codes" class="mono profile-backup-codes"></div>
           </div>
-          <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Verify code from authenticator</label>
-          <input type="text" id="totp-confirm-code" class="form-input" placeholder="Enter 6-digit code" maxlength="6" style="width:100%">
+          <label class="detail-label">Verify code from authenticator</label>
+          <input type="text" id="totp-confirm-code" class="form-input profile-input-full" placeholder="Enter 6-digit code" maxlength="6">
           <div id="totp-setup-error" class="modal-error"></div>
           <div class="modal-footer">
             <button class="btn btn-secondary" data-close-modal="totp-setup-modal">Cancel</button>
@@ -299,19 +299,19 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
     <div id="totp-disable-modal" class="modal-overlay" data-close-modal="totp-disable-modal">
       <div class="modal">
         <div class="modal-title">Disable Two-Factor Authentication</div>
-        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Enter your current 2FA code or a backup code to confirm.</p>
-        <input type="text" id="totp-disable-code" class="form-input" placeholder="Enter code" style="width:100%">
+        <p class="profile-modal-subtitle">Enter your current 2FA code or a backup code to confirm.</p>
+        <input type="text" id="totp-disable-code" class="form-input profile-input-full" placeholder="Enter code">
         <div id="totp-disable-error" class="modal-error"></div>
         <div class="modal-footer">
           <button class="btn btn-secondary" data-close-modal="totp-disable-modal">Cancel</button>
-          <button class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger)" id="btn-confirm-disable-totp">Disable 2FA</button>
+          <button class="btn btn-secondary btn-danger-outline" id="btn-confirm-disable-totp">Disable 2FA</button>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Contact Identities (${contacts.length})</div>
+      <div class="profile-section-header">
+        <div class="card-title">Contact Identities (${contacts.length})</div>
       </div>
       ${
           contacts.length > 0
@@ -322,13 +322,13 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         <tbody>${contactRows}</tbody>
       </table>
       `
-              : '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No contact identities</p>'
+              : '<p class="profile-empty">No contact identities</p>'
       }
-      <details style="margin-top:12px">
-        <summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Add contact identity</summary>
-        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <details class="profile-add-section">
+        <summary class="profile-summary">Add contact identity</summary>
+        <div class="profile-form-grid-2">
           <div>
-            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Type</label>
+            <label class="detail-label">Type</label>
             <select id="contact-type" class="form-select">
               <option value="EMAIL">Email</option>
               <option value="PHONE">Phone</option>
@@ -337,20 +337,20 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
             </select>
           </div>
           <div>
-            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Value</label>
+            <label class="detail-label">Value</label>
             <input type="text" id="contact-value" class="form-input" placeholder="e.g. user@example.com">
             <div class="field-error" id="err-contact-value"></div>
           </div>
           <div>
-            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Label (optional)</label>
+            <label class="detail-label">Label (optional)</label>
             <input type="text" id="contact-label" class="form-input" placeholder="e.g. Work">
           </div>
           <div>
-            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Platform (optional)</label>
+            <label class="detail-label">Platform (optional)</label>
             <input type="text" id="contact-platform" class="form-input" placeholder="e.g. Slack">
           </div>
-          <div style="grid-column:1/-1">
-            <button class="btn btn-primary" style="font-size:12px" id="btn-add-contact">Add</button>
+          <div class="profile-form-full-row">
+            <button class="btn btn-primary btn-sm" id="btn-add-contact">Add</button>
           </div>
         </div>
       </details>
@@ -360,8 +360,8 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         isHuman
             ? `
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Government IDs (${govIds.length})${infoIcon("gov-id-verification", INFO_VERIFICATION_LEVEL)}</div>
+      <div class="profile-section-header">
+        <div class="card-title">Government IDs (${govIds.length})${infoIcon("gov-id-verification", INFO_VERIFICATION_LEVEL)}</div>
       </div>
       ${
           govIds.length > 0
@@ -372,13 +372,13 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         <tbody>${govIdRows}</tbody>
       </table>
       `
-              : '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No government IDs</p>'
+              : '<p class="profile-empty">No government IDs</p>'
       }
-      <details style="margin-top:12px">
-        <summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Add government ID</summary>
-        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <details class="profile-add-section">
+        <summary class="profile-summary">Add government ID</summary>
+        <div class="profile-form-grid-3">
           <div>
-            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Country</label>
+            <label class="detail-label">Country</label>
             <select id="gov-country" class="form-select">
               <option value="">Select country</option>
               ${countryOptions}
@@ -386,19 +386,19 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
             <div class="field-error" id="err-gov-country"></div>
           </div>
           <div>
-            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">ID Type</label>
+            <label class="detail-label">ID Type</label>
             <select id="gov-id-type" class="form-select">
               <option value="">Select country first</option>
             </select>
             <div class="field-error" id="err-gov-id-type"></div>
           </div>
           <div>
-            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">ID Value</label>
+            <label class="detail-label">ID Value</label>
             <input type="text" id="gov-id-value" class="form-input" placeholder="Enter ID number">
             <div class="field-error" id="err-gov-id-value"></div>
           </div>
-          <div style="grid-column:1/-1">
-            <button class="btn btn-primary" style="font-size:12px" id="btn-add-gov-id">Add</button>
+          <div class="profile-form-full-row">
+            <button class="btn btn-primary btn-sm" id="btn-add-gov-id">Add</button>
           </div>
         </div>
       </details>
@@ -411,8 +411,8 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         isOrg
             ? `
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="card-title" style="margin-bottom:0">Company IDs (${companyIds.length})${infoIcon("company-id-verification", INFO_VERIFICATION_LEVEL)}</div>
+      <div class="profile-section-header">
+        <div class="card-title">Company IDs (${companyIds.length})${infoIcon("company-id-verification", INFO_VERIFICATION_LEVEL)}</div>
       </div>
       ${
           companyIds.length > 0
@@ -423,13 +423,13 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         <tbody>${companyIdRows}</tbody>
       </table>
       `
-              : '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">No company IDs</p>'
+              : '<p class="profile-empty">No company IDs</p>'
       }
-      <details style="margin-top:12px">
-        <summary style="color:var(--text-muted);font-size:12px;cursor:pointer;user-select:none">Add company ID</summary>
-        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <details class="profile-add-section">
+        <summary class="profile-summary">Add company ID</summary>
+        <div class="profile-form-grid-3">
           <div>
-            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Type</label>
+            <label class="detail-label">Type</label>
             <select id="company-id-type" class="form-select">
               <option value="COMPANY_REG">Company Registration</option>
               <option value="VAT">VAT Number</option>
@@ -439,19 +439,19 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
             </select>
           </div>
           <div>
-            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Country (optional)</label>
+            <label class="detail-label">Country (optional)</label>
             <select id="company-country" class="form-select">
               <option value="">None</option>
               ${countryOptions}
             </select>
           </div>
           <div>
-            <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">ID Value</label>
+            <label class="detail-label">ID Value</label>
             <input type="text" id="company-id-value" class="form-input" placeholder="Enter ID number">
             <div class="field-error" id="err-company-id-value"></div>
           </div>
-          <div style="grid-column:1/-1">
-            <button class="btn btn-primary" style="font-size:12px" id="btn-add-company-id">Add</button>
+          <div class="profile-form-full-row">
+            <button class="btn btn-primary btn-sm" id="btn-add-company-id">Add</button>
           </div>
         </div>
       </details>
@@ -476,7 +476,7 @@ const ASSURANCE_LEVEL_INFO: Record<string, { badge: string; label: string }> = {
 
 const ASSURANCE_LEVEL_POPOVER = `
   <div class="info-title">Identity Assurance Levels</div>
-  <p style="margin-bottom:8px">Your assurance level is automatically computed from the identity information you provide. Policies can require a minimum level before allowing certain actions.</p>
+  <p class="profile-popover-text">Your assurance level is automatically computed from the identity information you provide. Policies can require a minimum level before allowing certain actions.</p>
   <dl>
     <dt><span class="badge badge-green">ID VERIFIED</span></dt>
     <dd>A government or company ID has been fully verified</dd>
@@ -492,9 +492,9 @@ const ASSURANCE_LEVEL_POPOVER = `
 
 const SECURITY_2FA_POPOVER = `
   <div class="info-title">Two-Factor Authentication (2FA)</div>
-  <p style="margin-bottom:8px">2FA adds a second verification step using a Time-based One-Time Password (TOTP) from an authenticator app (e.g. Google Authenticator, Authy).</p>
-  <p style="margin-bottom:8px">When enabled, you will need to enter a 6-digit code from your authenticator app to approve or deny agent requests and policy drafts.</p>
-  <p><strong style="color:var(--text-primary)">Backup codes</strong> are single-use recovery codes in case you lose access to your authenticator app. Store them securely.</p>`;
+  <p class="profile-popover-text">2FA adds a second verification step using a Time-based One-Time Password (TOTP) from an authenticator app (e.g. Google Authenticator, Authy).</p>
+  <p class="profile-popover-text">When enabled, you will need to enter a 6-digit code from your authenticator app to approve or deny agent requests and policy drafts.</p>
+  <p><strong class="text-primary-force">Backup codes</strong> are single-use recovery codes in case you lose access to your authenticator app. Store them securely.</p>`;
 
 function assuranceLevelDisplay(level: string | undefined): string {
     const info = ASSURANCE_LEVEL_INFO[level ?? "NONE"] ?? ASSURANCE_LEVEL_INFO["NONE"];
