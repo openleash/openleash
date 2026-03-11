@@ -28,12 +28,17 @@ import type {
 } from '@openleash/core';
 // Note: identity sub-types kept in imports for owner creation
 import { createAdminAuth } from '../middleware/admin-auth.js';
+import { validateBody } from '../validate.js';
+import { CreateOwnerSchema } from '@openleash/gui';
 
 export function registerAdminRoutes(app: FastifyInstance, dataDir: string, config: OpenleashConfig) {
   const adminAuth = createAdminAuth(config);
 
   // POST /v1/admin/owners
   app.post('/v1/admin/owners', { preHandler: adminAuth }, async (request, reply) => {
+    const validated = validateBody(request.body, CreateOwnerSchema, reply);
+    if (!validated) return;
+
     const body = request.body as {
       principal_type: 'HUMAN' | 'ORG';
       display_name: string;

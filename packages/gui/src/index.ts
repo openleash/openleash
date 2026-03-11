@@ -32,3 +32,4 @@ export { renderOwnerProfile } from "./pages/owner-profile.js";
 export type { OwnerProfileData } from "./pages/owner-profile.js";
 export { renderInitialSetup } from "./pages/initial-setup.js";
 export { renderApiReference, renderApiReferenceUnavailable } from "./pages/api-reference.js";
+export * from "./validation.js";

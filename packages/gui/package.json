@@ -18,7 +18,8 @@
     "directory": "packages/gui"
   },
   "dependencies": {
-    "@openleash/core": "0.5.0"
+    "@openleash/core": "0.5.0",
+    "zod": "^4.3.6"
   },
   "homepage": "https://github.com/openleash/openleash/tree/main/packages/gui",
   "bugs": {

@@ -44,6 +44,14 @@ import type {
     SignatoryRule,
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
+import { validateBody } from "../validate.js";
+import {
+    InitialSetupSchema,
+    OwnerSetupSchema,
+    OwnerLoginSchema,
+    TotpVerifySchema,
+    SavePolicySchema,
+} from "@openleash/gui";
 
 export function registerOwnerRoutes(
     app: FastifyInstance,
@@ -56,33 +64,10 @@ export function registerOwnerRoutes(
 
     // POST /v1/initial-setup — first-time setup: create the first owner
     app.post("/v1/initial-setup", async (request, reply) => {
-        const body = request.body as {
-            display_name: string;
-            principal_type: string;
-            passphrase: string;
-        };
+        const body = validateBody(request.body, InitialSetupSchema, reply);
+        if (!body) return;
 
-        if (!body.display_name || !body.passphrase) {
-            reply.code(400).send({
-                error: {
-                    code: "INVALID_REQUEST",
-                    message: "display_name and passphrase are required",
-                },
-            });
-            return;
-        }
-
-        if (body.passphrase.length < 8) {
-            reply.code(400).send({
-                error: {
-                    code: "WEAK_PASSPHRASE",
-                    message: "Passphrase must be at least 8 characters",
-                },
-            });
-            return;
-        }
-
-        const principalType = body.principal_type === "ORG" ? "ORG" : "HUMAN";
+        const principalType = body.principal_type;
 
         // Guard: only allowed when no owners exist
         const state = readState(dataDir);
@@ -133,31 +118,8 @@ export function registerOwnerRoutes(
 
     // POST /v1/owner/setup — complete setup with invite token + passphrase
     app.post("/v1/owner/setup", async (request, reply) => {
-        const body = request.body as {
-            invite_id: string;
-            invite_token: string;
-            passphrase: string;
-        };
-
-        if (!body.invite_id || !body.invite_token || !body.passphrase) {
-            reply.code(400).send({
-                error: {
-                    code: "INVALID_REQUEST",
-                    message: "invite_id, invite_token, and passphrase are required",
-                },
-            });
-            return;
-        }
-
-        if (body.passphrase.length < 8) {
-            reply.code(400).send({
-                error: {
-                    code: "WEAK_PASSPHRASE",
-                    message: "Passphrase must be at least 8 characters",
-                },
-            });
-            return;
-        }
+        const body = validateBody(request.body, OwnerSetupSchema, reply);
+        if (!body) return;
 
         // Load invite
         let invite;
@@ -221,20 +183,8 @@ export function registerOwnerRoutes(
 
     // POST /v1/owner/login
     app.post("/v1/owner/login", async (request, reply) => {
-        const body = request.body as {
-            owner_principal_id: string;
-            passphrase: string;
-        };
-
-        if (!body.owner_principal_id || !body.passphrase) {
-            reply.code(400).send({
-                error: {
-                    code: "INVALID_REQUEST",
-                    message: "owner_principal_id and passphrase are required",
-                },
-            });
-            return;
-        }
+        const body = validateBody(request.body, OwnerLoginSchema, reply);
+        if (!body) return;
 
         // Look up owner
         const state = readState(dataDir);
@@ -600,11 +550,8 @@ export function registerOwnerRoutes(
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const { policyId } = request.params as { policyId: string };
-        const body = request.body as {
-            policy_yaml?: string;
-            name?: string | null;
-            description?: string | null;
-        };
+        const body = validateBody(request.body, SavePolicySchema, reply);
+        if (!body) return;
 
         const state = readState(dataDir);
         const entry = state.policies.find(
@@ -717,7 +664,8 @@ export function registerOwnerRoutes(
     app.post("/v1/owner/totp/confirm", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const body = request.body as { code: string };
+        const body = validateBody(request.body, TotpVerifySchema, reply);
+        if (!body) return;
         const owner = readOwnerFile(dataDir, session.sub);
 
         if (!owner.totp_secret_b32) {
