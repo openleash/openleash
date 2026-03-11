@@ -1,0 +1,132 @@
+/* ─── Owner Dashboard page ──────────────────────────────────────────── */
+
+/* Stat cards grid */
+.odash-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* Big stat number */
+.odash-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+/* Warning variant for non-zero pending counts */
+.odash-stat-value-warn {
+  color: var(--color-warning);
+}
+
+/* Stat label under the number */
+.odash-stat-label {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* Pending-action notice banner */
+.odash-notice {
+  padding: 16px;
+  margin-bottom: 24px;
+  border-left: 3px solid var(--color-warning);
+}
+
+/* Warning-colored text inside notice */
+.odash-notice-text {
+  color: var(--color-warning);
+}
+
+/* "Review now" link in notice banner */
+.odash-notice-action {
+  color: var(--green-bright);
+  margin-left: 8px;
+}
+
+/* Getting-started card */
+.odash-setup-card {
+  border-left: 3px solid var(--color-warning);
+  margin-bottom: 24px;
+}
+
+/* Setup intro paragraph */
+.odash-setup-intro {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+/* Setup step row */
+.odash-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Check-mark icon inside done step circle */
+.odash-step-check {
+  background: var(--green-dark);
+  color: var(--green-bright);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* Step title text */
+.odash-step-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+/* Step hint (green, for completed steps) */
+.odash-step-hint-done {
+  color: var(--green-bright);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Two-column info grid */
+.odash-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+/* Vertical list of features/concepts */
+.odash-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Feature link title */
+.odash-feature-link {
+  font-weight: 600;
+  color: var(--green-bright);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+/* Feature / concept description */
+.odash-feature-desc {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 2px;
+  line-height: 1.6;
+}
+
+/* Concept heading (non-link) */
+.odash-concept-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13px;
+}

@@ -1,0 +1,121 @@
+/* ─── Owner Profile page styles ────────────────────────────────────── */
+
+/* Remove button in tables (contacts, gov IDs, company IDs) */
+.profile-btn-remove { padding: 3px 8px; font-size: 11px; }
+
+/* Inline edit toggle button next to display name */
+.profile-btn-inline-edit { padding: 2px 8px; font-size: 11px; }
+
+/* Save / Cancel action buttons */
+.profile-btn-action { padding: 4px 12px; font-size: 12px; }
+
+/* Display name: view mode */
+.profile-name-view { display: flex; align-items: center; gap: 8px; }
+
+/* Display name: edit mode (hidden by default, toggled via JS) */
+.profile-name-edit { display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Compact text input for display name */
+.profile-name-input { width: 220px; padding: 4px 8px; font-size: 13px; }
+
+/* Full-width field error below name input */
+.profile-field-error-full { width: 100%; }
+
+/* 2FA status row (badge + timestamp) */
+.profile-security-status { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+
+/* Muted timestamp next to 2FA badge */
+.profile-security-since { font-size: 12px; color: var(--text-muted); }
+
+/* Muted informational hint text */
+.profile-hint { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+
+/* Danger-outlined button (e.g. Disable 2FA) */
+.btn-danger-outline { border-color: var(--color-danger); color: var(--color-danger); }
+
+/* QR code container in TOTP setup */
+.profile-qr-wrap {
+  text-align: center;
+  margin-bottom: 16px;
+  background: #fff;
+  display: inline-block;
+  padding: 8px;
+  border-radius: 4px;
+  width: 100%;
+}
+
+/* Collapsible details sections */
+.profile-details-section { margin-bottom: 16px; }
+
+/* Summary toggle text for collapsible sections */
+.profile-summary { color: var(--text-muted); font-size: 12px; cursor: pointer; user-select: none; }
+
+/* Manual secret display in TOTP setup */
+.profile-secret-display {
+  background: var(--bg-deep);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  word-break: break-all;
+  margin-top: 8px;
+}
+
+/* Backup codes warning box */
+.profile-backup-box {
+  background: var(--bg-deep);
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--color-warning);
+  margin-bottom: 16px;
+}
+
+/* Header row inside backup codes box */
+.profile-backup-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+
+/* "Save these backup codes" title */
+.profile-backup-title { font-size: 13px; font-weight: 600; color: var(--color-warning); }
+
+/* Download button inside backup box */
+.profile-btn-download { font-size: 11px; padding: 3px 10px; }
+
+/* Small icon inside download button */
+.profile-btn-icon { font-size: 14px; vertical-align: middle; margin-right: 4px; }
+
+/* Hint text below backup title */
+.profile-backup-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+
+/* Backup codes list */
+.profile-backup-codes { font-size: 13px; line-height: 1.8; }
+
+/* Full-width input (TOTP code, etc.) */
+.profile-input-full { width: 100%; }
+
+/* Card section header with title + actions */
+.profile-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+/* Card title without bottom margin (when inside section header) */
+.profile-section-header .card-title { margin-bottom: 0; }
+
+/* Empty-state message in sections */
+.profile-empty { color: var(--text-muted); font-size: 13px; margin-bottom: 12px; }
+
+/* Add-form toggle section */
+.profile-add-section { margin-top: 12px; }
+
+/* 2-column form grid for contact identity */
+.profile-form-grid-2 { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* 3-column form grid for gov/company IDs */
+.profile-form-grid-3 { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+/* Full-width row spanning all grid columns */
+.profile-form-full-row { grid-column: 1 / -1; }
+
+/* Modal body text */
+.profile-modal-text { font-size: 13px; margin-bottom: 16px; }
+
+/* Modal subtitle (e.g. disable 2FA description) */
+.profile-modal-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+
+/* Popover paragraph spacing */
+.profile-popover-text { margin-bottom: 8px; }

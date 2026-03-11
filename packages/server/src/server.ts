@@ -1,7 +1,10 @@
+import * as path from 'node:path';
 import Fastify from 'fastify';
+import fastifyStatic from '@fastify/static';
 import helmet from '@fastify/helmet';
 import { NonceCache } from '@openleash/core';
 import type { OpenleashConfig } from '@openleash/core';
+import { initManifest } from '@openleash/gui';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerPublicKeysRoutes } from './routes/public-keys.js';
 import { registerVerifyProofRoutes } from './routes/verify-proof.js';
@@ -13,6 +16,11 @@ import { registerAgentSelfRoutes } from './routes/agent-self.js';
 import { registerPlaygroundRoutes } from './routes/playground.js';
 import { registerGuiRoutes } from './routes/gui.js';
 import { registerReferenceRoutes } from './routes/reference.js';
+
+// Resolve the @openleash/gui client assets directory.
+// The gui package lives in the same monorepo, so we resolve relative to
+// its dist/ output which sits alongside the server's dist/.
+const GUI_CLIENT_DIR = path.resolve(__dirname, '../../gui/dist/client');
 
 export interface CreateServerOptions {
   config: OpenleashConfig;
@@ -61,6 +69,17 @@ export function createServer(options: CreateServerOptions) {
   registerPlaygroundRoutes(app, config);
 
   if (config.gui?.enabled !== false) {
+    // Initialize Vite client asset manifest and serve static bundles
+    initManifest(GUI_CLIENT_DIR);
+    app.register(fastifyStatic, {
+      root: path.join(GUI_CLIENT_DIR, 'assets'),
+      prefix: '/gui/assets/',
+      decorateReply: false,
+      cacheControl: true,
+      maxAge: '1y',
+      immutable: true,
+    });
+
     registerGuiRoutes(app, dataDir, config, { hasApiReference: !!openapiSpec });
   }
 

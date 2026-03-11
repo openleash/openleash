@@ -1,0 +1,33 @@
+/* ─── Policies page ────────────────────────────────────────────────── */
+
+.policies-description {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.policies-copyable-wrap {
+  margin-top: 2px;
+}
+
+.policies-example {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.policies-table-bottom {
+  margin-bottom: 20px;
+}
+
+.policies-toolbar {
+  margin-top: 16px;
+}
+
+.policies-mono-sm {
+  font-size: 11px;
+}
+
+.policies-no-bindings {
+  color: var(--text-muted);
+  padding: 8px 0;
+}

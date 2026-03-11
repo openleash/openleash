@@ -1,0 +1,13 @@
+/* ─── Owner Setup page styles ──────────────────────────────────────── */
+
+/* Hidden by default — toggled via JS */
+.osetup-hidden { display: none; }
+
+/* "Go to login" link spacing */
+.osetup-login-link { margin-top: 16px; }
+
+/* "Register agent?" prompt spacing */
+.osetup-prompt-text { margin-bottom: 12px; }
+
+/* Copy-to-clipboard button spacing */
+.osetup-btn-copy { margin-top: 12px; }

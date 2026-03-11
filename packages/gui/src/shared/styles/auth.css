@@ -1,0 +1,338 @@
+/*
+ * Standalone page styles (login, setup, initial-setup).
+ * These pages don't use the main layout — they render full HTML documents.
+ */
+
+/* ─── Reset & Theme ──────────────────────────────────────────────── */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  --bg-deep: #050a0e;
+  --bg-surface: #0a1118;
+  --bg-elevated: #111d28;
+  --green-bright: #34d399;
+  --green-mid: #10b981;
+  --green-dark: #065f46;
+  --text-primary: #e8f0f8;
+  --text-secondary: #8899aa;
+  --text-muted: #556677;
+  --border-subtle: rgba(136, 153, 170, 0.15);
+  --radius-md: 12px;
+  --color-primary: #10b981;
+  --color-success: #34d399;
+  --color-danger: #f87171;
+  --color-warning: #fbbf24;
+  --color-info: #60a5fa;
+}
+
+body.theme-light {
+  --bg-deep: #f5f7fa;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f0f2f5;
+  --green-bright: #047e58;
+  --green-mid: #059669;
+  --green-dark: #d1fae5;
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a5568;
+  --text-muted: #5c708c;
+  --border-subtle: rgba(0, 0, 0, 0.1);
+  --color-primary: #059669;
+  --color-success: #059669;
+  --color-danger: #dc2626;
+  --color-warning: #d97706;
+  --color-info: #2563eb;
+}
+
+html { -webkit-font-smoothing: antialiased; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-deep);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Shared card ────────────────────────────────────────────────── */
+
+.login-card, .setup-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 40px;
+  width: 100%;
+}
+
+.login-card { max-width: 420px; }
+.setup-card { max-width: 480px; }
+
+.login-card h1, .setup-card h1 {
+  color: var(--green-bright);
+  font-size: 22px;
+  margin-bottom: 4px;
+}
+
+.login-card .subtitle, .setup-card .subtitle {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 28px;
+}
+
+/* ─── Forms ──────────────────────────────────────────────────────── */
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group input, .form-group select {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  outline: none;
+}
+
+.form-group input[type="password"] {
+  font-family: var(--font-mono);
+}
+
+.form-group input:focus, .form-group select:focus {
+  border-color: var(--color-primary);
+}
+
+.form-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Login uses font-mono on all inputs */
+.login-card .form-group input {
+  font-family: var(--font-mono);
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────── */
+
+.btn-login, .btn-setup {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.btn-login:hover, .btn-setup:hover {
+  filter: brightness(1.1);
+}
+
+.btn-setup:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.btn-secondary:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+/* ─── Messages ───────────────────────────────────────────────────── */
+
+.error-msg {
+  color: var(--color-danger);
+  font-size: 13px;
+  margin-top: 12px;
+  display: none;
+}
+
+.success-msg {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.success-msg h2 {
+  color: var(--green-bright);
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.success-msg p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.success-msg a {
+  color: var(--green-bright);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ─── Login-specific ─────────────────────────────────────────────── */
+
+.admin-link {
+  display: block;
+  text-align: center;
+  margin-top: 20px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.admin-link a {
+  color: var(--green-bright);
+  text-decoration: none;
+}
+
+.help-section {
+  margin-top: 24px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 16px;
+}
+
+.help-section summary {
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.help-section summary:hover {
+  color: var(--text-secondary);
+}
+
+.help-steps {
+  margin-top: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.help-steps ol {
+  padding-left: 18px;
+}
+
+.help-steps li {
+  margin-bottom: 6px;
+}
+
+.help-steps code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-elevated);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.link-green { color: var(--green-bright); text-decoration: none; }
+.link-green:hover { color: var(--text-primary); }
+
+/* ─── Setup-specific ─────────────────────────────────────────────── */
+
+.missing-params {
+  text-align: center;
+  padding: 20px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.missing-params a {
+  color: var(--green-bright);
+  text-decoration: none;
+}
+
+.invite-result {
+  margin-top: 16px;
+}
+
+.invite-result label {
+  display: block;
+  font-size: 12px;
+  color: var(--color-warning);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.invite-url-box {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.invite-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 24px 0;
+}
+
+.success-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.success-links a {
+  display: block;
+  padding: 10px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--green-bright);
+  text-decoration: none;
+  font-size: 13px;
+  text-align: center;
+}
+
+.success-links a:hover {
+  border-color: var(--green-bright);
+}

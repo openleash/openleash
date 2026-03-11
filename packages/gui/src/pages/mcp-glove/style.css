@@ -1,0 +1,58 @@
+/* ─── MCP Glove ─────────────────────────────────────────────────────── */
+
+.glove-text-warning {
+  color: var(--color-warning);
+}
+
+.glove-audit-link {
+  margin-bottom: 24px;
+}
+
+.glove-description {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.glove-config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.glove-config-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.glove-config-output {
+  min-height: 260px;
+  margin-bottom: 8px;
+}
+
+.glove-btn-copy {
+  font-size: 12px;
+}
+
+.glove-ref-heading {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.glove-ref-heading-spaced {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 20px 0 8px;
+}
+
+.glove-btn-audit {
+  font-size: 12px;
+}

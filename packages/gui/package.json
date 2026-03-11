@@ -9,7 +9,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b && vite build",
+    "build:client": "vite build"
   },
   "license": "Apache-2.0",
   "repository": {
@@ -24,5 +25,8 @@
   "homepage": "https://github.com/openleash/openleash/tree/main/packages/gui",
   "bugs": {
     "url": "https://github.com/openleash/openleash/issues"
+  },
+  "devDependencies": {
+    "vite": "^7.3.1"
   }
 }

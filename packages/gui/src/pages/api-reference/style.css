@@ -1,0 +1,42 @@
+/* ─── API reference page ───────────────────────────────────────────── */
+
+.api-ref-fullbleed {
+  margin: -32px -40px;
+  height: calc(100vh);
+  display: flex;
+  flex-direction: column;
+}
+
+.api-ref-header-wrap {
+  padding: 20px 24px 0;
+}
+
+.api-ref-header-wrap .page-header {
+  margin-bottom: 16px;
+}
+
+.api-ref-iframe-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.api-ref-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* ─── API reference unavailable state ──────────────────────────────── */
+
+.api-ref-unavailable-mono {
+  font-size: 12px;
+}
+
+.api-ref-unavailable-text {
+  max-width: 460px;
+}
+
+.api-ref-unavailable-actions {
+  margin-top: 24px;
+}

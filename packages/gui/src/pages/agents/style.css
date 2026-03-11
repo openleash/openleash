@@ -1,0 +1,49 @@
+/* ─── Agents page styles ───────────────────────────────────────────── */
+
+/* Page header layout */
+.agents-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Empty table state */
+.agents-table-empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 24px;
+}
+
+/* Invite result card */
+.agents-invite-result {
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+.agents-invite-heading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-warning);
+  margin-bottom: 12px;
+}
+
+.agents-invite-url {
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-all;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.agents-invite-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.agents-invite-toolbar {
+  margin-top: 12px;
+}

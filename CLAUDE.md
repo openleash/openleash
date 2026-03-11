@@ -41,7 +41,7 @@ npx openleash playground run <scenario>
 
 - **`packages/core`** — Authorization engine, policy parser, expression evaluator, constraints, obligations, PASETO token issuance/verification (proof, session, approval), Ed25519 request signing, passphrase hashing (scrypt), file-based state management (`./data/`), append-only audit log. Key deps: `paseto`, `zod`, `ajv`, `yaml`, `json-canonicalize`.
 - **`packages/server`** — Fastify HTTP server. Four API scopes: Public (`/v1/health`, `/v1/public-keys`, `/v1/verify-proof`), Agent (`/v1/authorize`, `/v1/agent/*`), Owner (`/v1/owner/*`), Admin (`/v1/admin/*`), plus playground and GUI. Three auth middlewares: `agent-auth` (Ed25519 signatures), `owner-auth` (PASETO session tokens), `admin-auth` (Bearer token/localhost). Key dep: `fastify`.
-- **`packages/gui`** — Server-rendered HTML GUI with two contexts: admin dashboard and owner portal. Renders HTML strings consumed by server GUI routes.
+- **`packages/gui`** — Server-rendered HTML GUI with Vite-bundled client assets. Two contexts: admin dashboard (`/gui/*`) and owner portal (`/gui/owner/*`). Each page is a directory under `src/pages/` containing `render.ts` (server HTML), `client.ts` (browser JS), and `style.css` (page-specific styles). Shared code lives in `src/shared/` (layout, common utilities, manifest resolver, global CSS). Built with `tsc -b` (server) + `vite build` (client). Key dep: `vite`.
 - **`packages/sdk-ts`** — Lightweight TypeScript SDK for agents and counterparties. Functions: `authorize()`, `signRequest()`, `registerAgent()`, `verifyProofOffline()`, `verifyProofOnline()`, `generateEd25519Keypair()`, `createApprovalRequest()`, `getApprovalRequest()`, `pollApprovalRequest()`. Minimal deps (`paseto`, `json-canonicalize`).
 - **`packages/cli`** — CLI commands: `start`, `wizard`, `policy`, `playground`, `keys`, `testvectors`. Entry point: `packages/cli/src/index.ts`.
 
@@ -57,8 +57,8 @@ File-based with a `state.md` index (YAML frontmatter). Subdirectories: `owners/`
 
 ## Code Conventions
 
-- **Icons**: Use **Google Material Symbols Outlined** exclusively. The CDN is loaded in `packages/gui/src/layout.ts`. Use `<span class="material-symbols-outlined">icon_name</span>` for all icons. Do not use Unicode symbols, emoji HTML entities, FontAwesome, or inline SVG for UI icons. Browse available icons at https://fonts.google.com/icons.
-- TypeScript strict mode, ES2022 target, Node16 module resolution
+- **Icons**: Use **Google Material Symbols Outlined** exclusively. The CDN is loaded in `packages/gui/src/shared/layout.ts`. Use `<span class="material-symbols-outlined">icon_name</span>` for all icons. Do not use Unicode symbols, emoji HTML entities, FontAwesome, or inline SVG for UI icons. Browse available icons at https://fonts.google.com/icons.
+- TypeScript strict mode, ES2022 target, NodeNext module resolution
 - Use `.js` extensions in relative imports (ESM requirement)
 - Each package exports via barrel `index.ts`
 - Zod for runtime schema validation, AJV for JSON Schema (policy files)
