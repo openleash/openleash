@@ -1,26 +1,19 @@
 /**
  * Client-side logic for the admin agents page.
  */
+import { olToast, olFieldError, olApiError } from "../common";
 
-declare global {
-    interface Window {
-        toggleInviteForm: () => void;
-        createAgentInvite: () => Promise<void>;
-        copyInviteUrl: () => Promise<void>;
-    }
+function toggleInviteForm() {
+    document.getElementById("invite-form")!.classList.toggle("hidden");
 }
 
-window.toggleInviteForm = function () {
-    document.getElementById("invite-form")!.classList.toggle("hidden");
-};
-
-window.createAgentInvite = async function () {
+async function createAgentInvite() {
     const ownerPrincipalId = (document.getElementById("owner-select") as HTMLSelectElement).value;
     const btn = document.getElementById("invite-btn") as HTMLButtonElement;
 
-    window.olFieldError("owner-select", "");
+    olFieldError("owner-select", "");
     if (!ownerPrincipalId) {
-        window.olFieldError("owner-select", "Please select an owner");
+        olFieldError("owner-select", "Please select an owner");
         return;
     }
 
@@ -36,7 +29,7 @@ window.createAgentInvite = async function () {
 
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(window.olApiError(err, "Failed to create invite"));
+            throw new Error(olApiError(err, "Failed to create invite"));
         }
 
         const data = await res.json();
@@ -47,20 +40,31 @@ window.createAgentInvite = async function () {
         document.getElementById("invite-result")!.classList.remove("hidden");
         document.getElementById("invite-form")!.classList.add("hidden");
 
-        window.olToast("Agent invite created", "success");
+        olToast("Agent invite created", "success");
     } catch (err: unknown) {
-        window.olToast(String((err as Error).message || err), "error");
+        olToast(String((err as Error).message || err), "error");
     } finally {
         btn.disabled = false;
         btn.textContent = "Create Invite";
     }
-};
+}
 
-window.copyInviteUrl = async function () {
+async function copyInviteUrl(e: Event) {
     const url = document.getElementById("invite-url")!.textContent!;
     await navigator.clipboard.writeText(url);
-    const btn = (event as Event).target as HTMLButtonElement;
+    const btn = e.target as HTMLButtonElement;
     const orig = btn.textContent;
     btn.textContent = "Copied!";
     setTimeout(() => { btn.textContent = orig; }, 2000);
-};
+}
+
+// ─── Event bindings ─────────────────────────────────────────────────
+
+document.querySelectorAll<HTMLElement>("[data-toggle-invite]").forEach((el) => {
+    el.addEventListener("click", toggleInviteForm);
+});
+document.getElementById("invite-btn")?.addEventListener("click", createAgentInvite);
+document.getElementById("btn-copy-invite")?.addEventListener("click", copyInviteUrl);
+document.getElementById("btn-dismiss-invite")?.addEventListener("click", () => {
+    document.getElementById("invite-result")!.classList.add("hidden");
+});

@@ -123,35 +123,35 @@ export function renderMcpGlove(data: McpGlovePageData): string {
         <div>
           <div class="form-group">
             <label>Profile</label>
-            <select id="glove-profile" class="form-select" onchange="updateGloveConfig()">
+            <select id="glove-profile" class="form-select">
               <option value="office365-outlook">office365-outlook</option>
             </select>
           </div>
           <div class="form-group">
             <label>Agent</label>
-            <select id="glove-agent" class="form-select" onchange="updateGloveConfig()">
+            <select id="glove-agent" class="form-select">
               ${agents.length === 0 ? '<option value="">No agents registered</option>' : agentOptions}
             </select>
           </div>
           <div class="form-group">
             <label>Upstream Command</label>
-            <input id="glove-upstream" type="text" class="form-input" value="npx -y @jbctechsolutions/mcp-outlook-mac" oninput="updateGloveConfig()">
+            <input id="glove-upstream" type="text" class="form-input" value="npx -y @jbctechsolutions/mcp-outlook-mac">
             <div class="form-help">The command to start the upstream MCP server</div>
           </div>
           <div class="form-group">
             <label>OpenLeash URL</label>
-            <input id="glove-url" type="text" class="form-input" value="${escapeHtml(server_url)}" oninput="updateGloveConfig()">
+            <input id="glove-url" type="text" class="form-input" value="${escapeHtml(server_url)}">
           </div>
           <div class="form-group">
             <label>Approval Timeout (ms)</label>
-            <input id="glove-timeout" type="number" class="form-input" value="120000" oninput="updateGloveConfig()">
+            <input id="glove-timeout" type="number" class="form-input" value="120000">
             <div class="form-help">How long to wait for owner approval before timing out</div>
           </div>
         </div>
         <div>
           <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em">Generated Config</label>
           <pre id="glove-output" class="config-block" style="min-height:260px;margin-bottom:8px"></pre>
-          <button class="btn btn-primary" style="font-size:12px" onclick="copyGloveConfig()">Copy to Clipboard</button>
+          <button id="btn-copy-glove" class="btn btn-primary" style="font-size:12px">Copy to Clipboard</button>
         </div>
       </div>
     </div>

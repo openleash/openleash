@@ -3,22 +3,14 @@
  */
 import "../styles/standalone.css";
 
-declare global {
-    interface Window {
-        createAgentInvite: () => Promise<void>;
-        copyInviteUrl: () => Promise<void>;
-        showLinks: () => void;
-    }
-}
-
 let sessionToken: string | null = null;
 let ownerPrincipalId: string | null = null;
 
-window.showLinks = function () {
+function showLinks() {
     document.getElementById("createInviteBtn")!.style.display = "none";
     document.getElementById("skipBtn")!.style.display = "none";
     document.getElementById("successLinks")!.style.display = "flex";
-};
+}
 
 document.getElementById("setupForm")!.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -104,7 +96,7 @@ document.getElementById("setupForm")!.addEventListener("submit", async (e) => {
     }
 });
 
-window.createAgentInvite = async function () {
+async function createAgentInvite() {
     const btn = document.getElementById("createInviteBtn") as HTMLButtonElement;
     btn.disabled = true;
     btn.textContent = "Creating invite...";
@@ -130,13 +122,21 @@ window.createAgentInvite = async function () {
         btn.textContent = "Create Agent Invite";
         document.getElementById("errorMsg")!.textContent = "Failed to create agent invite";
     }
-};
+}
 
-window.copyInviteUrl = async function () {
+async function copyInviteUrl(e: Event) {
     const url = document.getElementById("inviteUrlBox")!.textContent!;
     await navigator.clipboard.writeText(url);
-    const btn = (event as Event).target as HTMLButtonElement;
+    const btn = e.target as HTMLButtonElement;
     const orig = btn.textContent;
     btn.textContent = "Copied!";
     setTimeout(() => { btn.textContent = orig; }, 2000);
-};
+}
+
+// ─── Event bindings ─────────────────────────────────────────────────
+
+document.getElementById("createInviteBtn")?.addEventListener("click", createAgentInvite);
+document.getElementById("btn-copy-invite")?.addEventListener("click", copyInviteUrl);
+document.querySelectorAll<HTMLElement>("[data-show-links]").forEach((el) => {
+    el.addEventListener("click", showLinks);
+});

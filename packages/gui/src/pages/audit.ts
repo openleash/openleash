@@ -628,7 +628,7 @@ export function renderAudit(
             const summary = eventSummary(e, nameMap, policyBasePath);
 
             return `
-      <tr class="accordion-row" onclick="toggleAccordion(${idx})" id="row-${idx}" data-event-type="${escapeHtml(e.event_type)}">
+      <tr class="accordion-row" id="row-${idx}" data-event-type="${escapeHtml(e.event_type)}">
         <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${formatTimestamp(e.timestamp)}</td>
         <td>${eventBadge(e.event_type)}</td>
@@ -663,7 +663,7 @@ export function renderAudit(
     const filterHtml =
         eventTypes.length > 0
             ? `<div class="toolbar">
-        <select id="event-filter" class="form-select" style="width:auto;min-width:220px" onchange="filterEvents()">
+        <select id="event-filter" class="form-select" style="width:auto;min-width:220px">
           <option value="">All event types</option>
           ${filterOptions}
         </select>

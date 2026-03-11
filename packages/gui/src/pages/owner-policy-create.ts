@@ -30,7 +30,7 @@ rules:
     action: read</textarea>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-primary" onclick="createPolicy()">Create Policy</button>
+        <button id="btn-create-policy" class="btn btn-primary">Create Policy</button>
         <a href="/gui/owner/policies" class="btn btn-secondary" style="text-decoration:none">Cancel</a>
       </div>
     </div>

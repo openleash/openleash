@@ -2,27 +2,7 @@
  * Client-side logic for the audit log page.
  */
 
-declare global {
-    interface Window {
-        toggleAccordion: (idx: number) => void;
-        filterEvents: () => void;
-    }
-}
-
-window.toggleAccordion = function (idx: number) {
-    const row = document.getElementById("row-" + idx)!;
-    const detail = document.getElementById("detail-" + idx)!;
-    const isOpen = detail.classList.contains("open");
-    if (isOpen) {
-        detail.classList.remove("open");
-        row.classList.remove("expanded");
-    } else {
-        detail.classList.add("open");
-        row.classList.add("expanded");
-    }
-};
-
-window.filterEvents = function () {
+function filterEvents() {
     const val = (document.getElementById("event-filter") as HTMLSelectElement).value;
     const rows = document.querySelectorAll<HTMLElement>("tr[data-event-type]");
     let visible = 0;
@@ -44,4 +24,18 @@ window.filterEvents = function () {
     if (counter) {
         counter.textContent = val ? visible + " event" + (visible !== 1 ? "s" : "") : "";
     }
-};
+}
+
+// ─── Event bindings ─────────────────────────────────────────────────
+
+document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
+    row.addEventListener("click", () => {
+        const detail = row.nextElementSibling as HTMLElement;
+        if (detail?.classList.contains("accordion-detail")) {
+            detail.classList.toggle("open");
+            row.classList.toggle("expanded");
+        }
+    });
+});
+
+document.getElementById("event-filter")?.addEventListener("change", filterEvents);

@@ -126,8 +126,8 @@ export function renderOwnerPolicies(
         </td>
         <td>${appliesTo}</td>
         <td>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="toggleEditor('${escapeHtml(p.policy_id)}')">Edit</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" onclick="deletePolicy('${escapeHtml(p.policy_id)}')" ${disableActions ? "disabled" : ""}>Delete</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" data-toggle-editor="${escapeHtml(p.policy_id)}">Edit</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" data-delete-policy="${escapeHtml(p.policy_id)}" ${disableActions ? "disabled" : ""}>Delete</button>
         </td>
       </tr>
       <tr id="editor-row-${escapeHtml(p.policy_id)}" class="hidden">
@@ -144,8 +144,8 @@ export function renderOwnerPolicies(
           </div>
           <textarea id="editor-yaml-${escapeHtml(p.policy_id)}" class="yaml-editor" style="width:100%;height:240px;margin-bottom:8px;font-size:13px">${escapeHtml(p.policy_yaml ?? "")}</textarea>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="savePolicy('${escapeHtml(p.policy_id)}')">Save</button>
-            <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="toggleEditor('${escapeHtml(p.policy_id)}')">Cancel</button>
+            <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" data-save-policy="${escapeHtml(p.policy_id)}">Save</button>
+            <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" data-toggle-editor="${escapeHtml(p.policy_id)}">Cancel</button>
           </div>
         </td>
       </tr>
@@ -171,7 +171,7 @@ export function renderOwnerPolicies(
                           ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${escapeHtml(d.description)}</div>`
                           : "";
                       return `
-      <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
+      <tr class="accordion-row">
         <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${draftName}${draftDesc}<div style="margin-top:${d.name ? "2px" : "0"}">${copyableId(d.policy_draft_id)}</div></td>
         <td>${suggestedByCell(d, agentNames)}</td>
@@ -179,8 +179,8 @@ export function renderOwnerPolicies(
         <td${d.justification ? ` title="${escapeHtml(d.justification)}"` : ""}>${d.justification ? escapeHtml(d.justification) : '<span style="color:var(--text-muted)">-</span>'}</td>
         <td>${formatTimestamp(d.created_at)}</td>
         <td>
-          <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'approve')" ${disableActions ? "disabled" : ""}>Approve</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" onclick="event.stopPropagation();handleDraft('${d.policy_draft_id}', 'deny')" ${disableActions ? "disabled" : ""}>Deny</button>
+          <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" data-handle-draft="${d.policy_draft_id}" data-draft-action="approve" ${disableActions ? "disabled" : ""}>Approve</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" data-handle-draft="${d.policy_draft_id}" data-draft-action="deny" ${disableActions ? "disabled" : ""}>Deny</button>
         </td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(d.policy_draft_id)}">
@@ -213,7 +213,7 @@ export function renderOwnerPolicies(
                           ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:1px">${escapeHtml(d.description)}</div>`
                           : "";
                       return `
-      <tr class="accordion-row" onclick="toggleDraft('${escapeHtml(d.policy_draft_id)}')">
+      <tr class="accordion-row">
         <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${rName}${rDesc}<div style="margin-top:${d.name ? "2px" : "0"}">${copyableId(d.policy_draft_id)}</div></td>
         <td>${suggestedByCell(d, agentNames)}</td>

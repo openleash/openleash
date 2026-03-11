@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the owner agents page.
  */
+import { olToast, olConfirm, ol2FA, olApiError } from "../common";
 
 interface OwnerAgentsPageData {
     totpEnabled: boolean;
@@ -9,16 +10,13 @@ interface OwnerAgentsPageData {
 declare global {
     interface Window {
         __PAGE_DATA__: OwnerAgentsPageData;
-        revokeAgent: (principalId: string) => Promise<void>;
-        createAgentInvite: () => Promise<void>;
-        copyInviteUrl: () => Promise<void>;
     }
 }
 
 const { totpEnabled } = window.__PAGE_DATA__;
 
-window.revokeAgent = async function (principalId: string) {
-    if (!(await window.olConfirm("Are you sure you want to revoke this agent?", "Revoke Agent"))) return;
+async function revokeAgent(principalId: string) {
+    if (!(await olConfirm("Are you sure you want to revoke this agent?", "Revoke Agent"))) return;
     const token = sessionStorage.getItem("openleash_session");
 
     async function doRevoke(totpCode?: string): Promise<string | null> {
@@ -31,21 +29,21 @@ window.revokeAgent = async function (principalId: string) {
         });
         if (res.ok) return null;
         const data = await res.json().catch(() => ({}));
-        return window.olApiError(data, "Failed to revoke agent");
+        return olApiError(data, "Failed to revoke agent");
     }
 
     if (totpEnabled) {
-        const result = await window.ol2FA(doRevoke);
+        const result = await ol2FA(doRevoke);
         if (!result) return;
         window.location.reload();
     } else {
         const err = await doRevoke();
-        if (err) window.olToast(err, "error");
+        if (err) olToast(err, "error");
         else window.location.reload();
     }
-};
+}
 
-window.createAgentInvite = async function () {
+async function createAgentInvite() {
     const token = sessionStorage.getItem("openleash_session");
     try {
         const res = await fetch("/v1/owner/agent-invites", {
@@ -60,15 +58,28 @@ window.createAgentInvite = async function () {
         document.getElementById("invite-url")!.textContent = inviteUrl;
         document.getElementById("invite-result")!.style.display = "block";
     } catch {
-        window.olToast("Failed to create agent invite", "error");
+        olToast("Failed to create agent invite", "error");
     }
-};
+}
 
-window.copyInviteUrl = async function () {
+async function copyInviteUrl(e: Event) {
     const url = document.getElementById("invite-url")!.textContent!;
     await navigator.clipboard.writeText(url);
-    const btn = (event as Event).target as HTMLButtonElement;
+    const btn = e.target as HTMLButtonElement;
     const orig = btn.textContent;
     btn.textContent = "Copied!";
     setTimeout(() => { btn.textContent = orig; }, 2000);
-};
+}
+
+// ─── Event bindings ─────────────────────────────────────────────────
+
+document.getElementById("btn-create-invite")?.addEventListener("click", createAgentInvite);
+document.getElementById("btn-copy-invite")?.addEventListener("click", copyInviteUrl);
+document.getElementById("btn-dismiss-invite")?.addEventListener("click", () => {
+    document.getElementById("invite-result")!.style.display = "none";
+});
+
+document.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-revoke-agent]");
+    if (btn) revokeAgent(btn.dataset.revokeAgent!);
+});

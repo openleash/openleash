@@ -169,7 +169,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <td>${escapeHtml(c.label ?? "-")}</td>
       <td>${escapeHtml(c.platform ?? "-")}</td>
       <td>${c.verified ? '<span class="badge badge-green">Verified</span>' : '<span class="badge badge-muted">Unverified</span>'}</td>
-      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="removeContact(${i})">Remove</button></td>
+      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" data-action="remove-contact" data-index="${i}">Remove</button></td>
     </tr>
   `,
         )
@@ -183,7 +183,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <td>${escapeHtml(GOV_ID_LABELS[g.id_type] ?? g.id_type)}</td>
       <td class="mono">${escapeHtml(g.id_value)}</td>
       <td>${verificationBadge(g.verification_level)}</td>
-      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="removeGovId(${i})">Remove</button></td>
+      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" data-action="remove-gov-id" data-index="${i}">Remove</button></td>
     </tr>
   `,
         )
@@ -197,7 +197,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
       <td>${c.country ? countryFlag(c.country) + " " + escapeHtml(c.country) : "-"}</td>
       <td class="mono">${escapeHtml(c.id_value)}</td>
       <td>${verificationBadge(c.verification_level)}</td>
-      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="removeCompanyId(${i})">Remove</button></td>
+      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" data-action="remove-company-id" data-index="${i}">Remove</button></td>
     </tr>
   `,
         )
@@ -230,12 +230,12 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           <tr><td style="color:var(--text-muted)">Display Name</td><td>
             <span id="display-name-view" style="display:flex;align-items:center;gap:8px">
               <span>${escapeHtml(data.display_name)}</span>
-              <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showNameEdit()">Edit</button>
+              <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" id="btn-show-name-edit">Edit</button>
             </span>
             <span id="display-name-edit" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
               <input type="text" id="newDisplayName" value="${escapeHtml(data.display_name)}" class="form-input" style="width:220px;padding:4px 8px;font-size:13px">
-              <button class="btn btn-primary" style="padding:4px 12px;font-size:12px" onclick="updateName()">Save</button>
-              <button class="btn btn-secondary" style="padding:4px 12px;font-size:12px" onclick="hideNameEdit()">Cancel</button>
+              <button class="btn btn-primary" style="padding:4px 12px;font-size:12px" id="btn-update-name">Save</button>
+              <button class="btn btn-secondary" style="padding:4px 12px;font-size:12px" id="btn-hide-name-edit">Cancel</button>
               <div class="field-error" id="err-newDisplayName" style="width:100%"></div>
             </span>
           </td></tr>
@@ -257,17 +257,17 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         ${data.totp_enabled_at ? `<span style="font-size:12px;color:var(--text-muted)">since ${formatTimestamp(data.totp_enabled_at)}</span>` : ""}
       </div>
       ${data.totp_backup_codes_remaining !== undefined ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">${data.totp_backup_codes_remaining} backup code${data.totp_backup_codes_remaining !== 1 ? "s" : ""} remaining</p>` : ""}
-      <button class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger)" onclick="openDisableModal()">Disable 2FA</button>
+      <button class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger)" id="btn-open-disable-modal">Disable 2FA</button>
       `
               : `
       <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Two-Factor Authentication: Not configured</p>
-      <button class="btn btn-primary" onclick="setupTotp()">Enable 2FA</button>
+      <button class="btn btn-primary" id="btn-setup-totp">Enable 2FA</button>
       `
       }
     </div>
 
     <!-- TOTP Setup Modal -->
-    <div id="totp-setup-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('totp-setup-modal')">
+    <div id="totp-setup-modal" class="modal-overlay" data-close-modal="totp-setup-modal">
       <div class="modal">
         <div class="modal-title">Enable Two-Factor Authentication</div>
         <div id="totp-setup-step1">
@@ -279,7 +279,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           <div style="background:var(--bg-deep);padding:12px;border-radius:4px;border:1px solid var(--color-warning);margin-bottom:16px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
               <p style="font-size:13px;font-weight:600;color:var(--color-warning)">Save these backup codes</p>
-              <button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="downloadBackupCodes()"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">download</span>Download .txt</button>
+              <button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" id="btn-download-codes"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">download</span>Download .txt</button>
             </div>
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Store them somewhere safe. Each code can only be used once.</p>
             <div id="totp-backup-codes" class="mono" style="font-size:13px;line-height:1.8"></div>
@@ -288,23 +288,23 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
           <input type="text" id="totp-confirm-code" class="form-input" placeholder="Enter 6-digit code" maxlength="6" style="width:100%">
           <div id="totp-setup-error" class="modal-error"></div>
           <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('totp-setup-modal')">Cancel</button>
-            <button class="btn btn-primary" onclick="confirmTotp()">Verify & Enable</button>
+            <button class="btn btn-secondary" data-close-modal="totp-setup-modal">Cancel</button>
+            <button class="btn btn-primary" id="btn-confirm-totp">Verify & Enable</button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- TOTP Disable Modal -->
-    <div id="totp-disable-modal" class="modal-overlay" onclick="if(event.target===this)closeModal('totp-disable-modal')">
+    <div id="totp-disable-modal" class="modal-overlay" data-close-modal="totp-disable-modal">
       <div class="modal">
         <div class="modal-title">Disable Two-Factor Authentication</div>
         <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Enter your current 2FA code or a backup code to confirm.</p>
         <input type="text" id="totp-disable-code" class="form-input" placeholder="Enter code" style="width:100%">
         <div id="totp-disable-error" class="modal-error"></div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="closeModal('totp-disable-modal')">Cancel</button>
-          <button class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger)" onclick="confirmDisableTotp()">Disable 2FA</button>
+          <button class="btn btn-secondary" data-close-modal="totp-disable-modal">Cancel</button>
+          <button class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger)" id="btn-confirm-disable-totp">Disable 2FA</button>
         </div>
       </div>
     </div>
@@ -350,7 +350,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
             <input type="text" id="contact-platform" class="form-input" placeholder="e.g. Slack">
           </div>
           <div style="grid-column:1/-1">
-            <button class="btn btn-primary" style="font-size:12px" onclick="addContact()">Add</button>
+            <button class="btn btn-primary" style="font-size:12px" id="btn-add-contact">Add</button>
           </div>
         </div>
       </details>
@@ -379,7 +379,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
         <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
           <div>
             <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px">Country</label>
-            <select id="gov-country" class="form-select" onchange="updateIdTypes()">
+            <select id="gov-country" class="form-select">
               <option value="">Select country</option>
               ${countryOptions}
             </select>
@@ -398,7 +398,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
             <div class="field-error" id="err-gov-id-value"></div>
           </div>
           <div style="grid-column:1/-1">
-            <button class="btn btn-primary" style="font-size:12px" onclick="addGovId()">Add</button>
+            <button class="btn btn-primary" style="font-size:12px" id="btn-add-gov-id">Add</button>
           </div>
         </div>
       </details>
@@ -451,7 +451,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
             <div class="field-error" id="err-company-id-value"></div>
           </div>
           <div style="grid-column:1/-1">
-            <button class="btn btn-primary" style="font-size:12px" onclick="addCompanyId()">Add</button>
+            <button class="btn btn-primary" style="font-size:12px" id="btn-add-company-id">Add</button>
           </div>
         </div>
       </details>

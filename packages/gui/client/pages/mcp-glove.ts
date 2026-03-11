@@ -2,14 +2,7 @@
  * Client-side logic for the MCP Glove config page.
  */
 
-declare global {
-    interface Window {
-        updateGloveConfig: () => void;
-        copyGloveConfig: () => void;
-    }
-}
-
-window.updateGloveConfig = function () {
+function updateGloveConfig() {
     const profile = (document.getElementById("glove-profile") as HTMLSelectElement).value;
     const agent = (document.getElementById("glove-agent") as HTMLSelectElement).value;
     const upstream = (document.getElementById("glove-upstream") as HTMLInputElement).value;
@@ -36,16 +29,26 @@ window.updateGloveConfig = function () {
     };
 
     document.getElementById("glove-output")!.textContent = JSON.stringify(config, null, 2);
-};
+}
 
-window.copyGloveConfig = function () {
+function copyGloveConfig(e: Event) {
     const text = document.getElementById("glove-output")!.textContent!;
     navigator.clipboard.writeText(text);
-    const btn = (event as Event).target as HTMLButtonElement;
+    const btn = e.target as HTMLButtonElement;
     const orig = btn.textContent;
     btn.textContent = "Copied!";
     setTimeout(() => { btn.textContent = orig; }, 1200);
-};
+}
+
+// ─── Event bindings ─────────────────────────────────────────────────
+
+["glove-profile", "glove-agent"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("change", updateGloveConfig);
+});
+["glove-upstream", "glove-url", "glove-timeout"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", updateGloveConfig);
+});
+document.getElementById("btn-copy-glove")?.addEventListener("click", copyGloveConfig);
 
 // Initialize on load
-window.updateGloveConfig();
+updateGloveConfig();

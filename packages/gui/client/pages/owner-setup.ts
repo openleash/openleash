@@ -3,14 +3,6 @@
  */
 import "../styles/standalone.css";
 
-declare global {
-    interface Window {
-        createAgentInvite: () => Promise<void>;
-        copyInviteUrl: () => Promise<void>;
-        goToLogin: () => void;
-    }
-}
-
 const params = new URLSearchParams(window.location.search);
 const inviteId = params.get("invite_id");
 const inviteToken = params.get("invite_token");
@@ -24,12 +16,12 @@ if (!inviteId || !inviteToken) {
     document.getElementById("setupForm")!.style.display = "block";
 }
 
-window.goToLogin = function () {
+function goToLogin() {
     const id = ownerPrincipalId || ownerIdParam;
     window.location.href = id
         ? "/gui/owner/login?owner_id=" + encodeURIComponent(id)
         : "/gui/owner/login";
-};
+}
 
 document.getElementById("setupForm")!.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -104,7 +96,7 @@ document.getElementById("setupForm")!.addEventListener("submit", async (e) => {
     }
 });
 
-window.createAgentInvite = async function () {
+async function createAgentInvite() {
     const btn = document.getElementById("createInviteBtn") as HTMLButtonElement;
     btn.disabled = true;
     btn.textContent = "Creating invite...";
@@ -130,13 +122,21 @@ window.createAgentInvite = async function () {
         btn.textContent = "Create Agent Invite";
         document.getElementById("errorMsg")!.textContent = "Failed to create agent invite";
     }
-};
+}
 
-window.copyInviteUrl = async function () {
+async function copyInviteUrl(e: Event) {
     const url = document.getElementById("inviteUrlBox")!.textContent!;
     await navigator.clipboard.writeText(url);
-    const btn = (event as Event).target as HTMLButtonElement;
+    const btn = e.target as HTMLButtonElement;
     const orig = btn.textContent;
     btn.textContent = "Copied!";
     setTimeout(() => { btn.textContent = orig; }, 2000);
-};
+}
+
+// ─── Event bindings ─────────────────────────────────────────────────
+
+document.getElementById("createInviteBtn")?.addEventListener("click", createAgentInvite);
+document.getElementById("btn-copy-invite")?.addEventListener("click", copyInviteUrl);
+document.querySelectorAll<HTMLElement>("[data-go-to-login]").forEach((el) => {
+    el.addEventListener("click", goToLogin);
+});

@@ -119,15 +119,15 @@ export function renderOwnerApprovals(
                           ? escapeHtml(agentName)
                           : escapeHtml(a.agent_id);
                       return `
-      <tr class="accordion-row" onclick="toggleApproval('${escapeHtml(a.approval_request_id)}')">
+      <tr class="accordion-row">
         <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${agentDisplay}</td>
         <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span>${a.action_type.startsWith("communication.") ? ' <span class="badge badge-muted" style="margin-left:4px;font-size:10px">MCP Glove</span>' : ""}</td>
         <td>${formatTimestamp(a.created_at)}</td>
         <td>${formatTimestamp(a.expires_at)}</td>
         <td>
-          <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="event.stopPropagation();handleApproval('${a.approval_request_id}', 'approve')" ${disableActions ? "disabled" : ""}>Approve</button>
-          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" onclick="event.stopPropagation();handleApproval('${a.approval_request_id}', 'deny')" ${disableActions ? "disabled" : ""}>Deny</button>
+          <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" data-handle-approval="${a.approval_request_id}" data-approval-action="approve" ${disableActions ? "disabled" : ""}>Approve</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;margin-left:4px;border-color:var(--color-danger);color:var(--color-danger)" data-handle-approval="${a.approval_request_id}" data-approval-action="deny" ${disableActions ? "disabled" : ""}>Deny</button>
         </td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(a.approval_request_id)}">
@@ -156,7 +156,7 @@ export function renderOwnerApprovals(
                           ? escapeHtml(agentName)
                           : escapeHtml(a.agent_id);
                       return `
-      <tr class="accordion-row" onclick="toggleApproval('${escapeHtml(a.approval_request_id)}')">
+      <tr class="accordion-row">
         <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
         <td>${agentDisplay}</td>
         <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span>${a.action_type.startsWith("communication.") ? ' <span class="badge badge-muted" style="margin-left:4px;font-size:10px">MCP Glove</span>' : ""}</td>

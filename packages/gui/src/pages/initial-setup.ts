@@ -45,15 +45,15 @@ export function renderInitialSetup(): string {
       <hr class="divider">
 
       <p style="margin-bottom:12px">Would you like to register an agent?</p>
-      <button class="btn-setup" id="createInviteBtn" onclick="createAgentInvite()">Create Agent Invite</button>
-      <button class="btn-secondary" id="skipBtn" onclick="showLinks()">Skip for now</button>
+      <button class="btn-setup" id="createInviteBtn">Create Agent Invite</button>
+      <button class="btn-secondary" id="skipBtn" data-show-links>Skip for now</button>
 
       <div id="inviteResult" class="invite-result" style="display:none">
         <label>Agent invite URL (single use, expires in 24h)</label>
         <div id="inviteUrlBox" class="invite-url-box"></div>
         <div class="invite-hint">Copy this URL and give it to your agent. It contains everything the agent needs to register itself.</div>
-        <button class="btn-setup" style="margin-top:12px" onclick="copyInviteUrl()">Copy to Clipboard</button>
-        <button class="btn-secondary" onclick="showLinks()">Continue</button>
+        <button class="btn-setup" style="margin-top:12px" id="btn-copy-invite">Copy to Clipboard</button>
+        <button class="btn-secondary" data-show-links>Continue</button>
       </div>
 
       <div id="successLinks" class="success-links" style="display:none">

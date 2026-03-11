@@ -248,7 +248,7 @@ export function renderOwners(owners: OwnerData[]): string {
         <h2>Owners</h2>
         <p>${owners.length} registered owner${owners.length !== 1 ? "s" : ""}</p>
       </div>
-      <button class="btn btn-primary" onclick="toggleForm()">+ Add Owner</button>
+      <button class="btn btn-primary" data-toggle-form>+ Add Owner</button>
     </div>
 
     <div id="owner-form" class="card hidden">
@@ -270,8 +270,8 @@ export function renderOwners(owners: OwnerData[]): string {
       </div>
 
       <div class="toolbar">
-        <button id="create-btn" class="btn btn-primary" onclick="createOwner()">Create Owner</button>
-        <button class="btn btn-secondary" onclick="toggleForm()">Cancel</button>
+        <button id="create-btn" class="btn btn-primary">Create Owner</button>
+        <button class="btn btn-secondary" data-toggle-form>Cancel</button>
       </div>
     </div>
 
@@ -530,7 +530,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     const auditRows = audit
         .map(
             (e, i) => `
-    <tr class="accordion-row" onclick="toggleAccordion(${i})" id="row-${i}">
+    <tr class="accordion-row" id="row-${i}">
       <td style="width:20px"><span class="chevron material-symbols-outlined">chevron_right</span></td>
       <td class="mono" style="white-space:nowrap">${escapeHtml(e.timestamp.slice(0, 19).replace("T", " "))}</td>
       <td>${eventBadge(e.event_type)}</td>
@@ -617,12 +617,12 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
                 : "Generate a one-time setup invite link for this owner to set up their account (passphrase, contact info, IDs)."
         }
       </p>
-      <button id="invite-btn" class="btn ${owner.has_passphrase ? "btn-secondary" : "btn-primary"}" style="padding:6px 14px;font-size:12px" onclick="generateInvite()">${owner.has_passphrase ? "Generate Reset Link" : "Generate Setup Invite"}</button>
+      <button id="invite-btn" class="btn ${owner.has_passphrase ? "btn-secondary" : "btn-primary"}" style="padding:6px 14px;font-size:12px">${owner.has_passphrase ? "Generate Reset Link" : "Generate Setup Invite"}</button>
       <div id="invite-result" class="hidden" style="margin-top:12px">
         <div class="card-title" style="font-size:12px">${owner.has_passphrase ? "Reset Link" : "Setup Link"} (copy and share securely — shown once)</div>
         <div style="display:flex;gap:8px;align-items:stretch">
           <pre id="invite-link" class="config-block" style="word-break:break-all;white-space:pre-wrap;margin-bottom:0;flex:1"></pre>
-          <button type="button" id="copy-btn" onclick="copyLink()" class="btn btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;align-self:start">Copy</button>
+          <button type="button" id="copy-btn" class="btn btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;align-self:start">Copy</button>
         </div>
       </div>
     </div>
@@ -648,7 +648,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
           owner.totp_enabled
               ? `
       <div style="margin-top:12px">
-        <button class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger);font-size:12px;padding:4px 12px" onclick="adminDisableTotp()">Disable 2FA</button>
+        <button id="btn-admin-disable-totp" class="btn btn-secondary" style="border-color:var(--color-danger);color:var(--color-danger);font-size:12px;padding:4px 12px">Disable 2FA</button>
       </div>
       `
               : ""

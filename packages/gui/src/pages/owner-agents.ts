@@ -40,7 +40,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
         <td>
           ${
               a.status === "ACTIVE"
-                  ? `<button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;border-color:var(--color-danger);color:var(--color-danger)" onclick="revokeAgent('${a.agent_principal_id}')" ${disableActions ? "disabled" : ""}>Revoke</button>`
+                  ? `<button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;border-color:var(--color-danger);color:var(--color-danger)" data-revoke-agent="${a.agent_principal_id}" ${disableActions ? "disabled" : ""}>Revoke</button>`
                   : '<span style="color:var(--text-muted)">-</span>'
           }
         </td>
@@ -51,7 +51,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
     const content = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <h2>My Agents</h2>
-      <button class="btn btn-primary" onclick="createAgentInvite()">+ Create Agent Invite</button>
+      <button class="btn btn-primary" id="btn-create-invite">+ Create Agent Invite</button>
     </div>
 
     ${
@@ -65,8 +65,8 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
       <div id="invite-url" style="padding:10px 14px;background:var(--bg-elevated);border:1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);border-radius:8px;font-family:var(--font-mono);font-size:12px;word-break:break-all;line-height:1.5;color:var(--text-primary)"></div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Copy this URL and give it to your agent. It contains everything the agent needs to register itself.</div>
       <div style="margin-top:12px;display:flex;gap:8px">
-        <button class="btn btn-primary" style="font-size:12px;padding:6px 16px" onclick="copyInviteUrl()">Copy to Clipboard</button>
-        <button class="btn btn-secondary" style="font-size:12px;padding:6px 16px" onclick="document.getElementById('invite-result').style.display='none'">Dismiss</button>
+        <button class="btn btn-primary" style="font-size:12px;padding:6px 16px" id="btn-copy-invite">Copy to Clipboard</button>
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 16px" id="btn-dismiss-invite">Dismiss</button>
       </div>
     </div>
 

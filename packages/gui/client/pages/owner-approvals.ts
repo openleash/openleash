@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the owner approvals page.
  */
+import { olToast, olPrompt, ol2FA, olApiError } from "../common";
 
 interface OwnerApprovalsPageData {
     totpEnabled: boolean;
@@ -9,25 +10,16 @@ interface OwnerApprovalsPageData {
 declare global {
     interface Window {
         __PAGE_DATA__: OwnerApprovalsPageData;
-        toggleApproval: (id: string) => void;
-        handleApproval: (id: string, action: string) => Promise<void>;
     }
 }
 
 const { totpEnabled } = window.__PAGE_DATA__;
 
-window.toggleApproval = function (id: string) {
-    const detail = document.getElementById("detail-" + id)!;
-    const row = detail.previousElementSibling as HTMLElement;
-    detail.classList.toggle("open");
-    row.classList.toggle("expanded");
-};
-
-window.handleApproval = async function (id: string, action: string) {
+async function handleApproval(id: string, action: string) {
     const token = sessionStorage.getItem("openleash_session");
     const bodyObj: Record<string, unknown> = {};
     if (action === "deny") {
-        const reason = await window.olPrompt("Reason for denial (optional):", "Enter reason...", "Deny Request");
+        const reason = await olPrompt("Reason for denial (optional):", "Enter reason...", "Deny Request");
         if (reason === null) return;
         if (reason) bodyObj.reason = reason;
     }
@@ -42,19 +34,39 @@ window.handleApproval = async function (id: string, action: string) {
             });
             if (res.ok) return null;
             const data = await res.json();
-            return window.olApiError(data, "Failed");
+            return olApiError(data, "Failed");
         } catch {
             return "Network error";
         }
     }
 
     if (totpEnabled) {
-        const result = await window.ol2FA(doApproval);
+        const result = await ol2FA(doApproval);
         if (!result) return;
         window.location.reload();
     } else {
         const err = await doApproval();
-        if (err) window.olToast(err, "error");
+        if (err) olToast(err, "error");
         else window.location.reload();
     }
-};
+}
+
+// ─── Event bindings ─────────────────────────────────────────────────
+
+document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
+    row.addEventListener("click", () => {
+        const detail = row.nextElementSibling as HTMLElement;
+        if (detail?.classList.contains("accordion-detail")) {
+            detail.classList.toggle("open");
+            row.classList.toggle("expanded");
+        }
+    });
+});
+
+document.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-handle-approval]");
+    if (btn) {
+        e.stopPropagation();
+        handleApproval(btn.dataset.handleApproval!, btn.dataset.approvalAction!);
+    }
+});

@@ -67,7 +67,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
         <h2>Agents</h2>
         <p>${agents.length} registered agent${agents.length !== 1 ? "s" : ""}</p>
       </div>
-      <button class="btn btn-primary" onclick="toggleInviteForm()">+ Create Agent Invite</button>
+      <button class="btn btn-primary" data-toggle-invite>+ Create Agent Invite</button>
     </div>
 
     <div id="invite-form" class="card hidden">
@@ -83,8 +83,8 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
       </div>
 
       <div class="toolbar">
-        <button id="invite-btn" class="btn btn-primary" onclick="createAgentInvite()">Create Invite</button>
-        <button class="btn btn-secondary" onclick="toggleInviteForm()">Cancel</button>
+        <button id="invite-btn" class="btn btn-primary">Create Invite</button>
+        <button class="btn btn-secondary" data-toggle-invite>Cancel</button>
       </div>
     </div>
 
@@ -93,8 +93,8 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
       <div id="invite-url" style="padding:10px 14px;background:var(--bg-elevated);border:1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);border-radius:8px;font-family:var(--font-mono);font-size:12px;word-break:break-all;line-height:1.5;color:var(--text-primary)"></div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Copy this URL and give it to the agent. It contains everything the agent needs to register itself.</div>
       <div class="toolbar" style="margin-top:12px">
-        <button class="btn btn-primary" onclick="copyInviteUrl()">Copy to Clipboard</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('invite-result').classList.add('hidden')">Dismiss</button>
+        <button id="btn-copy-invite" class="btn btn-primary">Copy to Clipboard</button>
+        <button id="btn-dismiss-invite" class="btn btn-secondary">Dismiss</button>
       </div>
     </div>
 

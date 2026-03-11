@@ -36,7 +36,7 @@ export { escapeHtml };
  * @param html Rich HTML content for the popover body
  */
 export function infoIcon(id: string, html: string): string {
-    return `<span class="info-popover-wrap"><span class="material-symbols-outlined info-trigger" onclick="toggleInfo(event,'info-${escapeHtml(id)}')" tabindex="0" role="button" aria-label="More info">info</span><div class="info-popover" id="info-${escapeHtml(id)}">${html}</div></span>`;
+    return `<span class="info-popover-wrap"><span class="material-symbols-outlined info-trigger" data-info-id="info-${escapeHtml(id)}" tabindex="0" role="button" aria-label="More info">info</span><div class="info-popover" id="info-${escapeHtml(id)}">${html}</div></span>`;
 }
 
 // ─── Shared popover content ──────────────────────────────────────────
@@ -176,7 +176,7 @@ export const INFO_MCP_GLOVE = `
 
 export function copyableId(fullId: string, _truncateLength?: number): string {
     const escaped = escapeHtml(fullId);
-    return `<span class="mono copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${escaped}</span>`;
+    return `<span class="mono copyable" title="Click to copy" data-copy-id="${escaped}">${escaped}</span>`;
 }
 
 export function formatTimestamp(iso: string, dateOnly = false): string {
@@ -188,9 +188,9 @@ export function formatTimestamp(iso: string, dateOnly = false): string {
 export function formatNameWithId(name: string | undefined, uuid: string): string {
     const escaped = escapeHtml(uuid);
     if (name) {
-        return `${escapeHtml(name)} <span class="mono muted copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')" style="color:var(--text-muted);font-size:11px">(${escapeHtml(uuid.slice(0, 8))}...)</span>`;
+        return `${escapeHtml(name)} <span class="mono muted copyable" title="Click to copy" data-copy-id="${escaped}" style="color:var(--text-muted);font-size:11px">(${escapeHtml(uuid.slice(0, 8))}...)</span>`;
     }
-    return `<span class="mono truncate copyable" title="Click to copy" onclick="event.stopPropagation();copyId(this,'${escaped}')">${escapeHtml(uuid.slice(0, 8))}...</span>`;
+    return `<span class="mono truncate copyable" title="Click to copy" data-copy-id="${escaped}">${escapeHtml(uuid.slice(0, 8))}...</span>`;
 }
 
 export function renderPage(
@@ -218,13 +218,7 @@ export function renderPage(
 
     const logoutHtml = isOwner
         ? `
-    <a href="#" class="nav-item" style="color:var(--color-danger)" onclick="
-      fetch('/v1/owner/logout', {method:'POST',headers:{'Authorization':'Bearer '+sessionStorage.getItem('openleash_session')}});
-      sessionStorage.removeItem('openleash_session');
-      document.cookie='openleash_session=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      window.location.href='/gui/owner/login';
-      return false;
-    ">
+    <a href="#" class="nav-item" id="nav-logout" style="color:var(--color-danger)">
       <span class="nav-icon material-symbols-outlined">logout</span>
       <span class="nav-label">Logout</span>
     </a>`
@@ -284,15 +278,15 @@ export function renderPage(
         </a>
       </div>
       <div class="theme-switcher">
-        <button class="theme-btn" data-theme="system" onclick="setTheme('system')" title="System theme"><span class="material-symbols-outlined">desktop_windows</span></button>
-        <button class="theme-btn" data-theme="light" onclick="setTheme('light')" title="Light theme"><span class="material-symbols-outlined">light_mode</span></button>
-        <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')" title="Dark theme"><span class="material-symbols-outlined">dark_mode</span></button>
+        <button class="theme-btn" data-theme="system" title="System theme"><span class="material-symbols-outlined">desktop_windows</span></button>
+        <button class="theme-btn" data-theme="light" title="Light theme"><span class="material-symbols-outlined">light_mode</span></button>
+        <button class="theme-btn" data-theme="dark" title="Dark theme"><span class="material-symbols-outlined">dark_mode</span></button>
       </div>
     </div>
     ${navHtml}
     <div class="sidebar-bottom">
       ${logoutHtml}
-      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+      <button class="sidebar-toggle" title="Toggle sidebar">
         <span class="material-symbols-outlined collapse-icon">left_panel_close</span>
         <span class="material-symbols-outlined expand-icon">left_panel_open</span>
       </button>
@@ -301,7 +295,7 @@ export function renderPage(
   <main class="main">
     ${content}
   </main>
-  <div id="ol-dialog" class="modal-overlay" onclick="if(event.target===this)olDialogCancel()">
+  <div id="ol-dialog" class="modal-overlay">
     <div class="modal" style="max-width:420px">
       <div class="modal-title" id="ol-dialog-title"></div>
       <p id="ol-dialog-msg" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px"></p>
@@ -310,8 +304,8 @@ export function renderPage(
         <div class="field-error" id="err-ol-dialog-input"></div>
       </div>
       <div class="modal-footer">
-        <button id="ol-dialog-cancel" class="btn btn-secondary" onclick="olDialogCancel()">Cancel</button>
-        <button id="ol-dialog-ok" class="btn btn-primary" onclick="olDialogOk()">OK</button>
+        <button id="ol-dialog-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="ol-dialog-ok" class="btn btn-primary">OK</button>
       </div>
     </div>
   </div>

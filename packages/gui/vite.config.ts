@@ -5,7 +5,6 @@ export default defineConfig({
     root: resolve(__dirname, "client"),
     build: {
         outDir: resolve(__dirname, "dist/client"),
-        emptyDirOnly: true,
         manifest: true,
         rollupOptions: {
             input: {
@@ -14,7 +13,10 @@ export default defineConfig({
                 "pages/owner-policies": resolve(__dirname, "client/pages/owner-policies.ts"),
                 "pages/owner-agents": resolve(__dirname, "client/pages/owner-agents.ts"),
                 "pages/owner-approvals": resolve(__dirname, "client/pages/owner-approvals.ts"),
-                "pages/owner-policy-create": resolve(__dirname, "client/pages/owner-policy-create.ts"),
+                "pages/owner-policy-create": resolve(
+                    __dirname,
+                    "client/pages/owner-policy-create.ts",
+                ),
                 "pages/agents": resolve(__dirname, "client/pages/agents.ts"),
                 "pages/owners": resolve(__dirname, "client/pages/owners.ts"),
                 "pages/audit": resolve(__dirname, "client/pages/audit.ts"),

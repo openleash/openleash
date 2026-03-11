@@ -1,6 +1,7 @@
 /**
  * Client-side logic for the owner profile page.
  */
+import { olToast, olFieldError, olApiError } from "../common";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -44,23 +45,6 @@ interface OwnerProfilePageData {
 declare global {
     interface Window {
         __PAGE_DATA__: OwnerProfilePageData;
-        showNameEdit: () => void;
-        hideNameEdit: () => void;
-        updateName: () => Promise<void>;
-        addContact: () => Promise<void>;
-        removeContact: (idx: number) => Promise<void>;
-        updateIdTypes: () => void;
-        addGovId: () => Promise<void>;
-        removeGovId: (idx: number) => Promise<void>;
-        addCompanyId: () => Promise<void>;
-        removeCompanyId: (idx: number) => Promise<void>;
-        openModal: (id: string) => void;
-        closeModal: (id: string) => void;
-        downloadBackupCodes: () => void;
-        setupTotp: () => Promise<void>;
-        confirmTotp: () => Promise<void>;
-        openDisableModal: () => void;
-        confirmDisableTotp: () => Promise<void>;
     }
 }
 
@@ -79,7 +63,7 @@ async function saveProfile(body: Record<string, unknown>): Promise<boolean> {
     });
     if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        window.olToast(window.olApiError(data, "Update failed"), "error");
+        olToast(olApiError(data, "Update failed"), "error");
         return false;
     }
     return true;
@@ -87,37 +71,37 @@ async function saveProfile(body: Record<string, unknown>): Promise<boolean> {
 
 // ─── Display name ───────────────────────────────────────────────────
 
-window.showNameEdit = function () {
+function showNameEdit() {
     document.getElementById("display-name-view")!.style.display = "none";
     document.getElementById("display-name-edit")!.style.display = "flex";
     (document.getElementById("newDisplayName") as HTMLInputElement).focus();
-};
+}
 
-window.hideNameEdit = function () {
+function hideNameEdit() {
     document.getElementById("display-name-edit")!.style.display = "none";
     document.getElementById("display-name-view")!.style.display = "flex";
-};
+}
 
-window.updateName = async function () {
+async function updateName() {
     const name = (document.getElementById("newDisplayName") as HTMLInputElement).value.trim();
-    window.olFieldError("newDisplayName", "");
+    olFieldError("newDisplayName", "");
     if (!name) {
-        window.olFieldError("newDisplayName", "Name cannot be empty");
+        olFieldError("newDisplayName", "Name cannot be empty");
         return;
     }
     if (await saveProfile({ display_name: name })) window.location.reload();
-};
+}
 
 // ─── Contact identities ────────────────────────────────────────────
 
-window.addContact = async function () {
+async function addContact() {
     const type = (document.getElementById("contact-type") as HTMLSelectElement).value;
     const value = (document.getElementById("contact-value") as HTMLInputElement).value.trim();
     const label = (document.getElementById("contact-label") as HTMLInputElement).value.trim();
     const platform = (document.getElementById("contact-platform") as HTMLInputElement).value.trim();
-    window.olFieldError("contact-value", "");
+    olFieldError("contact-value", "");
     if (!value) {
-        window.olFieldError("contact-value", "Value is required");
+        olFieldError("contact-value", "Value is required");
         return;
     }
     const entry: Record<string, unknown> = {
@@ -127,16 +111,16 @@ window.addContact = async function () {
     if (platform) entry.platform = platform;
     const updated = contacts.concat([entry as unknown as ContactIdentity]);
     if (await saveProfile({ contact_identities: updated })) window.location.reload();
-};
+}
 
-window.removeContact = async function (idx: number) {
+async function removeContact(idx: number) {
     const updated = contacts.filter((_, i) => i !== idx);
     if (await saveProfile({ contact_identities: updated })) window.location.reload();
-};
+}
 
 // ─── Government IDs ─────────────────────────────────────────────────
 
-window.updateIdTypes = function () {
+function updateIdTypes() {
     const country = (document.getElementById("gov-country") as HTMLSelectElement).value;
     const sel = document.getElementById("gov-id-type") as HTMLSelectElement;
     sel.innerHTML = "";
@@ -150,19 +134,19 @@ window.updateIdTypes = function () {
         opt.textContent = idLabelsMap[t] || t;
         sel.appendChild(opt);
     });
-};
+}
 
-window.addGovId = async function () {
+async function addGovId() {
     const country = (document.getElementById("gov-country") as HTMLSelectElement).value;
     const idType = (document.getElementById("gov-id-type") as HTMLSelectElement).value;
     const idValue = (document.getElementById("gov-id-value") as HTMLInputElement).value.trim();
-    window.olFieldError("gov-country", "");
-    window.olFieldError("gov-id-type", "");
-    window.olFieldError("gov-id-value", "");
+    olFieldError("gov-country", "");
+    olFieldError("gov-id-type", "");
+    olFieldError("gov-id-value", "");
     let valid = true;
-    if (!country) { window.olFieldError("gov-country", "Country is required"); valid = false; }
-    if (!idType) { window.olFieldError("gov-id-type", "ID type is required"); valid = false; }
-    if (!idValue) { window.olFieldError("gov-id-value", "ID value is required"); valid = false; }
+    if (!country) { olFieldError("gov-country", "Country is required"); valid = false; }
+    if (!idType) { olFieldError("gov-id-type", "ID type is required"); valid = false; }
+    if (!idValue) { olFieldError("gov-id-value", "ID value is required"); valid = false; }
     if (!valid) return;
     const entry: GovId = {
         country, id_type: idType, id_value: idValue,
@@ -170,22 +154,22 @@ window.addGovId = async function () {
     };
     const updated = govIds.concat([entry]);
     if (await saveProfile({ government_ids: updated })) window.location.reload();
-};
+}
 
-window.removeGovId = async function (idx: number) {
+async function removeGovId(idx: number) {
     const updated = govIds.filter((_, i) => i !== idx);
     if (await saveProfile({ government_ids: updated })) window.location.reload();
-};
+}
 
 // ─── Company IDs ────────────────────────────────────────────────────
 
-window.addCompanyId = async function () {
+async function addCompanyId() {
     const idType = (document.getElementById("company-id-type") as HTMLSelectElement).value;
     const country = (document.getElementById("company-country") as HTMLSelectElement).value;
     const idValue = (document.getElementById("company-id-value") as HTMLInputElement).value.trim();
-    window.olFieldError("company-id-value", "");
+    olFieldError("company-id-value", "");
     if (!idValue) {
-        window.olFieldError("company-id-value", "ID value is required");
+        olFieldError("company-id-value", "ID value is required");
         return;
     }
     const entry: Record<string, unknown> = {
@@ -195,26 +179,26 @@ window.addCompanyId = async function () {
     if (country) entry.country = country;
     const updated = companyIds.concat([entry as unknown as CompanyId]);
     if (await saveProfile({ company_ids: updated })) window.location.reload();
-};
+}
 
-window.removeCompanyId = async function (idx: number) {
+async function removeCompanyId(idx: number) {
     const updated = companyIds.filter((_, i) => i !== idx);
     if (await saveProfile({ company_ids: updated })) window.location.reload();
-};
+}
 
 // ─── Modals ─────────────────────────────────────────────────────────
 
-window.openModal = function (id: string) {
+function openModal(id: string) {
     document.getElementById(id)!.classList.add("open");
-};
+}
 
-window.closeModal = function (id: string) {
+function closeModal(id: string) {
     document.getElementById(id)!.classList.remove("open");
-};
+}
 
 // ─── TOTP setup ─────────────────────────────────────────────────────
 
-window.downloadBackupCodes = function () {
+function downloadBackupCodes() {
     const codes = document.getElementById("totp-backup-codes")!.innerText;
     const blob = new Blob([codes], { type: "text/plain" });
     const a = document.createElement("a");
@@ -222,16 +206,16 @@ window.downloadBackupCodes = function () {
     a.download = "openleash-backup-codes.txt";
     a.click();
     URL.revokeObjectURL(a.href);
-};
+}
 
-window.setupTotp = async function () {
+async function setupTotp() {
     const res = await fetch("/v1/owner/totp/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
         body: "{}",
     });
     if (!res.ok) {
-        window.olToast("Failed to start TOTP setup", "error");
+        olToast("Failed to start TOTP setup", "error");
         return;
     }
     const data = await res.json();
@@ -240,10 +224,10 @@ window.setupTotp = async function () {
     document.getElementById("totp-backup-codes")!.innerHTML = data.backup_codes.join("<br>");
     (document.getElementById("totp-confirm-code") as HTMLInputElement).value = "";
     document.getElementById("totp-setup-error")!.textContent = "";
-    window.openModal("totp-setup-modal");
-};
+    openModal("totp-setup-modal");
+}
 
-window.confirmTotp = async function () {
+async function confirmTotp() {
     const code = (document.getElementById("totp-confirm-code") as HTMLInputElement).value.trim();
     const errEl = document.getElementById("totp-setup-error")!;
     if (!code) {
@@ -259,17 +243,17 @@ window.confirmTotp = async function () {
         window.location.reload();
     } else {
         const data = await res.json().catch(() => ({}));
-        errEl.textContent = window.olApiError(data, "Invalid code");
+        errEl.textContent = olApiError(data, "Invalid code");
     }
-};
+}
 
-window.openDisableModal = function () {
+function openDisableModal() {
     (document.getElementById("totp-disable-code") as HTMLInputElement).value = "";
     document.getElementById("totp-disable-error")!.textContent = "";
-    window.openModal("totp-disable-modal");
-};
+    openModal("totp-disable-modal");
+}
 
-window.confirmDisableTotp = async function () {
+async function confirmDisableTotp() {
     const code = (document.getElementById("totp-disable-code") as HTMLInputElement).value.trim();
     const errEl = document.getElementById("totp-disable-error")!;
     if (!code) {
@@ -285,6 +269,42 @@ window.confirmDisableTotp = async function () {
         window.location.reload();
     } else {
         const data = await res.json().catch(() => ({}));
-        errEl.textContent = window.olApiError(data, "Invalid code");
+        errEl.textContent = olApiError(data, "Invalid code");
     }
-};
+}
+
+// ─── Event bindings ─────────────────────────────────────────────────
+
+document.getElementById("btn-show-name-edit")?.addEventListener("click", showNameEdit);
+document.getElementById("btn-hide-name-edit")?.addEventListener("click", hideNameEdit);
+document.getElementById("btn-update-name")?.addEventListener("click", updateName);
+document.getElementById("btn-add-contact")?.addEventListener("click", addContact);
+document.getElementById("btn-add-gov-id")?.addEventListener("click", addGovId);
+document.getElementById("btn-add-company-id")?.addEventListener("click", addCompanyId);
+document.getElementById("btn-setup-totp")?.addEventListener("click", setupTotp);
+document.getElementById("btn-download-codes")?.addEventListener("click", downloadBackupCodes);
+document.getElementById("btn-confirm-totp")?.addEventListener("click", confirmTotp);
+document.getElementById("btn-open-disable-modal")?.addEventListener("click", openDisableModal);
+document.getElementById("btn-confirm-disable-totp")?.addEventListener("click", confirmDisableTotp);
+
+document.getElementById("gov-country")?.addEventListener("change", updateIdTypes);
+
+// Close modal buttons and overlay clicks
+document.querySelectorAll<HTMLElement>("[data-close-modal]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+        if (el.classList.contains("modal-overlay") && e.target !== e.currentTarget) return;
+        closeModal(el.getAttribute("data-close-modal")!);
+    });
+});
+
+// Dynamic action buttons (remove contact/govId/companyId)
+document.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-action]");
+    if (!btn) return;
+    const idx = Number(btn.dataset.index);
+    switch (btn.dataset.action) {
+        case "remove-contact": removeContact(idx); break;
+        case "remove-gov-id": removeGovId(idx); break;
+        case "remove-company-id": removeCompanyId(idx); break;
+    }
+});
