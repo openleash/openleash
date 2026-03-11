@@ -198,9 +198,9 @@ export function renderDashboard(data: DashboardData): string {
           </p>
         </div>
         <div>
-          <div class="detail-title">Policies</div>
+          <div class="detail-title">Policies${infoIcon("admin-decisions", INFO_DECISIONS)}</div>
           <p class="detail-text">
-            Policies are YAML-based rules that control what agents can do. They evaluate actions, resources, and context to produce decisions${infoIcon("admin-decisions", INFO_DECISIONS)}.
+            Policies are YAML-based rules that control what agents can do. They evaluate actions, resources, and context to produce decisions.
           </p>
         </div>
         <div>
