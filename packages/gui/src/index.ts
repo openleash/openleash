@@ -22,9 +22,8 @@ export type { OwnerApprovalEntry, OwnerApprovalsOptions } from './pages/owner-ap
 export { renderOwnerAgents } from './pages/owner-agents.js';
 export type { OwnerAgentEntry } from './pages/owner-agents.js';
 export { renderOwnerPolicies } from './pages/owner-policies.js';
-export type { OwnerPolicyEntry } from './pages/owner-policies.js';
-export { renderOwnerPolicyDrafts } from './pages/owner-policy-drafts.js';
-export type { OwnerPolicyDraftEntry, OwnerPolicyDraftsOptions } from './pages/owner-policy-drafts.js';
+export type { OwnerPolicyEntry, OwnerPolicyDraftEntry, OwnerPoliciesOptions } from './pages/owner-policies.js';
+export { renderOwnerPolicyCreate } from './pages/owner-policy-create.js';
 export { renderOwnerProfile } from './pages/owner-profile.js';
 export type { OwnerProfileData } from './pages/owner-profile.js';
 export { renderInitialSetup } from './pages/initial-setup.js';

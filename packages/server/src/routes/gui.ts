@@ -26,7 +26,7 @@ import {
   renderOwnerApprovals,
   renderOwnerAgents,
   renderOwnerPolicies,
-  renderOwnerPolicyDrafts,
+  renderOwnerPolicyCreate,
   renderOwnerProfile,
   renderInitialSetup,
   renderApiReference,
@@ -418,7 +418,7 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
     reply.type('text/html').send(html);
   });
 
-  // Owner policies
+  // Owner policies (includes policy drafts)
   app.get('/gui/owner/policies', { preHandler: ownerAuth }, async (request, reply) => {
     const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
     const state = readState(dataDir);
@@ -432,7 +432,57 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
           return { policy_id: entry.policy_id, applies_to_agent_principal_id: entry.applies_to_agent_principal_id };
         }
       });
-    const html = renderOwnerPolicies(policies);
+    const draftEntries = (state.policy_drafts ?? [])
+      .filter((d) => d.owner_principal_id === session.sub);
+    const drafts = draftEntries.map((entry) => {
+      try {
+        const draft = readPolicyDraftFile(dataDir, entry.policy_draft_id);
+        return {
+          policy_draft_id: draft.policy_draft_id,
+          agent_id: draft.agent_id,
+          agent_principal_id: draft.agent_principal_id,
+          applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
+          policy_yaml: draft.policy_yaml,
+          justification: draft.justification,
+          status: draft.status,
+          resulting_policy_id: draft.resulting_policy_id,
+          denial_reason: draft.denial_reason,
+          created_at: draft.created_at,
+          resolved_at: draft.resolved_at,
+        };
+      } catch {
+        return {
+          policy_draft_id: entry.policy_draft_id,
+          agent_id: 'unknown',
+          agent_principal_id: entry.agent_principal_id,
+          applies_to_agent_principal_id: null,
+          policy_yaml: '',
+          justification: null,
+          status: entry.status,
+          resulting_policy_id: null,
+          denial_reason: null,
+          created_at: '',
+          resolved_at: null,
+        };
+      }
+    });
+    const agentNames = new Map(
+      state.agents
+        .filter((a) => a.owner_principal_id === session.sub)
+        .map((a) => [a.agent_principal_id, a.agent_id])
+    );
+    const policyOwner = readOwnerFile(dataDir, session.sub);
+    const html = renderOwnerPolicies(policies, drafts, {
+      totp_enabled: !!policyOwner.totp_enabled,
+      require_totp: !!config.security.require_totp,
+      agent_names: agentNames,
+    });
+    reply.type('text/html').send(html);
+  });
+
+  // Owner create policy
+  app.get('/gui/owner/policies/create', { preHandler: ownerAuth }, async (_request, reply) => {
+    const html = renderOwnerPolicyCreate();
     reply.type('text/html').send(html);
   });
 
@@ -475,57 +525,9 @@ export function registerGuiRoutes(app: FastifyInstance, dataDir: string, config:
     reply.type('text/html').send(html);
   });
 
-  // Owner policy drafts
-  app.get('/gui/owner/policy-drafts', { preHandler: ownerAuth }, async (request, reply) => {
-    const session = (request as unknown as Record<string, unknown>).ownerSession as SessionClaims;
-    const state = readState(dataDir);
-    const draftEntries = (state.policy_drafts ?? [])
-      .filter((d) => d.owner_principal_id === session.sub);
-
-    const drafts = draftEntries.map((entry) => {
-      try {
-        const draft = readPolicyDraftFile(dataDir, entry.policy_draft_id);
-        return {
-          policy_draft_id: draft.policy_draft_id,
-          agent_id: draft.agent_id,
-          agent_principal_id: draft.agent_principal_id,
-          applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
-          policy_yaml: draft.policy_yaml,
-          justification: draft.justification,
-          status: draft.status,
-          resulting_policy_id: draft.resulting_policy_id,
-          denial_reason: draft.denial_reason,
-          created_at: draft.created_at,
-          resolved_at: draft.resolved_at,
-        };
-      } catch {
-        return {
-          policy_draft_id: entry.policy_draft_id,
-          agent_id: 'unknown',
-          agent_principal_id: entry.agent_principal_id,
-          applies_to_agent_principal_id: null,
-          policy_yaml: '',
-          justification: null,
-          status: entry.status,
-          resulting_policy_id: null,
-          denial_reason: null,
-          created_at: '',
-          resolved_at: null,
-        };
-      }
-    });
-    const agentNames = new Map(
-      state.agents
-        .filter((a) => a.owner_principal_id === session.sub)
-        .map((a) => [a.agent_principal_id, a.agent_id])
-    );
-    const draftOwner = readOwnerFile(dataDir, session.sub);
-    const html = renderOwnerPolicyDrafts(drafts, {
-      totp_enabled: !!draftOwner.totp_enabled,
-      require_totp: !!config.security.require_totp,
-      agent_names: agentNames,
-    });
-    reply.type('text/html').send(html);
+  // Owner policy drafts — redirect to merged policies page
+  app.get('/gui/owner/policy-drafts', { preHandler: ownerAuth }, async (_request, reply) => {
+    reply.redirect('/gui/owner/policies');
   });
 
   // Owner profile

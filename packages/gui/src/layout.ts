@@ -15,7 +15,6 @@ const OWNER_NAV_ITEMS = [
   { path: '/gui/owner/agents', label: 'My Agents', icon: 'smart_toy' },
   { path: '/gui/owner/policies', label: 'My Policies', icon: 'policy' },
   { path: '/gui/owner/approvals', label: 'Approvals', icon: 'task_alt' },
-  { path: '/gui/owner/policy-drafts', label: 'Policy Drafts', icon: 'edit_note' },
   { path: '/gui/owner/audit', label: 'Audit Log', icon: 'receipt_long' },
 ];
 
