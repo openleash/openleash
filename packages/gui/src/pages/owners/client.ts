@@ -6,6 +6,9 @@ import { olToast, olFieldError, olConfirm, olApiError } from "../../shared/commo
 
 interface OwnersPageData {
     ownerId?: string;
+    activityPage?: number;
+    activityPageSize?: number;
+    activityTotal?: number;
 }
 
 declare global {
@@ -141,3 +144,10 @@ document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
 document.getElementById("invite-btn")?.addEventListener("click", generateInvite);
 document.getElementById("copy-btn")?.addEventListener("click", copyLink);
 document.getElementById("btn-admin-disable-totp")?.addEventListener("click", adminDisableTotp);
+
+// Activity log page size change
+document.getElementById("activity-page-size")?.addEventListener("change", (e) => {
+    if (!pageData.ownerId) return;
+    const newSize = (e.target as HTMLSelectElement).value;
+    window.location.href = `/gui/owners/${pageData.ownerId}?activity_page=1&activity_page_size=${newSize}`;
+});

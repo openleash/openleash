@@ -149,11 +149,16 @@ export interface OwnerDetailData {
     agents: { agent_id: string; agent_principal_id: string; status: string; created_at: string }[];
     policies: { policy_id: string; applies_to_agent_principal_id: string | null }[];
     activity_log: {
-        event_id: string;
-        timestamp: string;
-        event_type: string;
-        metadata_json: Record<string, unknown>;
-    }[];
+        items: {
+            event_id: string;
+            timestamp: string;
+            event_type: string;
+            metadata_json: Record<string, unknown>;
+        }[];
+        total: number;
+        page: number;
+        pageSize: number;
+    };
     linked_humans?: { owner_principal_id: string; display_name: string }[];
 }
 
@@ -527,7 +532,9 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         )
         .join("");
 
-    const activityRows = activity_log
+    // Activity log — newest first
+    const activityItems = [...activity_log.items].reverse();
+    const activityRows = activityItems
         .map(
             (e, i) => `
     <tr class="accordion-row" id="row-${i}">
@@ -709,8 +716,27 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     <div class="card">
       <div class="card-title">Activity Log</div>
       ${
-          activity_log.length > 0
-              ? `
+          activity_log.total > 0
+              ? (() => {
+                    const { page, pageSize, total } = activity_log;
+                    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+                    const offset = (page - 1) * pageSize;
+                    const pageStart = offset + 1;
+                    const pageEnd = Math.min(offset + pageSize, total);
+                    const basePath = `/gui/owners/${escapeHtml(owner.owner_principal_id)}`;
+
+                    const prevDisabled = page <= 1 ? " disabled" : "";
+                    const nextDisabled = page >= totalPages ? " disabled" : "";
+                    const prevHref = page > 1 ? `${basePath}?activity_page=${page - 1}&activity_page_size=${pageSize}` : "#";
+                    const nextHref = page < totalPages ? `${basePath}?activity_page=${page + 1}&activity_page_size=${pageSize}` : "#";
+                    const firstHref = `${basePath}?activity_page=1&activity_page_size=${pageSize}`;
+                    const lastHref = `${basePath}?activity_page=${totalPages}&activity_page_size=${pageSize}`;
+
+                    const pageSizeOptions = [10, 25, 50]
+                        .map((s) => `<option value="${s}"${s === pageSize ? " selected" : ""}>${s}</option>`)
+                        .join("");
+
+                    return `
       <table>
         <colgroup><col style="width:36px"><col style="width:170px"><col></colgroup>
         <thead>
@@ -722,7 +748,25 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         </thead>
         <tbody>${activityRows}</tbody>
       </table>
-      `
+      <div class="table-pagination">
+        <div class="table-pagination-info">
+          Showing ${pageStart}–${pageEnd} of ${total}
+        </div>
+        <div class="table-pagination-controls">
+          <div class="table-pagination-size">
+            <label>Rows</label>
+            <select id="activity-page-size" class="form-select">${pageSizeOptions}</select>
+          </div>
+          <div class="table-pagination-nav">
+            <a href="${firstHref}" class="btn btn-secondary btn-sm btn-icon${prevDisabled}" title="First page"><span class="material-symbols-outlined">first_page</span></a>
+            <a href="${prevHref}" class="btn btn-secondary btn-sm btn-icon${prevDisabled}" title="Previous page"><span class="material-symbols-outlined">chevron_left</span></a>
+            <span class="table-pagination-pages">Page ${page} of ${totalPages}</span>
+            <a href="${nextHref}" class="btn btn-secondary btn-sm btn-icon${nextDisabled}" title="Next page"><span class="material-symbols-outlined">chevron_right</span></a>
+            <a href="${lastHref}" class="btn btn-secondary btn-sm btn-icon${nextDisabled}" title="Last page"><span class="material-symbols-outlined">last_page</span></a>
+          </div>
+        </div>
+      </div>`;
+                })()
               : '<p class="owners-empty-activity">No activity recorded for this owner</p>'
       }
     </div>
@@ -731,7 +775,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       <a href="/gui/owners" class="btn btn-secondary">Back to Owners</a>
     </div>
 
-    <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.owner_principal_id)}' };</script>
+    <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.owner_principal_id)}', activityPage: ${activity_log.page}, activityPageSize: ${activity_log.pageSize}, activityTotal: ${activity_log.total} };</script>
     ${assetTags("pages/owners/client.ts")}
   `;
 

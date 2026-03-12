@@ -129,6 +129,10 @@ export function registerGuiRoutes(
     // Owner detail
     app.get("/gui/owners/:ownerId", { preHandler: adminAuth }, async (request, reply) => {
         const { ownerId } = request.params as { ownerId: string };
+        const query = request.query as { activity_page?: string; activity_page_size?: string };
+        const activityPageSize = Math.min(Math.max(parseInt(query.activity_page_size || "25", 10) || 25, 1), 100);
+        const activityPage = Math.max(parseInt(query.activity_page || "1", 10) || 1, 1);
+        const activityOffset = (activityPage - 1) * activityPageSize;
         const state = readState(dataDir);
         const entry = state.owners.find((o) => o.owner_principal_id === ownerId);
 
@@ -176,8 +180,7 @@ export function registerGuiRoutes(
                     .filter((a) => a.owner_principal_id === ownerId)
                     .map((a) => a.agent_principal_id),
             );
-            const activityResult = auditStore.readByPrincipal(ownerId, ownerAgentIds, 50, 0);
-            const activityLog = activityResult.items;
+            const activityResult = auditStore.readByPrincipal(ownerId, ownerAgentIds, activityPageSize, activityOffset);
 
             // Resolve signatory human owner names for ORG owners
             const linkedHumans: { owner_principal_id: string; display_name: string }[] = [];
@@ -204,7 +207,12 @@ export function registerGuiRoutes(
                 owner: ownerWithMeta,
                 agents,
                 policies,
-                activity_log: activityLog,
+                activity_log: {
+                    items: activityResult.items,
+                    total: activityResult.total,
+                    page: activityPage,
+                    pageSize: activityPageSize,
+                },
                 linked_humans: linkedHumans,
             });
             reply.type("text/html").send(html);
