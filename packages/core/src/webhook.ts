@@ -23,7 +23,7 @@ function safeAudit(dataDir: string, eventType: string, metadata: Record<string, 
 export function deliverWebhook(params: {
   webhookUrl: string;
   webhookSecret: string;
-  webhookAuthToken?: string;
+  webhookAuthToken: string;
   payload: WebhookPayload;
   dataDir: string;
   timeoutMs?: number;
@@ -44,7 +44,7 @@ export function deliverWebhook(params: {
     headers: {
       'Content-Type': 'application/json',
       'X-Webhook-Signature': signature,
-      ...(webhookAuthToken ? { Authorization: `Bearer ${webhookAuthToken}` } : {}),
+      Authorization: `Bearer ${webhookAuthToken}`,
     },
     body,
     signal: controller.signal,

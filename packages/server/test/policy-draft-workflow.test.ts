@@ -110,6 +110,7 @@ describe('policy draft workflow', () => {
       revoked_at: null,
       webhook_url: 'https://policy-draft-test-agent.example.com/webhook',
       webhook_secret: 'test-webhook-secret',
+      webhook_auth_token: 'test-webhook-auth-token',
     });
 
     // Update state with agent

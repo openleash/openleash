@@ -252,7 +252,7 @@ export interface AgentFrontmatter {
   revoked_at: string | null;
   webhook_url: string;
   webhook_secret: string;
-  webhook_auth_token?: string;
+  webhook_auth_token: string;
 }
 
 // ─── Approval request types ─────────────────────────────────────────

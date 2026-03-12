@@ -140,6 +140,7 @@ export async function wizardCommand() {
     revoked_at: null,
     webhook_url: '',
     webhook_secret: '',
+    webhook_auth_token: '',
   });
 
   const stateAfterAgent = readState(dataDir);
