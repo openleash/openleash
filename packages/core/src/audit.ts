@@ -175,7 +175,7 @@ export class FileAuditStore implements AuditStore {
   // ─── Internal ─────────────────────────────────────────────────────
 
   private ensureIndex(): void {
-    let stat: fs.Stats | null = null;
+    let stat: fs.Stats;
     try {
       stat = fs.statSync(this.filePath);
     } catch {
