@@ -87,8 +87,14 @@ export function buildPayload(
   // ── CC / BCC (recipient expansion) ───────────────────────────────────────
   const ccRecipients = extractRecipientList(args.cc_recipients ?? args.cc);
   const bccRecipients = extractRecipientList(args.bcc_recipients ?? args.bcc);
-  if (ccRecipients.length > 0) payload.cc_count = ccRecipients.length;
-  if (bccRecipients.length > 0) payload.bcc_count = bccRecipients.length;
+  if (ccRecipients.length > 0) {
+    payload.cc_count = ccRecipients.length;
+    payload.cc_domains = extractDomains(ccRecipients);
+  }
+  if (bccRecipients.length > 0) {
+    payload.bcc_count = bccRecipients.length;
+    payload.bcc_domains = extractDomains(bccRecipients);
+  }
 
   return payload;
 }
