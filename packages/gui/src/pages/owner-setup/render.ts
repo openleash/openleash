@@ -14,12 +14,12 @@ export function renderOwnerSetup(): string {
   <div class="setup-card">
     <h1>OpenLeash</h1>
     <div class="subtitle">Account Setup</div>
-    <div id="missingParams" class="missing-params osetup-hidden">
+    <div id="missing-params" class="missing-params osetup-hidden">
       <p>This setup link is missing required parameters.</p>
       <p>Ask your administrator to generate a new setup invite.</p>
       <p class="osetup-login-link"><a href="/gui/owner/login">Go to login</a></p>
     </div>
-    <form id="setupForm" class="osetup-hidden">
+    <form id="setup-form" class="osetup-hidden">
       <div class="form-group">
         <label>Passphrase</label>
         <input type="password" id="passphrase" placeholder="Choose a passphrase" required>
@@ -27,24 +27,24 @@ export function renderOwnerSetup(): string {
       </div>
       <div class="form-group">
         <label>Confirm Passphrase</label>
-        <input type="password" id="passphraseConfirm" placeholder="Confirm your passphrase" required>
+        <input type="password" id="passphrase-confirm" placeholder="Confirm your passphrase" required>
       </div>
-      <button type="submit" class="btn-setup" id="submitBtn">Set Up Account</button>
-      <div class="error-msg" id="errorMsg"></div>
+      <button type="submit" class="btn-setup" id="submit-btn">Set Up Account</button>
+      <div class="error-msg" id="error-msg"></div>
     </form>
-    <div id="successMsg" class="success-msg osetup-hidden">
+    <div id="success-msg" class="success-msg osetup-hidden">
       <h2>Account ready</h2>
       <p>Your passphrase has been set.</p>
 
       <hr class="divider">
 
       <p class="osetup-prompt-text">Would you like to register an agent?</p>
-      <button class="btn-setup" id="createInviteBtn">Create Agent Invite</button>
-      <button class="btn-secondary" id="skipBtn" data-go-to-login>Skip for now</button>
+      <button class="btn-setup" id="create-invite-btn">Create Agent Invite</button>
+      <button class="btn-secondary" id="skip-btn" data-go-to-login>Skip for now</button>
 
-      <div id="inviteResult" class="invite-result osetup-hidden">
+      <div id="invite-result" class="invite-result osetup-hidden">
         <label>Agent invite URL (single use, expires in 24h)</label>
-        <div id="inviteUrlBox" class="invite-url-box"></div>
+        <div id="invite-url-box" class="invite-url-box"></div>
         <div class="invite-hint">Copy this URL and give it to your agent. It contains everything the agent needs to register itself.</div>
         <button class="btn-setup osetup-btn-copy" id="btn-copy-invite">Copy to Clipboard</button>
         <button class="btn-secondary" data-go-to-login>Continue to login</button>

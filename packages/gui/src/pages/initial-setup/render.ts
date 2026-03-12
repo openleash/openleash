@@ -14,14 +14,14 @@ export function renderInitialSetup(): string {
   <div class="setup-card">
     <h1>OpenLeash</h1>
     <div class="subtitle">Initial Setup</div>
-    <form id="setupForm">
+    <form id="setup-form">
       <div class="form-group">
         <label>Display Name</label>
-        <input type="text" id="displayName" placeholder="Your name or organization" required>
+        <input type="text" id="display-name" placeholder="Your name or organization" required>
       </div>
       <div class="form-group">
         <label>Principal Type</label>
-        <select id="principalType">
+        <select id="principal-type">
           <option value="HUMAN">Human</option>
           <option value="ORG">Organization</option>
         </select>
@@ -33,32 +33,32 @@ export function renderInitialSetup(): string {
       </div>
       <div class="form-group">
         <label>Confirm Passphrase</label>
-        <input type="password" id="passphraseConfirm" placeholder="Confirm your passphrase" required>
+        <input type="password" id="passphrase-confirm" placeholder="Confirm your passphrase" required>
       </div>
-      <button type="submit" class="btn-setup" id="submitBtn">Create Owner</button>
-      <div class="error-msg" id="errorMsg"></div>
+      <button type="submit" class="btn-setup" id="submit-btn">Create Owner</button>
+      <div class="error-msg" id="error-msg"></div>
     </form>
-    <div id="successMsg" class="success-msg isetup-hidden">
+    <div id="success-msg" class="success-msg isetup-hidden">
       <h2>Setup complete</h2>
       <p>Your owner account has been created.</p>
 
       <hr class="divider">
 
       <p class="isetup-prompt-text">Would you like to register an agent?</p>
-      <button class="btn-setup" id="createInviteBtn">Create Agent Invite</button>
-      <button class="btn-secondary" id="skipBtn" data-show-links>Skip for now</button>
+      <button class="btn-setup" id="create-invite-btn">Create Agent Invite</button>
+      <button class="btn-secondary" id="skip-btn" data-show-links>Skip for now</button>
 
-      <div id="inviteResult" class="invite-result isetup-hidden">
+      <div id="invite-result" class="invite-result isetup-hidden">
         <label>Agent invite URL (single use, expires in 24h)</label>
-        <div id="inviteUrlBox" class="invite-url-box"></div>
+        <div id="invite-url-box" class="invite-url-box"></div>
         <div class="invite-hint">Copy this URL and give it to your agent. It contains everything the agent needs to register itself.</div>
         <button class="btn-setup isetup-btn-copy" id="btn-copy-invite">Copy to Clipboard</button>
         <button class="btn-secondary" data-show-links>Continue</button>
       </div>
 
-      <div id="successLinks" class="success-links isetup-hidden">
+      <div id="success-links" class="success-links isetup-hidden">
         <a href="/gui/dashboard">Admin Dashboard</a>
-        <a id="loginLink" href="/gui/owner/login">Owner Login</a>
+        <a id="login-link" href="/gui/owner/login">Owner Login</a>
       </div>
     </div>
   </div>

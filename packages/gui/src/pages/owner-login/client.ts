@@ -7,15 +7,15 @@ import "../../shared/styles/auth.css";
 (function () {
     const p = new URLSearchParams(window.location.search);
     const oid = p.get("owner_id");
-    if (oid) (document.getElementById("ownerId") as HTMLInputElement).value = oid;
+    if (oid) (document.getElementById("owner-id") as HTMLInputElement).value = oid;
 })();
 
-document.getElementById("loginForm")!.addEventListener("submit", async (e) => {
+document.getElementById("login-form")!.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const errorEl = document.getElementById("errorMsg") as HTMLElement;
+    const errorEl = document.getElementById("error-msg") as HTMLElement;
     errorEl.style.display = "none";
 
-    const ownerId = (document.getElementById("ownerId") as HTMLInputElement).value.trim();
+    const ownerId = (document.getElementById("owner-id") as HTMLInputElement).value.trim();
     const passphrase = (document.getElementById("passphrase") as HTMLInputElement).value;
 
     try {

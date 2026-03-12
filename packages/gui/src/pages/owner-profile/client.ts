@@ -75,7 +75,7 @@ async function saveProfile(body: Record<string, unknown>): Promise<boolean> {
 function showNameEdit() {
     document.getElementById("display-name-view")!.style.display = "none";
     document.getElementById("display-name-edit")!.style.display = "flex";
-    (document.getElementById("newDisplayName") as HTMLInputElement).focus();
+    (document.getElementById("new-display-name") as HTMLInputElement).focus();
 }
 
 function hideNameEdit() {
@@ -84,10 +84,10 @@ function hideNameEdit() {
 }
 
 async function updateName() {
-    const name = (document.getElementById("newDisplayName") as HTMLInputElement).value.trim();
-    olFieldError("newDisplayName", "");
+    const name = (document.getElementById("new-display-name") as HTMLInputElement).value.trim();
+    olFieldError("new-display-name", "");
     if (!name) {
-        olFieldError("newDisplayName", "Name cannot be empty");
+        olFieldError("new-display-name", "Name cannot be empty");
         return;
     }
     if (await saveProfile({ display_name: name })) window.location.reload();

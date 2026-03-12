@@ -14,17 +14,17 @@ export function renderOwnerLogin(): string {
   <div class="login-card">
     <h1>OpenLeash</h1>
     <div class="subtitle">Owner Portal</div>
-    <form id="loginForm">
+    <form id="login-form">
       <div class="form-group">
         <label>Owner Principal ID</label>
-        <input type="text" id="ownerId" placeholder="00000000-0000-0000-0000-000000000000" required>
+        <input type="text" id="owner-id" placeholder="00000000-0000-0000-0000-000000000000" required>
       </div>
       <div class="form-group">
         <label>Passphrase</label>
         <input type="password" id="passphrase" placeholder="Enter your passphrase" required>
       </div>
       <button type="submit" class="btn-login">Sign In</button>
-      <div class="error-msg" id="errorMsg"></div>
+      <div class="error-msg" id="error-msg"></div>
     </form>
     <details class="help-section">
       <summary>First time? How to set up your account</summary>

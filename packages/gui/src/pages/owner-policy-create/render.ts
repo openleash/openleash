@@ -9,20 +9,20 @@ export function renderOwnerPolicyCreate(): string {
       <div class="policy-create-fields">
         <div class="form-group policy-create-field-name">
           <label>Name</label>
-          <input type="text" id="policyName" class="form-input" placeholder="e.g. Read-only access">
+          <input type="text" id="policy-name" class="form-input" placeholder="e.g. Read-only access">
         </div>
         <div class="form-group policy-create-field-desc">
           <label>Description</label>
-          <input type="text" id="policyDesc" class="form-input" placeholder="What does this policy do?">
+          <input type="text" id="policy-desc" class="form-input" placeholder="What does this policy do?">
         </div>
       </div>
       <div class="form-group">
         <label>Agent Principal ID (optional)</label>
-        <input type="text" id="agentId" class="form-input policy-create-agent-input" placeholder="Leave empty for all agents">
+        <input type="text" id="agent-id" class="form-input policy-create-agent-input" placeholder="Leave empty for all agents">
       </div>
       <div class="form-group">
         <label>Policy YAML</label>
-        <textarea id="policyYaml" class="yaml-editor policy-create-yaml">version: 1
+        <textarea id="policy-yaml" class="yaml-editor policy-create-yaml">version: 1
 default: deny
 rules:
   - id: allow_read

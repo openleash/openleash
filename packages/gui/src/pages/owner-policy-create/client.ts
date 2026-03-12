@@ -6,10 +6,10 @@ import { olToast, olApiError } from "../../shared/common";
 
 async function createPolicy() {
     const token = sessionStorage.getItem("openleash_session");
-    const name = (document.getElementById("policyName") as HTMLInputElement).value.trim() || null;
-    const desc = (document.getElementById("policyDesc") as HTMLInputElement).value.trim() || null;
-    const agentId = (document.getElementById("agentId") as HTMLInputElement).value.trim() || null;
-    const yaml = (document.getElementById("policyYaml") as HTMLTextAreaElement).value;
+    const name = (document.getElementById("policy-name") as HTMLInputElement).value.trim() || null;
+    const desc = (document.getElementById("policy-desc") as HTMLInputElement).value.trim() || null;
+    const agentId = (document.getElementById("agent-id") as HTMLInputElement).value.trim() || null;
+    const yaml = (document.getElementById("policy-yaml") as HTMLTextAreaElement).value;
 
     const res = await fetch("/v1/owner/policies", {
         method: "POST",

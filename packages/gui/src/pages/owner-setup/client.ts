@@ -12,9 +12,9 @@ let sessionToken: string | null = null;
 let ownerPrincipalId: string | null = null;
 
 if (!inviteId || !inviteToken) {
-    document.getElementById("missingParams")!.style.display = "block";
+    document.getElementById("missing-params")!.style.display = "block";
 } else {
-    document.getElementById("setupForm")!.style.display = "block";
+    document.getElementById("setup-form")!.style.display = "block";
 }
 
 function goToLogin() {
@@ -24,13 +24,13 @@ function goToLogin() {
         : "/gui/owner/login";
 }
 
-document.getElementById("setupForm")!.addEventListener("submit", async (e) => {
+document.getElementById("setup-form")!.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const errorEl = document.getElementById("errorMsg") as HTMLElement;
+    const errorEl = document.getElementById("error-msg") as HTMLElement;
     errorEl.style.display = "none";
 
     const passphrase = (document.getElementById("passphrase") as HTMLInputElement).value;
-    const confirm = (document.getElementById("passphraseConfirm") as HTMLInputElement).value;
+    const confirm = (document.getElementById("passphrase-confirm") as HTMLInputElement).value;
 
     if (passphrase !== confirm) {
         errorEl.textContent = "Passphrases do not match";
@@ -43,7 +43,7 @@ document.getElementById("setupForm")!.addEventListener("submit", async (e) => {
         return;
     }
 
-    const btn = document.getElementById("submitBtn") as HTMLButtonElement;
+    const btn = document.getElementById("submit-btn") as HTMLButtonElement;
     btn.disabled = true;
     btn.textContent = "Setting up...";
 
@@ -83,11 +83,11 @@ document.getElementById("setupForm")!.addEventListener("submit", async (e) => {
             }
         }
 
-        document.getElementById("setupForm")!.style.display = "none";
-        document.getElementById("successMsg")!.style.display = "block";
+        document.getElementById("setup-form")!.style.display = "none";
+        document.getElementById("success-msg")!.style.display = "block";
 
         if (!sessionToken) {
-            document.getElementById("createInviteBtn")!.style.display = "none";
+            document.getElementById("create-invite-btn")!.style.display = "none";
         }
     } catch {
         errorEl.textContent = "Network error";
@@ -98,7 +98,7 @@ document.getElementById("setupForm")!.addEventListener("submit", async (e) => {
 });
 
 async function createAgentInvite() {
-    const btn = document.getElementById("createInviteBtn") as HTMLButtonElement;
+    const btn = document.getElementById("create-invite-btn") as HTMLButtonElement;
     btn.disabled = true;
     btn.textContent = "Creating invite...";
 
@@ -114,19 +114,19 @@ async function createAgentInvite() {
         const baseUrl = window.location.origin;
         const inviteUrl = baseUrl + "/v1/agents/register-with-invite?invite_id=" + encodeURIComponent(data.invite_id) + "&invite_token=" + encodeURIComponent(data.invite_token);
 
-        document.getElementById("inviteUrlBox")!.textContent = inviteUrl;
-        document.getElementById("inviteResult")!.style.display = "block";
+        document.getElementById("invite-url-box")!.textContent = inviteUrl;
+        document.getElementById("invite-result")!.style.display = "block";
         btn.style.display = "none";
-        document.getElementById("skipBtn")!.style.display = "none";
+        document.getElementById("skip-btn")!.style.display = "none";
     } catch {
         btn.disabled = false;
         btn.textContent = "Create Agent Invite";
-        document.getElementById("errorMsg")!.textContent = "Failed to create agent invite";
+        document.getElementById("error-msg")!.textContent = "Failed to create agent invite";
     }
 }
 
 async function copyInviteUrl(e: Event) {
-    const url = document.getElementById("inviteUrlBox")!.textContent!;
+    const url = document.getElementById("invite-url-box")!.textContent!;
     await navigator.clipboard.writeText(url);
     const btn = e.target as HTMLButtonElement;
     const orig = btn.textContent;
@@ -136,7 +136,7 @@ async function copyInviteUrl(e: Event) {
 
 // ─── Event bindings ─────────────────────────────────────────────────
 
-document.getElementById("createInviteBtn")?.addEventListener("click", createAgentInvite);
+document.getElementById("create-invite-btn")?.addEventListener("click", createAgentInvite);
 document.getElementById("btn-copy-invite")?.addEventListener("click", copyInviteUrl);
 document.querySelectorAll<HTMLElement>("[data-go-to-login]").forEach((el) => {
     el.addEventListener("click", goToLogin);

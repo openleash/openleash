@@ -233,10 +233,10 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
               <button class="btn btn-secondary profile-btn-inline-edit" id="btn-show-name-edit">Edit</button>
             </span>
             <span id="display-name-edit" class="profile-name-edit">
-              <input type="text" id="newDisplayName" value="${escapeHtml(data.display_name)}" class="form-input profile-name-input">
+              <input type="text" id="new-display-name" value="${escapeHtml(data.display_name)}" class="form-input profile-name-input">
               <button class="btn btn-primary profile-btn-action" id="btn-update-name">Save</button>
               <button class="btn btn-secondary profile-btn-action" id="btn-hide-name-edit">Cancel</button>
-              <div class="field-error profile-field-error-full" id="err-newDisplayName"></div>
+              <div class="field-error profile-field-error-full" id="err-new-display-name"></div>
             </span>
           </td></tr>
           <tr><td class="text-muted">Type</td><td>${escapeHtml(data.principal_type)}</td></tr>
