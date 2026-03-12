@@ -2,6 +2,7 @@
  * Common client-side entry point.
  * All global helpers previously inlined in layout.ts.
  */
+import dayjs from "dayjs";
 import "./styles/main.css";
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -63,37 +64,16 @@ function setTheme(t: string) {
 // ─── Local time conversion ──────────────────────────────────────────
 
 (function () {
-    function pad(n: number): string {
-        return n < 10 ? "0" + n : "" + n;
-    }
-    function isoLocal(d: Date, dateOnly: boolean): string {
-        const y = d.getFullYear(),
-            m = pad(d.getMonth() + 1),
-            day = pad(d.getDate());
-        if (dateOnly) return y + "-" + m + "-" + day;
-        return (
-            y +
-            "-" +
-            m +
-            "-" +
-            day +
-            " " +
-            pad(d.getHours()) +
-            ":" +
-            pad(d.getMinutes()) +
-            ":" +
-            pad(d.getSeconds())
-        );
-    }
     try {
         const cells = document.querySelectorAll<HTMLElement>(".local-time[data-utc]");
         for (let i = 0; i < cells.length; i++) {
             const utc = cells[i].getAttribute("data-utc")!;
-            const d = new Date(utc);
-            if (!isNaN(d.getTime())) {
+            const d = dayjs(utc);
+            if (d.isValid()) {
                 const dateOnly = cells[i].getAttribute("data-date-only") === "1";
-                cells[i].textContent = isoLocal(d, dateOnly);
-                cells[i].title = "UTC: " + utc.slice(0, 19).replace("T", " ");
+                const fmt = dateOnly ? "YYYY-MM-DD" : "YYYY-MM-DD HH:mm:ss";
+                cells[i].textContent = d.format(fmt);
+                cells[i].title = "UTC: " + dayjs(utc).format("YYYY-MM-DD HH:mm:ss");
             }
         }
     } catch (_) {

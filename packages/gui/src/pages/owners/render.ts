@@ -532,7 +532,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
             (e, i) => `
     <tr class="accordion-row" id="row-${i}">
       <td class="owners-chevron-cell"><span class="chevron material-symbols-outlined">chevron_right</span></td>
-      <td class="mono owners-audit-ts">${escapeHtml(e.timestamp.slice(0, 19).replace("T", " "))}</td>
+      <td class="mono owners-audit-ts">${formatTimestamp(e.timestamp)}</td>
       <td>${eventBadge(e.event_type)}</td>
     </tr>
     <tr class="accordion-detail" id="detail-${i}">

@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@openleash/core": "0.5.0",
+    "dayjs": "^1.11.19",
     "zod": "^4.3.6"
   },
   "homepage": "https://github.com/openleash/openleash/tree/main/packages/gui",

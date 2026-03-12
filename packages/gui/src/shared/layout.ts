@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import { assetTags } from "./manifest.js";
 
 const NAV_ITEMS = [
@@ -181,7 +182,8 @@ export function copyableId(fullId: string, _truncateLength?: number): string {
 
 export function formatTimestamp(iso: string, dateOnly = false): string {
     const escaped = escapeHtml(iso);
-    const fallback = dateOnly ? iso.slice(0, 10) : iso.slice(0, 19).replace("T", " ");
+    const d = dayjs(iso);
+    const fallback = dateOnly ? d.format("YYYY-MM-DD") : d.format("YYYY-MM-DD HH:mm:ss");
     return `<span class="local-time" data-utc="${escaped}"${dateOnly ? ' data-date-only="1"' : ""} title="UTC: ${escapeHtml(fallback)}" style="white-space:nowrap">${escapeHtml(fallback)}</span>`;
 }
 
