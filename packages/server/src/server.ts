@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import helmet from '@fastify/helmet';
-import { NonceCache } from '@openleash/core';
+import { NonceCache, FileAuditStore } from '@openleash/core';
 import type { OpenleashConfig } from '@openleash/core';
 import { initManifest } from '@openleash/gui';
 import { registerHealthRoutes } from './routes/health.js';
@@ -56,6 +56,7 @@ export function createServer(options: CreateServerOptions) {
   );
 
   const nonceCache = new NonceCache(config.security.nonce_ttl_seconds);
+  const auditStore = new FileAuditStore(dataDir);
 
   // Register routes
   registerHealthRoutes(app, { hasApiReference: !!openapiSpec });
@@ -63,9 +64,9 @@ export function createServer(options: CreateServerOptions) {
   registerVerifyProofRoutes(app, dataDir);
   registerAgentRoutes(app, dataDir);
   registerAuthorizeRoutes(app, dataDir, config, nonceCache);
-  registerOwnerRoutes(app, dataDir, config);
+  registerOwnerRoutes(app, dataDir, config, auditStore);
   registerAgentSelfRoutes(app, dataDir, config, nonceCache);
-  registerAdminRoutes(app, dataDir, config);
+  registerAdminRoutes(app, dataDir, config, auditStore);
   registerPlaygroundRoutes(app, config);
 
   if (config.gui?.enabled !== false) {
@@ -80,7 +81,7 @@ export function createServer(options: CreateServerOptions) {
       immutable: true,
     });
 
-    registerGuiRoutes(app, dataDir, config, { hasApiReference: !!openapiSpec });
+    registerGuiRoutes(app, dataDir, config, auditStore, { hasApiReference: !!openapiSpec });
   }
 
   if (openapiSpec) {

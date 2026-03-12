@@ -20,7 +20,6 @@ import {
     writeAgentInviteFile,
     parsePolicyYaml,
     appendAuditEvent,
-    readAuditLog,
     issueSessionToken,
     issueApprovalToken,
     hashPassphrase,
@@ -42,6 +41,7 @@ import type {
     CompanyId,
     Signatory,
     SignatoryRule,
+    AuditStore,
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
 import { validateBody } from "../validate.js";
@@ -57,6 +57,7 @@ export function registerOwnerRoutes(
     app: FastifyInstance,
     dataDir: string,
     config: OpenleashConfig,
+    auditStore: AuditStore,
 ) {
     const ownerAuth = createOwnerAuth(config, dataDir);
 
@@ -1236,8 +1237,6 @@ export function registerOwnerRoutes(
             : 50;
         const cursor = query.cursor ? Math.max(0, parseInt(query.cursor, 10) || 0) : 0;
 
-        const result = readAuditLog(dataDir, limit * 5, cursor); // Read more to compensate for filtering
-
         // Find this owner's agents for filtering
         const state = readState(dataDir);
         const ownerAgentIds = new Set(
@@ -1246,19 +1245,12 @@ export function registerOwnerRoutes(
                 .map((a) => a.agent_principal_id),
         );
 
-        // Filter to events related to this owner
-        const filtered = result.items.filter((event) => {
-            const meta = event.metadata_json;
-            if (meta.owner_principal_id === session.sub) return true;
-            if (meta.agent_principal_id && ownerAgentIds.has(meta.agent_principal_id as string))
-                return true;
-            if (event.principal_id && ownerAgentIds.has(event.principal_id)) return true;
-            return false;
-        });
+        const data = auditStore.readByPrincipal(session.sub, ownerAgentIds, limit, cursor);
+        const nextCursor = cursor + limit < data.total ? String(cursor + limit) : null;
 
         return {
-            items: filtered.slice(0, limit),
-            next_cursor: result.next_cursor,
+            items: data.items,
+            next_cursor: nextCursor,
         };
     });
 }

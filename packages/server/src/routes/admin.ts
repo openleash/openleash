@@ -8,7 +8,6 @@ import {
   readAgentFile,
   readPolicyFile,
   appendAuditEvent,
-  readAuditLog,
   validateOwnerIdentity,
   validateGovernmentIdValue,
   validateCompanyIdValue,
@@ -25,13 +24,14 @@ import type {
   CompanyId,
   Signatory,
   SignatoryRule,
+  AuditStore,
 } from '@openleash/core';
 // Note: identity sub-types kept in imports for owner creation
 import { createAdminAuth } from '../middleware/admin-auth.js';
 import { validateBody } from '../validate.js';
 import { CreateOwnerSchema } from '@openleash/gui';
 
-export function registerAdminRoutes(app: FastifyInstance, dataDir: string, config: OpenleashConfig) {
+export function registerAdminRoutes(app: FastifyInstance, dataDir: string, config: OpenleashConfig, auditStore: AuditStore) {
   const adminAuth = createAdminAuth(config);
 
   // POST /v1/admin/owners
@@ -313,7 +313,9 @@ export function registerAdminRoutes(app: FastifyInstance, dataDir: string, confi
     const query = request.query as { limit?: string; cursor?: string };
     const limit = query.limit ? Math.max(1, Math.min(parseInt(query.limit, 10) || 1, 1000)) : 50;
     const cursor = query.cursor ? Math.max(0, parseInt(query.cursor, 10) || 0) : 0;
-    return readAuditLog(dataDir, limit, cursor);
+    const data = auditStore.readPage(limit, cursor);
+    const nextCursor = cursor + limit < data.total ? String(cursor + limit) : null;
+    return { ...data, next_cursor: nextCursor };
   });
 
   // GET /v1/admin/owners — list all owners with details

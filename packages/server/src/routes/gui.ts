@@ -10,7 +10,7 @@ import {
     readApprovalRequestFile,
     readPolicyDraftFile,
 } from "@openleash/core";
-import type { OpenleashConfig, SessionClaims } from "@openleash/core";
+import type { OpenleashConfig, SessionClaims, AuditStore } from "@openleash/core";
 import {
     renderDashboard,
     renderOwners,
@@ -46,6 +46,7 @@ export function registerGuiRoutes(
     app: FastifyInstance,
     dataDir: string,
     config: OpenleashConfig,
+    auditStore: AuditStore,
     options?: GuiRoutesOptions,
 ) {
     const adminAuth = createAdminAuth(config);
@@ -170,17 +171,13 @@ export function registerGuiRoutes(
                 }));
 
             // Audit events related to this owner
-            const allAudit = readAuditLog(dataDir, 10000, 0);
-            const ownerAudit = allAudit.items
-                .filter(
-                    (e) =>
-                        e.principal_id === ownerId ||
-                        (e.metadata_json &&
-                            (e.metadata_json as Record<string, unknown>).owner_principal_id ===
-                                ownerId),
-                )
-                .reverse()
-                .slice(0, 50);
+            const ownerAgentIds = new Set(
+                state.agents
+                    .filter((a) => a.owner_principal_id === ownerId)
+                    .map((a) => a.agent_principal_id),
+            );
+            const ownerAuditResult = auditStore.readByPrincipal(ownerId, ownerAgentIds, 50, 0);
+            const ownerAudit = ownerAuditResult.items;
 
             // Resolve signatory human owner names for ORG owners
             const linkedHumans: { owner_principal_id: string; display_name: string }[] = [];
@@ -385,7 +382,7 @@ export function registerGuiRoutes(
         const pageSize = Math.min(Math.max(parseInt(query.page_size || "25", 10) || 25, 1), 100);
         const page = Math.max(parseInt(query.page || "1", 10) || 1, 1);
         const cursor = (page - 1) * pageSize;
-        const data = readAuditLog(dataDir, pageSize, cursor);
+        const data = auditStore.readPage(pageSize, cursor);
         const state = readState(dataDir);
         const ownerNames = new Map(
             state.owners.map((o) => {
@@ -401,7 +398,8 @@ export function registerGuiRoutes(
         );
         const agentNames = new Map(state.agents.map((a) => [a.agent_principal_id, a.agent_id]));
         const eventTypes = [...new Set(data.items.map((e) => e.event_type))].sort();
-        const html = renderAudit(data, page, pageSize, {
+        const nextCursor = cursor + pageSize < data.total ? String(cursor + pageSize) : null;
+        const html = renderAudit({ ...data, next_cursor: nextCursor }, page, pageSize, {
             owners: ownerNames as Map<string, string>,
             agents: agentNames,
             eventTypes,
@@ -677,7 +675,6 @@ export function registerGuiRoutes(
         const query = request.query as { page?: string; page_size?: string };
         const pageSize = Math.min(Math.max(parseInt(query.page_size || "25", 10) || 25, 1), 100);
         const page = Math.max(parseInt(query.page || "1", 10) || 1, 1);
-        const data = readAuditLog(dataDir, 10000, 0);
         const state = readState(dataDir);
 
         const ownerAgentIds = new Set(
@@ -686,18 +683,8 @@ export function registerGuiRoutes(
                 .map((a) => a.agent_principal_id),
         );
 
-        const filtered = data.items.filter((event) => {
-            const meta = event.metadata_json as Record<string, unknown>;
-            if (meta.owner_principal_id === session.sub) return true;
-            if (meta.agent_principal_id && ownerAgentIds.has(meta.agent_principal_id as string))
-                return true;
-            if (event.principal_id && ownerAgentIds.has(event.principal_id)) return true;
-            return false;
-        });
-
-        const total = filtered.length;
         const offset = (page - 1) * pageSize;
-        const pageItems = filtered.slice(offset, offset + pageSize);
+        const data = auditStore.readByPrincipal(session.sub, ownerAgentIds, pageSize, offset);
 
         const ownerNames = new Map([
             [session.sub, readOwnerFile(dataDir, session.sub).display_name],
@@ -707,10 +694,11 @@ export function registerGuiRoutes(
                 .filter((a) => a.owner_principal_id === session.sub)
                 .map((a) => [a.agent_principal_id, a.agent_id]),
         );
-        const eventTypes = [...new Set(filtered.map((e) => e.event_type))].sort();
+        const eventTypes = [...new Set(data.items.map((e) => e.event_type))].sort();
 
+        const nextCursor = offset + pageSize < data.total ? String(offset + pageSize) : null;
         const html = renderAudit(
-            { items: pageItems, next_cursor: null, total },
+            { items: data.items, next_cursor: nextCursor, total: data.total },
             page,
             pageSize,
             { owners: ownerNames, agents: agentNames, eventTypes },
