@@ -18,14 +18,12 @@ const { totpEnabled } = window.__PAGE_DATA__;
 
 async function revokeAgent(principalId: string) {
     if (!(await olConfirm("Are you sure you want to revoke this agent?", "Revoke Agent"))) return;
-    const token = sessionStorage.getItem("openleash_session");
-
     async function doRevoke(totpCode?: string): Promise<string | null> {
         const bodyObj: Record<string, unknown> = { status: "REVOKED" };
         if (totpCode) bodyObj.totp_code = totpCode;
         const res = await fetch("/v1/owner/agents/" + principalId, {
             method: "PUT",
-            headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(bodyObj),
         });
         if (res.ok) return null;
@@ -45,11 +43,10 @@ async function revokeAgent(principalId: string) {
 }
 
 async function createAgentInvite() {
-    const token = sessionStorage.getItem("openleash_session");
     try {
         const res = await fetch("/v1/owner/agent-invites", {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+            headers: { "Content-Type": "application/json" },
             body: "{}",
         });
         if (!res.ok) throw new Error("Failed to create invite");

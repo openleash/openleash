@@ -22,7 +22,6 @@ const pageData = window.__PAGE_DATA__;
 const { totpEnabled } = pageData;
 
 async function handleApproval(id: string, action: string) {
-    const token = sessionStorage.getItem("openleash_session");
     const bodyObj: Record<string, unknown> = {};
     if (action === "deny") {
         const reason = await olPrompt("Reason for denial (optional):", "Enter reason...", "Deny Request");
@@ -35,7 +34,7 @@ async function handleApproval(id: string, action: string) {
         try {
             const res = await fetch("/v1/owner/approval-requests/" + id + "/" + action, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(bodyObj),
             });
             if (res.ok) return null;

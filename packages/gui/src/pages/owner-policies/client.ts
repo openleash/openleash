@@ -15,7 +15,6 @@ declare global {
 }
 
 const { totpEnabled } = window.__PAGE_DATA__;
-const token = sessionStorage.getItem("openleash_session");
 
 function toggleEditor(policyId: string) {
     document.getElementById("editor-row-" + policyId)!.classList.toggle("hidden");
@@ -28,7 +27,7 @@ async function savePolicy(policyId: string) {
 
     const res = await fetch("/v1/owner/policies/" + policyId, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ policy_yaml: yaml, name: name || null, description: desc || null }),
     });
 
@@ -44,7 +43,7 @@ async function deletePolicy(id: string) {
     if (!(await olConfirm("Are you sure you want to delete this policy?", "Delete Policy"))) return;
 
     async function doDelete(totpCode?: string): Promise<string | null> {
-        const headers: Record<string, string> = { Authorization: "Bearer " + token };
+        const headers: Record<string, string> = {};
         const opts: RequestInit = { method: "DELETE", headers };
         if (totpCode) {
             headers["Content-Type"] = "application/json";
@@ -79,7 +78,7 @@ async function handleDraft(id: string, action: string) {
         try {
             const res = await fetch("/v1/owner/policy-drafts/" + id + "/" + action, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(bodyObj),
             });
             if (res.ok) return null;

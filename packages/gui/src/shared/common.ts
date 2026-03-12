@@ -398,11 +398,7 @@ document.getElementById("ol-dialog-ok")?.addEventListener("click", olDialogOk);
 
 document.getElementById("nav-logout")?.addEventListener("click", (e) => {
     e.preventDefault();
-    fetch("/v1/owner/logout", {
-        method: "POST",
-        headers: { Authorization: "Bearer " + sessionStorage.getItem("openleash_session") },
-    });
-    sessionStorage.removeItem("openleash_session");
+    fetch("/v1/owner/logout", { method: "POST" });
     document.cookie = "openleash_session=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT";
     window.location.href = "/gui/owner/login";
 });

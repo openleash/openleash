@@ -52,14 +52,13 @@ declare global {
 // ─── Page data ──────────────────────────────────────────────────────
 
 const { contacts, govIds, companyIds, idTypesMap, idLabelsMap } = window.__PAGE_DATA__;
-const token = sessionStorage.getItem("openleash_session");
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
 async function saveProfile(body: Record<string, unknown>): Promise<boolean> {
     const res = await fetch("/v1/owner/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     });
     if (!res.ok) {
@@ -212,7 +211,7 @@ function downloadBackupCodes() {
 async function setupTotp() {
     const res = await fetch("/v1/owner/totp/setup", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        headers: { "Content-Type": "application/json" },
         body: "{}",
     });
     if (!res.ok) {
@@ -237,7 +236,7 @@ async function confirmTotp() {
     }
     const res = await fetch("/v1/owner/totp/confirm", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
     });
     if (res.ok) {
@@ -263,7 +262,7 @@ async function confirmDisableTotp() {
     }
     const res = await fetch("/v1/owner/totp/disable", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
     });
     if (res.ok) {
