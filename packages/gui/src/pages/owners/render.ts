@@ -227,8 +227,8 @@ export function renderOwners(owners: OwnerData[]): string {
         .map(
             (o) => `
     <tr>
-      <td class="mono truncate" title="${escapeHtml(o.owner_principal_id)}">
-        <a href="/gui/owners/${escapeHtml(o.owner_principal_id)}" class="table-link">${escapeHtml(o.owner_principal_id.slice(0, 8))}...</a>
+      <td class="mono">
+        <a href="/gui/owners/${escapeHtml(o.owner_principal_id)}" class="table-link">${escapeHtml(o.owner_principal_id)}</a>
       </td>
       <td>${escapeHtml(o.display_name ?? "-")}</td>
       <td>${escapeHtml(o.principal_type ?? "-")}</td>
@@ -277,7 +277,7 @@ export function renderOwners(owners: OwnerData[]): string {
 
     <div class="card">
       <table>
-        <colgroup><col style="width:290px"><col><col style="width:100px"><col style="width:130px"><col style="width:170px"><col style="width:140px"></colgroup>
+        <colgroup><col style="width:320px"><col><col style="width:100px"><col style="width:130px"><col style="width:170px"><col style="width:100px"></colgroup>
         <thead>
           <tr>
             <th>Principal ID</th>
@@ -518,8 +518,8 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         .map(
             (p) => `
     <tr>
-      <td class="mono truncate" title="${escapeHtml(p.policy_id)}">
-        <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id.slice(0, 8))}...</a>
+      <td class="mono">
+        <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a>
       </td>
       <td>${p.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(p.applies_to_agent_principal_id), p.applies_to_agent_principal_id) : '<span class="owners-all-agents">all agents</span>'}</td>
     </tr>
@@ -693,7 +693,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     <div class="card">
       <div class="card-title">Policies (${policies.length})</div>
       <table>
-        <colgroup><col style="width:290px"><col></colgroup>
+        <colgroup><col style="width:320px"><col></colgroup>
         <thead>
           <tr>
             <th>Policy ID</th>

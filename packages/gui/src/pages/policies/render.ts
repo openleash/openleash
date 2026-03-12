@@ -20,14 +20,13 @@ export interface BindingEntry {
 
 export function renderPolicies(policies: PolicyListEntry[]): string {
   const rows = policies.map((p) => {
-    const displayName = p.name ? escapeHtml(p.name) : `<span class="text-muted">${escapeHtml(p.policy_id.slice(0, 8))}...</span>`;
     const descLine = p.description ? `<div class="policies-description">${escapeHtml(p.description)}</div>` : '';
     return `
     <tr>
       <td>
-        <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${displayName}</a>
+        ${p.name ? `<a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name)}</a>` : ''}
         ${descLine}
-        <div class="policies-copyable-wrap">${copyableId(p.policy_id)}</div>
+        <div class="policies-copyable-wrap"><a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a></div>
       </td>
       <td>${copyableId(p.owner_principal_id)}</td>
       <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
