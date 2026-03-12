@@ -14,7 +14,7 @@ export interface OwnerAgentEntry {
     status: string;
     created_at: string;
     revoked_at: string | null;
-    webhook_url?: string;
+    webhook_url: string;
 }
 
 export interface OwnerAgentsOptions {
