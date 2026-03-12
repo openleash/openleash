@@ -22,6 +22,7 @@ export interface AuditEntry {
 export interface AuditData {
     items: AuditEntry[];
     next_cursor: string | null;
+    total: number;
 }
 
 export interface AuditNameMap {
@@ -591,19 +592,23 @@ function formatMetadata(
 
 export function renderAudit(
     data: AuditData,
-    cursor: number,
+    page: number,
+    pageSize: number,
     nameMap?: AuditNameMap,
     context?: "admin" | "owner",
 ): string {
     const isOwner = context === "owner";
     const policyBasePath = isOwner ? "/gui/owner/policies" : "/gui/policies";
     const auditBasePath = isOwner ? "/gui/owner/audit" : "/gui/audit";
+    const total = data.total;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
     // Reverse to show newest first
     const items = [...data.items].reverse();
 
+    const offset = (page - 1) * pageSize;
     const rows = items
         .map((e, i) => {
-            const idx = cursor + data.items.length - 1 - i;
+            const idx = offset + data.items.length - 1 - i;
 
             const extraFields: string[] = [];
             if (e.principal_id) {
@@ -649,10 +654,40 @@ export function renderAudit(
         })
         .join("");
 
-    const nextCursor = data.next_cursor;
-    const loadMoreHtml = nextCursor
-        ? `<div class="audit-load-more"><a href="${auditBasePath}?cursor=${escapeHtml(nextCursor)}" class="btn btn-secondary">Load More</a></div>`
-        : "";
+    // Build pagination footer
+    const pageStart = total === 0 ? 0 : offset + 1;
+    const pageEnd = Math.min(offset + pageSize, total);
+
+    const prevDisabled = page <= 1 ? " disabled" : "";
+    const nextDisabled = page >= totalPages ? " disabled" : "";
+    const prevHref = page > 1 ? `${auditBasePath}?page=${page - 1}&page_size=${pageSize}` : "#";
+    const nextHref = page < totalPages ? `${auditBasePath}?page=${page + 1}&page_size=${pageSize}` : "#";
+    const firstHref = `${auditBasePath}?page=1&page_size=${pageSize}`;
+    const lastHref = `${auditBasePath}?page=${totalPages}&page_size=${pageSize}`;
+
+    const pageSizeOptions = [25, 50, 100]
+        .map((s) => `<option value="${s}"${s === pageSize ? " selected" : ""}>${s}</option>`)
+        .join("");
+
+    const paginationHtml = `
+      <div class="table-pagination">
+        <div class="table-pagination-info">
+          Showing ${pageStart}–${pageEnd} of ${total}
+        </div>
+        <div class="table-pagination-controls">
+          <div class="table-pagination-size">
+            <label>Rows</label>
+            <select id="page-size" class="form-select">${pageSizeOptions}</select>
+          </div>
+          <div class="table-pagination-nav">
+            <a href="${firstHref}" class="btn btn-secondary btn-sm btn-icon${prevDisabled}" title="First page"><span class="material-symbols-outlined">first_page</span></a>
+            <a href="${prevHref}" class="btn btn-secondary btn-sm btn-icon${prevDisabled}" title="Previous page"><span class="material-symbols-outlined">chevron_left</span></a>
+            <span class="table-pagination-pages">Page ${page} of ${totalPages}</span>
+            <a href="${nextHref}" class="btn btn-secondary btn-sm btn-icon${nextDisabled}" title="Next page"><span class="material-symbols-outlined">chevron_right</span></a>
+            <a href="${lastHref}" class="btn btn-secondary btn-sm btn-icon${nextDisabled}" title="Last page"><span class="material-symbols-outlined">last_page</span></a>
+          </div>
+        </div>
+      </div>`;
 
     // Build event type filter options
     const eventTypes = nameMap?.eventTypes ?? [];
@@ -674,7 +709,7 @@ export function renderAudit(
     const content = `
     <div class="page-header">
       <h2>Audit Log</h2>
-      <p>Authorization events, newest first${cursor > 0 ? ` (from offset ${cursor})` : ""}</p>
+      <p>Authorization events, newest first</p>
     </div>
 
     ${filterHtml}
@@ -696,9 +731,10 @@ export function renderAudit(
           ${rows || '<tr><td colspan="6" class="audit-empty-row">No audit events</td></tr>'}
         </tbody>
       </table>
-      ${loadMoreHtml}
+      ${paginationHtml}
     </div>
 
+    <script>window.__PAGE_DATA__ = { page: ${page}, pageSize: ${pageSize}, total: ${total}, basePath: "${auditBasePath}" };</script>
     ${assetTags("pages/audit/client.ts")}
   `;
 

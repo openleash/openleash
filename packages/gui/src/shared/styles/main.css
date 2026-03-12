@@ -375,6 +375,8 @@ a.table-link:hover { color: var(--amber-bright); }
 
 /* ─── Button sizes ─────────────────────────────────────────────────── */
 .btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { padding: 4px 6px; line-height: 1; }
+.btn-icon .material-symbols-outlined { font-size: 18px; vertical-align: middle; }
 
 /* ─── Link colors ──────────────────────────────────────────────────── */
 .link-green { color: var(--green-bright); text-decoration: none; }
@@ -483,6 +485,7 @@ a.table-link:hover { color: var(--amber-bright); }
 .form-input.input-success, .form-select.input-success { border-color: var(--color-success); }
 
 .form-select {
+  cursor: pointer;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238899aa' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -657,6 +660,26 @@ body.sidebar-collapsed .sidebar-toggle .expand-icon { display: inline; }
   .sidebar-switchers { display: none; }
   .sidebar-toggle { display: none; }
 }
+
+/* ─── Table pagination ─────────────────────────────────────────────── */
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.table-pagination-info { white-space: nowrap; }
+.table-pagination-controls { display: flex; align-items: center; gap: 16px; }
+.table-pagination-size { display: flex; align-items: center; gap: 6px; }
+.table-pagination-size label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.table-pagination-size .form-select { width: auto; min-width: 60px; padding: 3px 8px; font-size: 12px; }
+.table-pagination-nav { display: flex; align-items: center; gap: 4px; }
+.table-pagination-pages { font-size: 12px; color: var(--text-muted); padding: 0 8px; white-space: nowrap; }
+.table-pagination-nav .btn:hover { color: var(--green-bright); border-color: var(--green-bright); }
+.table-pagination-nav .disabled { pointer-events: none; opacity: 0.3; }
 
 /* ─── Toast notifications ───────────────────────────────────────────── */
 #ol-toast-container {

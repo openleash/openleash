@@ -67,11 +67,6 @@
 
 /* ─── Audit table chrome ───────────────────────────────────────────── */
 
-.audit-load-more {
-  text-align: center;
-  margin-top: 16px;
-}
-
 .audit-filter-select {
   width: auto;
   min-width: 220px;

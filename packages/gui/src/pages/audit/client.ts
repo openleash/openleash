@@ -3,6 +3,9 @@
  */
 import "./style.css";
 
+const pageData = (window as unknown as Record<string, unknown>).__PAGE_DATA__ as
+    { page: number; pageSize: number; total: number; basePath: string } | undefined;
+
 function filterEvents() {
     const val = (document.getElementById("event-filter") as HTMLSelectElement).value;
     const rows = document.querySelectorAll<HTMLElement>("tr[data-event-type]");
@@ -40,3 +43,10 @@ document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
 });
 
 document.getElementById("event-filter")?.addEventListener("change", filterEvents);
+
+// Page size change navigates to page 1 with the new size
+document.getElementById("page-size")?.addEventListener("change", (e) => {
+    if (!pageData) return;
+    const newSize = (e.target as HTMLSelectElement).value;
+    window.location.href = `${pageData.basePath}?page=1&page_size=${newSize}`;
+});

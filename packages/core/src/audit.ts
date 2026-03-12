@@ -32,20 +32,21 @@ export function readAuditLog(
   dataDir: string,
   limit: number = 50,
   cursor: number = 0
-): { items: AuditEvent[]; next_cursor: string | null } {
+): { items: AuditEvent[]; next_cursor: string | null; total: number } {
   const filePath = path.join(dataDir, 'audit.log.jsonl');
   if (!fs.existsSync(filePath)) {
-    return { items: [], next_cursor: null };
+    return { items: [], next_cursor: null, total: 0 };
   }
 
   const content = fs.readFileSync(filePath, 'utf-8').trim();
   if (!content) {
-    return { items: [], next_cursor: null };
+    return { items: [], next_cursor: null, total: 0 };
   }
 
   const lines = content.split('\n');
+  const total = lines.length;
   const start = cursor;
-  const end = Math.min(start + limit, lines.length);
+  const end = Math.min(start + limit, total);
   const items: AuditEvent[] = [];
 
   for (let i = start; i < end; i++) {
@@ -54,6 +55,6 @@ export function readAuditLog(
     }
   }
 
-  const nextCursor = end < lines.length ? String(end) : null;
-  return { items, next_cursor: nextCursor };
+  const nextCursor = end < total ? String(end) : null;
+  return { items, next_cursor: nextCursor, total };
 }

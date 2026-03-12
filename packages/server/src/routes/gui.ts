@@ -381,9 +381,11 @@ export function registerGuiRoutes(
 
     // Audit log
     app.get("/gui/audit", { preHandler: adminAuth }, async (request, reply) => {
-        const query = request.query as { cursor?: string };
-        const cursor = query.cursor ? parseInt(query.cursor, 10) : 0;
-        const data = readAuditLog(dataDir, 100, cursor);
+        const query = request.query as { page?: string; page_size?: string };
+        const pageSize = Math.min(Math.max(parseInt(query.page_size || "25", 10) || 25, 1), 100);
+        const page = Math.max(parseInt(query.page || "1", 10) || 1, 1);
+        const cursor = (page - 1) * pageSize;
+        const data = readAuditLog(dataDir, pageSize, cursor);
         const state = readState(dataDir);
         const ownerNames = new Map(
             state.owners.map((o) => {
@@ -399,7 +401,7 @@ export function registerGuiRoutes(
         );
         const agentNames = new Map(state.agents.map((a) => [a.agent_principal_id, a.agent_id]));
         const eventTypes = [...new Set(data.items.map((e) => e.event_type))].sort();
-        const html = renderAudit(data, cursor, {
+        const html = renderAudit(data, page, pageSize, {
             owners: ownerNames as Map<string, string>,
             agents: agentNames,
             eventTypes,
@@ -672,9 +674,10 @@ export function registerGuiRoutes(
     app.get("/gui/owner/audit", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const query = request.query as { cursor?: string };
-        const cursor = query.cursor ? parseInt(query.cursor, 10) : 0;
-        const data = readAuditLog(dataDir, 500, cursor);
+        const query = request.query as { page?: string; page_size?: string };
+        const pageSize = Math.min(Math.max(parseInt(query.page_size || "25", 10) || 25, 1), 100);
+        const page = Math.max(parseInt(query.page || "1", 10) || 1, 1);
+        const data = readAuditLog(dataDir, 10000, 0);
         const state = readState(dataDir);
 
         const ownerAgentIds = new Set(
@@ -692,6 +695,10 @@ export function registerGuiRoutes(
             return false;
         });
 
+        const total = filtered.length;
+        const offset = (page - 1) * pageSize;
+        const pageItems = filtered.slice(offset, offset + pageSize);
+
         const ownerNames = new Map([
             [session.sub, readOwnerFile(dataDir, session.sub).display_name],
         ]);
@@ -703,8 +710,9 @@ export function registerGuiRoutes(
         const eventTypes = [...new Set(filtered.map((e) => e.event_type))].sort();
 
         const html = renderAudit(
-            { items: filtered.slice(0, 100), next_cursor: data.next_cursor },
-            cursor,
+            { items: pageItems, next_cursor: null, total },
+            page,
+            pageSize,
             { owners: ownerNames, agents: agentNames, eventTypes },
             "owner",
         );
