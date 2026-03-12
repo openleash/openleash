@@ -108,6 +108,8 @@ describe('policy draft workflow', () => {
       attributes: {},
       created_at: new Date().toISOString(),
       revoked_at: null,
+      webhook_url: 'https://policy-draft-test-agent.example.com/webhook',
+      webhook_secret: 'test-webhook-secret',
     });
 
     // Update state with agent

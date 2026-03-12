@@ -485,6 +485,7 @@ export function registerGuiRoutes(
                         status: agent.status,
                         created_at: agent.created_at,
                         revoked_at: agent.revoked_at,
+                        webhook_url: agent.webhook_url,
                     };
                 } catch {
                     return {

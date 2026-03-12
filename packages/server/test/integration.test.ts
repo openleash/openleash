@@ -72,6 +72,8 @@ describe('server integration', () => {
       attributes: {},
       created_at: new Date().toISOString(),
       revoked_at: null,
+      webhook_url: 'https://test-agent.example.com/webhook',
+      webhook_secret: 'test-webhook-secret',
     });
 
     state.agents.push({
@@ -178,6 +180,8 @@ rules:
         agent_pubkey_b64: newPubKeyB64,
         signature_b64: signature.toString('base64'),
         owner_principal_id: ownerPrincipalId,
+        webhook_url: 'https://new-agent.example.com/webhook',
+        webhook_secret: 'new-agent-secret',
       },
     });
     expect(registerRes.statusCode).toBe(200);

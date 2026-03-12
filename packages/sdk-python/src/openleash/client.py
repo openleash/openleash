@@ -116,6 +116,8 @@ async def register_agent(
     agent_pubkey_b64: str,
     signature_b64: str,
     owner_principal_id: str,
+    webhook_url: str,
+    webhook_secret: str,
 ) -> dict[str, Any]:
     """Register an agent with the OpenLeash server.
 
@@ -131,6 +133,8 @@ async def register_agent(
                 "agent_pubkey_b64": agent_pubkey_b64,
                 "signature_b64": signature_b64,
                 "owner_principal_id": owner_principal_id,
+                "webhook_url": webhook_url,
+                "webhook_secret": webhook_secret,
             },
         )
 
@@ -261,6 +265,8 @@ async def redeem_agent_invite(
     *,
     invite_url: str,
     agent_id: str,
+    webhook_url: str,
+    webhook_secret: str,
 ) -> dict[str, Any]:
     """Register an agent using an invite URL.
 
@@ -289,6 +295,8 @@ async def redeem_agent_invite(
                 "invite_token": invite_token,
                 "agent_id": agent_id,
                 "agent_pubkey_b64": keypair["public_key_b64"],
+                "webhook_url": webhook_url,
+                "webhook_secret": webhook_secret,
             },
         )
 

@@ -250,6 +250,8 @@ export interface AgentFrontmatter {
   attributes: Record<string, unknown>;
   created_at: string;
   revoked_at: string | null;
+  webhook_url: string;
+  webhook_secret: string;
 }
 
 // ─── Approval request types ─────────────────────────────────────────
@@ -405,6 +407,8 @@ export const AuditEventType = z.enum([
   'POLICY_DRAFT_CREATED',
   'POLICY_DRAFT_APPROVED',
   'POLICY_DRAFT_DENIED',
+  'WEBHOOK_DELIVERED',
+  'WEBHOOK_DELIVERY_FAILED',
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 

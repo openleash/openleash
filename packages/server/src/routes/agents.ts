@@ -4,6 +4,7 @@ import {
   readState,
   writeState,
   writeAgentFile,
+  readAgentFile,
   readAgentInviteFile,
   writeAgentInviteFile,
   appendAuditEvent,
@@ -80,6 +81,8 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       signature_b64: string;
       owner_principal_id: string;
       agent_attributes_json?: Record<string, unknown>;
+      webhook_url: string;
+      webhook_secret: string;
     };
 
     if (!body.challenge_id || !body.agent_id || !body.agent_pubkey_b64 || !body.signature_b64 || !body.owner_principal_id) {
@@ -87,6 +90,40 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
         error: { code: 'INVALID_REQUEST', message: 'Missing required fields' },
       });
       return;
+    }
+
+    if (!body.webhook_url || !body.webhook_secret) {
+      reply.code(400).send({
+        error: { code: 'INVALID_REQUEST', message: 'webhook_url and webhook_secret are required' },
+      });
+      return;
+    }
+
+    // Validate webhook URL
+    try {
+      const parsed = new URL(body.webhook_url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error('not http(s)');
+      }
+    } catch {
+      reply.code(400).send({
+        error: { code: 'INVALID_WEBHOOK_URL', message: 'webhook_url must be a valid HTTP or HTTPS URL' },
+      });
+      return;
+    }
+
+    // Enforce webhook URL uniqueness
+    {
+      const state = readState(dataDir);
+      for (const entry of state.agents) {
+        const existing = readAgentFile(dataDir, entry.agent_principal_id);
+        if (existing.webhook_url === body.webhook_url) {
+          reply.code(409).send({
+            error: { code: 'WEBHOOK_URL_NOT_UNIQUE', message: 'An agent with this webhook_url already exists' },
+          });
+          return;
+        }
+      }
     }
 
     // Look up challenge
@@ -140,23 +177,26 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       attributes: body.agent_attributes_json ?? {},
       created_at: createdAt,
       revoked_at: null,
+      webhook_url: body.webhook_url,
+      webhook_secret: body.webhook_secret,
     });
 
     // Update state.md
-    const state = readState(dataDir);
-    state.agents.push({
+    const state2 = readState(dataDir);
+    state2.agents.push({
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
       owner_principal_id: body.owner_principal_id,
       path: `./agents/${agentPrincipalId}.md`,
     });
-    writeState(dataDir, state);
+    writeState(dataDir, state2);
 
     appendAuditEvent(dataDir, 'AGENT_REGISTERED', {
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
       owner_principal_id: body.owner_principal_id,
       agent_attributes_json: body.agent_attributes_json ?? null,
+      webhook_url: body.webhook_url,
     });
 
     return {
@@ -190,7 +230,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
 
     return {
       message: 'OpenLeash Agent Registration',
-      instructions: 'To register, POST to this URL with your agent_id and agent_pubkey_b64. The invite_id and invite_token from the query parameters will be used automatically.',
+      instructions: 'To register, POST to this URL with your agent_id, agent_pubkey_b64, webhook_url, and webhook_secret. The invite_id and invite_token from the query parameters will be used automatically.',
       register_url: registerUrl,
       method: 'POST',
       required_body: {
@@ -198,18 +238,36 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
         invite_token: query.invite_token,
         agent_id: '(your agent identifier)',
         agent_pubkey_b64: '(your Ed25519 public key, base64-encoded SPKI/DER format)',
+        webhook_url: '(HTTPS URL where OpenLeash will POST decision notifications)',
+        webhook_secret: '(shared secret for HMAC-SHA256 webhook signature verification)',
       },
-      example_curl: `curl -X POST ${registerUrl} -H "Content-Type: application/json" -d '{"invite_id":"${query.invite_id}","invite_token":"${query.invite_token}","agent_id":"my-agent","agent_pubkey_b64":"<BASE64_PUBLIC_KEY>"}'`,
+      example_curl: `curl -X POST ${registerUrl} -H "Content-Type: application/json" -d '{"invite_id":"${query.invite_id}","invite_token":"${query.invite_token}","agent_id":"my-agent","agent_pubkey_b64":"<BASE64_PUBLIC_KEY>","webhook_url":"https://my-agent.example.com/webhook","webhook_secret":"your-secret"}'`,
+      webhook: {
+        description: 'OpenLeash will POST JSON to your webhook_url when the owner makes decisions',
+        authentication: 'HMAC-SHA256 signature in X-Webhook-Signature header, computed over the raw JSON body using your webhook_secret',
+        payload_schema: {
+          event_type: 'approval_request.approved | approval_request.denied | policy_draft.approved | policy_draft.denied',
+          timestamp: 'ISO 8601',
+          agent_principal_id: 'your agent principal ID',
+          data: { '...': 'event-specific fields' },
+        },
+        events: {
+          'approval_request.approved': { fields: ['approval_request_id', 'approval_token', 'approval_token_expires_at', 'action_type'] },
+          'approval_request.denied': { fields: ['approval_request_id', 'denial_reason', 'action_type'] },
+          'policy_draft.approved': { fields: ['policy_draft_id', 'policy_id'] },
+          'policy_draft.denied': { fields: ['policy_draft_id', 'denial_reason'] },
+        },
+      },
       sdks: {
         typescript: {
           package: '@openleash/sdk-ts',
           install: 'npm install @openleash/sdk-ts',
-          example: `import { redeemAgentInvite } from '@openleash/sdk-ts';\nconst agent = await redeemAgentInvite({ inviteUrl: '${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agentId: 'my-agent' });`,
+          example: `import { redeemAgentInvite } from '@openleash/sdk-ts';\nconst agent = await redeemAgentInvite({ inviteUrl: '${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agentId: 'my-agent', webhookUrl: 'https://my-agent.example.com/webhook', webhookSecret: 'your-secret' });`,
         },
         python: {
           package: 'openleash-sdk',
           install: 'pip install openleash-sdk',
-          example: `from openleash import redeem_agent_invite\nagent = await redeem_agent_invite(invite_url='${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agent_id='my-agent')`,
+          example: `from openleash import redeem_agent_invite\nagent = await redeem_agent_invite(invite_url='${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agent_id='my-agent', webhook_url='https://my-agent.example.com/webhook', webhook_secret='your-secret')`,
         },
       },
     };
@@ -222,6 +280,8 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       invite_token: string;
       agent_id: string;
       agent_pubkey_b64: string;
+      webhook_url: string;
+      webhook_secret: string;
     };
     const query = request.query as { invite_id?: string; invite_token?: string };
 
@@ -234,6 +294,40 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
         error: { code: 'INVALID_REQUEST', message: 'invite_id, invite_token, agent_id, and agent_pubkey_b64 are required' },
       });
       return;
+    }
+
+    if (!body.webhook_url || !body.webhook_secret) {
+      reply.code(400).send({
+        error: { code: 'INVALID_REQUEST', message: 'webhook_url and webhook_secret are required' },
+      });
+      return;
+    }
+
+    // Validate webhook URL
+    try {
+      const parsed = new URL(body.webhook_url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error('not http(s)');
+      }
+    } catch {
+      reply.code(400).send({
+        error: { code: 'INVALID_WEBHOOK_URL', message: 'webhook_url must be a valid HTTP or HTTPS URL' },
+      });
+      return;
+    }
+
+    // Enforce webhook URL uniqueness
+    {
+      const state = readState(dataDir);
+      for (const entry of state.agents) {
+        const existing = readAgentFile(dataDir, entry.agent_principal_id);
+        if (existing.webhook_url === body.webhook_url) {
+          reply.code(409).send({
+            error: { code: 'WEBHOOK_URL_NOT_UNIQUE', message: 'An agent with this webhook_url already exists' },
+          });
+          return;
+        }
+      }
     }
 
     // Validate the public key format
@@ -297,6 +391,8 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       attributes: {},
       created_at: createdAt,
       revoked_at: null,
+      webhook_url: body.webhook_url,
+      webhook_secret: body.webhook_secret,
     });
 
     // Update state
@@ -319,6 +415,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       agent_id: body.agent_id,
       owner_principal_id: invite.owner_principal_id,
       invite_id: inviteId,
+      webhook_url: body.webhook_url,
     });
 
     // Derive the base URL from the request
@@ -336,6 +433,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       owner_principal_id: invite.owner_principal_id,
       status: 'ACTIVE',
       created_at: createdAt,
+      webhook_url: body.webhook_url,
       openleash_url: baseUrl,
       auth: {
         method: 'ed25519_signed_request',

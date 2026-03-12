@@ -86,6 +86,8 @@ export async function initCommand(args: string[]) {
     attributes: {},
     created_at: new Date().toISOString(),
     revoked_at: null,
+    webhook_url: '',
+    webhook_secret: '',
   });
 
   const stateAfterAgent = readState(dataDir);
