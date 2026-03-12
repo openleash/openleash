@@ -83,6 +83,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       agent_attributes_json?: Record<string, unknown>;
       webhook_url: string;
       webhook_secret: string;
+      webhook_auth_token?: string;
     };
 
     if (!body.challenge_id || !body.agent_id || !body.agent_pubkey_b64 || !body.signature_b64 || !body.owner_principal_id) {
@@ -179,6 +180,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       revoked_at: null,
       webhook_url: body.webhook_url,
       webhook_secret: body.webhook_secret,
+      ...(body.webhook_auth_token ? { webhook_auth_token: body.webhook_auth_token } : {}),
     });
 
     // Update state.md
@@ -230,7 +232,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
 
     return {
       message: 'OpenLeash Agent Registration',
-      instructions: 'To register, POST to this URL with your agent_id, agent_pubkey_b64, webhook_url, and webhook_secret. The invite_id and invite_token from the query parameters will be used automatically.',
+      instructions: 'To register, POST to this URL with your agent_id, agent_pubkey_b64, webhook_url, and webhook_secret. Optionally include webhook_auth_token if your endpoint requires Bearer token authentication. The invite_id and invite_token from the query parameters will be used automatically.',
       register_url: registerUrl,
       method: 'POST',
       required_body: {
@@ -241,10 +243,13 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
         webhook_url: '(HTTPS URL where OpenLeash will POST decision notifications)',
         webhook_secret: '(shared secret for HMAC-SHA256 webhook signature verification)',
       },
-      example_curl: `curl -X POST ${registerUrl} -H "Content-Type: application/json" -d '{"invite_id":"${query.invite_id}","invite_token":"${query.invite_token}","agent_id":"my-agent","agent_pubkey_b64":"<BASE64_PUBLIC_KEY>","webhook_url":"https://my-agent.example.com/webhook","webhook_secret":"your-secret"}'`,
+      optional_body: {
+        webhook_auth_token: '(Bearer token for webhook endpoint authentication — if your endpoint requires Authorization: Bearer <token>)',
+      },
+      example_curl: `curl -X POST ${registerUrl} -H "Content-Type: application/json" -d '{"invite_id":"${query.invite_id}","invite_token":"${query.invite_token}","agent_id":"my-agent","agent_pubkey_b64":"<BASE64_PUBLIC_KEY>","webhook_url":"https://my-agent.example.com/webhook","webhook_secret":"your-hmac-secret","webhook_auth_token":"your-bearer-token"}'`,
       webhook: {
         description: 'OpenLeash will POST JSON to your webhook_url when the owner makes decisions',
-        authentication: 'HMAC-SHA256 signature in X-Webhook-Signature header, computed over the raw JSON body using your webhook_secret',
+        authentication: 'HMAC-SHA256 signature in X-Webhook-Signature header (using webhook_secret for payload integrity). If webhook_auth_token is provided, it is also sent as Authorization: Bearer <token> for endpoint authentication.',
         payload_schema: {
           event_type: 'approval_request.approved | approval_request.denied | policy_draft.approved | policy_draft.denied',
           timestamp: 'ISO 8601',
@@ -262,12 +267,12 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
         typescript: {
           package: '@openleash/sdk-ts',
           install: 'npm install @openleash/sdk-ts',
-          example: `import { redeemAgentInvite } from '@openleash/sdk-ts';\nconst agent = await redeemAgentInvite({ inviteUrl: '${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agentId: 'my-agent', webhookUrl: 'https://my-agent.example.com/webhook', webhookSecret: 'your-secret' });`,
+          example: `import { redeemAgentInvite } from '@openleash/sdk-ts';\nconst agent = await redeemAgentInvite({ inviteUrl: '${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agentId: 'my-agent', webhookUrl: 'https://my-agent.example.com/webhook', webhookSecret: 'your-hmac-secret', webhookAuthToken: 'your-bearer-token' });`,
         },
         python: {
           package: 'openleash-sdk',
           install: 'pip install openleash-sdk',
-          example: `from openleash import redeem_agent_invite\nagent = await redeem_agent_invite(invite_url='${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agent_id='my-agent', webhook_url='https://my-agent.example.com/webhook', webhook_secret='your-secret')`,
+          example: `from openleash import redeem_agent_invite\nagent = await redeem_agent_invite(invite_url='${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agent_id='my-agent', webhook_url='https://my-agent.example.com/webhook', webhook_secret='your-hmac-secret', webhook_auth_token='your-bearer-token')`,
         },
       },
     };
@@ -282,6 +287,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       agent_pubkey_b64: string;
       webhook_url: string;
       webhook_secret: string;
+      webhook_auth_token?: string;
     };
     const query = request.query as { invite_id?: string; invite_token?: string };
 
@@ -393,6 +399,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
       revoked_at: null,
       webhook_url: body.webhook_url,
       webhook_secret: body.webhook_secret,
+      ...(body.webhook_auth_token ? { webhook_auth_token: body.webhook_auth_token } : {}),
     });
 
     // Update state

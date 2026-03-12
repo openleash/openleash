@@ -23,11 +23,12 @@ function safeAudit(dataDir: string, eventType: string, metadata: Record<string, 
 export function deliverWebhook(params: {
   webhookUrl: string;
   webhookSecret: string;
+  webhookAuthToken?: string;
   payload: WebhookPayload;
   dataDir: string;
   timeoutMs?: number;
 }): void {
-  const { webhookUrl, webhookSecret, payload, dataDir, timeoutMs = 10_000 } = params;
+  const { webhookUrl, webhookSecret, webhookAuthToken, payload, dataDir, timeoutMs = 10_000 } = params;
   if (!webhookUrl) return;
   const body = JSON.stringify(payload);
   const signature = crypto
@@ -43,7 +44,7 @@ export function deliverWebhook(params: {
     headers: {
       'Content-Type': 'application/json',
       'X-Webhook-Signature': signature,
-      Authorization: `Bearer ${webhookSecret}`,
+      ...(webhookAuthToken ? { Authorization: `Bearer ${webhookAuthToken}` } : {}),
     },
     body,
     signal: controller.signal,

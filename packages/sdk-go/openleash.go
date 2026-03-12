@@ -182,13 +182,18 @@ func RegistrationChallenge(openleashURL, agentID, agentPubKeyB64 string, ownerPr
 }
 
 // RegisterAgent registers an agent with the OpenLeash server.
-func RegisterAgent(openleashURL, challengeID, agentID, agentPubKeyB64, signatureB64, ownerPrincipalID string) (RegisterAgentResponse, error) {
+func RegisterAgent(openleashURL, challengeID, agentID, agentPubKeyB64, signatureB64, ownerPrincipalID, webhookURL, webhookSecret string, webhookAuthToken *string) (RegisterAgentResponse, error) {
 	body := map[string]interface{}{
-		"challenge_id":      challengeID,
-		"agent_id":          agentID,
-		"agent_pubkey_b64":  agentPubKeyB64,
-		"signature_b64":     signatureB64,
+		"challenge_id":       challengeID,
+		"agent_id":           agentID,
+		"agent_pubkey_b64":   agentPubKeyB64,
+		"signature_b64":      signatureB64,
 		"owner_principal_id": ownerPrincipalID,
+		"webhook_url":        webhookURL,
+		"webhook_secret":     webhookSecret,
+	}
+	if webhookAuthToken != nil {
+		body["webhook_auth_token"] = *webhookAuthToken
 	}
 
 	var result RegisterAgentResponse
@@ -200,7 +205,7 @@ func RegisterAgent(openleashURL, challengeID, agentID, agentPubKeyB64, signature
 
 // RedeemAgentInvite registers an agent using an invite URL.
 // Generates a fresh Ed25519 keypair and registers via the invite token.
-func RedeemAgentInvite(inviteURL, agentID string) (RedeemInviteResponse, error) {
+func RedeemAgentInvite(inviteURL, agentID, webhookURL, webhookSecret string, webhookAuthToken *string) (RedeemInviteResponse, error) {
 	parsed, err := url.Parse(inviteURL)
 	if err != nil {
 		return RedeemInviteResponse{}, fmt.Errorf("parse invite URL: %w", err)
@@ -220,10 +225,15 @@ func RedeemAgentInvite(inviteURL, agentID string) (RedeemInviteResponse, error) 
 	}
 
 	body := map[string]interface{}{
-		"invite_id":       inviteID,
-		"invite_token":    inviteToken,
-		"agent_id":        agentID,
+		"invite_id":        inviteID,
+		"invite_token":     inviteToken,
+		"agent_id":         agentID,
 		"agent_pubkey_b64": keypair.PublicKeyB64,
+		"webhook_url":      webhookURL,
+		"webhook_secret":   webhookSecret,
+	}
+	if webhookAuthToken != nil {
+		body["webhook_auth_token"] = *webhookAuthToken
 	}
 
 	var serverResult map[string]interface{}

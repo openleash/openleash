@@ -118,24 +118,29 @@ async def register_agent(
     owner_principal_id: str,
     webhook_url: str,
     webhook_secret: str,
+    webhook_auth_token: str | None = None,
 ) -> dict[str, Any]:
     """Register an agent with the OpenLeash server.
 
     Returns dict with ``agent_principal_id``, ``agent_id``, ``owner_principal_id``,
     ``status``, ``created_at``.
     """
+    body: dict[str, Any] = {
+        "challenge_id": challenge_id,
+        "agent_id": agent_id,
+        "agent_pubkey_b64": agent_pubkey_b64,
+        "signature_b64": signature_b64,
+        "owner_principal_id": owner_principal_id,
+        "webhook_url": webhook_url,
+        "webhook_secret": webhook_secret,
+    }
+    if webhook_auth_token is not None:
+        body["webhook_auth_token"] = webhook_auth_token
+
     async with httpx.AsyncClient() as client:
         res = await client.post(
             f"{openleash_url}/v1/agents/register",
-            json={
-                "challenge_id": challenge_id,
-                "agent_id": agent_id,
-                "agent_pubkey_b64": agent_pubkey_b64,
-                "signature_b64": signature_b64,
-                "owner_principal_id": owner_principal_id,
-                "webhook_url": webhook_url,
-                "webhook_secret": webhook_secret,
-            },
+            json=body,
         )
 
     if res.status_code >= 400:
@@ -267,6 +272,7 @@ async def redeem_agent_invite(
     agent_id: str,
     webhook_url: str,
     webhook_secret: str,
+    webhook_auth_token: str | None = None,
 ) -> dict[str, Any]:
     """Register an agent using an invite URL.
 
@@ -297,6 +303,7 @@ async def redeem_agent_invite(
                 "agent_pubkey_b64": keypair["public_key_b64"],
                 "webhook_url": webhook_url,
                 "webhook_secret": webhook_secret,
+                **({"webhook_auth_token": webhook_auth_token} if webhook_auth_token is not None else {}),
             },
         )
 

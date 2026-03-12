@@ -945,6 +945,7 @@ export function registerOwnerRoutes(
             deliverWebhook({
                 webhookUrl: approveAgent.webhook_url,
                 webhookSecret: approveAgent.webhook_secret,
+                webhookAuthToken: approveAgent.webhook_auth_token,
                 payload: {
                     event_type: 'approval_request.approved',
                     timestamp: new Date().toISOString(),
@@ -1030,6 +1031,7 @@ export function registerOwnerRoutes(
             deliverWebhook({
                 webhookUrl: denyAgent.webhook_url,
                 webhookSecret: denyAgent.webhook_secret,
+                webhookAuthToken: denyAgent.webhook_auth_token,
                 payload: {
                     event_type: 'approval_request.denied',
                     timestamp: new Date().toISOString(),
@@ -1198,6 +1200,7 @@ export function registerOwnerRoutes(
             deliverWebhook({
                 webhookUrl: policyApproveAgent.webhook_url,
                 webhookSecret: policyApproveAgent.webhook_secret,
+                webhookAuthToken: policyApproveAgent.webhook_auth_token,
                 payload: {
                     event_type: 'policy_draft.approved',
                     timestamp: new Date().toISOString(),
@@ -1282,6 +1285,7 @@ export function registerOwnerRoutes(
             deliverWebhook({
                 webhookUrl: policyDenyAgent.webhook_url,
                 webhookSecret: policyDenyAgent.webhook_secret,
+                webhookAuthToken: policyDenyAgent.webhook_auth_token,
                 payload: {
                     event_type: 'policy_draft.denied',
                     timestamp: new Date().toISOString(),
