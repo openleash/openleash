@@ -101,7 +101,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
 
     <div class="card">
       <table>
-        <colgroup><col style="width:130px"><col style="width:290px"><col style="width:290px"><col style="width:130px"><col style="width:180px"><col style="width:130px"><col style="width:100px"></colgroup>
+        <colgroup><col style="width:130px"><col style="width:290px"><col style="width:290px"><col style="width:130px"><col style="width:250px"><col style="width:130px"><col style="width:100px"></colgroup>
         <thead>
           <tr>
             <th>Agent ID</th>
