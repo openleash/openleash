@@ -43,6 +43,7 @@ export function deliverWebhook(params: {
     headers: {
       'Content-Type': 'application/json',
       'X-Webhook-Signature': signature,
+      Authorization: `Bearer ${webhookSecret}`,
     },
     body,
     signal: controller.signal,
