@@ -25,6 +25,18 @@ export interface OwnerApprovalEntry {
     resolved_at: string | null;
 }
 
+export interface ApprovalPage {
+    items: OwnerApprovalEntry[];
+    total: number;
+    page: number;
+    pageSize: number;
+}
+
+export interface OwnerApprovalsData {
+    pending: ApprovalPage;
+    resolved: ApprovalPage;
+}
+
 export interface OwnerApprovalsOptions {
     totp_enabled?: boolean;
     require_totp?: boolean;
@@ -98,21 +110,67 @@ function renderDetailPanel(a: OwnerApprovalEntry, agentNames?: Map<string, strin
   `;
 }
 
+function renderPagination(
+    pageData: ApprovalPage,
+    paramPrefix: string,
+    otherParams: string,
+): string {
+    const { total, page, pageSize } = pageData;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const offset = (page - 1) * pageSize;
+    const pageStart = total === 0 ? 0 : offset + 1;
+    const pageEnd = Math.min(offset + pageSize, total);
+    const basePath = "/gui/owner/approvals";
+
+    const prevDisabled = page <= 1 ? " disabled" : "";
+    const nextDisabled = page >= totalPages ? " disabled" : "";
+    const link = (p: number) => `${basePath}?${paramPrefix}_page=${p}&${paramPrefix}_page_size=${pageSize}${otherParams}`;
+    const prevHref = page > 1 ? link(page - 1) : "#";
+    const nextHref = page < totalPages ? link(page + 1) : "#";
+
+    const pageSizeOptions = [10, 25, 50]
+        .map((s) => `<option value="${s}"${s === pageSize ? " selected" : ""}>${s}</option>`)
+        .join("");
+
+    return `
+      <div class="table-pagination">
+        <div class="table-pagination-info">
+          Showing ${pageStart}–${pageEnd} of ${total}
+        </div>
+        <div class="table-pagination-controls">
+          <div class="table-pagination-size">
+            <label>Rows</label>
+            <select id="${paramPrefix}-page-size" class="form-select">${pageSizeOptions}</select>
+          </div>
+          <div class="table-pagination-nav">
+            <a href="${link(1)}" class="btn btn-secondary btn-sm btn-icon${prevDisabled}" title="First page"><span class="material-symbols-outlined">first_page</span></a>
+            <a href="${prevHref}" class="btn btn-secondary btn-sm btn-icon${prevDisabled}" title="Previous page"><span class="material-symbols-outlined">chevron_left</span></a>
+            <span class="table-pagination-pages">Page ${page} of ${totalPages}</span>
+            <a href="${nextHref}" class="btn btn-secondary btn-sm btn-icon${nextDisabled}" title="Next page"><span class="material-symbols-outlined">chevron_right</span></a>
+            <a href="${link(totalPages)}" class="btn btn-secondary btn-sm btn-icon${nextDisabled}" title="Last page"><span class="material-symbols-outlined">last_page</span></a>
+          </div>
+        </div>
+      </div>`;
+}
+
 export function renderOwnerApprovals(
-    approvals: OwnerApprovalEntry[],
+    data: OwnerApprovalsData,
     options?: OwnerApprovalsOptions,
 ): string {
     const totpEnabled = options?.totp_enabled ?? false;
     const requireTotp = options?.require_totp ?? false;
     const agentNames = options?.agent_names;
     const disableActions = requireTotp && !totpEnabled;
-    const pending = approvals.filter((a) => a.status === "PENDING");
-    const resolved = approvals.filter((a) => a.status !== "PENDING");
+    const { pending, resolved } = data;
+
+    // Build other-table params so page size changes preserve the other table's state
+    const resolvedParams = `&resolved_page=${resolved.page}&resolved_page_size=${resolved.pageSize}`;
+    const pendingParams = `&pending_page=${pending.page}&pending_page_size=${pending.pageSize}`;
 
     const pendingRows =
-        pending.length === 0
+        pending.items.length === 0
             ? '<tr><td colspan="6" class="approvals-empty-row">No pending approvals</td></tr>'
-            : pending
+            : pending.items
                   .map((a) => {
                       const agentName = agentNames?.get(a.agent_principal_id) ?? null;
                       const agentDisplay = agentName
@@ -139,9 +197,9 @@ export function renderOwnerApprovals(
                   .join("");
 
     const resolvedRows =
-        resolved.length === 0
+        resolved.items.length === 0
             ? ""
-            : resolved
+            : resolved.items
                   .map((a) => {
                       const badge =
                           a.status === "APPROVED"
@@ -176,6 +234,9 @@ export function renderOwnerApprovals(
             ? '<div class="alert alert-error approvals-totp-banner">Two-factor authentication is required. <a href="/gui/owner/profile" class="approvals-totp-link">Set up 2FA in your Profile.</a></div>'
             : "";
 
+    const pendingPagination = pending.total > 0 ? renderPagination(pending, "pending", resolvedParams) : "";
+    const resolvedPagination = resolved.total > 0 ? renderPagination(resolved, "resolved", pendingParams) : "";
+
     const content = `
     <h2>Approval Requests${infoIcon("approvals-info", INFO_APPROVAL_REQUESTS)}</h2>
     ${totpBanner}
@@ -189,10 +250,11 @@ export function renderOwnerApprovals(
         </thead>
         <tbody>${pendingRows}</tbody>
       </table>
+      ${pendingPagination}
     </div>
 
     ${
-        resolved.length > 0
+        resolved.total > 0
             ? `
     <div class="card approvals-card">
       <h3 class="card-section">Resolved</h3>
@@ -203,11 +265,12 @@ export function renderOwnerApprovals(
         </thead>
         <tbody>${resolvedRows}</tbody>
       </table>
+      ${resolvedPagination}
     </div>`
             : ""
     }
 
-    <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled} };</script>
+    <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled}, pendingPage: ${pending.page}, pendingPageSize: ${pending.pageSize}, resolvedPage: ${resolved.page}, resolvedPageSize: ${resolved.pageSize} };</script>
     ${assetTags("pages/owner-approvals/client.ts")}
   `;
     return renderPage("Approvals", content, "/gui/owner/approvals", "owner");

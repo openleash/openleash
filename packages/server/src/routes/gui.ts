@@ -591,12 +591,31 @@ export function registerGuiRoutes(
     app.get("/gui/owner/approvals", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
+        const query = request.query as {
+            pending_page?: string; pending_page_size?: string;
+            resolved_page?: string; resolved_page_size?: string;
+        };
+        const pendingPageSize = Math.min(Math.max(parseInt(query.pending_page_size || "25", 10) || 25, 1), 100);
+        const pendingPage = Math.max(parseInt(query.pending_page || "1", 10) || 1, 1);
+        const resolvedPageSize = Math.min(Math.max(parseInt(query.resolved_page_size || "25", 10) || 25, 1), 100);
+        const resolvedPage = Math.max(parseInt(query.resolved_page || "1", 10) || 1, 1);
+
         const state = readState(dataDir);
         const approvalEntries = (state.approval_requests ?? []).filter(
             (r) => r.owner_principal_id === session.sub,
         );
 
-        const approvals = approvalEntries.map((entry) => {
+        // Split by status from state index (no file reads yet)
+        const pendingEntries = approvalEntries.filter((e) => e.status === "PENDING");
+        const resolvedEntries = approvalEntries.filter((e) => e.status !== "PENDING");
+
+        // Paginate, then read only the files for the current page
+        const pendingOffset = (pendingPage - 1) * pendingPageSize;
+        const pendingSlice = pendingEntries.slice(pendingOffset, pendingOffset + pendingPageSize);
+        const resolvedOffset = (resolvedPage - 1) * resolvedPageSize;
+        const resolvedSlice = resolvedEntries.slice(resolvedOffset, resolvedOffset + resolvedPageSize);
+
+        function readEntry(entry: { approval_request_id: string; agent_principal_id: string; status: string }) {
             try {
                 const req = readApprovalRequestFile(dataDir, entry.approval_request_id);
                 return {
@@ -633,14 +652,18 @@ export function registerGuiRoutes(
                     resolved_at: null,
                 };
             }
-        });
+        }
+
         const approvalOwner = readOwnerFile(dataDir, session.sub);
         const approvalAgentNames = new Map(
             state.agents
                 .filter((a) => a.owner_principal_id === session.sub)
                 .map((a) => [a.agent_principal_id, a.agent_id]),
         );
-        const html = renderOwnerApprovals(approvals, {
+        const html = renderOwnerApprovals({
+            pending: { items: pendingSlice.map(readEntry), total: pendingEntries.length, page: pendingPage, pageSize: pendingPageSize },
+            resolved: { items: resolvedSlice.map(readEntry), total: resolvedEntries.length, page: resolvedPage, pageSize: resolvedPageSize },
+        }, {
             totp_enabled: !!approvalOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
             agent_names: approvalAgentNames,

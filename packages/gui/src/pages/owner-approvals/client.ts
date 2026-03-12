@@ -6,6 +6,10 @@ import { olToast, olPrompt, ol2FA, olApiError } from "../../shared/common";
 
 interface OwnerApprovalsPageData {
     totpEnabled: boolean;
+    pendingPage: number;
+    pendingPageSize: number;
+    resolvedPage: number;
+    resolvedPageSize: number;
 }
 
 declare global {
@@ -14,7 +18,8 @@ declare global {
     }
 }
 
-const { totpEnabled } = window.__PAGE_DATA__;
+const pageData = window.__PAGE_DATA__;
+const { totpEnabled } = pageData;
 
 async function handleApproval(id: string, action: string) {
     const token = sessionStorage.getItem("openleash_session");
@@ -70,4 +75,16 @@ document.addEventListener("click", (e) => {
         e.stopPropagation();
         handleApproval(btn.dataset.handleApproval!, btn.dataset.approvalAction!);
     }
+});
+
+// Pending page size change
+document.getElementById("pending-page-size")?.addEventListener("change", (e) => {
+    const newSize = (e.target as HTMLSelectElement).value;
+    window.location.href = `/gui/owner/approvals?pending_page=1&pending_page_size=${newSize}&resolved_page=${pageData.resolvedPage}&resolved_page_size=${pageData.resolvedPageSize}`;
+});
+
+// Resolved page size change
+document.getElementById("resolved-page-size")?.addEventListener("change", (e) => {
+    const newSize = (e.target as HTMLSelectElement).value;
+    window.location.href = `/gui/owner/approvals?pending_page=${pageData.pendingPage}&pending_page_size=${pageData.pendingPageSize}&resolved_page=1&resolved_page_size=${newSize}`;
 });
