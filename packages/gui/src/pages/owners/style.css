@@ -36,7 +36,7 @@
   font-size: 13px;
 }
 
-.owners-empty-audit {
+.owners-empty-activity {
   color: var(--text-muted);
   padding: 8px 0;
 }
@@ -141,7 +141,7 @@
   color: var(--text-muted);
 }
 
-.owners-audit-ts {
+.owners-activity-ts {
   white-space: nowrap;
 }
 

@@ -170,14 +170,14 @@ export function registerGuiRoutes(
                     applies_to_agent_principal_id: p.applies_to_agent_principal_id,
                 }));
 
-            // Audit events related to this owner
+            // Activity log for this owner
             const ownerAgentIds = new Set(
                 state.agents
                     .filter((a) => a.owner_principal_id === ownerId)
                     .map((a) => a.agent_principal_id),
             );
-            const ownerAuditResult = auditStore.readByPrincipal(ownerId, ownerAgentIds, 50, 0);
-            const ownerAudit = ownerAuditResult.items;
+            const activityResult = auditStore.readByPrincipal(ownerId, ownerAgentIds, 50, 0);
+            const activityLog = activityResult.items;
 
             // Resolve signatory human owner names for ORG owners
             const linkedHumans: { owner_principal_id: string; display_name: string }[] = [];
@@ -204,7 +204,7 @@ export function registerGuiRoutes(
                 owner: ownerWithMeta,
                 agents,
                 policies,
-                audit: ownerAudit,
+                activity_log: activityLog,
                 linked_humans: linkedHumans,
             });
             reply.type("text/html").send(html);

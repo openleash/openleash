@@ -148,7 +148,7 @@ export interface OwnerDetailData {
     owner: OwnerData;
     agents: { agent_id: string; agent_principal_id: string; status: string; created_at: string }[];
     policies: { policy_id: string; applies_to_agent_principal_id: string | null }[];
-    audit: {
+    activity_log: {
         event_id: string;
         timestamp: string;
         event_type: string;
@@ -497,7 +497,7 @@ function renderSignatoryRulesCard(owner: OwnerData): string {
 // ─── Owner Detail Page ────────────────────────────────────────────────
 
 export function renderOwnerDetail(data: OwnerDetailData): string {
-    const { owner, agents, policies, audit, linked_humans } = data;
+    const { owner, agents, policies, activity_log, linked_humans } = data;
 
     const agentRows = agents
         .map(
@@ -527,12 +527,12 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         )
         .join("");
 
-    const auditRows = audit
+    const activityRows = activity_log
         .map(
             (e, i) => `
     <tr class="accordion-row" id="row-${i}">
       <td class="owners-chevron-cell"><span class="chevron material-symbols-outlined">chevron_right</span></td>
-      <td class="mono owners-audit-ts">${formatTimestamp(e.timestamp)}</td>
+      <td class="mono owners-activity-ts">${formatTimestamp(e.timestamp)}</td>
       <td>${eventBadge(e.event_type)}</td>
     </tr>
     <tr class="accordion-detail" id="detail-${i}">
@@ -709,7 +709,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     <div class="card">
       <div class="card-title">Activity Log</div>
       ${
-          audit.length > 0
+          activity_log.length > 0
               ? `
       <table>
         <colgroup><col style="width:36px"><col style="width:170px"><col></colgroup>
@@ -720,10 +720,10 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
             <th>Event</th>
           </tr>
         </thead>
-        <tbody>${auditRows}</tbody>
+        <tbody>${activityRows}</tbody>
       </table>
       `
-              : '<p class="owners-empty-audit">No activity recorded for this owner</p>'
+              : '<p class="owners-empty-activity">No activity recorded for this owner</p>'
       }
     </div>
 
