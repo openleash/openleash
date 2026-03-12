@@ -11,6 +11,7 @@ import {
     readPolicyDraftFile,
 } from "@openleash/core";
 import type { OpenleashConfig, SessionClaims, AuditStore } from "@openleash/core";
+import { StateIndex } from "@openleash/core";
 import {
     renderDashboard,
     renderOwners,
@@ -47,6 +48,7 @@ export function registerGuiRoutes(
     dataDir: string,
     config: OpenleashConfig,
     auditStore: AuditStore,
+    stateIndex: StateIndex,
     options?: GuiRoutesOptions,
 ) {
     const adminAuth = createAdminAuth(config);
@@ -600,20 +602,19 @@ export function registerGuiRoutes(
         const resolvedPageSize = Math.min(Math.max(parseInt(query.resolved_page_size || "25", 10) || 25, 1), 100);
         const resolvedPage = Math.max(parseInt(query.resolved_page || "1", 10) || 1, 1);
 
-        const state = readState(dataDir);
+        const state = stateIndex.getState();
         const approvalEntries = (state.approval_requests ?? []).filter(
             (r) => r.owner_principal_id === session.sub,
         );
 
-        // Split by status from state index (no file reads yet)
+        // Pending: filter from cached state, paginate, then read files
         const pendingEntries = approvalEntries.filter((e) => e.status === "PENDING");
-        const resolvedEntries = approvalEntries.filter((e) => e.status !== "PENDING");
-
-        // Paginate, then read only the files for the current page
         const pendingOffset = (pendingPage - 1) * pendingPageSize;
         const pendingSlice = pendingEntries.slice(pendingOffset, pendingOffset + pendingPageSize);
+
+        // Resolved: use StateIndex for cached owner→resolved mapping
         const resolvedOffset = (resolvedPage - 1) * resolvedPageSize;
-        const resolvedSlice = resolvedEntries.slice(resolvedOffset, resolvedOffset + resolvedPageSize);
+        const resolvedResult = stateIndex.getResolvedApprovals(session.sub, resolvedPageSize, resolvedOffset);
 
         function readEntry(entry: { approval_request_id: string; agent_principal_id: string; status: string }) {
             try {
@@ -662,7 +663,7 @@ export function registerGuiRoutes(
         );
         const html = renderOwnerApprovals({
             pending: { items: pendingSlice.map(readEntry), total: pendingEntries.length, page: pendingPage, pageSize: pendingPageSize },
-            resolved: { items: resolvedSlice.map(readEntry), total: resolvedEntries.length, page: resolvedPage, pageSize: resolvedPageSize },
+            resolved: { items: resolvedResult.items.map(readEntry), total: resolvedResult.total, page: resolvedPage, pageSize: resolvedPageSize },
         }, {
             totp_enabled: !!approvalOwner.totp_enabled,
             require_totp: !!config.security.require_totp,

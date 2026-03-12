@@ -8,6 +8,7 @@ import type {
   OwnerFrontmatter,
   PolicyDraftFrontmatter,
   SetupInvite,
+  StateApprovalRequestEntry,
   StateData,
 } from './types.js';
 
@@ -179,4 +180,72 @@ export function writeAgentInviteFile(dataDir: string, invite: AgentInvite): void
 export function readAgentInviteFile(dataDir: string, inviteId: string): AgentInvite {
   const filePath = path.join(dataDir, 'agent-invites', `${inviteId}.json`);
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+// ─── StateIndex ─────────────────────────────────────────────────────
+
+export class StateIndex {
+  private readonly dataDir: string;
+  private readonly statePath: string;
+  private cachedState: StateData | null = null;
+  private cachedMtimeMs = 0;
+  private cachedSize = 0;
+  /** owner_principal_id → resolved entries (non-PENDING) */
+  private resolvedByOwner: Map<string, StateApprovalRequestEntry[]> = new Map();
+
+  constructor(dataDir: string) {
+    this.dataDir = dataDir;
+    this.statePath = path.join(dataDir, 'state.md');
+  }
+
+  /** Return the cached (and possibly refreshed) state. */
+  getState(): StateData {
+    this.ensureFresh();
+    return this.cachedState!;
+  }
+
+  /** Paginated resolved approval entries for a given owner. */
+  getResolvedApprovals(
+    ownerId: string,
+    limit: number,
+    offset: number,
+  ): { items: StateApprovalRequestEntry[]; total: number } {
+    this.ensureFresh();
+    const entries = this.resolvedByOwner.get(ownerId) ?? [];
+    return { items: entries.slice(offset, offset + limit), total: entries.length };
+  }
+
+  private ensureFresh(): void {
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(this.statePath);
+    } catch {
+      this.cachedState = null;
+      this.resolvedByOwner.clear();
+      return;
+    }
+
+    if (this.cachedState && stat.mtimeMs === this.cachedMtimeMs && stat.size === this.cachedSize) {
+      return; // unchanged
+    }
+
+    this.cachedState = readState(this.dataDir);
+    this.cachedMtimeMs = stat.mtimeMs;
+    this.cachedSize = stat.size;
+    this.rebuildApprovalIndex();
+  }
+
+  private rebuildApprovalIndex(): void {
+    this.resolvedByOwner.clear();
+    const entries = this.cachedState?.approval_requests ?? [];
+    for (const entry of entries) {
+      if (entry.status === 'PENDING') continue;
+      let list = this.resolvedByOwner.get(entry.owner_principal_id);
+      if (!list) {
+        list = [];
+        this.resolvedByOwner.set(entry.owner_principal_id, list);
+      }
+      list.push(entry);
+    }
+  }
 }

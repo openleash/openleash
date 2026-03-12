@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import helmet from '@fastify/helmet';
-import { NonceCache, FileAuditStore } from '@openleash/core';
+import { NonceCache, FileAuditStore, StateIndex } from '@openleash/core';
 import type { OpenleashConfig } from '@openleash/core';
 import { initManifest } from '@openleash/gui';
 import { registerHealthRoutes } from './routes/health.js';
@@ -57,6 +57,7 @@ export function createServer(options: CreateServerOptions) {
 
   const nonceCache = new NonceCache(config.security.nonce_ttl_seconds);
   const auditStore = new FileAuditStore(dataDir);
+  const stateIndex = new StateIndex(dataDir);
 
   // Register routes
   registerHealthRoutes(app, { hasApiReference: !!openapiSpec });
@@ -81,7 +82,7 @@ export function createServer(options: CreateServerOptions) {
       immutable: true,
     });
 
-    registerGuiRoutes(app, dataDir, config, auditStore, { hasApiReference: !!openapiSpec });
+    registerGuiRoutes(app, dataDir, config, auditStore, stateIndex, { hasApiReference: !!openapiSpec });
   }
 
   if (openapiSpec) {
