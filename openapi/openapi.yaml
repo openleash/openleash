@@ -268,6 +268,54 @@ paths:
               schema:
                 $ref: "#/components/schemas/AgentRegistration"
 
+  /v1/agents/policy-schema:
+    get:
+      summary: Get policy YAML specification
+      operationId: getPolicySchema
+      tags: [Agent]
+      description: |
+        Returns the full policy YAML specification as structured JSON.
+        Includes the JSON Schema for validation, a reference for all
+        operators, constraints, obligations, and requirements, the
+        standard action taxonomy, worked examples, and tips for
+        validating policies via the playground before submission.
+
+        No authentication required.
+      responses:
+        "200":
+          description: Policy specification.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  description:
+                    type: string
+                  json_schema:
+                    type: object
+                    description: JSON Schema (draft 2020-12) for policy YAML validation.
+                  reference:
+                    type: object
+                    description: Human-readable reference for effects, action matching, when expressions, constraints, obligations, requirements, and proof settings.
+                  action_taxonomy:
+                    type: array
+                    description: Hierarchical action taxonomy with paths, labels, descriptions, and suggested constraints.
+                    items:
+                      type: object
+                  examples:
+                    type: array
+                    description: Worked policy YAML examples covering common patterns.
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        policy_yaml:
+                          type: string
+                  tips:
+                    type: object
+                    description: Pointers to the playground, policy-drafts endpoint, and evaluation semantics.
+
   /v1/authorize:
     post:
       summary: Authorize an action
@@ -532,6 +580,10 @@ paths:
         becomes a real policy bound to the agent. The policy YAML is
         validated on submission.
 
+        See `GET /v1/agents/policy-schema` for the full YAML specification,
+        operator reference, and worked examples. Use `POST /v1/playground/run`
+        to test your policy before submitting.
+
         Requires Ed25519 request signing.
       parameters:
         - name: X-Agent-Id
@@ -570,7 +622,9 @@ paths:
               properties:
                 policy_yaml:
                   type: string
-                  description: The YAML policy document.
+                  description: |
+                    The YAML policy document. See GET /v1/agents/policy-schema
+                    for the full specification and examples.
                 applies_to_agent_principal_id:
                   type: string
                   format: uuid

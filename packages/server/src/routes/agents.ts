@@ -9,6 +9,8 @@ import {
   writeAgentInviteFile,
   appendAuditEvent,
   hashPassphrase,
+  policyJsonSchema,
+  ACTION_TAXONOMY,
 } from '@openleash/core';
 import type { RegistrationChallenge } from '@openleash/core';
 
@@ -261,6 +263,24 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
           'policy_draft.denied': { fields: ['policy_draft_id', 'denial_reason'] },
         },
       },
+      next_steps: {
+        description: 'After registering, read the policy schema to understand how policies work. Only submit a policy draft if your owner asks you to.',
+        read_policy_schema: {
+          method: 'GET',
+          path: '/v1/agents/policy-schema',
+          description: 'IMPORTANT: Start here. Read the full policy YAML specification to understand how authorization policies work. Returns the JSON Schema, all supported operators, constraints, obligations, the action taxonomy, and worked examples.',
+        },
+        validate_policy: {
+          method: 'POST',
+          path: '/v1/playground/run',
+          description: 'Optional: Test and trace a policy against a sample action before submitting a draft.',
+        },
+        submit_policy_draft: {
+          method: 'POST',
+          path: '/v1/agent/policy-drafts',
+          description: 'Optional: Propose a policy for owner review when requested (requires agent auth).',
+        },
+      },
       sdks: {
         typescript: {
           package: '@openleash/sdk-ts',
@@ -483,11 +503,124 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
           path: '/v1/verify-proof',
           description: 'Verify a proof token online (no auth required).',
         },
+        policy_schema: {
+          method: 'GET',
+          path: '/v1/agents/policy-schema',
+          description: 'Full policy YAML specification with JSON Schema, operator reference, examples, and action taxonomy (no auth required).',
+        },
+        create_policy_draft: {
+          method: 'POST',
+          path: '/v1/agent/policy-drafts',
+          description: 'Propose a new policy for owner review (requires agent auth).',
+        },
+        validate_policy: {
+          method: 'POST',
+          path: '/v1/playground/run',
+          description: 'Test and trace a policy against a sample action before submitting (no auth required).',
+        },
       },
       sdks: {
         typescript: { package: '@openleash/sdk-ts', install: 'npm install @openleash/sdk-ts' },
         python: { package: 'openleash-sdk', install: 'pip install openleash-sdk' },
         go: { module: 'github.com/openleash/openleash/packages/sdk-go', install: 'go get github.com/openleash/openleash/packages/sdk-go' },
+      },
+    };
+  });
+
+  // GET /v1/agents/policy-schema — public policy YAML specification
+  app.get('/v1/agents/policy-schema', async () => {
+    return {
+      description: 'OpenLeash Policy YAML Specification. Policies are YAML documents that define authorization rules for agent actions. The engine evaluates rules top-to-bottom; the first matching rule wins.',
+      json_schema: policyJsonSchema,
+      reference: {
+        effects: {
+          description: 'The effect applied when a rule matches.',
+          values: ['allow', 'deny'],
+        },
+        action_matching: {
+          description: 'The action field matches against the action_type in authorization requests. Supports exact match, wildcard (*), and hierarchical prefix matching (e.g. "communication.*" matches "communication.email.send").',
+          examples: ['*', 'commerce.purchase', 'communication.email.*', 'finance.*'],
+        },
+        when_expressions: {
+          description: 'Optional conditions evaluated against the full authorization request using JSONPath. Expressions compose with all (AND), any (OR), and not (negation).',
+          operators: {
+            eq: 'Equality check (any type)',
+            neq: 'Inequality check (any type)',
+            in: 'Value is in array',
+            nin: 'Value is not in array',
+            lt: 'Less than (numbers)',
+            lte: 'Less than or equal (numbers)',
+            gt: 'Greater than (numbers)',
+            gte: 'Greater than or equal (numbers)',
+            regex: 'JavaScript regex match (strings)',
+            exists: 'Check if path exists (value field ignored)',
+          },
+          path_format: 'JSONPath starting with $. — e.g. $.payload.amount_minor, $.relying_party.domain, $.action_type',
+          example: {
+            all: [
+              { match: { path: '$.payload.amount_minor', op: 'gt', value: 10000 } },
+              { match: { path: '$.payload.currency', op: 'in', value: ['USD', 'EUR'] } },
+            ],
+          },
+        },
+        constraints: {
+          description: 'Shorthand checks applied to common payload fields. These are convenience alternatives to when expressions.',
+          fields: {
+            amount_max: { type: 'number', description: 'Maximum payload.amount_minor' },
+            amount_min: { type: 'number', description: 'Minimum payload.amount_minor' },
+            currency: { type: 'string[]', description: 'Allowed values for payload.currency' },
+            merchant_domain: { type: 'string[]', description: 'Allowed merchant domains (payload.merchant_domain or relying_party.domain)' },
+            allowed_domains: { type: 'string[]', description: 'Whitelisted domains (payload.domain or relying_party.domain)' },
+            blocked_domains: { type: 'string[]', description: 'Blacklisted domains (payload.domain or relying_party.domain)' },
+          },
+        },
+        obligations: {
+          description: 'Actions required before the decision takes effect. Obligations override the rule effect — e.g. an allow rule with a HUMAN_APPROVAL obligation produces REQUIRE_APPROVAL.',
+          types: {
+            HUMAN_APPROVAL: { decision: 'REQUIRE_APPROVAL', description: 'Owner must approve the action before it proceeds' },
+            STEP_UP_AUTH: { decision: 'REQUIRE_STEP_UP', description: 'Additional authentication required' },
+            DEPOSIT: { decision: 'REQUIRE_DEPOSIT', description: 'A deposit must be placed before proceeding' },
+            COUNTERPARTY_ATTESTATION: { decision: 'ALLOW', description: 'Non-blocking attestation from the counterparty; decision stays ALLOW' },
+          },
+        },
+        requirements: {
+          description: 'Identity assurance requirements for the rule.',
+          fields: {
+            min_assurance_level: { values: ['LOW', 'SUBSTANTIAL', 'HIGH'], description: 'Minimum identity assurance level; triggers STEP_UP_AUTH if not met' },
+            credential_scheme: { type: 'string', description: 'Required credential scheme identifier' },
+          },
+        },
+        proof: {
+          description: 'Cryptographic proof token settings for allow decisions.',
+          fields: {
+            required: { type: 'boolean', description: 'Whether a PASETO proof token is issued on ALLOW' },
+            ttl_seconds: { type: 'number', description: 'Proof token time-to-live in seconds' },
+          },
+        },
+      },
+      action_taxonomy: ACTION_TAXONOMY,
+      examples: [
+        {
+          name: 'Allow all email, deny everything else',
+          policy_yaml: `version: 1\ndefault: deny\nrules:\n  - id: allow_email\n    effect: allow\n    action: "communication.email.*"`,
+        },
+        {
+          name: 'Allow purchases under $500 USD, require approval above',
+          policy_yaml: `version: 1\ndefault: deny\nrules:\n  - id: small_purchases\n    effect: allow\n    action: "commerce.purchase"\n    constraints:\n      amount_max: 50000\n      currency: ["USD"]\n  - id: large_purchases\n    effect: allow\n    action: "commerce.purchase"\n    obligations:\n      - type: HUMAN_APPROVAL`,
+        },
+        {
+          name: 'Block specific domains, allow all web browsing',
+          policy_yaml: `version: 1\ndefault: deny\nrules:\n  - id: safe_browsing\n    effect: allow\n    action: "web.browse"\n    constraints:\n      blocked_domains: ["malware.example.com", "phishing.example.com"]`,
+        },
+        {
+          name: 'Conditional rule with when expression',
+          policy_yaml: `version: 1\ndefault: deny\nrules:\n  - id: allow_trusted_transfers\n    effect: allow\n    action: "finance.transfer"\n    when:\n      all:\n        - match:\n            path: "$.payload.amount_minor"\n            op: lte\n            value: 100000\n        - match:\n            path: "$.relying_party.trust_profile"\n            op: in\n            value: ["HIGH", "REGULATED"]\n    proof:\n      required: true\n      ttl_seconds: 300`,
+        },
+      ],
+      tips: {
+        validation: 'Test your policy before submitting: POST /v1/playground/run with { "policy_yaml": "...", "action": { "action_type": "...", "payload": {...} } }',
+        submit: 'Submit a policy draft: POST /v1/agent/policy-drafts (requires agent auth)',
+        matching: 'Rules are evaluated top-to-bottom. The first matching rule wins. If no rule matches, the default effect applies.',
       },
     };
   });
