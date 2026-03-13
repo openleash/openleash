@@ -24,7 +24,7 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
     return `
     <tr>
       <td>
-        ${p.name ? `<a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name)}</a>` : ''}
+        ${p.name ? `<a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)}</a>` : ''}
         ${descLine}
         <div class="policies-copyable-wrap"><a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a></div>
       </td>
@@ -105,7 +105,7 @@ rules:
     ${policies.length === 0 ? emptyState : `
     <div class="card">
       <table>
-        <colgroup><col><col style="width:290px"><col style="width:200px"><col style="width:100px"></colgroup>
+        <colgroup><col><col style="width:290px"><col style="width:290px"><col style="width:100px"></colgroup>
         <thead>
           <tr>
             <th>Policy</th>

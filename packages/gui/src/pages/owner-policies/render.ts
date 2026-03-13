@@ -112,17 +112,17 @@ export function renderOwnerPolicies(
                               : copyableId(p.applies_to_agent_principal_id);
                       }
                       const displayName = p.name
-                          ? escapeHtml(p.name)
-                          : `<span class="text-muted">${escapeHtml(p.policy_id.slice(0, 8))}...</span>`;
+                          ? escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)
+                          : "";
                       const descLine = p.description
                           ? `<div class="opol-desc-line">${escapeHtml(p.description)}</div>`
                           : "";
                       return `
       <tr id="policy-row-${escapeHtml(p.policy_id)}">
         <td>
-          <div>${displayName}</div>
+          ${displayName ? `<div>${displayName}</div>` : ""}
           ${descLine}
-          <div class="opol-id-line">${copyableId(p.policy_id)}</div>
+          <div class="${displayName ? "opol-id-line" : "opol-id-line-no-gap"}">${copyableId(p.policy_id)}</div>
         </td>
         <td>${appliesTo}</td>
         <td>
@@ -247,7 +247,7 @@ export function renderOwnerPolicies(
     <div class="card opol-card-flush">
       <h3 class="opol-card-heading">Active Policies</h3>
       <table class="opol-table-fixed">
-        <colgroup><col><col style="width:200px"><col style="width:150px"></colgroup>
+        <colgroup><col><col style="width:220px"><col style="width:180px"></colgroup>
         <thead>
           <tr><th>Policy</th><th>Applies To</th><th>Actions</th></tr>
         </thead>
