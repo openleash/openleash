@@ -8,7 +8,7 @@ const params = new URLSearchParams(window.location.search);
 const inviteId = params.get("invite_id");
 const inviteToken = params.get("invite_token");
 const ownerIdParam = params.get("owner_id");
-let sessionToken: string | null = null;
+let loggedIn = false;
 let ownerPrincipalId: string | null = null;
 
 if (!inviteId || !inviteToken) {
@@ -76,7 +76,8 @@ document.getElementById("setup-form")!.addEventListener("submit", async (e) => {
                 });
                 if (loginRes.ok) {
                     const loginData = await loginRes.json();
-                    sessionToken = loginData.token;
+                    document.cookie = "openleash_session=" + loginData.token + "; path=/; SameSite=Strict";
+                    loggedIn = true;
                 }
             } catch {
                 // Login failed — agent invite won't be available
@@ -86,7 +87,7 @@ document.getElementById("setup-form")!.addEventListener("submit", async (e) => {
         document.getElementById("setup-form")!.style.display = "none";
         document.getElementById("success-msg")!.style.display = "block";
 
-        if (!sessionToken) {
+        if (!loggedIn) {
             document.getElementById("create-invite-btn")!.style.display = "none";
         }
     } catch {
@@ -105,7 +106,7 @@ async function createAgentInvite() {
     try {
         const res = await fetch("/v1/owner/agent-invites", {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: "Bearer " + sessionToken },
+            headers: { "Content-Type": "application/json" },
             body: "{}",
         });
         if (!res.ok) throw new Error("Failed to create invite");

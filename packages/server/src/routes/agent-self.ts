@@ -40,6 +40,7 @@ export function registerAgentSelfRoutes(
       status: agent.status,
       attributes: agent.attributes,
       created_at: agent.created_at,
+      webhook_url: agent.webhook_url,
     };
   });
 

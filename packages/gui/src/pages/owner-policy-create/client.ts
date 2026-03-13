@@ -5,7 +5,6 @@ import "./style.css";
 import { olToast, olApiError } from "../../shared/common";
 
 async function createPolicy() {
-    const token = sessionStorage.getItem("openleash_session");
     const name = (document.getElementById("policy-name") as HTMLInputElement).value.trim() || null;
     const desc = (document.getElementById("policy-desc") as HTMLInputElement).value.trim() || null;
     const agentId = (document.getElementById("agent-id") as HTMLInputElement).value.trim() || null;
@@ -13,7 +12,7 @@ async function createPolicy() {
 
     const res = await fetch("/v1/owner/policies", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ policy_yaml: yaml, applies_to_agent_principal_id: agentId, name, description: desc }),
     });
 

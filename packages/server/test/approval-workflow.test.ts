@@ -110,6 +110,9 @@ describe('approval workflow', () => {
       attributes: {},
       created_at: new Date().toISOString(),
       revoked_at: null,
+      webhook_url: 'https://approval-test-agent.example.com/webhook',
+      webhook_secret: 'test-webhook-secret',
+      webhook_auth_token: 'test-webhook-auth-token',
     });
 
     // Create policy with HUMAN_APPROVAL obligation

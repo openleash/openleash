@@ -33,7 +33,6 @@ document.getElementById("login-form")!.addEventListener("submit", async (e) => {
             return;
         }
 
-        sessionStorage.setItem("openleash_session", data.token);
         document.cookie = "openleash_session=" + data.token + "; path=/; SameSite=Strict";
         window.location.href = "/gui/owner/dashboard";
     } catch {

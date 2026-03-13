@@ -11,11 +11,12 @@ import { assetTags } from "../../shared/manifest.js";
 
 export interface AgentData {
     agent_principal_id: string;
-    agent_id?: string;
-    owner_principal_id?: string;
-    status?: string;
-    created_at?: string;
-    revoked_at?: string | null;
+    agent_id: string;
+    owner_principal_id: string;
+    status: string;
+    created_at: string;
+    revoked_at: string | null;
+    webhook_url: string;
     error?: string;
 }
 
@@ -24,8 +25,7 @@ export interface OwnerOption {
     display_name: string;
 }
 
-function statusBadge(status?: string): string {
-    if (!status) return '<span class="badge badge-muted">UNKNOWN</span>';
+function statusBadge(status: string): string {
     switch (status) {
         case "ACTIVE":
             return '<span class="badge badge-green">ACTIVE</span>';
@@ -43,10 +43,11 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
         .map(
             (a) => `
     <tr>
-      <td>${a.agent_id ? copyableId(a.agent_id, a.agent_id.length) : "-"}</td>
+      <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
       <td>${copyableId(a.agent_principal_id)}</td>
-      <td>${a.owner_principal_id ? formatNameWithId(ownerMap.get(a.owner_principal_id), a.owner_principal_id) : "-"}</td>
+      <td>${formatNameWithId(ownerMap.get(a.owner_principal_id), a.owner_principal_id)}</td>
       <td>${statusBadge(a.status)}</td>
+      <td class="mono text-ellipsis" title="${escapeHtml(a.webhook_url)}">${a.webhook_url ? escapeHtml(a.webhook_url) : "-"}</td>
       <td class="mono">${a.created_at ? formatTimestamp(a.created_at, true) : "-"}</td>
       <td class="mono">${a.revoked_at ? formatTimestamp(a.revoked_at, true) : "-"}</td>
     </tr>
@@ -100,19 +101,20 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
 
     <div class="card">
       <table>
-        <colgroup><col style="width:130px"><col style="width:290px"><col style="width:290px"><col style="width:130px"><col style="width:130px"><col style="width:100px"></colgroup>
+        <colgroup><col style="width:130px"><col style="width:290px"><col style="width:290px"><col style="width:130px"><col style="width:250px"><col style="width:130px"><col style="width:100px"></colgroup>
         <thead>
           <tr>
             <th>Agent ID</th>
             <th>Principal ID</th>
             <th>Owner</th>
             <th>Status${infoIcon("agents-status", INFO_AGENT_STATUS)}</th>
+            <th>Webhook</th>
             <th>Created</th>
             <th>Revoked</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="6" class="agents-table-empty">No agents registered</td></tr>'}
+          ${rows || '<tr><td colspan="7" class="agents-table-empty">No agents registered</td></tr>'}
         </tbody>
       </table>
     </div>

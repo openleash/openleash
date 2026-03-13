@@ -90,6 +90,9 @@ export async function registerAgent(params: {
   agentPubKeyB64: string;
   signatureB64: string;
   ownerPrincipalId: string;
+  webhookUrl: string;
+  webhookSecret: string;
+  webhookAuthToken: string;
 }): Promise<{
   agent_principal_id: string;
   agent_id: string;
@@ -106,6 +109,9 @@ export async function registerAgent(params: {
       agent_pubkey_b64: params.agentPubKeyB64,
       signature_b64: params.signatureB64,
       owner_principal_id: params.ownerPrincipalId,
+      webhook_url: params.webhookUrl,
+      webhook_secret: params.webhookSecret,
+      webhook_auth_token: params.webhookAuthToken,
     }),
   });
 
@@ -128,6 +134,7 @@ export interface AgentInviteResult {
   agent_id: string;
   owner_principal_id: string;
   openleash_url: string;
+  webhook_url: string;
   public_key_b64: string;
   private_key_b64: string;
   auth: Record<string, unknown>;
@@ -138,6 +145,9 @@ export interface AgentInviteResult {
 export async function redeemAgentInvite(params: {
   inviteUrl: string;
   agentId: string;
+  webhookUrl: string;
+  webhookSecret: string;
+  webhookAuthToken: string;
 }): Promise<AgentInviteResult> {
   const url = new URL(params.inviteUrl);
   const inviteId = url.searchParams.get('invite_id');
@@ -162,6 +172,9 @@ export async function redeemAgentInvite(params: {
       invite_token: inviteToken,
       agent_id: params.agentId,
       agent_pubkey_b64: publicKeyB64,
+      webhook_url: params.webhookUrl,
+      webhook_secret: params.webhookSecret,
+      webhook_auth_token: params.webhookAuthToken,
     }),
   });
 
@@ -177,6 +190,7 @@ export async function redeemAgentInvite(params: {
     agent_id: result.agent_id as string,
     owner_principal_id: result.owner_principal_id as string,
     openleash_url: result.openleash_url as string,
+    webhook_url: result.webhook_url as string,
     public_key_b64: publicKeyB64,
     private_key_b64: privateKeyB64,
     auth: result.auth as Record<string, unknown>,

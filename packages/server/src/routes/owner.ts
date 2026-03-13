@@ -20,6 +20,7 @@ import {
     writeAgentInviteFile,
     parsePolicyYaml,
     appendAuditEvent,
+    deliverWebhook,
     issueSessionToken,
     issueApprovalToken,
     hashPassphrase,
@@ -939,6 +940,27 @@ export function registerOwnerRoutes(
                 agent_principal_id: req.agent_principal_id,
             });
 
+            // Fire webhook
+            const approveAgent = readAgentFile(dataDir, req.agent_principal_id);
+            deliverWebhook({
+                webhookUrl: approveAgent.webhook_url,
+                webhookSecret: approveAgent.webhook_secret,
+                webhookAuthToken: approveAgent.webhook_auth_token,
+                payload: {
+                    event_type: 'approval_request.approved',
+                    timestamp: new Date().toISOString(),
+                    agent_principal_id: req.agent_principal_id,
+                    data: {
+                        approval_request_id: id,
+                        status: 'APPROVED',
+                        approval_token: approvalToken.token,
+                        approval_token_expires_at: approvalToken.expiresAt,
+                        action_type: req.action_type,
+                    },
+                },
+                dataDir,
+            });
+
             return {
                 approval_request_id: id,
                 status: "APPROVED",
@@ -1002,6 +1024,26 @@ export function registerOwnerRoutes(
                 action_type: req.action_type,
                 agent_principal_id: req.agent_principal_id,
                 reason: body?.reason ?? null,
+            });
+
+            // Fire webhook
+            const denyAgent = readAgentFile(dataDir, req.agent_principal_id);
+            deliverWebhook({
+                webhookUrl: denyAgent.webhook_url,
+                webhookSecret: denyAgent.webhook_secret,
+                webhookAuthToken: denyAgent.webhook_auth_token,
+                payload: {
+                    event_type: 'approval_request.denied',
+                    timestamp: new Date().toISOString(),
+                    agent_principal_id: req.agent_principal_id,
+                    data: {
+                        approval_request_id: id,
+                        status: 'DENIED',
+                        denial_reason: body?.reason ?? null,
+                        action_type: req.action_type,
+                    },
+                },
+                dataDir,
             });
 
             return {
@@ -1153,6 +1195,26 @@ export function registerOwnerRoutes(
                 applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
             });
 
+            // Fire webhook
+            const policyApproveAgent = readAgentFile(dataDir, draft.agent_principal_id);
+            deliverWebhook({
+                webhookUrl: policyApproveAgent.webhook_url,
+                webhookSecret: policyApproveAgent.webhook_secret,
+                webhookAuthToken: policyApproveAgent.webhook_auth_token,
+                payload: {
+                    event_type: 'policy_draft.approved',
+                    timestamp: new Date().toISOString(),
+                    agent_principal_id: draft.agent_principal_id,
+                    data: {
+                        policy_draft_id: id,
+                        status: 'APPROVED',
+                        policy_id: policyId,
+                        applies_to_agent_principal_id: appliesToAgent,
+                    },
+                },
+                dataDir,
+            });
+
             return {
                 policy_draft_id: id,
                 status: "APPROVED",
@@ -1216,6 +1278,25 @@ export function registerOwnerRoutes(
                 agent_principal_id: draft.agent_principal_id,
                 applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
                 reason: body?.reason ?? null,
+            });
+
+            // Fire webhook
+            const policyDenyAgent = readAgentFile(dataDir, draft.agent_principal_id);
+            deliverWebhook({
+                webhookUrl: policyDenyAgent.webhook_url,
+                webhookSecret: policyDenyAgent.webhook_secret,
+                webhookAuthToken: policyDenyAgent.webhook_auth_token,
+                payload: {
+                    event_type: 'policy_draft.denied',
+                    timestamp: new Date().toISOString(),
+                    agent_principal_id: draft.agent_principal_id,
+                    data: {
+                        policy_draft_id: id,
+                        status: 'DENIED',
+                        denial_reason: body?.reason ?? null,
+                    },
+                },
+                dataDir,
             });
 
             return {

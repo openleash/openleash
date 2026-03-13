@@ -233,8 +233,13 @@ export function registerGuiRoutes(
                 return {
                     agent_principal_id: entry.agent_principal_id,
                     agent_id: entry.agent_id,
+                    owner_principal_id: entry.owner_principal_id,
+                    status: "UNKNOWN",
+                    created_at: "",
+                    revoked_at: null,
+                    webhook_url: "",
                     error: "file_not_found",
-                } as { agent_principal_id: string; agent_id: string; error: string };
+                };
             }
         });
         const owners = state.owners.map((entry) => {
@@ -485,6 +490,7 @@ export function registerGuiRoutes(
                         status: agent.status,
                         created_at: agent.created_at,
                         revoked_at: agent.revoked_at,
+                        webhook_url: agent.webhook_url,
                     };
                 } catch {
                     return {
@@ -493,6 +499,7 @@ export function registerGuiRoutes(
                         status: "UNKNOWN",
                         created_at: "",
                         revoked_at: null,
+                        webhook_url: "",
                     };
                 }
             });
