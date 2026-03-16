@@ -653,8 +653,32 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
           policy_yaml: `version: 1\ndefault: deny\nrules:\n  - id: allow_trusted_transfers\n    effect: allow\n    action: "finance.transfer"\n    when:\n      all:\n        - match:\n            path: "$.payload.amount_minor"\n            op: lte\n            value: 100000\n        - match:\n            path: "$.relying_party.trust_profile"\n            op: in\n            value: ["HIGH", "REGULATED"]\n    proof:\n      required: true\n      ttl_seconds: 300`,
         },
       ],
+      playground: {
+        description: 'Test a policy against a sample action before submitting. POST /v1/playground/run (no auth required).',
+        request_body: {
+          policy_yaml: '(your policy YAML as a string)',
+          action: {
+            action_type: '(required — e.g. "commerce.purchase")',
+            principal: { agent_id: '(required — your agent_id)' },
+            payload: { '...': '(required — action-specific data)' },
+            subject: { principal_id: '(optional — UUID of the subject/owner)' },
+            relying_party: { domain: '(optional)', trust_profile: '(optional — LOW|MEDIUM|HIGH|REGULATED)' },
+            action_id: '(optional — UUID, auto-generated if omitted)',
+            requested_at: '(optional — ISO 8601, defaults to now)',
+            context: { '...': '(optional — additional context)' },
+          },
+        },
+        example: {
+          policy_yaml: 'version: 1\ndefault: deny\nrules:\n  - id: small_purchases\n    effect: allow\n    action: "commerce.purchase"\n    constraints:\n      amount_max: 50000\n      currency: ["USD"]',
+          action: {
+            action_type: 'commerce.purchase',
+            principal: { agent_id: 'my-agent' },
+            payload: { amount_minor: 5000, currency: 'USD', merchant_domain: 'amazon.com' },
+          },
+        },
+      },
       tips: {
-        validation: 'Test your policy before submitting: POST /v1/playground/run with { "policy_yaml": "...", "action": { "action_type": "...", "payload": {...} } }',
+        validation: 'Test your policy before submitting: POST /v1/playground/run (no auth required). See the playground section above for the full request schema and a working example.',
         submit: 'Submit a policy draft: POST /v1/agent/policy-drafts (requires agent auth)',
         matching: 'Rules are evaluated top-to-bottom. The first matching rule wins. If no rule matches, the default effect applies.',
       },
