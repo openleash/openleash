@@ -234,63 +234,148 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
 
     return {
       message: 'OpenLeash Agent Registration',
-      instructions: 'To register, POST to this URL with your agent_id, agent_pubkey_b64, webhook_url, webhook_secret, and webhook_auth_token. The invite_id and invite_token from the query parameters will be used automatically.',
-      register_url: registerUrl,
-      method: 'POST',
-      required_body: {
-        invite_id: query.invite_id,
-        invite_token: query.invite_token,
-        agent_id: '(your agent identifier)',
-        agent_pubkey_b64: '(your Ed25519 public key, base64-encoded SPKI/DER format)',
-        webhook_url: '(HTTPS URL where OpenLeash will POST decision notifications)',
-        webhook_secret: '(shared secret for HMAC-SHA256 webhook signature verification)',
-        webhook_auth_token: '(Bearer token for webhook endpoint authentication — sent as Authorization: Bearer <token>)',
+      overview: 'OpenLeash is your authorization guardian. Before you take sensitive actions (purchases, emails, API calls, file operations), you ask OpenLeash for permission. Your owner — the human who created this invite — sets policies that govern what you can and cannot do. OpenLeash evaluates your request against those policies and returns a decision. This is the "ask before you act" paradigm: you MUST check authorization before performing any action that has real-world consequences.',
+      how_it_works: [
+        'Step 1: Register — POST to this URL with your credentials (see registration section below).',
+        'Step 2: Policies govern your actions — Your owner can set policies through the dashboard, but you can also suggest policy drafts yourself. For example, if you notice your owner repeatedly approves the same type of action, you can propose a policy that pre-authorizes it. Study your owner\'s approval patterns and suggest drafts via POST /v1/agent/policy-drafts. Your owner always has the final say — they accept or refuse every draft. Read the policy schema (GET /v1/agents/policy-schema) to learn the YAML format.',
+        'Step 3: Before every sensitive action, call POST /v1/authorize — Describe what you want to do (action type, payload, counterparty). OpenLeash evaluates your request against the active policy.',
+        'Step 4: Respect the decision — ALLOW means proceed (you may receive a cryptographic proof token to present to counterparties). DENY means stop. REQUIRE_APPROVAL means pause and wait for your owner to approve.',
+        'Step 5: If approval is required — Create an approval request via POST /v1/agent/approval-requests. Your owner will be notified. Poll GET /v1/agent/approval-requests/{id} or listen on your webhook for the result. Once approved, retry POST /v1/authorize with the approval_token.',
+      ],
+      registration: {
+        instructions: 'To register, POST to the URL below. Generate a fresh Ed25519 keypair — send the public key here and keep the private key safe. You will sign every future request with it. The invite_id and invite_token from the query parameters will be used automatically.',
+        url: registerUrl,
+        method: 'POST',
+        required_body: {
+          invite_id: query.invite_id,
+          invite_token: query.invite_token,
+          agent_id: '(your agent identifier — a stable name like "shopping-agent" or "email-assistant")',
+          agent_pubkey_b64: '(your Ed25519 public key, base64-encoded SPKI/DER format — generate a fresh keypair and keep the private key safe)',
+          webhook_url: '(HTTP(S) URL where OpenLeash will POST decision notifications — approval results, policy draft decisions)',
+          webhook_secret: '(shared secret for HMAC-SHA256 webhook signature verification — generate a random 32+ character string)',
+          webhook_auth_token: '(Bearer token for webhook endpoint authentication — sent as Authorization: Bearer <token>)',
+        },
+        example_curl: `curl -X POST ${registerUrl} -H "Content-Type: application/json" -d '{"invite_id":"${query.invite_id}","invite_token":"${query.invite_token}","agent_id":"my-agent","agent_pubkey_b64":"<BASE64_PUBLIC_KEY>","webhook_url":"https://my-agent.example.com/webhook","webhook_secret":"your-hmac-secret","webhook_auth_token":"your-bearer-token"}'`,
       },
-      example_curl: `curl -X POST ${registerUrl} -H "Content-Type: application/json" -d '{"invite_id":"${query.invite_id}","invite_token":"${query.invite_token}","agent_id":"my-agent","agent_pubkey_b64":"<BASE64_PUBLIC_KEY>","webhook_url":"https://my-agent.example.com/webhook","webhook_secret":"your-hmac-secret","webhook_auth_token":"your-bearer-token"}'`,
+      authorization_flow: {
+        description: 'This is your core integration point. Before taking any sensitive action, send an authorization request. All requests must be signed with your Ed25519 private key.',
+        endpoint: 'POST /v1/authorize',
+        request_body: {
+          action_type: '(what you want to do — e.g. "commerce.purchase", "communication.email.send", "web.browse", "file.write")',
+          payload: '(action-specific data — e.g. { "amount_minor": 5000, "currency": "USD", "merchant_domain": "amazon.com" })',
+          relying_party: '(optional — the counterparty: { "name": "...", "domain": "...", "trust_profile": "HIGH|MEDIUM|LOW" })',
+        },
+        decisions: {
+          ALLOW: {
+            meaning: 'You are authorized. Proceed with the action.',
+            proof_token: 'If the policy requires proof, the response includes a PASETO v4.public token. Present this token to counterparties as cryptographic evidence that you were authorized. The token has a TTL — use it before it expires.',
+          },
+          DENY: {
+            meaning: 'You are NOT authorized. Do NOT proceed with the action. Inform the user or caller that the action was denied.',
+            what_to_do: 'Stop. Do not attempt to bypass. You may explain to the user why the action was denied if the response includes a reason.',
+          },
+          REQUIRE_APPROVAL: {
+            meaning: 'The action needs your owner\'s explicit approval before proceeding.',
+            what_to_do: 'Create an approval request (POST /v1/agent/approval-requests), then wait. Do not proceed until you receive an approval_token. Your owner will review and approve or deny via the OpenLeash dashboard.',
+            approval_flow: [
+              '1. POST /v1/agent/approval-requests with { action_type, payload, justification }',
+              '2. Wait — poll GET /v1/agent/approval-requests/{id} periodically, or listen on your webhook for approval_request.approved / approval_request.denied',
+              '3. On approval: retry POST /v1/authorize including the approval_token in your request',
+              '4. On denial: stop. Inform the user the action was denied by the owner.',
+            ],
+          },
+          REQUIRE_STEP_UP: {
+            meaning: 'Additional identity verification is required before proceeding.',
+            what_to_do: 'The response includes details about what verification is needed. This typically involves a higher identity assurance level.',
+          },
+          REQUIRE_DEPOSIT: {
+            meaning: 'A deposit must be placed before the action can proceed.',
+            what_to_do: 'The response includes deposit requirements. Fulfill them before retrying.',
+          },
+        },
+      },
+      request_signing: {
+        description: 'Every authenticated request (POST /v1/authorize, approval requests, etc.) must be signed with your Ed25519 private key. Use the SDK for automatic signing, or implement manually.',
+        method: 'ed25519_signed_request',
+        required_headers: {
+          'X-Agent-Id': 'your agent_id',
+          'X-Timestamp': 'ISO 8601 timestamp (must be within ±120 seconds of server time)',
+          'X-Nonce': 'UUID v4 (single-use, expires after 600 seconds)',
+          'X-Body-Sha256': 'hex-encoded SHA-256 of the request body (or of empty string for GET)',
+          'X-Signature': 'base64-encoded Ed25519 signature of the signing input',
+        },
+        signing_input_format: 'METHOD\\nPATH\\nTIMESTAMP\\nNONCE\\nBODY_SHA256',
+      },
       webhook: {
-        description: 'OpenLeash will POST JSON to your webhook_url when the owner makes decisions',
-        authentication: 'HMAC-SHA256 signature in X-Webhook-Signature header (using webhook_secret for payload integrity). Bearer token in Authorization header (using webhook_auth_token for endpoint authentication).',
+        description: 'OpenLeash sends real-time notifications to your webhook_url when your owner makes decisions. This is the fastest way to learn about approval results instead of polling.',
+        authentication: 'Two layers: (1) HMAC-SHA256 signature in X-Webhook-Signature header using webhook_secret for payload integrity, (2) Bearer token in Authorization header using webhook_auth_token for endpoint authentication.',
+        events: {
+          'approval_request.approved': {
+            description: 'Your owner approved an action. Contains the approval_token you need to retry authorization.',
+            fields: ['approval_request_id', 'approval_token', 'approval_token_expires_at', 'action_type'],
+          },
+          'approval_request.denied': {
+            description: 'Your owner denied an action. Do not proceed.',
+            fields: ['approval_request_id', 'denial_reason', 'action_type'],
+          },
+          'policy_draft.approved': {
+            description: 'A policy you proposed was approved by the owner.',
+            fields: ['policy_draft_id', 'policy_id'],
+          },
+          'policy_draft.denied': {
+            description: 'A policy you proposed was rejected by the owner.',
+            fields: ['policy_draft_id', 'denial_reason'],
+          },
+        },
         payload_schema: {
-          event_type: 'approval_request.approved | approval_request.denied | policy_draft.approved | policy_draft.denied',
+          event_type: 'one of the event types above',
           timestamp: 'ISO 8601',
           agent_principal_id: 'your agent principal ID',
-          data: { '...': 'event-specific fields' },
-        },
-        events: {
-          'approval_request.approved': { fields: ['approval_request_id', 'approval_token', 'approval_token_expires_at', 'action_type'] },
-          'approval_request.denied': { fields: ['approval_request_id', 'denial_reason', 'action_type'] },
-          'policy_draft.approved': { fields: ['policy_draft_id', 'policy_id'] },
-          'policy_draft.denied': { fields: ['policy_draft_id', 'denial_reason'] },
+          data: { '...': 'event-specific fields listed above' },
         },
       },
-      next_steps: {
-        description: 'After registering, read the policy schema to understand how policies work. Only submit a policy draft if your owner asks you to.',
-        read_policy_schema: {
-          method: 'GET',
-          path: '/v1/agents/policy-schema',
-          description: 'IMPORTANT: Start here. Read the full policy YAML specification to understand how authorization policies work. Returns the JSON Schema, all supported operators, constraints, obligations, the action taxonomy, and worked examples.',
-        },
-        validate_policy: {
-          method: 'POST',
-          path: '/v1/playground/run',
-          description: 'Optional: Test and trace a policy against a sample action before submitting a draft.',
-        },
-        submit_policy_draft: {
-          method: 'POST',
-          path: '/v1/agent/policy-drafts',
-          description: 'Optional: Propose a policy for owner review when requested (requires agent auth).',
-        },
+      after_registration: {
+        description: 'After registration, here is what you can and should do:',
+        steps: [
+          {
+            step: 'Read the policy schema',
+            method: 'GET',
+            path: '/v1/agents/policy-schema',
+            auth: 'none',
+            description: 'Understand how policies work: the YAML format, supported actions, conditions, constraints, and obligations. This helps you understand why decisions are made and lets you propose well-formed policy drafts.',
+          },
+          {
+            step: 'Suggest a policy draft',
+            method: 'POST',
+            path: '/v1/agent/policy-drafts',
+            auth: 'agent (signed request)',
+            description: 'Proactively propose policies based on what you observe. If your owner keeps manually approving the same kind of action, suggest a policy that covers it. This reduces friction for both of you. Your owner reviews and accepts or refuses every draft — you cannot activate a policy on your own.',
+          },
+          {
+            step: 'Test policies in the playground',
+            method: 'POST',
+            path: '/v1/playground/run',
+            auth: 'none',
+            description: 'Test a policy YAML against a sample action to see what decision it produces. Use this before submitting a draft to make sure it behaves as intended.',
+          },
+        ],
+      },
+      api_reference: {
+        interactive: `${baseUrl}/reference`,
+        openapi_json: `${baseUrl}/reference/openapi.json`,
+        openapi_yaml: `${baseUrl}/reference/openapi.yaml`,
       },
       sdks: {
+        description: 'SDKs handle keypair generation, request signing, and the full registration flow. Using an SDK is the easiest way to get started.',
         typescript: {
           package: '@openleash/sdk-ts',
           install: 'npm install @openleash/sdk-ts',
-          example: `import { redeemAgentInvite } from '@openleash/sdk-ts';\nconst agent = await redeemAgentInvite({ inviteUrl: '${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agentId: 'my-agent', webhookUrl: 'https://my-agent.example.com/webhook', webhookSecret: 'your-hmac-secret', webhookAuthToken: 'your-bearer-token' });`,
+          example: `import { redeemAgentInvite } from '@openleash/sdk-ts';\nconst agent = await redeemAgentInvite({ inviteUrl: '${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agentId: 'my-agent', webhookUrl: 'https://my-agent.example.com/webhook', webhookSecret: 'your-hmac-secret', webhookAuthToken: 'your-bearer-token' });\n// agent.private_key_b64 — save this securely, you need it for signing\n// agent.endpoints — all available API endpoints\n// Use agent SDK functions like authorize(), createApprovalRequest(), etc.`,
         },
         python: {
           package: 'openleash-sdk',
           install: 'pip install openleash-sdk',
-          example: `from openleash import redeem_agent_invite\nagent = await redeem_agent_invite(invite_url='${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agent_id='my-agent', webhook_url='https://my-agent.example.com/webhook', webhook_secret='your-hmac-secret', webhook_auth_token='your-bearer-token')`,
+          example: `from openleash import redeem_agent_invite\nagent = await redeem_agent_invite(invite_url='${baseUrl}/v1/agents/register-with-invite?invite_id=${query.invite_id}&invite_token=${query.invite_token}', agent_id='my-agent', webhook_url='https://my-agent.example.com/webhook', webhook_secret='your-hmac-secret', webhook_auth_token='your-bearer-token')\n# agent['private_key_b64'] — save this securely\n# Use SDK functions for authorize(), create_approval_request(), etc.`,
         },
       },
     };
@@ -472,52 +557,10 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
         },
         signing_input: 'METHOD\\nPATH\\nTIMESTAMP\\nNONCE\\nBODY_SHA256',
       },
-      endpoints: {
-        authorize: {
-          method: 'POST',
-          path: '/v1/authorize',
-          description: 'Submit an action for authorization. Returns a decision (ALLOW/DENY/REQUIRE_APPROVAL) and a proof token on ALLOW.',
-        },
-        create_approval_request: {
-          method: 'POST',
-          path: '/v1/agent/approval-requests',
-          description: 'Request human approval when a decision requires it.',
-        },
-        get_approval_request: {
-          method: 'GET',
-          path: '/v1/agent/approval-requests/{approval_request_id}',
-          description: 'Poll the status of an approval request. Returns approval_token when approved.',
-        },
-        health: {
-          method: 'GET',
-          path: '/v1/health',
-          description: 'Server health check (no auth required).',
-        },
-        public_keys: {
-          method: 'GET',
-          path: '/v1/public-keys',
-          description: 'Retrieve server public keys for offline proof verification (no auth required).',
-        },
-        verify_proof: {
-          method: 'POST',
-          path: '/v1/verify-proof',
-          description: 'Verify a proof token online (no auth required).',
-        },
-        policy_schema: {
-          method: 'GET',
-          path: '/v1/agents/policy-schema',
-          description: 'Full policy YAML specification with JSON Schema, operator reference, examples, and action taxonomy (no auth required).',
-        },
-        create_policy_draft: {
-          method: 'POST',
-          path: '/v1/agent/policy-drafts',
-          description: 'Propose a new policy for owner review (requires agent auth).',
-        },
-        validate_policy: {
-          method: 'POST',
-          path: '/v1/playground/run',
-          description: 'Test and trace a policy against a sample action before submitting (no auth required).',
-        },
+      api_reference: {
+        interactive: `${baseUrl}/reference`,
+        openapi_json: `${baseUrl}/reference/openapi.json`,
+        openapi_yaml: `${baseUrl}/reference/openapi.yaml`,
       },
       sdks: {
         typescript: { package: '@openleash/sdk-ts', install: 'npm install @openleash/sdk-ts' },
