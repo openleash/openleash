@@ -190,9 +190,9 @@ export function formatTimestamp(iso: string, dateOnly = false): string {
 export function formatNameWithId(name: string | undefined, uuid: string): string {
     const escaped = escapeHtml(uuid);
     if (name) {
-        return `${escapeHtml(name)} <span class="mono muted copyable" title="Click to copy" data-copy-id="${escaped}" style="color:var(--text-muted);font-size:11px">(${escapeHtml(uuid.slice(0, 8))}...)</span>`;
+        return `${escapeHtml(name)} <span class="mono muted copyable" title="Click to copy" data-copy-id="${escaped}" style="color:var(--text-muted);font-size:11px">(${escapeHtml(uuid)})</span>`;
     }
-    return `<span class="mono truncate copyable" title="Click to copy" data-copy-id="${escaped}">${escapeHtml(uuid.slice(0, 8))}...</span>`;
+    return `<span class="mono truncate copyable" title="Click to copy" data-copy-id="${escaped}">${escapeHtml(uuid)}</span>`;
 }
 
 export function renderPage(
