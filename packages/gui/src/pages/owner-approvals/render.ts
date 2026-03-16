@@ -244,7 +244,7 @@ export function renderOwnerApprovals(
     <div class="card approvals-card">
       <h3 class="card-section">Pending</h3>
       <table>
-        <colgroup><col style="width:20px"><col><col style="width:180px"><col style="width:170px"><col style="width:170px"><col style="width:160px"></colgroup>
+        <colgroup><col style="width:20px"><col><col style="width:300px"><col style="width:170px"><col style="width:170px"><col style="width:160px"></colgroup>
         <thead>
           <tr><th></th><th>Agent</th><th>Action</th><th>Created</th><th>Expires</th><th>Actions</th></tr>
         </thead>
@@ -259,7 +259,7 @@ export function renderOwnerApprovals(
     <div class="card approvals-card">
       <h3 class="card-section">Resolved</h3>
       <table>
-        <colgroup><col style="width:20px"><col><col style="width:180px"><col style="width:130px"><col style="width:170px"></colgroup>
+        <colgroup><col style="width:20px"><col><col style="width:300px"><col style="width:130px"><col style="width:170px"></colgroup>
         <thead>
           <tr><th></th><th>Agent</th><th>Action</th><th>Status</th><th>Created</th></tr>
         </thead>
