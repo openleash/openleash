@@ -26,7 +26,6 @@ export interface BindingEntry {
 }
 
 export function renderPolicies(policies: PolicyListEntry[]): string {
-    console.log(policies);
     const rows = policies
         .map((p) => {
             return `
