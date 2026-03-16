@@ -1,14 +1,12 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import {
-  readState,
-  readAgentFile,
   verifyRequestSignature,
   sha256Hex,
   NonceCache,
 } from '@openleash/core';
-import type { OpenleashConfig } from '@openleash/core';
+import type { OpenleashConfig, DataStore } from '@openleash/core';
 
-export function createAgentAuth(config: OpenleashConfig, dataDir: string, nonceCache: NonceCache) {
+export function createAgentAuth(config: OpenleashConfig, store: DataStore, nonceCache: NonceCache) {
   return async function agentAuth(request: FastifyRequest, reply: FastifyReply) {
     const agentId = request.headers['x-agent-id'] as string;
     const timestamp = request.headers['x-timestamp'] as string;
@@ -60,7 +58,7 @@ export function createAgentAuth(config: OpenleashConfig, dataDir: string, nonceC
     }
 
     // Look up agent
-    const state = readState(dataDir);
+    const state = store.state.getState();
     const agentEntry = state.agents.find((a) => a.agent_id === agentId);
     if (!agentEntry) {
       reply.code(401).send({
@@ -69,7 +67,7 @@ export function createAgentAuth(config: OpenleashConfig, dataDir: string, nonceC
       return;
     }
 
-    const agent = readAgentFile(dataDir, agentEntry.agent_principal_id);
+    const agent = store.agents.read(agentEntry.agent_principal_id);
     if (agent.status !== 'ACTIVE') {
       reply.code(401).send({
         error: { code: 'AGENT_INACTIVE', message: `Agent "${agentId}" is not active` },

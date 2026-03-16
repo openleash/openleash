@@ -1,25 +1,7 @@
 import * as crypto from "node:crypto";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
-    readState,
-    writeState,
-    readOwnerFile,
-    writeOwnerFile,
-    readAgentFile,
-    writeAgentFile,
-    readPolicyFile,
-    writePolicyFile,
-    deletePolicyFile,
-    readKeyFile,
-    readApprovalRequestFile,
-    writeApprovalRequestFile,
-    readPolicyDraftFile,
-    writePolicyDraftFile,
-    readSetupInviteFile,
-    writeSetupInviteFile,
-    writeAgentInviteFile,
     parsePolicyYaml,
-    appendAuditEvent,
     deliverWebhook,
     issueSessionToken,
     issueApprovalToken,
@@ -42,7 +24,7 @@ import type {
     CompanyId,
     Signatory,
     SignatoryRule,
-    AuditStore,
+    DataStore,
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
 import { validateBody } from "../validate.js";
@@ -56,11 +38,10 @@ import {
 
 export function registerOwnerRoutes(
     app: FastifyInstance,
-    dataDir: string,
+    store: DataStore,
     config: OpenleashConfig,
-    auditStore: AuditStore,
 ) {
-    const ownerAuth = createOwnerAuth(config, dataDir);
+    const ownerAuth = createOwnerAuth(config, store);
 
     // ─── No-auth routes ───────────────────────────────────────────────
 
@@ -72,7 +53,7 @@ export function registerOwnerRoutes(
         const principalType = body.principal_type;
 
         // Guard: only allowed when no owners exist
-        const state = readState(dataDir);
+        const state = store.state.getState();
         if (state.owners.length > 0) {
             reply.code(403).send({
                 error: {
@@ -87,7 +68,7 @@ export function registerOwnerRoutes(
         const ownerId = crypto.randomUUID();
         const { hash, salt } = hashPassphrase(body.passphrase);
 
-        writeOwnerFile(dataDir, {
+        store.owners.write({
             owner_principal_id: ownerId,
             principal_type: principalType as "HUMAN" | "ORG",
             display_name: body.display_name,
@@ -100,13 +81,14 @@ export function registerOwnerRoutes(
         });
 
         // Update state
-        state.owners.push({
-            owner_principal_id: ownerId,
-            path: `./owners/${ownerId}.md`,
+        store.state.updateState(s => {
+            s.owners.push({
+                owner_principal_id: ownerId,
+                path: `./owners/${ownerId}.md`,
+            });
         });
-        writeState(dataDir, state);
 
-        appendAuditEvent(dataDir, "INITIAL_SETUP_COMPLETED", {
+        store.audit.append("INITIAL_SETUP_COMPLETED", {
             owner_principal_id: ownerId,
             display_name: body.display_name,
         });
@@ -126,7 +108,7 @@ export function registerOwnerRoutes(
         // Load invite
         let invite;
         try {
-            invite = readSetupInviteFile(dataDir, body.invite_id);
+            invite = store.setupInvites.read(body.invite_id);
         } catch {
             reply.code(404).send({
                 error: { code: "INVITE_NOT_FOUND", message: "Setup invite not found" },
@@ -162,18 +144,18 @@ export function registerOwnerRoutes(
         // Hash passphrase and store on owner
         const { hash, salt } = hashPassphrase(body.passphrase);
 
-        const owner = readOwnerFile(dataDir, invite.owner_principal_id);
+        const owner = store.owners.read(invite.owner_principal_id);
         owner.passphrase_hash = hash;
         owner.passphrase_salt = salt;
         owner.passphrase_set_at = new Date().toISOString();
-        writeOwnerFile(dataDir, owner);
+        store.owners.write(owner);
 
         // Mark invite as used
         invite.used = true;
         invite.used_at = new Date().toISOString();
-        writeSetupInviteFile(dataDir, invite);
+        store.setupInvites.write(invite);
 
-        appendAuditEvent(dataDir, "OWNER_SETUP_COMPLETED", {
+        store.audit.append("OWNER_SETUP_COMPLETED", {
             owner_principal_id: invite.owner_principal_id,
         });
 
@@ -189,7 +171,7 @@ export function registerOwnerRoutes(
         if (!body) return;
 
         // Look up owner
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const ownerEntry = state.owners.find(
             (o) => o.owner_principal_id === body.owner_principal_id,
         );
@@ -202,7 +184,7 @@ export function registerOwnerRoutes(
 
         let owner;
         try {
-            owner = readOwnerFile(dataDir, body.owner_principal_id);
+            owner = store.owners.read(body.owner_principal_id);
         } catch {
             reply.code(401).send({
                 error: { code: "INVALID_CREDENTIALS", message: "Invalid credentials" },
@@ -233,7 +215,7 @@ export function registerOwnerRoutes(
         }
 
         // Issue session token
-        const activeKey = readKeyFile(dataDir, state.server_keys.active_kid);
+        const activeKey = store.keys.read(state.server_keys.active_kid);
         const ttl = config.sessions?.ttl_seconds ?? 28800;
         const session = await issueSessionToken({
             key: activeKey,
@@ -241,7 +223,7 @@ export function registerOwnerRoutes(
             ttlSeconds: ttl,
         });
 
-        appendAuditEvent(dataDir, "OWNER_LOGIN", {
+        store.audit.append("OWNER_LOGIN", {
             owner_principal_id: body.owner_principal_id,
             display_name: owner.display_name,
         });
@@ -258,7 +240,7 @@ export function registerOwnerRoutes(
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
 
-        appendAuditEvent(dataDir, "OWNER_LOGOUT", {
+        store.audit.append("OWNER_LOGOUT", {
             owner_principal_id: session.sub,
         });
 
@@ -271,7 +253,7 @@ export function registerOwnerRoutes(
     app.get("/v1/owner/profile", { preHandler: ownerAuth }, async (request) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const owner = readOwnerFile(dataDir, session.sub);
+        const owner = store.owners.read(session.sub);
 
         // Strip sensitive fields
         const {
@@ -297,7 +279,7 @@ export function registerOwnerRoutes(
             signatory_rules?: SignatoryRule[];
         };
 
-        const owner = readOwnerFile(dataDir, session.sub);
+        const owner = store.owners.read(session.sub);
 
         if (body.display_name !== undefined) owner.display_name = body.display_name;
         if (body.contact_identities !== undefined) {
@@ -335,9 +317,9 @@ export function registerOwnerRoutes(
         }
 
         owner.identity_assurance_level = computeAssuranceLevel(owner);
-        writeOwnerFile(dataDir, owner);
+        store.owners.write(owner);
 
-        appendAuditEvent(dataDir, "OWNER_UPDATED", {
+        store.audit.append("OWNER_UPDATED", {
             owner_principal_id: session.sub,
         });
 
@@ -351,12 +333,12 @@ export function registerOwnerRoutes(
     app.get("/v1/owner/agents", { preHandler: ownerAuth }, async (request) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const agents = state.agents
             .filter((a) => a.owner_principal_id === session.sub)
             .map((entry) => {
                 try {
-                    return readAgentFile(dataDir, entry.agent_principal_id);
+                    return store.agents.read(entry.agent_principal_id);
                 } catch {
                     return {
                         agent_principal_id: entry.agent_principal_id,
@@ -375,7 +357,7 @@ export function registerOwnerRoutes(
         const { agentId } = request.params as { agentId: string };
         const body = request.body as { status: "ACTIVE" | "REVOKED"; totp_code?: string };
 
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const agentEntry = state.agents.find(
             (a) => a.agent_principal_id === agentId && a.owner_principal_id === session.sub,
         );
@@ -389,17 +371,17 @@ export function registerOwnerRoutes(
 
         // Require 2FA when revoking an agent
         if (body.status === "REVOKED") {
-            const owner = readOwnerFile(dataDir, session.sub);
+            const owner = store.owners.read(session.sub);
             const ok = await verifyTotpForApproval(request, reply, owner, session);
             if (!ok) return;
         }
 
-        const agent = readAgentFile(dataDir, agentEntry.agent_principal_id);
+        const agent = store.agents.read(agentEntry.agent_principal_id);
         agent.status = body.status;
         if (body.status === "REVOKED") {
             agent.revoked_at = new Date().toISOString();
         }
-        writeAgentFile(dataDir, agent);
+        store.agents.write(agent);
 
         return {
             agent_principal_id: agentEntry.agent_principal_id,
@@ -418,7 +400,7 @@ export function registerOwnerRoutes(
         const { hash, salt } = hashPassphrase(inviteToken);
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-        writeAgentInviteFile(dataDir, {
+        store.agentInvites.write({
             invite_id: inviteId,
             owner_principal_id: session.sub,
             token_hash: hash,
@@ -429,7 +411,7 @@ export function registerOwnerRoutes(
             created_at: new Date().toISOString(),
         });
 
-        appendAuditEvent(dataDir, "AGENT_INVITE_CREATED", {
+        store.audit.append("AGENT_INVITE_CREATED", {
             owner_principal_id: session.sub,
             invite_id: inviteId,
         });
@@ -447,12 +429,12 @@ export function registerOwnerRoutes(
     app.get("/v1/owner/policies", { preHandler: ownerAuth }, async (request) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const policies = state.policies
             .filter((p) => p.owner_principal_id === session.sub)
             .map((entry) => {
                 try {
-                    const yaml = readPolicyFile(dataDir, entry.policy_id);
+                    const yaml = store.policies.read(entry.policy_id);
                     return { ...entry, policy_yaml: yaml };
                 } catch {
                     return { ...entry, error: "file_not_found" };
@@ -482,31 +464,30 @@ export function registerOwnerRoutes(
         }
 
         const policyId = crypto.randomUUID();
-        writePolicyFile(dataDir, policyId, body.policy_yaml);
+        store.policies.write(policyId, body.policy_yaml);
 
-        const state = readState(dataDir);
         const appliesToAgent = body.applies_to_agent_principal_id ?? null;
         const policyName = body.name?.trim() || null;
         const policyDescription = body.description?.trim() || null;
 
-        state.policies.push({
-            policy_id: policyId,
-            owner_principal_id: session.sub,
-            applies_to_agent_principal_id: appliesToAgent,
-            name: policyName,
-            description: policyDescription,
-            path: `./policies/${policyId}.yaml`,
+        store.state.updateState(s => {
+            s.policies.push({
+                policy_id: policyId,
+                owner_principal_id: session.sub,
+                applies_to_agent_principal_id: appliesToAgent,
+                name: policyName,
+                description: policyDescription,
+                path: `./policies/${policyId}.yaml`,
+            });
+
+            s.bindings.push({
+                owner_principal_id: session.sub,
+                policy_id: policyId,
+                applies_to_agent_principal_id: appliesToAgent,
+            });
         });
 
-        state.bindings.push({
-            owner_principal_id: session.sub,
-            policy_id: policyId,
-            applies_to_agent_principal_id: appliesToAgent,
-        });
-
-        writeState(dataDir, state);
-
-        appendAuditEvent(dataDir, "POLICY_UPSERTED", {
+        store.audit.append("POLICY_UPSERTED", {
             policy_id: policyId,
             owner_principal_id: session.sub,
             applies_to_agent_principal_id: appliesToAgent,
@@ -525,7 +506,7 @@ export function registerOwnerRoutes(
             .ownerSession as SessionClaims;
         const { policyId } = request.params as { policyId: string };
 
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const entry = state.policies.find(
             (p) => p.policy_id === policyId && p.owner_principal_id === session.sub,
         );
@@ -538,7 +519,7 @@ export function registerOwnerRoutes(
         }
 
         try {
-            const yaml = readPolicyFile(dataDir, policyId);
+            const yaml = store.policies.read(policyId);
             return { ...entry, policy_yaml: yaml };
         } catch {
             reply.code(404).send({
@@ -555,7 +536,7 @@ export function registerOwnerRoutes(
         const body = validateBody(request.body, SavePolicySchema, reply);
         if (!body) return;
 
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const entry = state.policies.find(
             (p) => p.policy_id === policyId && p.owner_principal_id === session.sub,
         );
@@ -576,7 +557,7 @@ export function registerOwnerRoutes(
                 });
                 return;
             }
-            writePolicyFile(dataDir, policyId, body.policy_yaml);
+            store.policies.write(policyId, body.policy_yaml);
         }
 
         let stateChanged = false;
@@ -589,10 +570,16 @@ export function registerOwnerRoutes(
             stateChanged = true;
         }
         if (stateChanged) {
-            writeState(dataDir, state);
+            store.state.updateState(s => {
+                const idx = s.policies.findIndex(p => p.policy_id === policyId);
+                if (idx !== -1) {
+                    if (body.name !== undefined) s.policies[idx].name = entry.name;
+                    if (body.description !== undefined) s.policies[idx].description = entry.description;
+                }
+            });
         }
 
-        appendAuditEvent(dataDir, "POLICY_UPDATED", {
+        store.audit.append("POLICY_UPDATED", {
             policy_id: policyId,
             owner_principal_id: session.sub,
         });
@@ -609,7 +596,7 @@ export function registerOwnerRoutes(
                 .ownerSession as SessionClaims;
             const { policyId } = request.params as { policyId: string };
 
-            const state = readState(dataDir);
+            const state = store.state.getState();
             const policyIndex = state.policies.findIndex(
                 (p) => p.policy_id === policyId && p.owner_principal_id === session.sub,
             );
@@ -622,16 +609,18 @@ export function registerOwnerRoutes(
             }
 
             // Require 2FA when deleting a policy
-            const owner = readOwnerFile(dataDir, session.sub);
+            const owner = store.owners.read(session.sub);
             const ok = await verifyTotpForApproval(request, reply, owner, session);
             if (!ok) return;
 
-            deletePolicyFile(dataDir, policyId);
-            state.policies.splice(policyIndex, 1);
-            state.bindings = state.bindings.filter((b) => b.policy_id !== policyId);
-            writeState(dataDir, state);
+            store.policies.delete(policyId);
+            store.state.updateState(s => {
+                const idx = s.policies.findIndex(p => p.policy_id === policyId);
+                if (idx !== -1) s.policies.splice(idx, 1);
+                s.bindings = s.bindings.filter((b) => b.policy_id !== policyId);
+            });
 
-            appendAuditEvent(dataDir, "POLICY_DELETED", {
+            store.audit.append("POLICY_DELETED", {
                 policy_id: policyId,
                 owner_principal_id: session.sub,
             });
@@ -646,7 +635,7 @@ export function registerOwnerRoutes(
     app.post("/v1/owner/totp/setup", { preHandler: ownerAuth }, async (request) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const owner = readOwnerFile(dataDir, session.sub);
+        const owner = store.owners.read(session.sub);
 
         const secret = generateTotpSecret();
         const uri = generateTotpUri(secret, owner.display_name);
@@ -655,7 +644,7 @@ export function registerOwnerRoutes(
         owner.totp_secret_b32 = secret;
         owner.totp_enabled = false;
         owner.totp_backup_codes_hash = hashes;
-        writeOwnerFile(dataDir, owner);
+        store.owners.write(owner);
 
         const qr_svg = generateTotpQrSvg(uri);
 
@@ -668,7 +657,7 @@ export function registerOwnerRoutes(
             .ownerSession as SessionClaims;
         const body = validateBody(request.body, TotpVerifySchema, reply);
         if (!body) return;
-        const owner = readOwnerFile(dataDir, session.sub);
+        const owner = store.owners.read(session.sub);
 
         if (!owner.totp_secret_b32) {
             reply.code(400).send({
@@ -686,9 +675,9 @@ export function registerOwnerRoutes(
 
         owner.totp_enabled = true;
         owner.totp_enabled_at = new Date().toISOString();
-        writeOwnerFile(dataDir, owner);
+        store.owners.write(owner);
 
-        appendAuditEvent(dataDir, "OWNER_TOTP_ENABLED", {
+        store.audit.append("OWNER_TOTP_ENABLED", {
             owner_principal_id: session.sub,
         });
 
@@ -700,7 +689,7 @@ export function registerOwnerRoutes(
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const body = request.body as { code: string };
-        const owner = readOwnerFile(dataDir, session.sub);
+        const owner = store.owners.read(session.sub);
 
         if (!owner.totp_enabled || !owner.totp_secret_b32) {
             reply.code(400).send({
@@ -727,9 +716,9 @@ export function registerOwnerRoutes(
         delete owner.totp_enabled;
         delete owner.totp_enabled_at;
         delete owner.totp_backup_codes_hash;
-        writeOwnerFile(dataDir, owner);
+        store.owners.write(owner);
 
-        appendAuditEvent(dataDir, "OWNER_TOTP_DISABLED", {
+        store.audit.append("OWNER_TOTP_DISABLED", {
             owner_principal_id: session.sub,
         });
 
@@ -784,9 +773,9 @@ export function registerOwnerRoutes(
             const result = verifyBackupCode(code, owner.totp_backup_codes_hash);
             if (result.valid) {
                 owner.totp_backup_codes_hash = result.remainingHashes;
-                writeOwnerFile(dataDir, owner as import("@openleash/core").OwnerFrontmatter);
+                store.owners.write(owner as import("@openleash/core").OwnerFrontmatter);
 
-                appendAuditEvent(dataDir, "OWNER_TOTP_BACKUP_USED", {
+                store.audit.append("OWNER_TOTP_BACKUP_USED", {
                     owner_principal_id: session.sub,
                     remaining_codes: result.remainingHashes.length,
                 });
@@ -808,7 +797,7 @@ export function registerOwnerRoutes(
             .ownerSession as SessionClaims;
         const query = request.query as { status?: string };
 
-        const state = readState(dataDir);
+        const state = store.state.getState();
         let requests = (state.approval_requests ?? []).filter(
             (r) => r.owner_principal_id === session.sub,
         );
@@ -819,7 +808,7 @@ export function registerOwnerRoutes(
 
         const details = requests.map((entry) => {
             try {
-                return readApprovalRequestFile(dataDir, entry.approval_request_id);
+                return store.approvalRequests.read(entry.approval_request_id);
             } catch {
                 return { approval_request_id: entry.approval_request_id, error: "file_not_found" };
             }
@@ -837,7 +826,7 @@ export function registerOwnerRoutes(
                 .ownerSession as SessionClaims;
             const { id } = request.params as { id: string };
 
-            const state = readState(dataDir);
+            const state = store.state.getState();
             const entry = (state.approval_requests ?? []).find(
                 (r) => r.approval_request_id === id && r.owner_principal_id === session.sub,
             );
@@ -850,7 +839,7 @@ export function registerOwnerRoutes(
             }
 
             try {
-                return readApprovalRequestFile(dataDir, id);
+                return store.approvalRequests.read(id);
             } catch {
                 reply.code(404).send({
                     error: { code: "FILE_NOT_FOUND", message: "Approval request file not found" },
@@ -868,7 +857,7 @@ export function registerOwnerRoutes(
                 .ownerSession as SessionClaims;
             const { id } = request.params as { id: string };
 
-            const state = readState(dataDir);
+            const state = store.state.getState();
             const entry = (state.approval_requests ?? []).find(
                 (r) => r.approval_request_id === id && r.owner_principal_id === session.sub,
             );
@@ -881,10 +870,10 @@ export function registerOwnerRoutes(
             }
 
             // TOTP verification
-            const approveOwner = readOwnerFile(dataDir, session.sub);
+            const approveOwner = store.owners.read(session.sub);
             if (!(await verifyTotpForApproval(request, reply, approveOwner, session))) return;
 
-            const req = readApprovalRequestFile(dataDir, id);
+            const req = store.approvalRequests.read(id);
 
             if (req.status !== "PENDING") {
                 reply.code(400).send({
@@ -899,9 +888,13 @@ export function registerOwnerRoutes(
             // Check expiry
             if (new Date(req.expires_at).getTime() < Date.now()) {
                 req.status = "EXPIRED";
-                writeApprovalRequestFile(dataDir, req);
-                entry.status = "EXPIRED";
-                writeState(dataDir, state);
+                store.approvalRequests.write(req);
+                store.state.updateState(s => {
+                    const e = (s.approval_requests ?? []).find(
+                        r => r.approval_request_id === id,
+                    );
+                    if (e) e.status = "EXPIRED";
+                });
 
                 reply.code(400).send({
                     error: { code: "REQUEST_EXPIRED", message: "Approval request has expired" },
@@ -910,7 +903,7 @@ export function registerOwnerRoutes(
             }
 
             // Issue approval token
-            const activeKey = readKeyFile(dataDir, state.server_keys.active_kid);
+            const activeKey = store.keys.read(state.server_keys.active_kid);
             const ttl = config.approval?.token_ttl_seconds ?? 3600;
             const approvalToken = await issueApprovalToken({
                 key: activeKey,
@@ -927,12 +920,16 @@ export function registerOwnerRoutes(
             req.approval_token_expires_at = approvalToken.expiresAt;
             req.resolved_at = new Date().toISOString();
             req.resolved_by = session.sub;
-            writeApprovalRequestFile(dataDir, req);
+            store.approvalRequests.write(req);
 
-            entry.status = "APPROVED";
-            writeState(dataDir, state);
+            store.state.updateState(s => {
+                const e = (s.approval_requests ?? []).find(
+                    r => r.approval_request_id === id,
+                );
+                if (e) e.status = "APPROVED";
+            });
 
-            appendAuditEvent(dataDir, "APPROVAL_REQUEST_APPROVED", {
+            store.audit.append("APPROVAL_REQUEST_APPROVED", {
                 approval_request_id: id,
                 owner_principal_id: session.sub,
                 agent_id: req.agent_id,
@@ -941,7 +938,7 @@ export function registerOwnerRoutes(
             });
 
             // Fire webhook
-            const approveAgent = readAgentFile(dataDir, req.agent_principal_id);
+            const approveAgent = store.agents.read(req.agent_principal_id);
             deliverWebhook({
                 webhookUrl: approveAgent.webhook_url,
                 webhookSecret: approveAgent.webhook_secret,
@@ -958,7 +955,7 @@ export function registerOwnerRoutes(
                         action_type: req.action_type,
                     },
                 },
-                dataDir,
+                auditStore: store.audit,
             });
 
             return {
@@ -981,10 +978,10 @@ export function registerOwnerRoutes(
             const body = request.body as { reason?: string; totp_code?: string } | null;
 
             // TOTP verification
-            const denyOwner = readOwnerFile(dataDir, session.sub);
+            const denyOwner = store.owners.read(session.sub);
             if (!(await verifyTotpForApproval(request, reply, denyOwner, session))) return;
 
-            const state = readState(dataDir);
+            const state = store.state.getState();
             const entry = (state.approval_requests ?? []).find(
                 (r) => r.approval_request_id === id && r.owner_principal_id === session.sub,
             );
@@ -996,7 +993,7 @@ export function registerOwnerRoutes(
                 return;
             }
 
-            const req = readApprovalRequestFile(dataDir, id);
+            const req = store.approvalRequests.read(id);
 
             if (req.status !== "PENDING") {
                 reply.code(400).send({
@@ -1012,12 +1009,16 @@ export function registerOwnerRoutes(
             req.denial_reason = body?.reason ?? null;
             req.resolved_at = new Date().toISOString();
             req.resolved_by = session.sub;
-            writeApprovalRequestFile(dataDir, req);
+            store.approvalRequests.write(req);
 
-            entry.status = "DENIED";
-            writeState(dataDir, state);
+            store.state.updateState(s => {
+                const e = (s.approval_requests ?? []).find(
+                    r => r.approval_request_id === id,
+                );
+                if (e) e.status = "DENIED";
+            });
 
-            appendAuditEvent(dataDir, "APPROVAL_REQUEST_DENIED", {
+            store.audit.append("APPROVAL_REQUEST_DENIED", {
                 approval_request_id: id,
                 owner_principal_id: session.sub,
                 agent_id: req.agent_id,
@@ -1027,7 +1028,7 @@ export function registerOwnerRoutes(
             });
 
             // Fire webhook
-            const denyAgent = readAgentFile(dataDir, req.agent_principal_id);
+            const denyAgent = store.agents.read(req.agent_principal_id);
             deliverWebhook({
                 webhookUrl: denyAgent.webhook_url,
                 webhookSecret: denyAgent.webhook_secret,
@@ -1043,7 +1044,7 @@ export function registerOwnerRoutes(
                         action_type: req.action_type,
                     },
                 },
-                dataDir,
+                auditStore: store.audit,
             });
 
             return {
@@ -1061,7 +1062,7 @@ export function registerOwnerRoutes(
             .ownerSession as SessionClaims;
         const query = request.query as { status?: string };
 
-        const state = readState(dataDir);
+        const state = store.state.getState();
         let drafts = (state.policy_drafts ?? []).filter(
             (d) => d.owner_principal_id === session.sub,
         );
@@ -1072,7 +1073,7 @@ export function registerOwnerRoutes(
 
         const details = drafts.map((entry) => {
             try {
-                return readPolicyDraftFile(dataDir, entry.policy_draft_id);
+                return store.policyDrafts.read(entry.policy_draft_id);
             } catch {
                 return { policy_draft_id: entry.policy_draft_id, error: "file_not_found" };
             }
@@ -1087,7 +1088,7 @@ export function registerOwnerRoutes(
             .ownerSession as SessionClaims;
         const { id } = request.params as { id: string };
 
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const entry = (state.policy_drafts ?? []).find(
             (d) => d.policy_draft_id === id && d.owner_principal_id === session.sub,
         );
@@ -1100,7 +1101,7 @@ export function registerOwnerRoutes(
         }
 
         try {
-            return readPolicyDraftFile(dataDir, id);
+            return store.policyDrafts.read(id);
         } catch {
             reply.code(404).send({
                 error: { code: "FILE_NOT_FOUND", message: "Policy draft file not found" },
@@ -1117,7 +1118,7 @@ export function registerOwnerRoutes(
                 .ownerSession as SessionClaims;
             const { id } = request.params as { id: string };
 
-            const state = readState(dataDir);
+            const state = store.state.getState();
             const entry = (state.policy_drafts ?? []).find(
                 (d) => d.policy_draft_id === id && d.owner_principal_id === session.sub,
             );
@@ -1130,10 +1131,10 @@ export function registerOwnerRoutes(
             }
 
             // TOTP verification
-            const approveOwner = readOwnerFile(dataDir, session.sub);
+            const approveOwner = store.owners.read(session.sub);
             if (!(await verifyTotpForApproval(request, reply, approveOwner, session))) return;
 
-            const draft = readPolicyDraftFile(dataDir, id);
+            const draft = store.policyDrafts.read(id);
 
             if (draft.status !== "PENDING") {
                 reply.code(400).send({
@@ -1157,36 +1158,40 @@ export function registerOwnerRoutes(
 
             // Create the real policy
             const policyId = crypto.randomUUID();
-            writePolicyFile(dataDir, policyId, draft.policy_yaml);
+            store.policies.write(policyId, draft.policy_yaml);
 
             const appliesToAgent = draft.applies_to_agent_principal_id;
-
-            state.policies.push({
-                policy_id: policyId,
-                owner_principal_id: session.sub,
-                applies_to_agent_principal_id: appliesToAgent,
-                name: draft.name ?? null,
-                description: draft.description ?? null,
-                path: `./policies/${policyId}.yaml`,
-            });
-
-            state.bindings.push({
-                owner_principal_id: session.sub,
-                policy_id: policyId,
-                applies_to_agent_principal_id: appliesToAgent,
-            });
 
             // Update the draft
             draft.status = "APPROVED";
             draft.resulting_policy_id = policyId;
             draft.resolved_at = new Date().toISOString();
             draft.resolved_by = session.sub;
-            writePolicyDraftFile(dataDir, draft);
+            store.policyDrafts.write(draft);
 
-            entry.status = "APPROVED";
-            writeState(dataDir, state);
+            store.state.updateState(s => {
+                s.policies.push({
+                    policy_id: policyId,
+                    owner_principal_id: session.sub,
+                    applies_to_agent_principal_id: appliesToAgent,
+                    name: draft.name ?? null,
+                    description: draft.description ?? null,
+                    path: `./policies/${policyId}.yaml`,
+                });
 
-            appendAuditEvent(dataDir, "POLICY_DRAFT_APPROVED", {
+                s.bindings.push({
+                    owner_principal_id: session.sub,
+                    policy_id: policyId,
+                    applies_to_agent_principal_id: appliesToAgent,
+                });
+
+                const draftEntry = (s.policy_drafts ?? []).find(
+                    d => d.policy_draft_id === id,
+                );
+                if (draftEntry) draftEntry.status = "APPROVED";
+            });
+
+            store.audit.append("POLICY_DRAFT_APPROVED", {
                 policy_draft_id: id,
                 policy_id: policyId,
                 owner_principal_id: session.sub,
@@ -1196,7 +1201,7 @@ export function registerOwnerRoutes(
             });
 
             // Fire webhook
-            const policyApproveAgent = readAgentFile(dataDir, draft.agent_principal_id);
+            const policyApproveAgent = store.agents.read(draft.agent_principal_id);
             deliverWebhook({
                 webhookUrl: policyApproveAgent.webhook_url,
                 webhookSecret: policyApproveAgent.webhook_secret,
@@ -1212,7 +1217,7 @@ export function registerOwnerRoutes(
                         applies_to_agent_principal_id: appliesToAgent,
                     },
                 },
-                dataDir,
+                auditStore: store.audit,
             });
 
             return {
@@ -1235,10 +1240,10 @@ export function registerOwnerRoutes(
             const body = request.body as { reason?: string; totp_code?: string } | null;
 
             // TOTP verification
-            const denyOwner = readOwnerFile(dataDir, session.sub);
+            const denyOwner = store.owners.read(session.sub);
             if (!(await verifyTotpForApproval(request, reply, denyOwner, session))) return;
 
-            const state = readState(dataDir);
+            const state = store.state.getState();
             const entry = (state.policy_drafts ?? []).find(
                 (d) => d.policy_draft_id === id && d.owner_principal_id === session.sub,
             );
@@ -1250,7 +1255,7 @@ export function registerOwnerRoutes(
                 return;
             }
 
-            const draft = readPolicyDraftFile(dataDir, id);
+            const draft = store.policyDrafts.read(id);
 
             if (draft.status !== "PENDING") {
                 reply.code(400).send({
@@ -1266,12 +1271,16 @@ export function registerOwnerRoutes(
             draft.denial_reason = body?.reason ?? null;
             draft.resolved_at = new Date().toISOString();
             draft.resolved_by = session.sub;
-            writePolicyDraftFile(dataDir, draft);
+            store.policyDrafts.write(draft);
 
-            entry.status = "DENIED";
-            writeState(dataDir, state);
+            store.state.updateState(s => {
+                const draftEntry = (s.policy_drafts ?? []).find(
+                    d => d.policy_draft_id === id,
+                );
+                if (draftEntry) draftEntry.status = "DENIED";
+            });
 
-            appendAuditEvent(dataDir, "POLICY_DRAFT_DENIED", {
+            store.audit.append("POLICY_DRAFT_DENIED", {
                 policy_draft_id: id,
                 owner_principal_id: session.sub,
                 agent_id: draft.agent_id,
@@ -1281,7 +1290,7 @@ export function registerOwnerRoutes(
             });
 
             // Fire webhook
-            const policyDenyAgent = readAgentFile(dataDir, draft.agent_principal_id);
+            const policyDenyAgent = store.agents.read(draft.agent_principal_id);
             deliverWebhook({
                 webhookUrl: policyDenyAgent.webhook_url,
                 webhookSecret: policyDenyAgent.webhook_secret,
@@ -1296,7 +1305,7 @@ export function registerOwnerRoutes(
                         denial_reason: body?.reason ?? null,
                     },
                 },
-                dataDir,
+                auditStore: store.audit,
             });
 
             return {
@@ -1319,14 +1328,14 @@ export function registerOwnerRoutes(
         const cursor = query.cursor ? Math.max(0, parseInt(query.cursor, 10) || 0) : 0;
 
         // Find this owner's agents for filtering
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const ownerAgentIds = new Set(
             state.agents
                 .filter((a) => a.owner_principal_id === session.sub)
                 .map((a) => a.agent_principal_id),
         );
 
-        const data = auditStore.readByPrincipal(session.sub, ownerAgentIds, limit, cursor);
+        const data = store.audit.readByPrincipal(session.sub, ownerAgentIds, limit, cursor);
         const nextCursor = cursor + limit < data.total ? String(cursor + limit) : null;
 
         return {

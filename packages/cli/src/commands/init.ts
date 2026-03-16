@@ -1,18 +1,11 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import {
-  writeOwnerFile,
-  writeAgentFile,
-  writePolicyFile,
-  readState,
-  writeState,
-  appendAuditEvent,
-} from '@openleash/core';
+import type { DataStore } from '@openleash/core';
 import { bootstrapState } from '@openleash/server';
 import { PROFILES, generatePolicyYaml } from './policy-profiles.js';
 
-export async function initCommand(args: string[]) {
+export async function initCommand(store: DataStore, args: string[]) {
   let ownerName: string | undefined;
   let agentId: string | undefined;
   let outputEnv: string | undefined;
@@ -42,15 +35,14 @@ export async function initCommand(args: string[]) {
   }
 
   const rootDir = process.cwd();
-  const dataDir = path.join(rootDir, 'data');
 
   // 1. Bootstrap state
-  bootstrapState(rootDir);
+  bootstrapState(rootDir, store);
   console.log('State bootstrapped.');
 
   // 2. Create owner
   const ownerId = crypto.randomUUID();
-  writeOwnerFile(dataDir, {
+  store.owners.write({
     owner_principal_id: ownerId,
     principal_type: 'HUMAN',
     display_name: ownerName,
@@ -59,13 +51,13 @@ export async function initCommand(args: string[]) {
     created_at: new Date().toISOString(),
   });
 
-  const state = readState(dataDir);
-  state.owners.push({
-    owner_principal_id: ownerId,
-    path: `./owners/${ownerId}.md`,
+  store.state.updateState((s) => {
+    s.owners.push({
+      owner_principal_id: ownerId,
+      path: `./owners/${ownerId}.md`,
+    });
   });
-  writeState(dataDir, state);
-  appendAuditEvent(dataDir, 'OWNER_CREATED', { owner_principal_id: ownerId, display_name: ownerName });
+  store.audit.append('OWNER_CREATED', { owner_principal_id: ownerId, display_name: ownerName });
   console.log(`Owner created: ${ownerName} (${ownerId})`);
 
   // 3. Generate Ed25519 keypair
@@ -77,7 +69,7 @@ export async function initCommand(args: string[]) {
 
   // 4. Create agent (direct file write — local admin operation, no challenge-response)
   const agentPrincipalId = crypto.randomUUID();
-  writeAgentFile(dataDir, {
+  store.agents.write({
     agent_principal_id: agentPrincipalId,
     agent_id: agentId,
     owner_principal_id: ownerId,
@@ -91,39 +83,39 @@ export async function initCommand(args: string[]) {
     webhook_auth_token: '',
   });
 
-  const stateAfterAgent = readState(dataDir);
-  stateAfterAgent.agents.push({
-    agent_principal_id: agentPrincipalId,
-    agent_id: agentId,
-    owner_principal_id: ownerId,
-    path: `./agents/${agentPrincipalId}.md`,
+  store.state.updateState((s) => {
+    s.agents.push({
+      agent_principal_id: agentPrincipalId,
+      agent_id: agentId,
+      owner_principal_id: ownerId,
+      path: `./agents/${agentPrincipalId}.md`,
+    });
   });
-  writeState(dataDir, stateAfterAgent);
-  appendAuditEvent(dataDir, 'AGENT_REGISTERED', { agent_principal_id: agentPrincipalId, agent_id: agentId });
+  store.audit.append('AGENT_REGISTERED', { agent_principal_id: agentPrincipalId, agent_id: agentId });
   console.log(`Agent created: ${agentId} (${agentPrincipalId})`);
 
   // 5. Generate policy from profile, write and bind
   const policyVars = { ...PROFILES[profileKey] };
   const policyYaml = generatePolicyYaml(policyVars);
   const policyId = crypto.randomUUID();
-  writePolicyFile(dataDir, policyId, policyYaml);
+  store.policies.write(policyId, policyYaml);
 
-  const stateForPolicy = readState(dataDir);
-  stateForPolicy.policies.push({
-    policy_id: policyId,
-    owner_principal_id: ownerId,
-    applies_to_agent_principal_id: null,
-    name: null,
-    description: null,
-    path: `./policies/${policyId}.yaml`,
+  store.state.updateState((s) => {
+    s.policies.push({
+      policy_id: policyId,
+      owner_principal_id: ownerId,
+      applies_to_agent_principal_id: null,
+      name: null,
+      description: null,
+      path: `./policies/${policyId}.yaml`,
+    });
+    s.bindings.push({
+      owner_principal_id: ownerId,
+      policy_id: policyId,
+      applies_to_agent_principal_id: null,
+    });
   });
-  stateForPolicy.bindings.push({
-    owner_principal_id: ownerId,
-    policy_id: policyId,
-    applies_to_agent_principal_id: null,
-  });
-  writeState(dataDir, stateForPolicy);
-  appendAuditEvent(dataDir, 'POLICY_UPSERTED', { policy_id: policyId, profile: profileKey });
+  store.audit.append('POLICY_UPSERTED', { policy_id: policyId, profile: profileKey });
   console.log(`Policy created: ${policyId} (profile: ${profileKey})`);
 
   // 6. Output env vars

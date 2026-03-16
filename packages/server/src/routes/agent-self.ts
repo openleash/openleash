@@ -2,18 +2,12 @@ import * as crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import {
   ActionRequestSchema,
-  readState,
-  writeState,
-  readApprovalRequestFile,
-  writeApprovalRequestFile,
-  readPolicyDraftFile,
-  writePolicyDraftFile,
   parsePolicyYaml,
-  appendAuditEvent,
   computeActionHash,
   NonceCache,
 } from '@openleash/core';
 import type {
+  DataStore,
   OpenleashConfig,
   AgentFrontmatter,
   StateAgentEntry,
@@ -24,11 +18,11 @@ import { createAgentAuth } from '../middleware/agent-auth.js';
 
 export function registerAgentSelfRoutes(
   app: FastifyInstance,
-  dataDir: string,
+  store: DataStore,
   config: OpenleashConfig,
   nonceCache: NonceCache
 ) {
-  const agentAuth = createAgentAuth(config, dataDir, nonceCache);
+  const agentAuth = createAgentAuth(config, store, nonceCache);
 
   // GET /v1/agent/self
   app.get('/v1/agent/self', { preHandler: agentAuth }, async (request) => {
@@ -105,21 +99,21 @@ export function registerAgentSelfRoutes(
       expires_at: expiresAt.toISOString(),
     };
 
-    writeApprovalRequestFile(dataDir, req);
+    store.approvalRequests.write(req);
 
     // Update state
-    const state = readState(dataDir);
-    if (!state.approval_requests) state.approval_requests = [];
-    state.approval_requests.push({
-      approval_request_id: approvalRequestId,
-      owner_principal_id: agentEntry.owner_principal_id,
-      agent_principal_id: agentEntry.agent_principal_id,
-      status: 'PENDING',
-      path: `./approval-requests/${approvalRequestId}.md`,
+    store.state.updateState(s => {
+      if (!s.approval_requests) s.approval_requests = [];
+      s.approval_requests.push({
+        approval_request_id: approvalRequestId,
+        owner_principal_id: agentEntry.owner_principal_id,
+        agent_principal_id: agentEntry.agent_principal_id,
+        status: 'PENDING',
+        path: `./approval-requests/${approvalRequestId}.md`,
+      });
     });
-    writeState(dataDir, state);
 
-    appendAuditEvent(dataDir, 'APPROVAL_REQUEST_CREATED', {
+    store.audit.append('APPROVAL_REQUEST_CREATED', {
       approval_request_id: approvalRequestId,
       agent_id: agent.agent_id,
       agent_principal_id: agentEntry.agent_principal_id,
@@ -145,7 +139,7 @@ export function registerAgentSelfRoutes(
     const agentEntry = (request as unknown as Record<string, unknown>).agentEntry as StateAgentEntry;
     const { id } = request.params as { id: string };
 
-    const state = readState(dataDir);
+    const state = store.state.getState();
     const entry = (state.approval_requests ?? []).find(
       (r) => r.approval_request_id === id && r.agent_principal_id === agentEntry.agent_principal_id
     );
@@ -158,7 +152,7 @@ export function registerAgentSelfRoutes(
     }
 
     try {
-      const req = readApprovalRequestFile(dataDir, id);
+      const req = store.approvalRequests.read(id);
       return {
         approval_request_id: req.approval_request_id,
         status: req.status,
@@ -237,21 +231,21 @@ export function registerAgentSelfRoutes(
       created_at: now.toISOString(),
     };
 
-    writePolicyDraftFile(dataDir, draft);
+    store.policyDrafts.write(draft);
 
     // Update state
-    const state = readState(dataDir);
-    if (!state.policy_drafts) state.policy_drafts = [];
-    state.policy_drafts.push({
-      policy_draft_id: policyDraftId,
-      owner_principal_id: agentEntry.owner_principal_id,
-      agent_principal_id: agentEntry.agent_principal_id,
-      status: 'PENDING',
-      path: `./policy-drafts/${policyDraftId}.md`,
+    store.state.updateState(s => {
+      if (!s.policy_drafts) s.policy_drafts = [];
+      s.policy_drafts.push({
+        policy_draft_id: policyDraftId,
+        owner_principal_id: agentEntry.owner_principal_id,
+        agent_principal_id: agentEntry.agent_principal_id,
+        status: 'PENDING',
+        path: `./policy-drafts/${policyDraftId}.md`,
+      });
     });
-    writeState(dataDir, state);
 
-    appendAuditEvent(dataDir, 'POLICY_DRAFT_CREATED', {
+    store.audit.append('POLICY_DRAFT_CREATED', {
       policy_draft_id: policyDraftId,
       agent_id: agent.agent_id,
       agent_principal_id: agentEntry.agent_principal_id,
@@ -272,7 +266,7 @@ export function registerAgentSelfRoutes(
     const agentEntry = (request as unknown as Record<string, unknown>).agentEntry as StateAgentEntry;
     const query = request.query as { status?: string };
 
-    const state = readState(dataDir);
+    const state = store.state.getState();
     let drafts = (state.policy_drafts ?? [])
       .filter((d) => d.agent_principal_id === agentEntry.agent_principal_id);
 
@@ -282,7 +276,7 @@ export function registerAgentSelfRoutes(
 
     const details = drafts.map((entry) => {
       try {
-        const draft = readPolicyDraftFile(dataDir, entry.policy_draft_id);
+        const draft = store.policyDrafts.read(entry.policy_draft_id);
         return {
           policy_draft_id: draft.policy_draft_id,
           status: draft.status,
@@ -307,7 +301,7 @@ export function registerAgentSelfRoutes(
     const agentEntry = (request as unknown as Record<string, unknown>).agentEntry as StateAgentEntry;
     const { id } = request.params as { id: string };
 
-    const state = readState(dataDir);
+    const state = store.state.getState();
     const entry = (state.policy_drafts ?? []).find(
       (d) => d.policy_draft_id === id && d.agent_principal_id === agentEntry.agent_principal_id
     );
@@ -320,7 +314,7 @@ export function registerAgentSelfRoutes(
     }
 
     try {
-      const draft = readPolicyDraftFile(dataDir, id);
+      const draft = store.policyDrafts.read(id);
       return {
         policy_draft_id: draft.policy_draft_id,
         status: draft.status,

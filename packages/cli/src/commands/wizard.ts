@@ -2,30 +2,23 @@ import * as crypto from 'node:crypto';
 import * as path from 'node:path';
 import prompts from 'prompts';
 import {
-  writeOwnerFile,
-  writeAgentFile,
-  writePolicyFile,
-  readState,
-  writeState,
-  appendAuditEvent,
   evaluate,
   parsePolicyYaml,
 } from '@openleash/core';
-import type { ActionRequest } from '@openleash/core';
+import type { DataStore, ActionRequest } from '@openleash/core';
 import { loadConfig, updateConfigToken, bootstrapState } from '@openleash/server';
 import { PROFILES, generatePolicyYaml } from './policy-profiles.js';
 
-export async function wizardCommand() {
+export async function wizardCommand(store: DataStore) {
   const rootDir = process.cwd();
-  const dataDir = path.join(rootDir, 'data');
 
   // Ensure bootstrapped
-  bootstrapState(rootDir);
+  bootstrapState(rootDir, store);
 
   console.log('\n=== openleash Setup Wizard ===\n');
 
   // Step 1: Owner selection/creation
-  const state = readState(dataDir);
+  const state = store.state.getState();
   let ownerId: string;
 
   const { ownerChoice } = await prompts({
@@ -57,7 +50,7 @@ export async function wizardCommand() {
     });
 
     ownerId = crypto.randomUUID();
-    writeOwnerFile(dataDir, {
+    store.owners.write({
       owner_principal_id: ownerId,
       principal_type: ownerType,
       display_name: displayName,
@@ -66,13 +59,13 @@ export async function wizardCommand() {
       created_at: new Date().toISOString(),
     });
 
-    const updatedState = readState(dataDir);
-    updatedState.owners.push({
-      owner_principal_id: ownerId,
-      path: `./owners/${ownerId}.md`,
+    store.state.updateState((s) => {
+      s.owners.push({
+        owner_principal_id: ownerId,
+        path: `./owners/${ownerId}.md`,
+      });
     });
-    writeState(dataDir, updatedState);
-    appendAuditEvent(dataDir, 'OWNER_CREATED', { owner_principal_id: ownerId, display_name: displayName });
+    store.audit.append('OWNER_CREATED', { owner_principal_id: ownerId, display_name: displayName });
     console.log(`  Owner created: ${ownerId}`);
   } else {
     ownerId = ownerChoice;
@@ -129,7 +122,7 @@ export async function wizardCommand() {
 
   // Create agent
   const agentPrincipalId = crypto.randomUUID();
-  writeAgentFile(dataDir, {
+  store.agents.write({
     agent_principal_id: agentPrincipalId,
     agent_id: agentId,
     owner_principal_id: ownerId,
@@ -143,15 +136,15 @@ export async function wizardCommand() {
     webhook_auth_token: '',
   });
 
-  const stateAfterAgent = readState(dataDir);
-  stateAfterAgent.agents.push({
-    agent_principal_id: agentPrincipalId,
-    agent_id: agentId,
-    owner_principal_id: ownerId,
-    path: `./agents/${agentPrincipalId}.md`,
+  store.state.updateState((s) => {
+    s.agents.push({
+      agent_principal_id: agentPrincipalId,
+      agent_id: agentId,
+      owner_principal_id: ownerId,
+      path: `./agents/${agentPrincipalId}.md`,
+    });
   });
-  writeState(dataDir, stateAfterAgent);
-  appendAuditEvent(dataDir, 'AGENT_REGISTERED', { agent_principal_id: agentPrincipalId, agent_id: agentId });
+  store.audit.append('AGENT_REGISTERED', { agent_principal_id: agentPrincipalId, agent_id: agentId });
   console.log(`  Agent created: ${agentId} (${agentPrincipalId})`);
 
   // Step 3: Choose policy profile
@@ -290,24 +283,24 @@ export async function wizardCommand() {
   // Step 5: Policy generation
   const policyYaml = generatePolicyYaml(policyVars);
   const policyId = crypto.randomUUID();
-  writePolicyFile(dataDir, policyId, policyYaml);
+  store.policies.write(policyId, policyYaml);
 
-  const stateForPolicy = readState(dataDir);
-  stateForPolicy.policies.push({
-    policy_id: policyId,
-    owner_principal_id: ownerId,
-    applies_to_agent_principal_id: null,
-    name: null,
-    description: null,
-    path: `./policies/${policyId}.yaml`,
+  store.state.updateState((s) => {
+    s.policies.push({
+      policy_id: policyId,
+      owner_principal_id: ownerId,
+      applies_to_agent_principal_id: null,
+      name: null,
+      description: null,
+      path: `./policies/${policyId}.yaml`,
+    });
+    s.bindings.push({
+      owner_principal_id: ownerId,
+      policy_id: policyId,
+      applies_to_agent_principal_id: null,
+    });
   });
-  stateForPolicy.bindings.push({
-    owner_principal_id: ownerId,
-    policy_id: policyId,
-    applies_to_agent_principal_id: null,
-  });
-  writeState(dataDir, stateForPolicy);
-  appendAuditEvent(dataDir, 'POLICY_UPSERTED', { policy_id: policyId, profile });
+  store.audit.append('POLICY_UPSERTED', { policy_id: policyId, profile });
   console.log(`\n  Policy created: ${policyId} (profile: ${profile})`);
 
   // Step 6: Demo runs

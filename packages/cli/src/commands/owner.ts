@@ -1,11 +1,6 @@
 import * as crypto from 'node:crypto';
-import * as path from 'node:path';
 import prompts from 'prompts';
 import {
-  readState,
-  readOwnerFile,
-  writeOwnerFile,
-  appendAuditEvent,
   validateGovernmentIdValue,
   validateCompanyIdValue,
   validateOwnerIdentity,
@@ -13,20 +8,19 @@ import {
   EU_PERSONAL_ID_TYPES,
   EuCountryCode,
 } from '@openleash/core';
-import type { OwnerFrontmatter, ContactIdentity, GovernmentId, CompanyId, Signatory } from '@openleash/core';
+import type { DataStore, OwnerFrontmatter, ContactIdentity, GovernmentId, CompanyId, Signatory } from '@openleash/core';
 import { bootstrapState } from '@openleash/server';
 
 const EU_COUNTRIES = EuCountryCode.options;
 
-function getDataDir(): string {
+function ensureBootstrapped(store: DataStore): void {
   const rootDir = process.cwd();
-  bootstrapState(rootDir);
-  return path.join(rootDir, 'data');
+  bootstrapState(rootDir, store);
 }
 
-export async function ownerListCommand() {
-  const dataDir = getDataDir();
-  const state = readState(dataDir);
+export async function ownerListCommand(store: DataStore) {
+  ensureBootstrapped(store);
+  const state = store.state.getState();
   if (state.owners.length === 0) {
     console.log('No owners registered.');
     return;
@@ -35,7 +29,7 @@ export async function ownerListCommand() {
   console.log(`  ${'-'.repeat(38)} ${'-'.repeat(24)} ${'-'.repeat(6)} ${'-'.repeat(10)} ${'-'.repeat(15)}`);
   for (const entry of state.owners) {
     try {
-      const o = readOwnerFile(dataDir, entry.owner_principal_id);
+      const o = store.owners.read(entry.owner_principal_id);
       console.log(`  ${o.owner_principal_id} ${(o.display_name ?? '-').padEnd(24)} ${o.principal_type.padEnd(6)} ${(o.status ?? '-').padEnd(10)} ${o.identity_assurance_level ?? 'NONE'}`);
     } catch {
       console.log(`  ${entry.owner_principal_id} (file not found)`);
@@ -44,14 +38,14 @@ export async function ownerListCommand() {
   console.log();
 }
 
-export async function ownerShowCommand(ownerId: string) {
+export async function ownerShowCommand(store: DataStore, ownerId: string) {
   if (!ownerId) {
     console.log('Usage: openleash owner show <owner-principal-id>');
     return;
   }
-  const dataDir = getDataDir();
+  ensureBootstrapped(store);
   try {
-    const owner = readOwnerFile(dataDir, ownerId);
+    const owner = store.owners.read(ownerId);
     console.log(`\n  Owner: ${owner.display_name}`);
     console.log(`  ID:    ${owner.owner_principal_id}`);
     console.log(`  Type:  ${owner.principal_type}`);
@@ -86,7 +80,7 @@ export async function ownerShowCommand(ownerId: string) {
       for (const s of owner.signatories) {
         let humanName = s.human_owner_principal_id.slice(0, 8) + '...';
         try {
-          const h = readOwnerFile(dataDir, s.human_owner_principal_id);
+          const h = store.owners.read(s.human_owner_principal_id);
           humanName = h.display_name;
         } catch { /* ignore */ }
         console.log(`    ${humanName} — ${s.role} (${s.signing_authority})${s.scope_description ? ` — ${s.scope_description}` : ''}`);
@@ -106,13 +100,13 @@ export async function ownerShowCommand(ownerId: string) {
   }
 }
 
-export async function ownerAddContactCommand(ownerId: string) {
+export async function ownerAddContactCommand(store: DataStore, ownerId: string) {
   if (!ownerId) {
     console.log('Usage: openleash owner add-contact <owner-principal-id>');
     return;
   }
-  const dataDir = getDataDir();
-  const owner = readOwnerFile(dataDir, ownerId);
+  ensureBootstrapped(store);
+  const owner = store.owners.read(ownerId);
 
   const { type } = await prompts({
     type: 'select',
@@ -161,18 +155,18 @@ export async function ownerAddContactCommand(ownerId: string) {
 
   owner.contact_identities = [...(owner.contact_identities ?? []), contact];
   owner.identity_assurance_level = computeAssuranceLevel(owner);
-  writeOwnerFile(dataDir, owner);
-  appendAuditEvent(dataDir, 'OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_contact' });
+  store.owners.write(owner);
+  store.audit.append('OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_contact' });
   console.log(`  Contact added: ${type} ${value}`);
 }
 
-export async function ownerAddGovIdCommand(ownerId: string) {
+export async function ownerAddGovIdCommand(store: DataStore, ownerId: string) {
   if (!ownerId) {
     console.log('Usage: openleash owner add-gov-id <owner-principal-id>');
     return;
   }
-  const dataDir = getDataDir();
-  const owner = readOwnerFile(dataDir, ownerId);
+  ensureBootstrapped(store);
+  const owner = store.owners.read(ownerId);
 
   if (owner.principal_type !== 'HUMAN') {
     console.error('Government IDs are only allowed for HUMAN owners.');
@@ -246,18 +240,18 @@ export async function ownerAddGovIdCommand(ownerId: string) {
 
   owner.government_ids = [...(owner.government_ids ?? []), govId];
   owner.identity_assurance_level = computeAssuranceLevel(owner);
-  writeOwnerFile(dataDir, owner);
-  appendAuditEvent(dataDir, 'OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_government_id', country, id_type: idType });
+  store.owners.write(owner);
+  store.audit.append('OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_government_id', country, id_type: idType });
   console.log(`  Government ID added: ${country}/${idType} [${verificationLevel}]`);
 }
 
-export async function ownerAddCompanyIdCommand(ownerId: string) {
+export async function ownerAddCompanyIdCommand(store: DataStore, ownerId: string) {
   if (!ownerId) {
     console.log('Usage: openleash owner add-company-id <owner-principal-id>');
     return;
   }
-  const dataDir = getDataDir();
-  const owner = readOwnerFile(dataDir, ownerId);
+  ensureBootstrapped(store);
+  const owner = store.owners.read(ownerId);
 
   if (owner.principal_type !== 'ORG') {
     console.error('Company IDs are only allowed for ORG owners.');
@@ -321,27 +315,27 @@ export async function ownerAddCompanyIdCommand(ownerId: string) {
 
   owner.company_ids = [...(owner.company_ids ?? []), companyId];
   owner.identity_assurance_level = computeAssuranceLevel(owner);
-  writeOwnerFile(dataDir, owner);
-  appendAuditEvent(dataDir, 'OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_company_id', id_type: idType });
+  store.owners.write(owner);
+  store.audit.append('OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_company_id', id_type: idType });
   console.log(`  Company ID added: ${idType} [${verificationLevel}]`);
 }
 
-export async function ownerAddSignatoryCommand(ownerId: string) {
+export async function ownerAddSignatoryCommand(store: DataStore, ownerId: string) {
   if (!ownerId) {
     console.log('Usage: openleash owner add-signatory <owner-principal-id>');
     return;
   }
-  const dataDir = getDataDir();
-  const owner = readOwnerFile(dataDir, ownerId);
+  ensureBootstrapped(store);
+  const owner = store.owners.read(ownerId);
 
   if (owner.principal_type !== 'ORG') {
     console.error('Signatories are only allowed for ORG owners.');
     return;
   }
 
-  const state = readState(dataDir);
+  const state = store.state.getState();
   const humanOwners = state.owners
-    .map((o) => { try { return readOwnerFile(dataDir, o.owner_principal_id); } catch { return null; } })
+    .map((o) => { try { return store.owners.read(o.owner_principal_id); } catch { return null; } })
     .filter((o): o is OwnerFrontmatter => o !== null && o.principal_type === 'HUMAN');
 
   if (humanOwners.length === 0) {
@@ -401,21 +395,21 @@ export async function ownerAddSignatoryCommand(ownerId: string) {
   };
 
   owner.signatories = [...(owner.signatories ?? []), signatory];
-  writeOwnerFile(dataDir, owner);
-  appendAuditEvent(dataDir, 'OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_signatory', human_owner_principal_id: humanId, role });
+  store.owners.write(owner);
+  store.audit.append('OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_signatory', human_owner_principal_id: humanId, role });
   console.log(`  Signatory added: ${humanOwners.find((h) => h.owner_principal_id === humanId)?.display_name} as ${role} (${authority})`);
 }
 
-export async function ownerValidateCommand(ownerId: string) {
+export async function ownerValidateCommand(store: DataStore, ownerId: string) {
   if (!ownerId) {
     console.log('Usage: openleash owner validate <owner-principal-id>');
     return;
   }
-  const dataDir = getDataDir();
-  const owner = readOwnerFile(dataDir, ownerId);
+  ensureBootstrapped(store);
+  const owner = store.owners.read(ownerId);
 
   const resolveOwner = (id: string): OwnerFrontmatter | null => {
-    try { return readOwnerFile(dataDir, id); } catch { return null; }
+    try { return store.owners.read(id); } catch { return null; }
   };
 
   const result = validateOwnerIdentity(owner, resolveOwner);

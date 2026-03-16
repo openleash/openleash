@@ -9,15 +9,17 @@ Fastify HTTP server. Depends on `@openleash/core`.
 
 ## Structure
 
-- `server.ts` — `createServer()` sets up Fastify with raw body parsing (needed for signature verification) and registers all route modules.
-- `routes/` — Each file exports a `registerXxxRoutes(app, dataDir, ...)` function. Core endpoint is `authorize.ts` (POST /v1/authorize).
-- `middleware/agent-auth.ts` — Verifies signed requests using X-Timestamp, X-Nonce, X-Signature, X-Body-Sha256 headers. Looked up by X-Agent-Id.
+- `server.ts` — `createServer({ config, dataDir, store })` sets up Fastify with raw body parsing and registers all route modules. Requires a `DataStore` instance.
+- `routes/` — Each file exports a `registerXxxRoutes(app, store, ...)` function. All data access goes through `DataStore`. Core endpoint is `authorize.ts` (POST /v1/authorize).
+- `middleware/agent-auth.ts` — `createAgentAuth(config, store, nonceCache)` — verifies signed requests via store.
+- `middleware/owner-auth.ts` — `createOwnerAuth(config, store)` — PASETO session token verification via store.
 - `middleware/admin-auth.ts` — Bearer token or localhost check for admin routes.
-- `bootstrap.ts` — First-run initialization of the `data/` directory.
+- `bootstrap.ts` — `bootstrapState(rootDir, store?)` — delegates to `store.initialize()` if store provided.
 - `config.ts` — Loads `config.yaml` from project root.
 
 ## Patterns
 
-- Routes receive `dataDir` (path to `./data`) and read state via `@openleash/core` state functions.
+- Routes receive `store: DataStore` and access all data through repository interfaces (`store.state`, `store.owners`, `store.agents`, etc.).
+- State mutations use `store.state.updateState(s => { ... })` for atomic read-modify-write.
 - Raw body is attached to the request object as `rawBody` for signature verification.
 - Error responses follow: `{ error: { code, message, details? } }`.

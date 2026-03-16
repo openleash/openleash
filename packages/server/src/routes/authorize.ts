@@ -2,29 +2,23 @@ import * as crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import {
   ActionRequestSchema,
-  readState,
-  readKeyFile,
-  readPolicyFile,
   parsePolicyYaml,
   evaluate,
   issueProofToken,
-  appendAuditEvent,
   verifyApprovalToken,
-  readApprovalRequestFile,
-  writeApprovalRequestFile,
   computeActionHash,
+  NonceCache,
 } from '@openleash/core';
-import type { OpenleashConfig, StateAgentEntry } from '@openleash/core';
-import { NonceCache } from '@openleash/core';
+import type { OpenleashConfig, StateAgentEntry, DataStore } from '@openleash/core';
 import { createAgentAuth } from '../middleware/agent-auth.js';
 
 export function registerAuthorizeRoutes(
   app: FastifyInstance,
-  dataDir: string,
+  store: DataStore,
   config: OpenleashConfig,
   nonceCache: NonceCache
 ) {
-  const agentAuth = createAgentAuth(config, dataDir, nonceCache);
+  const agentAuth = createAgentAuth(config, store, nonceCache);
 
   app.post('/v1/authorize', { preHandler: agentAuth }, async (request, reply) => {
     // Extract approval_token before Zod validation (it's not part of ActionRequestSchema)
@@ -49,7 +43,7 @@ export function registerAuthorizeRoutes(
     const action = parseResult.data;
     const agentEntry = (request as unknown as Record<string, unknown>).agentEntry as StateAgentEntry;
 
-    appendAuditEvent(dataDir, 'AUTHORIZE_CALLED', {
+    store.audit.append('AUTHORIZE_CALLED', {
       agent_id: action.principal.agent_id,
       agent_principal_id: agentEntry.agent_principal_id,
       owner_principal_id: agentEntry.owner_principal_id,
@@ -64,8 +58,8 @@ export function registerAuthorizeRoutes(
 
     // ─── Approval token path ──────────────────────────────────────────
     if (approvalTokenStr) {
-      const state = readState(dataDir);
-      const keys = state.server_keys.keys.map((k) => readKeyFile(dataDir, k.kid));
+      const state = store.state.getState();
+      const keys = state.server_keys.keys.map((k) => store.keys.read(k.kid));
       const tokenResult = await verifyApprovalToken(approvalTokenStr, keys);
 
       if (!tokenResult.valid || !tokenResult.claims) {
@@ -80,7 +74,7 @@ export function registerAuthorizeRoutes(
       // Load approval request
       let approvalReq;
       try {
-        approvalReq = readApprovalRequestFile(dataDir, claims.approval_request_id);
+        approvalReq = store.approvalRequests.read(claims.approval_request_id);
       } catch {
         reply.code(400).send({
           error: { code: 'APPROVAL_REQUEST_NOT_FOUND', message: 'Approval request not found' },
@@ -122,10 +116,10 @@ export function registerAuthorizeRoutes(
 
       // Mark as consumed
       approvalReq.consumed_at = new Date().toISOString();
-      writeApprovalRequestFile(dataDir, approvalReq);
+      store.approvalRequests.write(approvalReq);
 
       // Issue proof token directly
-      const activeKey = readKeyFile(dataDir, state.server_keys.active_kid);
+      const activeKey = store.keys.read(state.server_keys.active_kid);
       let ttl = config.tokens.default_ttl_seconds;
       if (ttl > config.tokens.max_ttl_seconds) ttl = config.tokens.max_ttl_seconds;
 
@@ -141,7 +135,7 @@ export function registerAuthorizeRoutes(
         ttlSeconds: ttl,
       });
 
-      appendAuditEvent(dataDir, 'APPROVAL_TOKEN_USED', {
+      store.audit.append('APPROVAL_TOKEN_USED', {
         approval_request_id: claims.approval_request_id,
         decision_id: decisionId,
         agent_id: action.principal.agent_id,
@@ -150,7 +144,7 @@ export function registerAuthorizeRoutes(
         action_hash: currentActionHash,
       }, { decision_id: decisionId, action_id: action.action_id, principal_id: agentEntry.agent_principal_id });
 
-      appendAuditEvent(dataDir, 'DECISION_CREATED', {
+      store.audit.append('DECISION_CREATED', {
         decision_id: decisionId,
         result: 'ALLOW',
         matched_rule_id: null,
@@ -179,7 +173,7 @@ export function registerAuthorizeRoutes(
 
     // ─── Standard policy evaluation path ──────────────────────────────
     // Find applicable policy
-    const state = readState(dataDir);
+    const state = store.state.getState();
     const binding = state.bindings.find((b) => {
       // Match by agent or owner
       if (b.applies_to_agent_principal_id === agentEntry.agent_principal_id) return true;
@@ -202,7 +196,7 @@ export function registerAuthorizeRoutes(
       return;
     }
 
-    const policyYaml = readPolicyFile(dataDir, policyEntry.policy_id);
+    const policyYaml = store.policies.read(policyEntry.policy_id);
     const policy = parsePolicyYaml(policyYaml);
 
     // Evaluate
@@ -219,7 +213,7 @@ export function registerAuthorizeRoutes(
         ttl = config.tokens.max_ttl_seconds;
       }
 
-      const activeKey = readKeyFile(dataDir, state.server_keys.active_kid);
+      const activeKey = store.keys.read(state.server_keys.active_kid);
       const proof = await issueProofToken({
         key: activeKey,
         decisionId: response.decision_id,
@@ -235,7 +229,7 @@ export function registerAuthorizeRoutes(
       response.proof_token = proof.token;
       response.proof_expires_at = proof.expiresAt;
 
-      appendAuditEvent(dataDir, 'PROOF_ISSUED', {
+      store.audit.append('PROOF_ISSUED', {
         decision_id: response.decision_id,
         agent_id: action.principal.agent_id,
         action_type: action.action_type,
@@ -246,7 +240,7 @@ export function registerAuthorizeRoutes(
       }, { decision_id: response.decision_id, action_id: action.action_id });
     }
 
-    appendAuditEvent(dataDir, 'DECISION_CREATED', {
+    store.audit.append('DECISION_CREATED', {
       decision_id: response.decision_id,
       result: response.result,
       matched_rule_id: response.matched_rule_id,

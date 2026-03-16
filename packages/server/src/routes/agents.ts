@@ -1,18 +1,11 @@
 import * as crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import {
-  readState,
-  writeState,
-  writeAgentFile,
-  readAgentFile,
-  readAgentInviteFile,
-  writeAgentInviteFile,
-  appendAuditEvent,
   hashPassphrase,
   policyJsonSchema,
   ACTION_TAXONOMY,
 } from '@openleash/core';
-import type { RegistrationChallenge } from '@openleash/core';
+import type { DataStore, RegistrationChallenge } from '@openleash/core';
 
 // In-memory challenge store
 const challenges = new Map<string, RegistrationChallenge>();
@@ -27,7 +20,7 @@ setInterval(() => {
   }
 }, 60_000).unref();
 
-export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
+export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
   // POST /v1/agents/registration-challenge
   app.post('/v1/agents/registration-challenge', async (request, reply) => {
     const body = request.body as {
@@ -60,7 +53,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
 
     challenges.set(challengeId, challenge);
 
-    appendAuditEvent(dataDir, 'AGENT_CHALLENGE_ISSUED', {
+    store.audit.append('AGENT_CHALLENGE_ISSUED', {
       challenge_id: challengeId,
       agent_id: body.agent_id,
       owner_principal_id: body.owner_principal_id ?? null,
@@ -117,9 +110,9 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
 
     // Enforce webhook URL uniqueness
     {
-      const state = readState(dataDir);
+      const state = store.state.getState();
       for (const entry of state.agents) {
-        const existing = readAgentFile(dataDir, entry.agent_principal_id);
+        const existing = store.agents.read(entry.agent_principal_id);
         if (existing.webhook_url === body.webhook_url) {
           reply.code(409).send({
             error: { code: 'WEBHOOK_URL_NOT_UNIQUE', message: 'An agent with this webhook_url already exists' },
@@ -171,7 +164,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
     const agentPrincipalId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
-    writeAgentFile(dataDir, {
+    store.agents.write({
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
       owner_principal_id: body.owner_principal_id,
@@ -186,16 +179,16 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
     });
 
     // Update state.md
-    const state2 = readState(dataDir);
-    state2.agents.push({
-      agent_principal_id: agentPrincipalId,
-      agent_id: body.agent_id,
-      owner_principal_id: body.owner_principal_id,
-      path: `./agents/${agentPrincipalId}.md`,
+    store.state.updateState((s) => {
+      s.agents.push({
+        agent_principal_id: agentPrincipalId,
+        agent_id: body.agent_id,
+        owner_principal_id: body.owner_principal_id,
+        path: `./agents/${agentPrincipalId}.md`,
+      });
     });
-    writeState(dataDir, state2);
 
-    appendAuditEvent(dataDir, 'AGENT_REGISTERED', {
+    store.audit.append('AGENT_REGISTERED', {
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
       owner_principal_id: body.owner_principal_id,
@@ -427,9 +420,9 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
 
     // Enforce webhook URL uniqueness
     {
-      const state = readState(dataDir);
+      const state = store.state.getState();
       for (const entry of state.agents) {
-        const existing = readAgentFile(dataDir, entry.agent_principal_id);
+        const existing = store.agents.read(entry.agent_principal_id);
         if (existing.webhook_url === body.webhook_url) {
           reply.code(409).send({
             error: { code: 'WEBHOOK_URL_NOT_UNIQUE', message: 'An agent with this webhook_url already exists' },
@@ -456,7 +449,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
     // Load invite
     let invite;
     try {
-      invite = readAgentInviteFile(dataDir, inviteId);
+      invite = store.agentInvites.read(inviteId);
     } catch {
       reply.code(404).send({
         error: { code: 'INVITE_NOT_FOUND', message: 'Agent invite not found' },
@@ -491,7 +484,7 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
     const agentPrincipalId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
-    writeAgentFile(dataDir, {
+    store.agents.write({
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
       owner_principal_id: invite.owner_principal_id,
@@ -506,21 +499,21 @@ export function registerAgentRoutes(app: FastifyInstance, dataDir: string) {
     });
 
     // Update state
-    const state = readState(dataDir);
-    state.agents.push({
-      agent_principal_id: agentPrincipalId,
-      agent_id: body.agent_id,
-      owner_principal_id: invite.owner_principal_id,
-      path: `./agents/${agentPrincipalId}.md`,
+    store.state.updateState((s) => {
+      s.agents.push({
+        agent_principal_id: agentPrincipalId,
+        agent_id: body.agent_id,
+        owner_principal_id: invite.owner_principal_id,
+        path: `./agents/${agentPrincipalId}.md`,
+      });
     });
-    writeState(dataDir, state);
 
     // Mark invite as used
     invite.used = true;
     invite.used_at = createdAt;
-    writeAgentInviteFile(dataDir, invite);
+    store.agentInvites.write(invite);
 
-    appendAuditEvent(dataDir, 'AGENT_REGISTERED_VIA_INVITE', {
+    store.audit.append('AGENT_REGISTERED_VIA_INVITE', {
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
       owner_principal_id: invite.owner_principal_id,

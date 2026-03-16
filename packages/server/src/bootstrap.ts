@@ -5,19 +5,24 @@ import {
   writeKeyFile,
   writeState,
 } from '@openleash/core';
-import type { StateData } from '@openleash/core';
+import type { DataStore, StateData } from '@openleash/core';
 import { writeDefaultConfig } from './config.js';
 
-export function bootstrapState(rootDir: string): void {
-  const dataDir = path.join(rootDir, 'data');
-
+export function bootstrapState(rootDir: string, store?: DataStore): void {
   // Ensure config.yaml
   const configPath = path.join(rootDir, 'config.yaml');
   if (!fs.existsSync(configPath)) {
     writeDefaultConfig(rootDir);
   }
 
-  // Ensure ./data directory
+  if (store) {
+    store.initialize();
+    return;
+  }
+
+  // Legacy path (deprecated): manual directory + state bootstrap
+  const dataDir = path.join(rootDir, 'data');
+
   fs.mkdirSync(dataDir, { recursive: true });
   fs.mkdirSync(path.join(dataDir, 'keys'), { recursive: true });
   fs.mkdirSync(path.join(dataDir, 'owners'), { recursive: true });
@@ -26,20 +31,16 @@ export function bootstrapState(rootDir: string): void {
   fs.mkdirSync(path.join(dataDir, 'approval-requests'), { recursive: true });
   fs.mkdirSync(path.join(dataDir, 'invites'), { recursive: true });
 
-  // Ensure audit.log.jsonl
   const auditPath = path.join(dataDir, 'audit.log.jsonl');
   if (!fs.existsSync(auditPath)) {
     fs.writeFileSync(auditPath, '', 'utf-8');
   }
 
-  // Ensure state.md
   const statePath = path.join(dataDir, 'state.md');
   if (!fs.existsSync(statePath)) {
-    // Generate server signing key
     const key = generateSigningKey();
     writeKeyFile(dataDir, key);
 
-    // Write state.md with empty owners/policies/bindings
     const state: StateData = {
       version: 1,
       created_at: new Date().toISOString(),

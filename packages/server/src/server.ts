@@ -2,8 +2,8 @@ import * as path from 'node:path';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import helmet from '@fastify/helmet';
-import { NonceCache, FileAuditStore, StateIndex } from '@openleash/core';
-import type { OpenleashConfig } from '@openleash/core';
+import { NonceCache } from '@openleash/core';
+import type { OpenleashConfig, DataStore } from '@openleash/core';
 import { initManifest } from '@openleash/gui';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerPublicKeysRoutes } from './routes/public-keys.js';
@@ -25,11 +25,12 @@ const GUI_CLIENT_DIR = path.resolve(__dirname, '../../gui/dist/client');
 export interface CreateServerOptions {
   config: OpenleashConfig;
   dataDir: string;
+  store: DataStore;
   openapiSpec?: Record<string, unknown>;
 }
 
 export function createServer(options: CreateServerOptions) {
-  const { config, dataDir, openapiSpec } = options;
+  const { config, dataDir, store, openapiSpec } = options;
 
   const app = Fastify({
     logger: true,
@@ -56,18 +57,16 @@ export function createServer(options: CreateServerOptions) {
   );
 
   const nonceCache = new NonceCache(config.security.nonce_ttl_seconds);
-  const auditStore = new FileAuditStore(dataDir);
-  const stateIndex = new StateIndex(dataDir);
 
   // Register routes
   registerHealthRoutes(app, { hasApiReference: !!openapiSpec });
-  registerPublicKeysRoutes(app, dataDir);
-  registerVerifyProofRoutes(app, dataDir);
-  registerAgentRoutes(app, dataDir);
-  registerAuthorizeRoutes(app, dataDir, config, nonceCache);
-  registerOwnerRoutes(app, dataDir, config, auditStore);
-  registerAgentSelfRoutes(app, dataDir, config, nonceCache);
-  registerAdminRoutes(app, dataDir, config, auditStore);
+  registerPublicKeysRoutes(app, store);
+  registerVerifyProofRoutes(app, store);
+  registerAgentRoutes(app, store);
+  registerAuthorizeRoutes(app, store, config, nonceCache);
+  registerOwnerRoutes(app, store, config);
+  registerAgentSelfRoutes(app, store, config, nonceCache);
+  registerAdminRoutes(app, store, config);
   registerPlaygroundRoutes(app, config);
 
   if (config.gui?.enabled !== false) {
@@ -82,7 +81,7 @@ export function createServer(options: CreateServerOptions) {
       immutable: true,
     });
 
-    registerGuiRoutes(app, dataDir, config, auditStore, stateIndex, { hasApiReference: !!openapiSpec });
+    registerGuiRoutes(app, dataDir, store, config, { hasApiReference: !!openapiSpec });
   }
 
   if (openapiSpec) {

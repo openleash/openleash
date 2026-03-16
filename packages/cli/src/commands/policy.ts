@@ -1,19 +1,12 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import {
-  readState,
-  writeState,
-  readPolicyFile,
-  writePolicyFile,
-  deletePolicyFile,
   validatePolicyYaml,
-  appendAuditEvent,
 } from '@openleash/core';
+import type { DataStore } from '@openleash/core';
 
-export async function policyListCommand() {
-  const dataDir = path.join(process.cwd(), 'data');
-  const state = readState(dataDir);
+export async function policyListCommand(store: DataStore) {
+  const state = store.state.getState();
 
   if (state.policies.length === 0) {
     console.log('No policies found.');
@@ -30,25 +23,24 @@ export async function policyListCommand() {
   }
 }
 
-export async function policyShowCommand(policyId: string) {
+export async function policyShowCommand(store: DataStore, policyId: string) {
   if (!policyId) {
     console.log('Usage: openleash policy show <policy_id>');
     return;
   }
 
-  const dataDir = path.join(process.cwd(), 'data');
-  const state = readState(dataDir);
+  const state = store.state.getState();
   const entry = state.policies.find((p) => p.policy_id === policyId);
   if (!entry) {
     console.error(`Policy not found: ${policyId}`);
     process.exit(1);
   }
 
-  const content = readPolicyFile(dataDir, policyId);
+  const content = store.policies.read(policyId);
   console.log(content);
 }
 
-export async function policyUpsertCommand(args: string[]) {
+export async function policyUpsertCommand(store: DataStore, args: string[]) {
   let ownerPrincipalId: string | undefined;
   let filePath: string | undefined;
   let appliesToAgent: string | null = null;
@@ -79,16 +71,14 @@ export async function policyUpsertCommand(args: string[]) {
     process.exit(1);
   }
 
-  const dataDir = path.join(process.cwd(), 'data');
-  const state = readState(dataDir);
-
   // Check if updating an existing policy
   if (policyId) {
+    const state = store.state.getState();
     const existing = state.policies.find((p) => p.policy_id === policyId);
     if (existing) {
       // Update: overwrite file only, no new binding
-      writePolicyFile(dataDir, policyId, yamlContent);
-      appendAuditEvent(dataDir, 'POLICY_UPDATED', { policy_id: policyId });
+      store.policies.write(policyId, yamlContent);
+      store.audit.append('POLICY_UPDATED', { policy_id: policyId });
       console.log(`Policy updated: ${policyId}`);
       return;
     }
@@ -102,29 +92,30 @@ export async function policyUpsertCommand(args: string[]) {
   }
 
   const newId = policyId ?? crypto.randomUUID();
-  writePolicyFile(dataDir, newId, yamlContent);
+  store.policies.write(newId, yamlContent);
 
-  state.policies.push({
-    policy_id: newId,
-    owner_principal_id: ownerPrincipalId,
-    applies_to_agent_principal_id: appliesToAgent,
-    name: null,
-    description: null,
-    path: `./policies/${newId}.yaml`,
+  store.state.updateState((s) => {
+    s.policies.push({
+      policy_id: newId,
+      owner_principal_id: ownerPrincipalId!,
+      applies_to_agent_principal_id: appliesToAgent,
+      name: null,
+      description: null,
+      path: `./policies/${newId}.yaml`,
+    });
+    s.bindings.push({
+      owner_principal_id: ownerPrincipalId!,
+      policy_id: newId,
+      applies_to_agent_principal_id: appliesToAgent,
+    });
   });
-  state.bindings.push({
-    owner_principal_id: ownerPrincipalId,
-    policy_id: newId,
-    applies_to_agent_principal_id: appliesToAgent,
-  });
-  writeState(dataDir, state);
-  appendAuditEvent(dataDir, 'POLICY_UPSERTED', { policy_id: newId, owner_principal_id: ownerPrincipalId });
+  store.audit.append('POLICY_UPSERTED', { policy_id: newId, owner_principal_id: ownerPrincipalId });
 
   console.log(`Policy created: ${newId}`);
   console.log(`  Path: ./data/policies/${newId}.yaml`);
 }
 
-export async function policyDeleteCommand(args: string[]) {
+export async function policyDeleteCommand(store: DataStore, args: string[]) {
   let policyId: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
@@ -138,9 +129,7 @@ export async function policyDeleteCommand(args: string[]) {
     return;
   }
 
-  const dataDir = path.join(process.cwd(), 'data');
-  const state = readState(dataDir);
-
+  const state = store.state.getState();
   const policyIndex = state.policies.findIndex((p) => p.policy_id === policyId);
   if (policyIndex === -1) {
     console.error(`Policy not found: ${policyId}`);
@@ -148,21 +137,22 @@ export async function policyDeleteCommand(args: string[]) {
   }
 
   // Remove policy file from disk
-  deletePolicyFile(dataDir, policyId);
+  store.policies.delete(policyId);
 
-  // Remove from state.policies
-  state.policies.splice(policyIndex, 1);
-
-  // Remove all bindings referencing this policy
-  state.bindings = state.bindings.filter((b) => b.policy_id !== policyId);
-
-  writeState(dataDir, state);
-  appendAuditEvent(dataDir, 'POLICY_DELETED', { policy_id: policyId });
+  // Remove from state.policies and bindings
+  store.state.updateState((s) => {
+    const idx = s.policies.findIndex((p) => p.policy_id === policyId);
+    if (idx !== -1) {
+      s.policies.splice(idx, 1);
+    }
+    s.bindings = s.bindings.filter((b) => b.policy_id !== policyId);
+  });
+  store.audit.append('POLICY_DELETED', { policy_id: policyId });
 
   console.log(`Policy deleted: ${policyId}`);
 }
 
-export async function policyUnbindCommand(args: string[]) {
+export async function policyUnbindCommand(store: DataStore, args: string[]) {
   let policyId: string | undefined;
   let ownerId: string | undefined;
 
@@ -179,24 +169,24 @@ export async function policyUnbindCommand(args: string[]) {
     return;
   }
 
-  const dataDir = path.join(process.cwd(), 'data');
-  const state = readState(dataDir);
-
+  const state = store.state.getState();
   const before = state.bindings.length;
 
-  if (ownerId) {
-    // Remove only bindings matching policy + owner
-    state.bindings = state.bindings.filter(
-      (b) => !(b.policy_id === policyId && b.owner_principal_id === ownerId)
-    );
-  } else {
-    // Remove all bindings for that policy
-    state.bindings = state.bindings.filter((b) => b.policy_id !== policyId);
-  }
+  store.state.updateState((s) => {
+    if (ownerId) {
+      // Remove only bindings matching policy + owner
+      s.bindings = s.bindings.filter(
+        (b) => !(b.policy_id === policyId && b.owner_principal_id === ownerId)
+      );
+    } else {
+      // Remove all bindings for that policy
+      s.bindings = s.bindings.filter((b) => b.policy_id !== policyId);
+    }
+  });
 
-  const removed = before - state.bindings.length;
-  writeState(dataDir, state);
-  appendAuditEvent(dataDir, 'POLICY_UNBOUND', { policy_id: policyId, owner_principal_id: ownerId ?? null, bindings_removed: removed });
+  const stateAfter = store.state.getState();
+  const removed = before - stateAfter.bindings.length;
+  store.audit.append('POLICY_UNBOUND', { policy_id: policyId, owner_principal_id: ownerId ?? null, bindings_removed: removed });
 
   console.log(`Unbound policy ${policyId}: ${removed} binding(s) removed.`);
 }

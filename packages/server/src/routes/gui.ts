@@ -1,17 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { FastifyInstance } from "fastify";
-import {
-    readState,
-    readOwnerFile,
-    readAgentFile,
-    readPolicyFile,
-    readAuditLog,
-    readApprovalRequestFile,
-    readPolicyDraftFile,
-} from "@openleash/core";
-import type { OpenleashConfig, SessionClaims, AuditStore } from "@openleash/core";
-import { StateIndex } from "@openleash/core";
+import type { OpenleashConfig, SessionClaims, DataStore } from "@openleash/core";
 import {
     renderDashboard,
     renderOwners,
@@ -46,9 +36,8 @@ export interface GuiRoutesOptions {
 export function registerGuiRoutes(
     app: FastifyInstance,
     dataDir: string,
+    store: DataStore,
     config: OpenleashConfig,
-    auditStore: AuditStore,
-    stateIndex: StateIndex,
     options?: GuiRoutesOptions,
 ) {
     const adminAuth = createAdminAuth(config);
@@ -69,7 +58,7 @@ export function registerGuiRoutes(
 
     // Redirect /gui — if no owners, go to setup; otherwise dashboard
     app.get("/gui", async (_request, reply) => {
-        const state = readState(dataDir);
+        const state = store.state.getState();
         if (state.owners.length === 0) {
             reply.redirect("/gui/setup");
             return;
@@ -79,7 +68,7 @@ export function registerGuiRoutes(
 
     // Initial setup page (no auth)
     app.get("/gui/setup", async (_request, reply) => {
-        const state = readState(dataDir);
+        const state = store.state.getState();
         if (state.owners.length > 0) {
             reply.redirect("/gui/dashboard");
             return;
@@ -90,7 +79,7 @@ export function registerGuiRoutes(
 
     // Dashboard
     app.get("/gui/dashboard", { preHandler: adminAuth }, async (_request, reply) => {
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const stateData = {
             version: state.version,
             created_at: state.created_at,
@@ -113,10 +102,10 @@ export function registerGuiRoutes(
 
     // Owners
     app.get("/gui/owners", { preHandler: adminAuth }, async (_request, reply) => {
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const owners = state.owners.map((entry) => {
             try {
-                return readOwnerFile(dataDir, entry.owner_principal_id);
+                return store.owners.read(entry.owner_principal_id);
             } catch {
                 return {
                     owner_principal_id: entry.owner_principal_id,
@@ -135,7 +124,7 @@ export function registerGuiRoutes(
         const activityPageSize = Math.min(Math.max(parseInt(query.activity_page_size || "25", 10) || 25, 1), 100);
         const activityPage = Math.max(parseInt(query.activity_page || "1", 10) || 1, 1);
         const activityOffset = (activityPage - 1) * activityPageSize;
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const entry = state.owners.find((o) => o.owner_principal_id === ownerId);
 
         if (!entry) {
@@ -144,14 +133,14 @@ export function registerGuiRoutes(
         }
 
         try {
-            const owner = readOwnerFile(dataDir, ownerId);
+            const owner = store.owners.read(ownerId);
 
             // Agents belonging to this owner
             const agents = state.agents
                 .filter((a) => a.owner_principal_id === ownerId)
                 .map((a) => {
                     try {
-                        const agent = readAgentFile(dataDir, a.agent_principal_id);
+                        const agent = store.agents.read(a.agent_principal_id);
                         return {
                             agent_id: agent.agent_id,
                             agent_principal_id: agent.agent_principal_id,
@@ -182,7 +171,7 @@ export function registerGuiRoutes(
                     .filter((a) => a.owner_principal_id === ownerId)
                     .map((a) => a.agent_principal_id),
             );
-            const activityResult = auditStore.readByPrincipal(ownerId, ownerAgentIds, activityPageSize, activityOffset);
+            const activityResult = store.audit.readByPrincipal(ownerId, ownerAgentIds, activityPageSize, activityOffset);
 
             // Resolve signatory human owner names for ORG owners
             const linkedHumans: { owner_principal_id: string; display_name: string }[] = [];
@@ -190,7 +179,7 @@ export function registerGuiRoutes(
                 const humanIds = new Set(owner.signatories.map((s) => s.human_owner_principal_id));
                 for (const hid of humanIds) {
                     try {
-                        const h = readOwnerFile(dataDir, hid);
+                        const h = store.owners.read(hid);
                         linkedHumans.push({
                             owner_principal_id: h.owner_principal_id,
                             display_name: h.display_name,
@@ -225,10 +214,10 @@ export function registerGuiRoutes(
 
     // Agents
     app.get("/gui/agents", { preHandler: adminAuth }, async (_request, reply) => {
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const agents = state.agents.map((entry) => {
             try {
-                return readAgentFile(dataDir, entry.agent_principal_id);
+                return store.agents.read(entry.agent_principal_id);
             } catch {
                 return {
                     agent_principal_id: entry.agent_principal_id,
@@ -244,7 +233,7 @@ export function registerGuiRoutes(
         });
         const owners = state.owners.map((entry) => {
             try {
-                const o = readOwnerFile(dataDir, entry.owner_principal_id);
+                const o = store.owners.read(entry.owner_principal_id);
                 return { owner_principal_id: o.owner_principal_id, display_name: o.display_name };
             } catch {
                 return {
@@ -259,10 +248,10 @@ export function registerGuiRoutes(
 
     // Policies list
     app.get("/gui/policies", { preHandler: adminAuth }, async (_request, reply) => {
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const policies = state.policies.map((entry) => {
             try {
-                const yaml = readPolicyFile(dataDir, entry.policy_id);
+                const yaml = store.policies.read(entry.policy_id);
                 return { ...entry, policy_yaml: yaml };
             } catch {
                 return { ...entry, error: "file_not_found" };
@@ -276,7 +265,7 @@ export function registerGuiRoutes(
     // Policy viewer
     app.get("/gui/policies/:policyId", { preHandler: adminAuth }, async (request, reply) => {
         const { policyId } = request.params as { policyId: string };
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const entry = state.policies.find((p) => p.policy_id === policyId);
 
         if (!entry) {
@@ -285,13 +274,13 @@ export function registerGuiRoutes(
         }
 
         try {
-            const yaml = readPolicyFile(dataDir, policyId);
+            const yaml = store.policies.read(policyId);
             const ownerNames = new Map(
                 state.owners.map((o) => {
                     try {
                         return [
                             o.owner_principal_id,
-                            readOwnerFile(dataDir, o.owner_principal_id).display_name,
+                            store.owners.read(o.owner_principal_id).display_name,
                         ] as const;
                     } catch {
                         return [o.owner_principal_id, undefined] as const;
@@ -336,11 +325,11 @@ export function registerGuiRoutes(
 
     // MCP Glove
     app.get("/gui/mcp-glove", { preHandler: adminAuth }, async (_request, reply) => {
-        const state = readState(dataDir);
+        const state = store.state.getState();
 
         const agents = state.agents.map((entry) => {
             try {
-                const agent = readAgentFile(dataDir, entry.agent_principal_id);
+                const agent = store.agents.read(entry.agent_principal_id);
                 return {
                     agent_id: agent.agent_id,
                     display_name: agent.agent_id,
@@ -357,7 +346,7 @@ export function registerGuiRoutes(
 
         const owners = state.owners.map((entry) => {
             try {
-                const o = readOwnerFile(dataDir, entry.owner_principal_id);
+                const o = store.owners.read(entry.owner_principal_id);
                 return { owner_principal_id: o.owner_principal_id, display_name: o.display_name };
             } catch {
                 return {
@@ -367,7 +356,7 @@ export function registerGuiRoutes(
             }
         });
 
-        const auditData = readAuditLog(dataDir, 10000, 0);
+        const auditData = store.audit.readPage(10000, 0);
         const gloveActivity = { total: 0, allow: 0, deny: 0, require_approval: 0 };
         for (const event of auditData.items) {
             const meta = event.metadata_json as Record<string, unknown>;
@@ -397,14 +386,14 @@ export function registerGuiRoutes(
         const pageSize = Math.min(Math.max(parseInt(query.page_size || "25", 10) || 25, 1), 100);
         const page = Math.max(parseInt(query.page || "1", 10) || 1, 1);
         const cursor = (page - 1) * pageSize;
-        const data = auditStore.readPage(pageSize, cursor);
-        const state = readState(dataDir);
+        const data = store.audit.readPage(pageSize, cursor);
+        const state = store.state.getState();
         const ownerNames = new Map(
             state.owners.map((o) => {
                 try {
                     return [
                         o.owner_principal_id,
-                        readOwnerFile(dataDir, o.owner_principal_id).display_name,
+                        store.owners.read(o.owner_principal_id).display_name,
                     ] as const;
                 } catch {
                     return [o.owner_principal_id, undefined] as const;
@@ -432,7 +421,7 @@ export function registerGuiRoutes(
 
     // ─── Owner GUI routes ─────────────────────────────────────────────
 
-    const ownerAuth = createOwnerAuth(config, dataDir);
+    const ownerAuth = createOwnerAuth(config, store);
 
     // Login page (no auth)
     app.get("/gui/owner/login", async (_request, reply) => {
@@ -450,8 +439,8 @@ export function registerGuiRoutes(
     app.get("/gui/owner/dashboard", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const state = readState(dataDir);
-        const owner = readOwnerFile(dataDir, session.sub);
+        const state = store.state.getState();
+        const owner = store.owners.read(session.sub);
 
         const agentCount = state.agents.filter((a) => a.owner_principal_id === session.sub).length;
         const policyCount = state.policies.filter(
@@ -478,12 +467,12 @@ export function registerGuiRoutes(
     app.get("/gui/owner/agents", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const agents = state.agents
             .filter((a) => a.owner_principal_id === session.sub)
             .map((entry) => {
                 try {
-                    const agent = readAgentFile(dataDir, entry.agent_principal_id);
+                    const agent = store.agents.read(entry.agent_principal_id);
                     return {
                         agent_principal_id: agent.agent_principal_id,
                         agent_id: agent.agent_id,
@@ -503,7 +492,7 @@ export function registerGuiRoutes(
                     };
                 }
             });
-        const agentOwner = readOwnerFile(dataDir, session.sub);
+        const agentOwner = store.owners.read(session.sub);
         const html = renderOwnerAgents(agents, {
             totp_enabled: !!agentOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
@@ -515,12 +504,12 @@ export function registerGuiRoutes(
     app.get("/gui/owner/policies", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const state = readState(dataDir);
+        const state = store.state.getState();
         const policies = state.policies
             .filter((p) => p.owner_principal_id === session.sub)
             .map((entry) => {
                 try {
-                    const yaml = readPolicyFile(dataDir, entry.policy_id);
+                    const yaml = store.policies.read(entry.policy_id);
                     return {
                         policy_id: entry.policy_id,
                         applies_to_agent_principal_id: entry.applies_to_agent_principal_id,
@@ -542,7 +531,7 @@ export function registerGuiRoutes(
         );
         const drafts = draftEntries.map((entry) => {
             try {
-                const draft = readPolicyDraftFile(dataDir, entry.policy_draft_id);
+                const draft = store.policyDrafts.read(entry.policy_draft_id);
                 return {
                     policy_draft_id: draft.policy_draft_id,
                     agent_id: draft.agent_id,
@@ -581,7 +570,7 @@ export function registerGuiRoutes(
                 .filter((a) => a.owner_principal_id === session.sub)
                 .map((a) => [a.agent_principal_id, a.agent_id]),
         );
-        const policyOwner = readOwnerFile(dataDir, session.sub);
+        const policyOwner = store.owners.read(session.sub);
         const html = renderOwnerPolicies(policies, drafts, {
             totp_enabled: !!policyOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
@@ -609,7 +598,7 @@ export function registerGuiRoutes(
         const resolvedPageSize = Math.min(Math.max(parseInt(query.resolved_page_size || "25", 10) || 25, 1), 100);
         const resolvedPage = Math.max(parseInt(query.resolved_page || "1", 10) || 1, 1);
 
-        const state = stateIndex.getState();
+        const state = store.state.getState();
         const approvalEntries = (state.approval_requests ?? []).filter(
             (r) => r.owner_principal_id === session.sub,
         );
@@ -619,13 +608,13 @@ export function registerGuiRoutes(
         const pendingOffset = (pendingPage - 1) * pendingPageSize;
         const pendingSlice = pendingEntries.slice(pendingOffset, pendingOffset + pendingPageSize);
 
-        // Resolved: use StateIndex for cached owner→resolved mapping
+        // Resolved: use StateRepository for cached owner->resolved mapping
         const resolvedOffset = (resolvedPage - 1) * resolvedPageSize;
-        const resolvedResult = stateIndex.getResolvedApprovals(session.sub, resolvedPageSize, resolvedOffset);
+        const resolvedResult = store.state.getResolvedApprovals(session.sub, resolvedPageSize, resolvedOffset);
 
         function readEntry(entry: { approval_request_id: string; agent_principal_id: string; status: string }) {
             try {
-                const req = readApprovalRequestFile(dataDir, entry.approval_request_id);
+                const req = store.approvalRequests.read(entry.approval_request_id);
                 return {
                     approval_request_id: req.approval_request_id,
                     agent_id: req.agent_id,
@@ -662,7 +651,7 @@ export function registerGuiRoutes(
             }
         }
 
-        const approvalOwner = readOwnerFile(dataDir, session.sub);
+        const approvalOwner = store.owners.read(session.sub);
         const approvalAgentNames = new Map(
             state.agents
                 .filter((a) => a.owner_principal_id === session.sub)
@@ -688,7 +677,7 @@ export function registerGuiRoutes(
     app.get("/gui/owner/profile", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const owner = readOwnerFile(dataDir, session.sub);
+        const owner = store.owners.read(session.sub);
 
         const html = renderOwnerProfile({
             owner_principal_id: owner.owner_principal_id,
@@ -714,7 +703,7 @@ export function registerGuiRoutes(
         const query = request.query as { page?: string; page_size?: string };
         const pageSize = Math.min(Math.max(parseInt(query.page_size || "25", 10) || 25, 1), 100);
         const page = Math.max(parseInt(query.page || "1", 10) || 1, 1);
-        const state = readState(dataDir);
+        const state = store.state.getState();
 
         const ownerAgentIds = new Set(
             state.agents
@@ -723,10 +712,10 @@ export function registerGuiRoutes(
         );
 
         const offset = (page - 1) * pageSize;
-        const data = auditStore.readByPrincipal(session.sub, ownerAgentIds, pageSize, offset);
+        const data = store.audit.readByPrincipal(session.sub, ownerAgentIds, pageSize, offset);
 
         const ownerNames = new Map([
-            [session.sub, readOwnerFile(dataDir, session.sub).display_name],
+            [session.sub, store.owners.read(session.sub).display_name],
         ]);
         const agentNames = new Map(
             state.agents

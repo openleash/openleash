@@ -1,13 +1,10 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import {
-  readState,
-  readOwnerFile,
   verifySessionToken,
-  readKeyFile,
 } from '@openleash/core';
-import type { OpenleashConfig } from '@openleash/core';
+import type { OpenleashConfig, DataStore } from '@openleash/core';
 
-export function createOwnerAuth(config: OpenleashConfig, dataDir: string) {
+export function createOwnerAuth(config: OpenleashConfig, store: DataStore) {
   return async function ownerAuth(request: FastifyRequest, reply: FastifyReply) {
     const isGuiRequest = request.url.startsWith('/gui/');
 
@@ -44,8 +41,8 @@ export function createOwnerAuth(config: OpenleashConfig, dataDir: string) {
     }
 
     // Load server keys
-    const state = readState(dataDir);
-    const keys = state.server_keys.keys.map((k) => readKeyFile(dataDir, k.kid));
+    const state = store.state.getState();
+    const keys = state.server_keys.keys.map((k) => store.keys.read(k.kid));
 
     // Verify session token
     const result = await verifySessionToken(token, keys);
@@ -61,7 +58,7 @@ export function createOwnerAuth(config: OpenleashConfig, dataDir: string) {
       return;
     }
 
-    const owner = readOwnerFile(dataDir, result.claims.sub);
+    const owner = store.owners.read(result.claims.sub);
     if (owner.status !== 'ACTIVE') {
       deny('OWNER_INACTIVE', 'Owner account is not active');
       return;

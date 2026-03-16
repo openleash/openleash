@@ -18,3 +18,5 @@ export * from './signing.js';
 export * from './taxonomy.js';
 export * from './totp.js';
 export * from './webhook.js';
+export * from './store.js';
+export * from './file-store.js';

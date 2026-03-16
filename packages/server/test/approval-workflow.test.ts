@@ -16,6 +16,7 @@ import {
   hashPassphrase,
   signRequest,
   sha256Hex,
+  createFileDataStore,
 } from '@openleash/core';
 import type { FastifyInstance } from 'fastify';
 
@@ -150,7 +151,8 @@ rules:
     });
     writeState(dataDir, updatedState);
 
-    const { app: server } = createServer({ config, dataDir });
+    const store = createFileDataStore(dataDir);
+    const { app: server } = createServer({ config, dataDir, store });
     app = server;
     await app.ready();
 

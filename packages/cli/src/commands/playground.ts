@@ -4,11 +4,9 @@ import {
   parsePolicyYaml,
   evaluate,
   computeActionHash,
-  readState,
-  readPolicyFile,
-  appendAuditEvent,
   ActionRequestSchema,
 } from '@openleash/core';
+import type { DataStore } from '@openleash/core';
 
 
 function getScenariosDir(): string {
@@ -42,7 +40,7 @@ export async function playgroundListCommand() {
   }
 }
 
-export async function playgroundRunCommand(scenarioName: string, args: string[]) {
+export async function playgroundRunCommand(store: DataStore, scenarioName: string, args: string[]) {
   if (!scenarioName) {
     console.log('Usage: openleash playground run <scenarioName> [--policy <file>] [--policy-id <id>]');
     return;
@@ -78,18 +76,16 @@ export async function playgroundRunCommand(scenarioName: string, args: string[])
   if (policyFile) {
     policyYaml = fs.readFileSync(policyFile, 'utf-8');
   } else if (policyId) {
-    const dataDir = path.join(process.cwd(), 'data');
-    policyYaml = readPolicyFile(dataDir, policyId);
+    policyYaml = store.policies.read(policyId);
   } else {
     // Use first policy from state
-    const dataDir = path.join(process.cwd(), 'data');
-    const state = readState(dataDir);
+    const state = store.state.getState();
     if (state.policies.length === 0) {
       console.error('No policies found. Use --policy <file> or --policy-id <id>.');
       process.exit(1);
     }
     const firstPolicy = state.policies[state.policies.length - 1]; // Use most recent
-    policyYaml = readPolicyFile(dataDir, firstPolicy.policy_id);
+    policyYaml = store.policies.read(firstPolicy.policy_id);
   }
 
   const policy = parsePolicyYaml(policyYaml);
@@ -119,8 +115,7 @@ export async function playgroundRunCommand(scenarioName: string, args: string[])
 
   // Emit audit event
   try {
-    const dataDir = path.join(process.cwd(), 'data');
-    appendAuditEvent(dataDir, 'PLAYGROUND_RUN', {
+    store.audit.append('PLAYGROUND_RUN', {
       scenario: scenarioName,
       result: result.response.result,
     });

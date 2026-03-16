@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { AuditEvent } from './types.js';
 
+/** @deprecated Use `store.audit.append()` instead. */
 export function appendAuditEvent(
   dataDir: string,
   eventType: string,
@@ -28,6 +29,7 @@ export function appendAuditEvent(
   return event;
 }
 
+/** @deprecated Use `store.audit.readPage()` instead. */
 export function readAuditLog(
   dataDir: string,
   limit: number = 50,

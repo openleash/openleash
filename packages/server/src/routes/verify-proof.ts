@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { readState, readKeyFile, verifyProofToken, appendAuditEvent } from '@openleash/core';
+import { verifyProofToken } from '@openleash/core';
+import type { DataStore } from '@openleash/core';
 
-export function registerVerifyProofRoutes(app: FastifyInstance, dataDir: string) {
+export function registerVerifyProofRoutes(app: FastifyInstance, store: DataStore) {
   app.post('/v1/verify-proof', async (request) => {
     const body = request.body as {
       token: string;
@@ -13,8 +14,8 @@ export function registerVerifyProofRoutes(app: FastifyInstance, dataDir: string)
       return { valid: false, reason: 'Missing token' };
     }
 
-    const state = readState(dataDir);
-    const keys = state.server_keys.keys.map((entry) => readKeyFile(dataDir, entry.kid));
+    const state = store.state.getState();
+    const keys = state.server_keys.keys.map((entry) => store.keys.read(entry.kid));
 
     const result = await verifyProofToken(body.token, keys);
 
@@ -30,7 +31,7 @@ export function registerVerifyProofRoutes(app: FastifyInstance, dataDir: string)
       }
     }
 
-    appendAuditEvent(dataDir, 'PROOF_VERIFIED', {
+    store.audit.append('PROOF_VERIFIED', {
       valid: result.valid,
       reason: result.reason,
       decision_id: result.claims?.decision_id ?? null,

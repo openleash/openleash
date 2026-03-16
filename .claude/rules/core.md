@@ -17,9 +17,11 @@ The authorization engine. All other packages depend on this.
 - `tokens.ts` — PASETO v4.public token issuance and verification using Ed25519 keys.
 - `signing.ts` — Ed25519 request signing/verification. Signing input format: `method\npath\ntimestamp\nnonce\nbodySha256`.
 - `canonicalize.ts` — RFC 8785 JSON canonical hashing for action_hash.
-- `state.ts` — File-based state: reads/writes `data/state.md` (YAML frontmatter) and subdirectories.
+- `store.ts` — `DataStore` interface + per-entity repository interfaces. This is the storage abstraction layer — all server/CLI code uses `DataStore`.
+- `file-store.ts` — `FileDataStore` implements `DataStore` for file-based storage. Factory: `createFileDataStore(dataDir)`.
+- `state.ts` — Legacy standalone file I/O functions (all `@deprecated` — use `store.*` instead). `StateIndex` used internally by `FileStateRepository`.
 - `types.ts` — All domain types defined as Zod schemas with inferred TypeScript types. Zod schemas and TS types share the same name (e.g., `DecisionResult` is both).
-- `audit.ts` — Append-only JSONL audit logging to `data/audit.log.jsonl`.
+- `audit.ts` — `AuditStore` interface + `FileAuditStore`. Legacy standalone functions `@deprecated`.
 
 ## Conventions
 

@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify';
-import { readState, readKeyFile } from '@openleash/core';
+import type { DataStore } from '@openleash/core';
 
-export function registerPublicKeysRoutes(app: FastifyInstance, dataDir: string) {
+export function registerPublicKeysRoutes(app: FastifyInstance, store: DataStore) {
   app.get('/v1/public-keys', async () => {
-    const state = readState(dataDir);
+    const state = store.state.getState();
     const keys = state.server_keys.keys.map((entry) => {
-      const key = readKeyFile(dataDir, entry.kid);
+      const key = store.keys.read(entry.kid);
       return {
         kid: key.kid,
         kty: 'OKP',

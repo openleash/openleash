@@ -15,12 +15,14 @@ import type {
 const STATE_HEADER = '# openleash state\n\n```yaml\n';
 const STATE_FOOTER = '```\n';
 
+/** @deprecated Use `store.state.getState()` instead. */
 export function readState(dataDir: string): StateData {
   const filePath = path.join(dataDir, 'state.md');
   const content = fs.readFileSync(filePath, 'utf-8');
   return parseStateMd(content);
 }
 
+/** @deprecated Use `store.state.updateState()` instead. */
 export function writeState(dataDir: string, state: StateData): void {
   const filePath = path.join(dataDir, 'state.md');
   const yamlStr = stringifyYaml(state, { lineWidth: 0 });
@@ -36,6 +38,7 @@ export function parseStateMd(content: string): StateData {
   return parseYaml(yamlMatch[1]) as StateData;
 }
 
+/** @deprecated Use `store.owners.write()` instead. */
 export function writeOwnerFile(
   dataDir: string,
   owner: OwnerFrontmatter,
@@ -49,12 +52,14 @@ export function writeOwnerFile(
   fs.writeFileSync(filePath, content, 'utf-8');
 }
 
+/** @deprecated Use `store.owners.read()` instead. */
 export function readOwnerFile(dataDir: string, ownerPrincipalId: string): OwnerFrontmatter {
   const filePath = path.join(dataDir, 'owners', `${ownerPrincipalId}.md`);
   const content = fs.readFileSync(filePath, 'utf-8');
   return parseFrontmatter(content) as unknown as OwnerFrontmatter;
 }
 
+/** @deprecated Use `store.agents.write()` instead. */
 export function writeAgentFile(
   dataDir: string,
   agent: AgentFrontmatter,
@@ -68,12 +73,14 @@ export function writeAgentFile(
   fs.writeFileSync(filePath, content, 'utf-8');
 }
 
+/** @deprecated Use `store.agents.read()` instead. */
 export function readAgentFile(dataDir: string, agentPrincipalId: string): AgentFrontmatter {
   const filePath = path.join(dataDir, 'agents', `${agentPrincipalId}.md`);
   const content = fs.readFileSync(filePath, 'utf-8');
   return parseFrontmatter(content) as unknown as AgentFrontmatter;
 }
 
+/** @deprecated Use `store.policies.write()` instead. */
 export function writePolicyFile(dataDir: string, policyId: string, yamlContent: string): void {
   const policiesDir = path.join(dataDir, 'policies');
   fs.mkdirSync(policiesDir, { recursive: true });
@@ -81,6 +88,7 @@ export function writePolicyFile(dataDir: string, policyId: string, yamlContent: 
   fs.writeFileSync(filePath, yamlContent, 'utf-8');
 }
 
+/** @deprecated Use `store.policies.read()` instead. */
 export function readPolicyFile(dataDir: string, policyId: string): string {
   const filePath = path.join(dataDir, 'policies', `${policyId}.yaml`);
   return fs.readFileSync(filePath, 'utf-8');
@@ -94,6 +102,7 @@ function parseFrontmatter(content: string): Record<string, unknown> {
   return parseYaml(match[1]) as Record<string, unknown>;
 }
 
+/** @deprecated Use `store.policies.delete()` instead. */
 export function deletePolicyFile(dataDir: string, policyId: string): void {
   const filePath = path.join(dataDir, "policies", `${policyId}.yaml`);
   if (fs.existsSync(filePath)) {
@@ -103,6 +112,7 @@ export function deletePolicyFile(dataDir: string, policyId: string): void {
 
 // ─── Approval request files ─────────────────────────────────────────
 
+/** @deprecated Use `store.approvalRequests.write()` instead. */
 export function writeApprovalRequestFile(
   dataDir: string,
   req: ApprovalRequestFrontmatter
@@ -115,6 +125,7 @@ export function writeApprovalRequestFile(
   fs.writeFileSync(filePath, content, 'utf-8');
 }
 
+/** @deprecated Use `store.approvalRequests.read()` instead. */
 export function readApprovalRequestFile(
   dataDir: string,
   approvalRequestId: string
@@ -126,6 +137,7 @@ export function readApprovalRequestFile(
 
 // ─── Policy draft files ─────────────────────────────────────────────
 
+/** @deprecated Use `store.policyDrafts.write()` instead. */
 export function writePolicyDraftFile(
   dataDir: string,
   draft: PolicyDraftFrontmatter
@@ -138,6 +150,7 @@ export function writePolicyDraftFile(
   fs.writeFileSync(filePath, content, 'utf-8');
 }
 
+/** @deprecated Use `store.policyDrafts.read()` instead. */
 export function readPolicyDraftFile(
   dataDir: string,
   policyDraftId: string
@@ -149,6 +162,7 @@ export function readPolicyDraftFile(
 
 // ─── Setup invite files ─────────────────────────────────────────────
 
+/** @deprecated Use `store.setupInvites.write()` instead. */
 export function writeSetupInviteFile(dataDir: string, invite: SetupInvite): void {
   const dir = path.join(dataDir, 'invites');
   fs.mkdirSync(dir, { recursive: true });
@@ -156,11 +170,13 @@ export function writeSetupInviteFile(dataDir: string, invite: SetupInvite): void
   fs.writeFileSync(filePath, JSON.stringify(invite, null, 2), 'utf-8');
 }
 
+/** @deprecated Use `store.setupInvites.read()` instead. */
 export function readSetupInviteFile(dataDir: string, inviteId: string): SetupInvite {
   const filePath = path.join(dataDir, 'invites', `${inviteId}.json`);
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
 }
 
+/** @deprecated Use `store.setupInvites.delete()` instead. */
 export function deleteSetupInviteFile(dataDir: string, inviteId: string): void {
   const filePath = path.join(dataDir, 'invites', `${inviteId}.json`);
   if (fs.existsSync(filePath)) {
@@ -170,6 +186,7 @@ export function deleteSetupInviteFile(dataDir: string, inviteId: string): void {
 
 // ─── Agent invite files ────────────────────────────────────────────
 
+/** @deprecated Use `store.agentInvites.write()` instead. */
 export function writeAgentInviteFile(dataDir: string, invite: AgentInvite): void {
   const dir = path.join(dataDir, 'agent-invites');
   fs.mkdirSync(dir, { recursive: true });
@@ -177,6 +194,7 @@ export function writeAgentInviteFile(dataDir: string, invite: AgentInvite): void
   fs.writeFileSync(filePath, JSON.stringify(invite, null, 2), 'utf-8');
 }
 
+/** @deprecated Use `store.agentInvites.read()` instead. */
 export function readAgentInviteFile(dataDir: string, inviteId: string): AgentInvite {
   const filePath = path.join(dataDir, 'agent-invites', `${inviteId}.json`);
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));

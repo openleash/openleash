@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createServer } from '../src/server.js';
 import { loadConfig } from '../src/config.js';
 import { bootstrapState } from '../src/bootstrap.js';
-import { readState, writeState, writeOwnerFile, writePolicyFile } from '@openleash/core';
+import { readState, writeState, writeOwnerFile, writePolicyFile, createFileDataStore } from '@openleash/core';
 import type { FastifyInstance } from 'fastify';
 
 describe('GUI routes', () => {
@@ -59,7 +59,8 @@ describe('GUI routes', () => {
     });
     writeState(dataDir, state);
 
-    const { app: server } = createServer({ config, dataDir });
+    const store = createFileDataStore(dataDir);
+    const { app: server } = createServer({ config, dataDir, store });
     app = server;
     await app.ready();
   });
@@ -145,7 +146,8 @@ describe('GUI disabled', () => {
     const config = loadConfig(rootDir);
     config.gui = { enabled: false };
 
-    const { app: server } = createServer({ config, dataDir });
+    const store = createFileDataStore(dataDir);
+    const { app: server } = createServer({ config, dataDir, store });
     app = server;
     await app.ready();
   });
@@ -204,7 +206,8 @@ describe('admin API - new endpoints', () => {
     });
     writeState(dataDir, state);
 
-    const { app: server } = createServer({ config, dataDir });
+    const store = createFileDataStore(dataDir);
+    const { app: server } = createServer({ config, dataDir, store });
     app = server;
     await app.ready();
   });
@@ -285,7 +288,8 @@ describe('initial setup flow', () => {
     bootstrapState(rootDir);
     const config = loadConfig(rootDir);
 
-    const { app: server } = createServer({ config, dataDir });
+    const store = createFileDataStore(dataDir);
+    const { app: server } = createServer({ config, dataDir, store });
     app = server;
     await app.ready();
   });

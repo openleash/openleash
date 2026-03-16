@@ -1,20 +1,11 @@
-import * as path from 'node:path';
-import {
-  readState,
-  writeState,
-  readKeyFile,
-  generateSigningKey,
-  writeKeyFile,
-  appendAuditEvent,
-} from '@openleash/core';
+import type { DataStore } from '@openleash/core';
 
-export async function keysListCommand() {
-  const dataDir = path.join(process.cwd(), 'data');
-  const state = readState(dataDir);
+export async function keysListCommand(store: DataStore) {
+  const state = store.state.getState();
 
   console.log('Signing Keys:\n');
   for (const entry of state.server_keys.keys) {
-    const key = readKeyFile(dataDir, entry.kid);
+    const key = store.keys.read(entry.kid);
     const isActive = entry.kid === state.server_keys.active_kid;
     console.log(`  KID:        ${key.kid}${isActive ? ' (ACTIVE)' : ''}`);
     console.log(`  Public Key: ${key.public_key_b64}`);
@@ -24,21 +15,19 @@ export async function keysListCommand() {
   }
 }
 
-export async function keysRotateCommand() {
-  const dataDir = path.join(process.cwd(), 'data');
-  const state = readState(dataDir);
+export async function keysRotateCommand(store: DataStore) {
+  const newKey = store.keys.generate();
+  store.keys.write(newKey);
 
-  const newKey = generateSigningKey();
-  writeKeyFile(dataDir, newKey);
-
-  state.server_keys.keys.push({
-    kid: newKey.kid,
-    path: `./keys/${newKey.kid}.json`,
+  store.state.updateState((s) => {
+    s.server_keys.keys.push({
+      kid: newKey.kid,
+      path: `./keys/${newKey.kid}.json`,
+    });
+    s.server_keys.active_kid = newKey.kid;
   });
-  state.server_keys.active_kid = newKey.kid;
-  writeState(dataDir, state);
 
-  appendAuditEvent(dataDir, 'KEY_ROTATED', {
+  store.audit.append('KEY_ROTATED', {
     new_kid: newKey.kid,
   });
 

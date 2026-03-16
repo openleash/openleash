@@ -15,6 +15,7 @@ import {
   readPolicyFile,
   hashPassphrase,
   sha256Hex,
+  createFileDataStore,
 } from '@openleash/core';
 import type { FastifyInstance } from 'fastify';
 
@@ -123,7 +124,8 @@ describe('policy draft workflow', () => {
     });
     writeState(dataDir, updatedState);
 
-    const { app: server } = createServer({ config, dataDir });
+    const store = createFileDataStore(dataDir);
+    const { app: server } = createServer({ config, dataDir, store });
     app = server;
     await app.ready();
 

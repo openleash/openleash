@@ -19,6 +19,7 @@ export function generateSigningKey(): ServerKeyFile {
   };
 }
 
+/** @deprecated Use `store.keys.write()` instead. */
 export function writeKeyFile(dataDir: string, key: ServerKeyFile): void {
   const keysDir = path.join(dataDir, 'keys');
   fs.mkdirSync(keysDir, { recursive: true });
@@ -26,6 +27,7 @@ export function writeKeyFile(dataDir: string, key: ServerKeyFile): void {
   fs.writeFileSync(filePath, JSON.stringify(key, null, 2), 'utf-8');
 }
 
+/** @deprecated Use `store.keys.read()` instead. */
 export function readKeyFile(dataDir: string, kid: string): ServerKeyFile {
   const filePath = path.join(dataDir, 'keys', `${kid}.json`);
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import * as path from 'node:path';
+import { createFileDataStore } from '@openleash/core';
 import { startCommand } from './commands/start.js';
 import { wizardCommand } from './commands/wizard.js';
 import { initCommand } from './commands/init.js';
@@ -21,37 +23,40 @@ const args = process.argv.slice(2);
 const command = args[0];
 const subcommand = args[1];
 
+const dataDir = path.join(process.cwd(), 'data');
+const store = createFileDataStore(dataDir);
+
 async function main() {
   try {
     switch (command) {
       case 'start':
-        await startCommand();
+        await startCommand(store);
         break;
       case 'wizard':
-        await wizardCommand();
+        await wizardCommand(store);
         break;
       case 'init':
-        await initCommand(args.slice(1));
+        await initCommand(store, args.slice(1));
         break;
       case 'policy':
         switch (subcommand) {
           case 'list':
-            await policyListCommand();
+            await policyListCommand(store);
             break;
           case 'show':
-            await policyShowCommand(args[2]);
+            await policyShowCommand(store, args[2]);
             break;
           case 'upsert':
-            await policyUpsertCommand(args.slice(2));
+            await policyUpsertCommand(store, args.slice(2));
             break;
           case 'validate':
             await policyValidateCommand(args.slice(2));
             break;
           case 'delete':
-            await policyDeleteCommand(args.slice(2));
+            await policyDeleteCommand(store, args.slice(2));
             break;
           case 'unbind':
-            await policyUnbindCommand(args.slice(2));
+            await policyUnbindCommand(store, args.slice(2));
             break;
           default:
             console.log('Usage: openleash policy <list|show|upsert|validate|delete|unbind>');
@@ -63,7 +68,7 @@ async function main() {
             await playgroundListCommand();
             break;
           case 'run':
-            await playgroundRunCommand(args[2], args.slice(3));
+            await playgroundRunCommand(store, args[2], args.slice(3));
             break;
           default:
             console.log('Usage: openleash playground <list|run>');
@@ -72,10 +77,10 @@ async function main() {
       case 'keys':
         switch (subcommand) {
           case 'list':
-            await keysListCommand();
+            await keysListCommand(store);
             break;
           case 'rotate':
-            await keysRotateCommand();
+            await keysRotateCommand(store);
             break;
           default:
             console.log('Usage: openleash keys <list|rotate>');
@@ -84,25 +89,25 @@ async function main() {
       case 'owner':
         switch (subcommand) {
           case 'list':
-            await ownerListCommand();
+            await ownerListCommand(store);
             break;
           case 'show':
-            await ownerShowCommand(args[2]);
+            await ownerShowCommand(store, args[2]);
             break;
           case 'add-contact':
-            await ownerAddContactCommand(args[2]);
+            await ownerAddContactCommand(store, args[2]);
             break;
           case 'add-gov-id':
-            await ownerAddGovIdCommand(args[2]);
+            await ownerAddGovIdCommand(store, args[2]);
             break;
           case 'add-company-id':
-            await ownerAddCompanyIdCommand(args[2]);
+            await ownerAddCompanyIdCommand(store, args[2]);
             break;
           case 'add-signatory':
-            await ownerAddSignatoryCommand(args[2]);
+            await ownerAddSignatoryCommand(store, args[2]);
             break;
           case 'validate':
-            await ownerValidateCommand(args[2]);
+            await ownerValidateCommand(store, args[2]);
             break;
           default:
             console.log('Usage: openleash owner <list|show|add-contact|add-gov-id|add-company-id|add-signatory|validate>');

@@ -2,14 +2,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { createServer, loadConfig, bootstrapState } from '@openleash/server';
-import { appendAuditEvent } from '@openleash/core';
+import type { DataStore } from '@openleash/core';
 
-export async function startCommand() {
+export async function startCommand(store: DataStore) {
   const rootDir = process.cwd();
   const dataDir = path.join(rootDir, 'data');
 
   // Bootstrap
-  bootstrapState(rootDir);
+  bootstrapState(rootDir, store);
   const config = loadConfig(rootDir);
 
   // Parse --gui / --no-gui flags
@@ -33,9 +33,9 @@ export async function startCommand() {
   const [host, portStr] = config.server.bind_address.split(':');
   const port = parseInt(portStr, 10);
 
-  const { app } = createServer({ config, dataDir, openapiSpec });
+  const { app } = createServer({ config, dataDir, store, openapiSpec });
 
-  appendAuditEvent(dataDir, 'SERVER_STARTED', {
+  store.audit.append('SERVER_STARTED', {
     bind_address: config.server.bind_address,
   });
 

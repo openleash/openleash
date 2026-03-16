@@ -1,5 +1,6 @@
 import * as crypto from 'node:crypto';
 import { appendAuditEvent } from './audit.js';
+import type { AuditStore } from './audit.js';
 
 export interface WebhookPayload {
   event_type:
@@ -12,6 +13,15 @@ export interface WebhookPayload {
   data: Record<string, unknown>;
 }
 
+function safeAuditStore(auditStore: AuditStore, eventType: string, metadata: Record<string, unknown>): void {
+  try {
+    auditStore.append(eventType, metadata);
+  } catch {
+    // Audit store may no longer be available (e.g. tests cleaned up)
+  }
+}
+
+/** @deprecated Use the overload that accepts `auditStore` instead of `dataDir`. */
 function safeAudit(dataDir: string, eventType: string, metadata: Record<string, unknown>): void {
   try {
     appendAuditEvent(dataDir, eventType, metadata);
@@ -25,10 +35,28 @@ export function deliverWebhook(params: {
   webhookSecret: string;
   webhookAuthToken: string;
   payload: WebhookPayload;
+  auditStore: AuditStore;
+  timeoutMs?: number;
+}): void;
+/** @deprecated Use the overload that accepts `auditStore` instead of `dataDir`. */
+export function deliverWebhook(params: {
+  webhookUrl: string;
+  webhookSecret: string;
+  webhookAuthToken: string;
+  payload: WebhookPayload;
   dataDir: string;
   timeoutMs?: number;
+}): void;
+export function deliverWebhook(params: {
+  webhookUrl: string;
+  webhookSecret: string;
+  webhookAuthToken: string;
+  payload: WebhookPayload;
+  auditStore?: AuditStore;
+  dataDir?: string;
+  timeoutMs?: number;
 }): void {
-  const { webhookUrl, webhookSecret, webhookAuthToken, payload, dataDir, timeoutMs = 10_000 } = params;
+  const { webhookUrl, webhookSecret, webhookAuthToken, payload, auditStore, dataDir, timeoutMs = 10_000 } = params;
   if (!webhookUrl) return;
   const body = JSON.stringify(payload);
   const signature = crypto
@@ -38,6 +66,14 @@ export function deliverWebhook(params: {
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const audit = (eventType: string, metadata: Record<string, unknown>) => {
+    if (auditStore) {
+      safeAuditStore(auditStore, eventType, metadata);
+    } else if (dataDir) {
+      safeAudit(dataDir, eventType, metadata);
+    }
+  };
 
   fetch(webhookUrl, {
     method: 'POST',
@@ -52,14 +88,14 @@ export function deliverWebhook(params: {
     .then((res) => {
       clearTimeout(timer);
       if (res.ok) {
-        safeAudit(dataDir, 'WEBHOOK_DELIVERED', {
+        audit('WEBHOOK_DELIVERED', {
           webhook_url: webhookUrl,
           event_type: payload.event_type,
           agent_principal_id: payload.agent_principal_id,
           status_code: res.status,
         });
       } else {
-        safeAudit(dataDir, 'WEBHOOK_DELIVERY_FAILED', {
+        audit('WEBHOOK_DELIVERY_FAILED', {
           webhook_url: webhookUrl,
           event_type: payload.event_type,
           agent_principal_id: payload.agent_principal_id,
@@ -69,7 +105,7 @@ export function deliverWebhook(params: {
     })
     .catch((err: unknown) => {
       clearTimeout(timer);
-      safeAudit(dataDir, 'WEBHOOK_DELIVERY_FAILED', {
+      audit('WEBHOOK_DELIVERY_FAILED', {
         webhook_url: webhookUrl,
         event_type: payload.event_type,
         agent_principal_id: payload.agent_principal_id,
