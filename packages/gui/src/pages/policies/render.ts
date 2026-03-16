@@ -1,31 +1,38 @@
-import { renderPage, escapeHtml, formatNameWithId, copyableId, infoIcon, INFO_DECISIONS, INFO_OBLIGATIONS } from '../../shared/layout.js';
-import { assetTags } from '../../shared/manifest.js';
-
+import {
+    renderPage,
+    escapeHtml,
+    formatNameWithId,
+    copyableId,
+    infoIcon,
+    INFO_DECISIONS,
+    INFO_OBLIGATIONS,
+} from "../../shared/layout.js";
+import { assetTags } from "../../shared/manifest.js";
 
 export interface PolicyListEntry {
-  policy_id: string;
-  owner_principal_id: string;
-  applies_to_agent_principal_id: string | null;
-  name: string | null;
-  description: string | null;
-  policy_yaml?: string;
-  error?: string;
+    policy_id: string;
+    owner_principal_id: string;
+    applies_to_agent_principal_id: string | null;
+    name: string | null;
+    description: string | null;
+    policy_yaml?: string;
+    error?: string;
 }
 
 export interface BindingEntry {
-  owner_principal_id: string;
-  policy_id: string;
-  applies_to_agent_principal_id: string | null;
+    owner_principal_id: string;
+    policy_id: string;
+    applies_to_agent_principal_id: string | null;
 }
 
 export function renderPolicies(policies: PolicyListEntry[]): string {
-  const rows = policies.map((p) => {
-    const descLine = p.description ? `<div class="policies-description">${escapeHtml(p.description)}</div>` : '';
-    return `
+    console.log(policies);
+    const rows = policies
+        .map((p) => {
+            return `
     <tr>
       <td>
-        ${p.name ? `<a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)}</a>` : ''}
-        ${descLine}
+        ${p.name ? `<a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)}</a>` : ""}
         <div class="policies-copyable-wrap"><a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a></div>
       </td>
       <td>${copyableId(p.owner_principal_id)}</td>
@@ -34,9 +41,10 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
         <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="btn btn-secondary btn-sm">View</a>
       </td>
     </tr>`;
-  }).join('');
+        })
+        .join("");
 
-  const emptyState = `
+    const emptyState = `
     <div class="card empty-state">
       <div class="material-symbols-outlined">policy</div>
       <div class="empty-state-title">No Policies Yet</div>
@@ -64,11 +72,11 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
           <p class="detail-text">
             Each policy has a <span class="mono policies-mono-sm">default</span> decision (allow or deny) and a list of
             <span class="mono policies-mono-sm">rules</span>. Rules match on action types and can include constraints
-            (e.g. amount limits, time windows) and obligations${infoIcon('policy-obligations', INFO_OBLIGATIONS)} (e.g. require human approval).
+            (e.g. amount limits, time windows) and obligations${infoIcon("policy-obligations", INFO_OBLIGATIONS)} (e.g. require human approval).
           </p>
         </div>
         <div>
-          <div class="detail-title">Decisions${infoIcon('policy-decisions', INFO_DECISIONS)}</div>
+          <div class="detail-title">Decisions${infoIcon("policy-decisions", INFO_DECISIONS)}</div>
           <p class="detail-text">
             Rules evaluate to one of five decisions:
             <span class="badge badge-green">ALLOW</span>
@@ -96,13 +104,16 @@ rules:
     </div>
   `;
 
-  const content = `
+    const content = `
     <div class="page-header">
       <h2>Policies</h2>
-      <p>${policies.length} configured polic${policies.length !== 1 ? 'ies' : 'y'}</p>
+      <p>${policies.length} configured polic${policies.length !== 1 ? "ies" : "y"}</p>
     </div>
 
-    ${policies.length === 0 ? emptyState : `
+    ${
+        policies.length === 0
+            ? emptyState
+            : `
     <div class="card">
       <table>
         <colgroup><col><col style="width:290px"><col style="width:290px"><col style="width:100px"></colgroup>
@@ -119,40 +130,49 @@ rules:
         </tbody>
       </table>
     </div>
-    `}
+    `
+    }
 
     ${assetTags("pages/policies/client.ts")}
   `;
 
-  return renderPage('Policies', content, '/gui/policies');
+    return renderPage("Policies", content, "/gui/policies");
 }
 
 export interface PolicyDetail {
-  policy_id: string;
-  owner_principal_id: string;
-  applies_to_agent_principal_id: string | null;
-  name: string | null;
-  description: string | null;
-  policy_yaml: string;
+    policy_id: string;
+    owner_principal_id: string;
+    applies_to_agent_principal_id: string | null;
+    name: string | null;
+    description: string | null;
+    policy_yaml: string;
 }
 
-export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry[], nameMap?: { owners: Map<string, string>; agents: Map<string, string> }): string {
-  const policyBindings = (bindings ?? []).filter((b) => b.policy_id === policy.policy_id);
-  const bindingCount = policyBindings.length;
-  const ownerMap = nameMap?.owners ?? new Map();
-  const agentMap = nameMap?.agents ?? new Map();
+export function renderPolicyViewer(
+    policy: PolicyDetail,
+    bindings?: BindingEntry[],
+    nameMap?: { owners: Map<string, string>; agents: Map<string, string> },
+): string {
+    const policyBindings = (bindings ?? []).filter((b) => b.policy_id === policy.policy_id);
+    const bindingCount = policyBindings.length;
+    const ownerMap = nameMap?.owners ?? new Map();
+    const agentMap = nameMap?.agents ?? new Map();
 
-  const bindingRows = policyBindings.map((b) => `
+    const bindingRows = policyBindings
+        .map(
+            (b) => `
     <tr>
       <td>${formatNameWithId(ownerMap.get(b.owner_principal_id), b.owner_principal_id)}</td>
       <td>${b.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(b.applies_to_agent_principal_id), b.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
     </tr>
-  `).join('');
+  `,
+        )
+        .join("");
 
-  const content = `
+    const content = `
     <div class="page-header">
-      <h2>${policy.name ? escapeHtml(policy.name) : 'View Policy'}</h2>
-      ${policy.description ? `<p class="text-secondary">${escapeHtml(policy.description)}</p>` : ''}
+      <h2>${policy.name ? escapeHtml(policy.name) : "View Policy"}</h2>
+      ${policy.description ? `<p class="text-secondary">${escapeHtml(policy.description)}</p>` : ""}
       <p>${copyableId(policy.policy_id, policy.policy_id.length)}</p>
     </div>
 
@@ -161,21 +181,29 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
       <table class="policies-table-bottom">
         <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
-          ${policy.name ? `<tr>
+          ${
+              policy.name
+                  ? `<tr>
             <td class="text-muted">Name</td>
             <td>${escapeHtml(policy.name)}</td>
-          </tr>` : ''}
-          ${policy.description ? `<tr>
+          </tr>`
+                  : ""
+          }
+          ${
+              policy.description
+                  ? `<tr>
             <td class="text-muted">Description</td>
             <td>${escapeHtml(policy.description)}</td>
-          </tr>` : ''}
+          </tr>`
+                  : ""
+          }
           <tr>
             <td class="text-muted">Owner</td>
             <td>${formatNameWithId(ownerMap.get(policy.owner_principal_id), policy.owner_principal_id)}</td>
           </tr>
           <tr>
             <td class="text-muted">Applies To</td>
-            <td>${policy.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(policy.applies_to_agent_principal_id), policy.applies_to_agent_principal_id) : 'All agents'}</td>
+            <td>${policy.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(policy.applies_to_agent_principal_id), policy.applies_to_agent_principal_id) : "All agents"}</td>
           </tr>
         </tbody>
       </table>
@@ -190,7 +218,9 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
 
     <div class="card">
       <div class="card-title">Bindings (${bindingCount})</div>
-      ${bindingCount > 0 ? `
+      ${
+          bindingCount > 0
+              ? `
       <table>
         <colgroup><col style="width:290px"><col></colgroup>
         <thead>
@@ -201,11 +231,13 @@ export function renderPolicyViewer(policy: PolicyDetail, bindings?: BindingEntry
         </thead>
         <tbody>${bindingRows}</tbody>
       </table>
-      ` : '<p class="policies-no-bindings">No active bindings for this policy</p>'}
+      `
+              : '<p class="policies-no-bindings">No active bindings for this policy</p>'
+      }
     </div>
 
     ${assetTags("pages/policies/client.ts")}
   `;
 
-  return renderPage('View Policy', content, '/gui/policies');
+    return renderPage("View Policy", content, "/gui/policies");
 }

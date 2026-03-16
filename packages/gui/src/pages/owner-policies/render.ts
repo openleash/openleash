@@ -114,14 +114,10 @@ export function renderOwnerPolicies(
                       const displayName = p.name
                           ? escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)
                           : "";
-                      const descLine = p.description
-                          ? `<div class="opol-desc-line">${escapeHtml(p.description)}</div>`
-                          : "";
                       return `
       <tr id="policy-row-${escapeHtml(p.policy_id)}">
         <td>
           ${displayName ? `<div>${displayName}</div>` : ""}
-          ${descLine}
           <div class="${displayName ? "opol-id-line" : "opol-id-line-no-gap"}">${copyableId(p.policy_id)}</div>
         </td>
         <td>${appliesTo}</td>
@@ -167,13 +163,10 @@ export function renderOwnerPolicies(
                       const draftName = d.name
                           ? `<div class="opol-draft-name">${escapeHtml(d.name)}</div>`
                           : "";
-                      const draftDesc = d.description
-                          ? `<div class="opol-draft-desc">${escapeHtml(d.description)}</div>`
-                          : "";
                       return `
       <tr class="accordion-row">
         <td class="opol-chevron-cell"><span class="chevron material-symbols-outlined">chevron_right</span></td>
-        <td>${draftName}${draftDesc}<div class="${d.name ? "opol-id-line" : "opol-id-line-no-gap"}">${copyableId(d.policy_draft_id)}</div></td>
+        <td>${draftName}<div class="${d.name ? "opol-id-line" : "opol-id-line-no-gap"}">${copyableId(d.policy_draft_id)}</div></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td${d.justification ? ` title="${escapeHtml(d.justification)}"` : ""}>${d.justification ? escapeHtml(d.justification) : '<span class="opol-dash">-</span>'}</td>
@@ -209,13 +202,10 @@ export function renderOwnerPolicies(
                       const rName = d.name
                           ? `<div class="opol-draft-name">${escapeHtml(d.name)}</div>`
                           : "";
-                      const rDesc = d.description
-                          ? `<div class="opol-draft-desc">${escapeHtml(d.description)}</div>`
-                          : "";
                       return `
       <tr class="accordion-row">
         <td class="opol-chevron-cell"><span class="chevron material-symbols-outlined">chevron_right</span></td>
-        <td>${rName}${rDesc}<div class="${d.name ? "opol-id-line" : "opol-id-line-no-gap"}">${copyableId(d.policy_draft_id)}</div></td>
+        <td>${rName}<div class="${d.name ? "opol-id-line" : "opol-id-line-no-gap"}">${copyableId(d.policy_draft_id)}</div></td>
         <td>${suggestedByCell(d, agentNames)}</td>
         <td>${appliesToCell(d, agentNames)}</td>
         <td><span class="badge ${badge}">${escapeHtml(d.status)}</span></td>
