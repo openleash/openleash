@@ -16,8 +16,8 @@ export async function loadDataStore(
   } catch (err) {
     throw new Error(
       `Failed to load store plugin "${packageName}". Is it installed?\n` +
-      `  npm install ${packageName}\n` +
-      `Original error: ${(err as Error).message}`,
+      `  npm install ${packageName}`,
+      { cause: err },
     );
   }
 
