@@ -81,3 +81,6 @@ export interface DataStore {
   audit: AuditStore;
   initialize(): void;
 }
+
+/** Factory function type that store plugins must export. */
+export type CreateDataStore = (options?: Record<string, unknown>) => DataStore | Promise<DataStore>;

@@ -453,6 +453,10 @@ export interface OpenleashConfig {
     request_ttl_seconds: number;
     token_ttl_seconds: number;
   };
+  store?: {
+    type: string;
+    options?: Record<string, unknown>;
+  };
 }
 
 // ─── Registration types ──────────────────────────────────────────────

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import * as path from 'node:path';
-import { createFileDataStore } from '@openleash/core';
+import { loadDataStore } from '@openleash/core';
+import { loadConfig } from '@openleash/server';
 import { startCommand } from './commands/start.js';
 import { wizardCommand } from './commands/wizard.js';
 import { initCommand } from './commands/init.js';
@@ -23,10 +24,12 @@ const args = process.argv.slice(2);
 const command = args[0];
 const subcommand = args[1];
 
-const dataDir = path.join(process.cwd(), 'data');
-const store = createFileDataStore(dataDir);
-
 async function main() {
+  const rootDir = process.cwd();
+  const dataDir = path.join(rootDir, 'data');
+  const config = loadConfig(rootDir);
+  const store = await loadDataStore(config.store, dataDir);
+
   try {
     switch (command) {
       case 'start':

@@ -20,3 +20,4 @@ export * from './totp.js';
 export * from './webhook.js';
 export * from './store.js';
 export * from './file-store.js';
+export * from './plugin-loader.js';

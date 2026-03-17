@@ -32,6 +32,9 @@ export const DEFAULT_CONFIG: OpenleashConfig = {
     request_ttl_seconds: 86400,
     token_ttl_seconds: 3600,
   },
+  store: {
+    type: 'file',
+  },
 };
 
 export function loadConfig(rootDir: string): OpenleashConfig {
@@ -51,6 +54,7 @@ export function loadConfig(rootDir: string): OpenleashConfig {
     gui: { enabled: true, ...DEFAULT_CONFIG.gui, ...(parsed.gui ?? {}) },
     sessions: { ...DEFAULT_CONFIG.sessions!, ...parsed.sessions },
     approval: { ...DEFAULT_CONFIG.approval!, ...parsed.approval },
+    store: { ...DEFAULT_CONFIG.store!, ...parsed.store },
   };
 }
 
