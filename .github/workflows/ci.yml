@@ -91,6 +91,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: npm ci
@@ -98,13 +99,45 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Publish packages
-        run: |
-          npm publish --access public --provenance -w packages/core
-          npm publish --access public --provenance -w packages/gui
-          npm publish --access public --provenance -w packages/server
-          npm publish --access public --provenance -w packages/cli
-          npm publish --access public --provenance -w packages/sdk-ts
+      - name: Publish @openleash/core
+        uses: JS-DevTools/npm-publish@v3
+        with:
+          package: packages/core
+          access: public
+          provenance: true
+          token: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @openleash/gui
+        uses: JS-DevTools/npm-publish@v3
+        with:
+          package: packages/gui
+          access: public
+          provenance: true
+          token: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @openleash/server
+        uses: JS-DevTools/npm-publish@v3
+        with:
+          package: packages/server
+          access: public
+          provenance: true
+          token: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @openleash/cli
+        uses: JS-DevTools/npm-publish@v3
+        with:
+          package: packages/cli
+          access: public
+          provenance: true
+          token: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @openleash/sdk-ts
+        uses: JS-DevTools/npm-publish@v3
+        with:
+          package: packages/sdk-ts
+          access: public
+          provenance: true
+          token: ${{ secrets.NPM_TOKEN }}
 
   docker:
     needs: build-and-test
