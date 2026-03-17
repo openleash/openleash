@@ -91,19 +91,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build
         run: npm run build
-
-      - name: Debug info
-        run: |
-          npm --version
-          node --version
-          cat "$NPM_CONFIG_USERCONFIG" || true
 
       - name: Publish packages
         run: |
