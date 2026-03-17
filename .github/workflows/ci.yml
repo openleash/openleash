@@ -99,6 +99,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Debug info
+        run: |
+          npm --version
+          node --version
+          cat "$NPM_CONFIG_USERCONFIG" || true
+
       - name: Publish packages
         run: |
           npm publish --access public --provenance -w packages/core
