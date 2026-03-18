@@ -5,6 +5,7 @@ import {
     formatTimestamp,
     infoIcon,
     INFO_AGENT_STATUS,
+    type RenderPageOptions,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 
@@ -22,7 +23,7 @@ export interface OwnerAgentsOptions {
     require_totp?: boolean;
 }
 
-export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgentsOptions): string {
+export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgentsOptions, renderPageOptions?: RenderPageOptions): string {
     const totpEnabled = options?.totp_enabled ?? false;
     const requireTotp = options?.require_totp ?? false;
     const disableActions = requireTotp && !totpEnabled;
@@ -84,5 +85,5 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
     <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled} };</script>
     ${assetTags("pages/owner-agents/client.ts")}
   `;
-    return renderPage("My Agents", content, "/gui/owner/agents", "owner");
+    return renderPage("My Agents", content, "/gui/owner/agents", "owner", renderPageOptions);
 }

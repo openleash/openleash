@@ -21,3 +21,5 @@ export * from './webhook.js';
 export * from './store.js';
 export * from './file-store.js';
 export * from './plugin-loader.js';
+export * from './server-plugin.js';
+export * from './server-plugin-loader.js';

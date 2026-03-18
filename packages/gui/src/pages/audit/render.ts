@@ -6,6 +6,7 @@ import {
     formatTimestamp,
     infoIcon,
     INFO_AUDIT_EVENTS,
+    type RenderPageOptions,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 
@@ -596,6 +597,7 @@ export function renderAudit(
     pageSize: number,
     nameMap?: AuditNameMap,
     context?: "admin" | "owner",
+    renderPageOptions?: RenderPageOptions,
 ): string {
     const isOwner = context === "owner";
     const policyBasePath = isOwner ? "/gui/owner/policies" : "/gui/policies";
@@ -738,5 +740,5 @@ export function renderAudit(
     ${assetTags("pages/audit/client.ts")}
   `;
 
-    return renderPage("Audit Log", content, auditBasePath, context);
+    return renderPage("Audit Log", content, auditBasePath, context, renderPageOptions);
 }

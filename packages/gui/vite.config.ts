@@ -46,6 +46,10 @@ export default defineConfig({
                     __dirname,
                     "src/pages/owner-approvals/client.ts",
                 ),
+                "pages/admin-login/client": resolve(
+                    __dirname,
+                    "src/pages/admin-login/client.ts",
+                ),
                 "pages/initial-setup/client": resolve(
                     __dirname,
                     "src/pages/initial-setup/client.ts",

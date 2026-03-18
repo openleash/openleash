@@ -6,6 +6,7 @@ import {
     infoIcon,
     INFO_OWNER_STATUS,
     INFO_VERIFICATION_LEVEL,
+    type RenderPageOptions,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 
@@ -153,7 +154,7 @@ export interface OwnerProfileData {
 
 // ─── Render ───────────────────────────────────────────────────────────
 
-export function renderOwnerProfile(data: OwnerProfileData): string {
+export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: RenderPageOptions): string {
     const contacts = data.contact_identities ?? [];
     const govIds = data.government_ids ?? [];
     const companyIds = data.company_ids ?? [];
@@ -463,7 +464,7 @@ export function renderOwnerProfile(data: OwnerProfileData): string {
     <script>window.__PAGE_DATA__ = { contacts: ${JSON.stringify(contacts)}, govIds: ${JSON.stringify(govIds)}, companyIds: ${JSON.stringify(companyIds)}, idTypesMap: ${idTypesJson}, idLabelsMap: ${idLabelsJson} };</script>
     ${assetTags("pages/owner-profile/client.ts")}
   `;
-    return renderPage("Profile", content, "/gui/owner/profile", "owner");
+    return renderPage("Profile", content, "/gui/owner/profile", "owner", renderPageOptions);
 }
 
 const ASSURANCE_LEVEL_INFO: Record<string, { badge: string; label: string }> = {

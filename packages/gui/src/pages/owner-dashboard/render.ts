@@ -1,4 +1,4 @@
-import { renderPage, escapeHtml, infoIcon, INFO_DECISIONS, INFO_PROOF_TOKENS } from "../../shared/layout.js";
+import { renderPage, escapeHtml, infoIcon, INFO_DECISIONS, INFO_PROOF_TOKENS, type RenderPageOptions } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 
 export interface OwnerDashboardData {
@@ -9,7 +9,7 @@ export interface OwnerDashboardData {
     pending_policy_drafts: number;
 }
 
-export function renderOwnerDashboard(data: OwnerDashboardData): string {
+export function renderOwnerDashboard(data: OwnerDashboardData, renderPageOptions?: RenderPageOptions): string {
     const needsSetup = data.agent_count === 0 || data.policy_count === 0;
 
     const content = `
@@ -184,5 +184,5 @@ export function renderOwnerDashboard(data: OwnerDashboardData): string {
 
     ${assetTags("pages/owner-dashboard/client.ts")}
   `;
-    return renderPage("Dashboard", content, "/gui/owner/dashboard", "owner");
+    return renderPage("Dashboard", content, "/gui/owner/dashboard", "owner", renderPageOptions);
 }

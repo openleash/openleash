@@ -121,7 +121,7 @@ rules:
     writeState(dataDir, state);
 
     const store = createFileDataStore(dataDir);
-    const { app: server } = createServer({ config, dataDir, store });
+    const { app: server } = await createServer({ config, dataDir, store });
     app = server;
     await app.ready();
   });

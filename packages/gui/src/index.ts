@@ -1,4 +1,5 @@
 export { renderPage, escapeHtml, formatNameWithId, copyableId } from "./shared/layout.js";
+export type { RenderPageOptions } from "./shared/layout.js";
 export { renderDashboard } from "./pages/dashboard/render.js";
 export type { DashboardData } from "./pages/dashboard/render.js";
 export { renderOwners, renderOwnerDetail } from "./pages/owners/render.js";
@@ -31,6 +32,7 @@ export { renderOwnerPolicyCreate } from "./pages/owner-policy-create/render.js";
 export { renderOwnerProfile } from "./pages/owner-profile/render.js";
 export type { OwnerProfileData } from "./pages/owner-profile/render.js";
 export { renderInitialSetup } from "./pages/initial-setup/render.js";
+export { renderAdminLogin } from "./pages/admin-login/render.js";
 export { renderApiReference, renderApiReferenceUnavailable } from "./pages/api-reference/render.js";
 export * from "./shared/validation.js";
 export { initManifest, resolveAsset, resolveAssetCss, assetTags, getClientDir } from "./shared/manifest.js";

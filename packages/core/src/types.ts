@@ -457,6 +457,13 @@ export interface OpenleashConfig {
     type: string;
     options?: Record<string, unknown>;
   };
+  instance?: {
+    mode: 'self_hosted' | 'hosted';
+  };
+  plugin?: {
+    type: string;
+    options?: Record<string, unknown>;
+  };
 }
 
 // ─── Registration types ──────────────────────────────────────────────

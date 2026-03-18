@@ -60,7 +60,7 @@ describe('GUI routes', () => {
     writeState(dataDir, state);
 
     const store = createFileDataStore(dataDir);
-    const { app: server } = createServer({ config, dataDir, store });
+    const { app: server } = await createServer({ config, dataDir, store });
     app = server;
     await app.ready();
   });
@@ -147,7 +147,7 @@ describe('GUI disabled', () => {
     config.gui = { enabled: false };
 
     const store = createFileDataStore(dataDir);
-    const { app: server } = createServer({ config, dataDir, store });
+    const { app: server } = await createServer({ config, dataDir, store });
     app = server;
     await app.ready();
   });
@@ -207,7 +207,7 @@ describe('admin API - new endpoints', () => {
     writeState(dataDir, state);
 
     const store = createFileDataStore(dataDir);
-    const { app: server } = createServer({ config, dataDir, store });
+    const { app: server } = await createServer({ config, dataDir, store });
     app = server;
     await app.ready();
   });
@@ -289,7 +289,7 @@ describe('initial setup flow', () => {
     const config = loadConfig(rootDir);
 
     const store = createFileDataStore(dataDir);
-    const { app: server } = createServer({ config, dataDir, store });
+    const { app: server } = await createServer({ config, dataDir, store });
     app = server;
     await app.ready();
   });

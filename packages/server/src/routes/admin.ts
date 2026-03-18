@@ -25,6 +25,11 @@ import { CreateOwnerSchema } from '@openleash/gui';
 export function registerAdminRoutes(app: FastifyInstance, store: DataStore, config: OpenleashConfig) {
   const adminAuth = createAdminAuth(config);
 
+  // POST /v1/admin/login — validate admin token (used by the admin login GUI)
+  app.post('/v1/admin/login', { preHandler: adminAuth }, async () => {
+    return { ok: true };
+  });
+
   // POST /v1/admin/owners
   app.post('/v1/admin/owners', { preHandler: adminAuth }, async (request, reply) => {
     const validated = validateBody(request.body, CreateOwnerSchema, reply);

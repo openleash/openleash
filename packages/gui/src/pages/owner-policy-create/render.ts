@@ -1,7 +1,7 @@
-import { renderPage } from "../../shared/layout.js";
+import { renderPage, type RenderPageOptions } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 
-export function renderOwnerPolicyCreate(): string {
+export function renderOwnerPolicyCreate(renderPageOptions?: RenderPageOptions): string {
     const content = `
     <h2>Create Policy</h2>
 
@@ -37,5 +37,5 @@ rules:
 
     ${assetTags("pages/owner-policy-create/client.ts")}
   `;
-    return renderPage("Create Policy", content, "/gui/owner/policies", "owner");
+    return renderPage("Create Policy", content, "/gui/owner/policies", "owner", renderPageOptions);
 }

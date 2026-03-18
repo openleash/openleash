@@ -5,6 +5,7 @@ import {
     formatTimestamp,
     infoIcon,
     INFO_POLICY_DRAFTS,
+    type RenderPageOptions,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 
@@ -87,6 +88,7 @@ export function renderOwnerPolicies(
     policies: OwnerPolicyEntry[],
     drafts: OwnerPolicyDraftEntry[],
     options?: OwnerPoliciesOptions,
+    renderPageOptions?: RenderPageOptions,
 ): string {
     const totpEnabled = options?.totp_enabled ?? false;
     const requireTotp = options?.require_totp ?? false;
@@ -279,5 +281,5 @@ export function renderOwnerPolicies(
     <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled} };</script>
     ${assetTags("pages/owner-policies/client.ts")}
   `;
-    return renderPage("My Policies", content, "/gui/owner/policies", "owner");
+    return renderPage("My Policies", content, "/gui/owner/policies", "owner", renderPageOptions);
 }

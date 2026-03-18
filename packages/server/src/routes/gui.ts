@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { FastifyInstance } from "fastify";
-import type { OpenleashConfig, SessionClaims, DataStore } from "@openleash/core";
+import type { OpenleashConfig, SessionClaims, DataStore, ServerPluginManifest } from "@openleash/core";
 import {
     renderDashboard,
     renderOwners,
@@ -20,6 +20,7 @@ import {
     renderOwnerPolicyCreate,
     renderOwnerProfile,
     renderInitialSetup,
+    renderAdminLogin,
     renderApiReference,
     renderApiReferenceUnavailable,
     renderMcpGlove,
@@ -31,6 +32,7 @@ import { bootstrapState } from "../bootstrap.js";
 
 export interface GuiRoutesOptions {
     hasApiReference?: boolean;
+    pluginManifest?: ServerPluginManifest;
 }
 
 export function registerGuiRoutes(
@@ -43,6 +45,20 @@ export function registerGuiRoutes(
     const adminAuth = createAdminAuth(config);
     const rootDir = path.dirname(dataDir);
     const statePath = path.join(dataDir, "state.md");
+    const isHosted = config.instance?.mode === "hosted";
+    const pluginManifest = options?.pluginManifest;
+    const ownerRenderOptions = isHosted
+        ? {
+            showContextSwitcher: false,
+            extraOwnerNavItems: pluginManifest?.ownerNavItems,
+            extraAdminNavItems: pluginManifest?.adminNavItems,
+        }
+        : pluginManifest
+            ? {
+                extraOwnerNavItems: pluginManifest.ownerNavItems,
+                extraAdminNavItems: pluginManifest.adminNavItems,
+            }
+            : undefined;
 
     // Guard: if the data directory or state file is missing, re-bootstrap and
     // redirect to the initial setup page so the user can start fresh.
@@ -57,23 +73,37 @@ export function registerGuiRoutes(
     });
 
     // Redirect /gui — if no owners, go to setup; otherwise dashboard
-    app.get("/gui", async (_request, reply) => {
-        const state = store.state.getState();
-        if (state.owners.length === 0) {
-            reply.redirect("/gui/setup");
+    if (!pluginManifest?.handlesRootPath) {
+        app.get("/gui", async (_request, reply) => {
+            const state = store.state.getState();
+            if (!isHosted && state.owners.length === 0) {
+                reply.redirect("/gui/setup");
+                return;
+            }
+            reply.redirect("/gui/dashboard");
+        });
+    }
+
+    // Initial setup page (no auth) — disabled in hosted mode
+    app.get("/gui/setup", async (_request, reply) => {
+        if (isHosted) {
+            reply.redirect("/gui/owner/login");
             return;
         }
-        reply.redirect("/gui/dashboard");
-    });
-
-    // Initial setup page (no auth)
-    app.get("/gui/setup", async (_request, reply) => {
         const state = store.state.getState();
         if (state.owners.length > 0) {
             reply.redirect("/gui/dashboard");
             return;
         }
         const html = renderInitialSetup();
+        reply.type("text/html").send(html);
+    });
+
+    // ─── Admin GUI routes ─────────────────────────────────────────────
+
+    // Admin login page (no auth)
+    app.get("/gui/admin/login", async (_request, reply) => {
+        const html = renderAdminLogin();
         reply.type("text/html").send(html);
     });
 
@@ -423,11 +453,13 @@ export function registerGuiRoutes(
 
     const ownerAuth = createOwnerAuth(config, store);
 
-    // Login page (no auth)
-    app.get("/gui/owner/login", async (_request, reply) => {
-        const html = renderOwnerLogin();
-        reply.type("text/html").send(html);
-    });
+    // Login page (no auth) — skipped if plugin replaces it
+    if (!pluginManifest?.replacesOwnerLogin) {
+        app.get("/gui/owner/login", async (_request, reply) => {
+            const html = renderOwnerLogin(isHosted ? { hosted: true } : undefined);
+            reply.type("text/html").send(html);
+        });
+    }
 
     // Setup page (no auth — invite token acts as proof)
     app.get("/gui/owner/setup", async (_request, reply) => {
@@ -459,7 +491,7 @@ export function registerGuiRoutes(
             policy_count: policyCount,
             pending_approvals: pendingApprovals,
             pending_policy_drafts: pendingPolicyDrafts,
-        });
+        }, ownerRenderOptions);
         reply.type("text/html").send(html);
     });
 
@@ -496,7 +528,7 @@ export function registerGuiRoutes(
         const html = renderOwnerAgents(agents, {
             totp_enabled: !!agentOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
-        });
+        }, ownerRenderOptions);
         reply.type("text/html").send(html);
     });
 
@@ -575,13 +607,13 @@ export function registerGuiRoutes(
             totp_enabled: !!policyOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
             agent_names: agentNames,
-        });
+        }, ownerRenderOptions);
         reply.type("text/html").send(html);
     });
 
     // Owner create policy
     app.get("/gui/owner/policies/create", { preHandler: ownerAuth }, async (_request, reply) => {
-        const html = renderOwnerPolicyCreate();
+        const html = renderOwnerPolicyCreate(ownerRenderOptions);
         reply.type("text/html").send(html);
     });
 
@@ -664,7 +696,7 @@ export function registerGuiRoutes(
             totp_enabled: !!approvalOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
             agent_names: approvalAgentNames,
-        });
+        }, ownerRenderOptions);
         reply.type("text/html").send(html);
     });
 
@@ -692,7 +724,7 @@ export function registerGuiRoutes(
             totp_enabled: !!owner.totp_enabled,
             totp_enabled_at: owner.totp_enabled_at,
             totp_backup_codes_remaining: owner.totp_backup_codes_hash?.length,
-        });
+        }, ownerRenderOptions);
         reply.type("text/html").send(html);
     });
 
@@ -731,6 +763,7 @@ export function registerGuiRoutes(
             pageSize,
             { owners: ownerNames, agents: agentNames, eventTypes },
             "owner",
+            ownerRenderOptions,
         );
         reply.type("text/html").send(html);
     });

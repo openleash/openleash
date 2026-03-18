@@ -195,14 +195,22 @@ export function formatNameWithId(name: string | undefined, uuid: string): string
     return `<span class="mono truncate copyable" title="Click to copy" data-copy-id="${escaped}">${escapeHtml(uuid)}</span>`;
 }
 
+export interface RenderPageOptions {
+    showContextSwitcher?: boolean;
+    extraOwnerNavItems?: { path: string; label: string; icon: string }[];
+    extraAdminNavItems?: { path: string; label: string; icon: string }[];
+}
+
 export function renderPage(
     title: string,
     content: string,
     activePath: string,
     context?: "admin" | "owner",
+    options?: RenderPageOptions,
 ): string {
     const isOwner = context === "owner";
-    const navItems = isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS;
+    const extraItems = isOwner ? (options?.extraOwnerNavItems ?? []) : (options?.extraAdminNavItems ?? []);
+    const navItems = [...(isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS), ...extraItems];
     const subtitle = isOwner ? "Owner Portal" : "Authorization GUI";
     const dashboardPath = isOwner ? "/gui/owner/dashboard" : "/gui/dashboard";
 
@@ -217,6 +225,8 @@ export function renderPage(
     </a>`;
         })
         .join("\n");
+
+    const showSwitcher = options?.showContextSwitcher !== false;
 
     const logoutHtml = isOwner
         ? `
@@ -269,7 +279,7 @@ export function renderPage(
       </div>
     </div>
     <div class="sidebar-switchers">
-      <div class="context-switcher">
+      ${showSwitcher ? `<div class="context-switcher">
         <a href="/gui/dashboard" class="context-tab${!isOwner ? " active" : ""}">
           <span class="context-tab-icon material-symbols-outlined">admin_panel_settings</span>
           <span class="context-tab-label">Admin</span>
@@ -278,7 +288,7 @@ export function renderPage(
           <span class="context-tab-icon material-symbols-outlined">person</span>
           <span class="context-tab-label">Owner</span>
         </a>
-      </div>
+      </div>` : ""}
       <div class="theme-switcher">
         <button class="theme-btn" data-theme="system" title="System theme"><span class="material-symbols-outlined">desktop_windows</span></button>
         <button class="theme-btn" data-theme="light" title="Light theme"><span class="material-symbols-outlined">light_mode</span></button>

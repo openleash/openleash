@@ -5,6 +5,7 @@ import {
     formatTimestamp,
     infoIcon,
     INFO_APPROVAL_REQUESTS,
+    type RenderPageOptions,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 
@@ -156,6 +157,7 @@ function renderPagination(
 export function renderOwnerApprovals(
     data: OwnerApprovalsData,
     options?: OwnerApprovalsOptions,
+    renderPageOptions?: RenderPageOptions,
 ): string {
     const totpEnabled = options?.totp_enabled ?? false;
     const requireTotp = options?.require_totp ?? false;
@@ -273,5 +275,5 @@ export function renderOwnerApprovals(
     <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled}, pendingPage: ${pending.page}, pendingPageSize: ${pending.pageSize}, resolvedPage: ${resolved.page}, resolvedPageSize: ${resolved.pageSize} };</script>
     ${assetTags("pages/owner-approvals/client.ts")}
   `;
-    return renderPage("Approvals", content, "/gui/owner/approvals", "owner");
+    return renderPage("Approvals", content, "/gui/owner/approvals", "owner", renderPageOptions);
 }

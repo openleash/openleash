@@ -33,7 +33,7 @@ export async function startCommand(store: DataStore) {
   const [host, portStr] = config.server.bind_address.split(':');
   const port = parseInt(portStr, 10);
 
-  const { app } = createServer({ config, dataDir, store, openapiSpec });
+  const { app } = await createServer({ config, dataDir, store, openapiSpec });
 
   store.audit.append('SERVER_STARTED', {
     bind_address: config.server.bind_address,

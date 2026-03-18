@@ -35,6 +35,9 @@ export const DEFAULT_CONFIG: OpenleashConfig = {
   store: {
     type: 'file',
   },
+  instance: {
+    mode: 'self_hosted' as const,
+  },
 };
 
 export function loadConfig(rootDir: string): OpenleashConfig {
@@ -55,6 +58,8 @@ export function loadConfig(rootDir: string): OpenleashConfig {
     sessions: { ...DEFAULT_CONFIG.sessions!, ...parsed.sessions },
     approval: { ...DEFAULT_CONFIG.approval!, ...parsed.approval },
     store: { ...DEFAULT_CONFIG.store!, ...parsed.store },
+    instance: { ...DEFAULT_CONFIG.instance!, ...parsed.instance },
+    plugin: parsed.plugin,
   };
 }
 

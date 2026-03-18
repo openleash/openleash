@@ -3,7 +3,8 @@ import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import helmet from '@fastify/helmet';
 import { NonceCache } from '@openleash/core';
-import type { OpenleashConfig, DataStore } from '@openleash/core';
+import type { OpenleashConfig, DataStore, ServerPluginManifest } from '@openleash/core';
+import { loadServerPlugin } from '@openleash/core';
 import { initManifest } from '@openleash/gui';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerPublicKeysRoutes } from './routes/public-keys.js';
@@ -29,7 +30,7 @@ export interface CreateServerOptions {
   openapiSpec?: Record<string, unknown>;
 }
 
-export function createServer(options: CreateServerOptions) {
+export async function createServer(options: CreateServerOptions) {
   const { config, dataDir, store, openapiSpec } = options;
 
   const app = Fastify({
@@ -67,7 +68,32 @@ export function createServer(options: CreateServerOptions) {
   registerOwnerRoutes(app, store, config);
   registerAgentSelfRoutes(app, store, config, nonceCache);
   registerAdminRoutes(app, store, config);
-  registerPlaygroundRoutes(app, config);
+  if (config.instance?.mode !== 'hosted') {
+    registerPlaygroundRoutes(app, config);
+  }
+
+  // Load server plugin if configured
+  let pluginManifest: ServerPluginManifest | undefined;
+  if (config.plugin) {
+    pluginManifest = await loadServerPlugin(config.plugin, {
+      app,
+      store,
+      config,
+      dataDir,
+    });
+
+    // Serve plugin static assets if provided
+    if (pluginManifest.staticAssetsDir) {
+      app.register(fastifyStatic, {
+        root: pluginManifest.staticAssetsDir,
+        prefix: '/plugin-assets/',
+        decorateReply: false,
+        cacheControl: true,
+        maxAge: '1y',
+        immutable: true,
+      });
+    }
+  }
 
   if (config.gui?.enabled !== false) {
     // Initialize Vite client asset manifest and serve static bundles
@@ -81,7 +107,10 @@ export function createServer(options: CreateServerOptions) {
       immutable: true,
     });
 
-    registerGuiRoutes(app, dataDir, store, config, { hasApiReference: !!openapiSpec });
+    registerGuiRoutes(app, dataDir, store, config, {
+      hasApiReference: !!openapiSpec,
+      pluginManifest,
+    });
   }
 
   if (openapiSpec) {

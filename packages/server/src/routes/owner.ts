@@ -47,6 +47,14 @@ export function registerOwnerRoutes(
 
     // POST /v1/initial-setup — first-time setup: create the first owner
     app.post("/v1/initial-setup", async (request, reply) => {
+        // Disabled in hosted mode — owners are created via admin API + invites
+        if (config.instance?.mode === "hosted") {
+            reply.code(403).send({
+                error: { code: "NOT_AVAILABLE", message: "Initial setup is not available in hosted mode" },
+            });
+            return;
+        }
+
         const body = validateBody(request.body, InitialSetupSchema, reply);
         if (!body) return;
 
