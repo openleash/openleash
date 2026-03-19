@@ -22,6 +22,7 @@ const OWNER_NAV_ITEMS = [
 ];
 
 function escapeHtml(str: string): string {
+    if (!str) return "";
     return str
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")

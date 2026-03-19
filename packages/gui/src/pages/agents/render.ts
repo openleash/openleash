@@ -47,7 +47,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
       <td>${copyableId(a.agent_principal_id)}</td>
       <td>${formatNameWithId(ownerMap.get(a.owner_principal_id), a.owner_principal_id)}</td>
       <td>${statusBadge(a.status)}</td>
-      <td class="mono text-ellipsis" title="${escapeHtml(a.webhook_url)}">${a.webhook_url ? escapeHtml(a.webhook_url) : "-"}</td>
+      <td class="mono text-ellipsis" title="${a.webhook_url ? escapeHtml(a.webhook_url) : ""}">${a.webhook_url ? escapeHtml(a.webhook_url) : "-"}</td>
       <td class="mono">${a.created_at ? formatTimestamp(a.created_at, true) : "-"}</td>
       <td class="mono">${a.revoked_at ? formatTimestamp(a.revoked_at, true) : "-"}</td>
     </tr>
