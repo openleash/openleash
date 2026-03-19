@@ -52,11 +52,13 @@ export function registerGuiRoutes(
             showContextSwitcher: false,
             extraOwnerNavItems: pluginManifest?.ownerNavItems,
             extraAdminNavItems: pluginManifest?.adminNavItems,
+            verificationProviders: pluginManifest?.verificationProviders,
         }
         : pluginManifest
             ? {
                 extraOwnerNavItems: pluginManifest.ownerNavItems,
                 extraAdminNavItems: pluginManifest.adminNavItems,
+                verificationProviders: pluginManifest?.verificationProviders,
             }
             : undefined;
 

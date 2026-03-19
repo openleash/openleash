@@ -119,3 +119,6 @@
 
 /* Popover paragraph spacing */
 .profile-popover-text { margin-bottom: 8px; }
+
+/* "Available in hosted solution" inline label */
+.profile-hosted-only { font-size: 11px; color: var(--text-muted); font-style: italic; margin-left: 4px; }

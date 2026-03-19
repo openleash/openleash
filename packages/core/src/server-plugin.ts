@@ -32,6 +32,7 @@ export interface ServerPluginManifest {
   handlesRootPath?: boolean;
   replacesOwnerLogin?: boolean;
   staticAssetsDir?: string;
+  verificationProviders?: string[];
 }
 
 // ─── Plugin factory ─────────────────────────────────────────────────

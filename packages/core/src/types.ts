@@ -410,6 +410,9 @@ export const AuditEventType = z.enum([
   'POLICY_DRAFT_DENIED',
   'WEBHOOK_DELIVERED',
   'WEBHOOK_DELIVERY_FAILED',
+  'IDENTITY_VERIFICATION_INITIATED',
+  'IDENTITY_VERIFICATION_COMPLETED',
+  'IDENTITY_VERIFICATION_FAILED',
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 

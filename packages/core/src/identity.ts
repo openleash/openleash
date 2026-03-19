@@ -20,6 +20,16 @@ export const EuCountryCode = z.enum([
 ]);
 export type EuCountryCode = z.infer<typeof EuCountryCode>;
 
+// ─── Verification proof ─────────────────────────────────────────────
+
+export const VerificationProofSchema = z.object({
+  provider: z.string(),                // "bankid", "bolagsverket", "sms-otp", "email-otp"
+  verified_by: z.string().optional(),   // "BankID RP v6", "Bolagsverket API"
+  reference_id: z.string().optional(),  // Provider transaction/order ID
+  proof_data: z.record(z.string(), z.unknown()).optional(), // Provider-specific proof
+});
+export type VerificationProof = z.infer<typeof VerificationProofSchema>;
+
 // ─── Verification levels ────────────────────────────────────────────
 
 export const VerificationLevel = z.enum([
@@ -59,6 +69,7 @@ export const ContactIdentitySchema = z.object({
   verified: z.boolean().default(false),
   verified_at: z.string().nullable().default(null),
   added_at: z.string(),
+  verification_proof: VerificationProofSchema.optional(),
 });
 export type ContactIdentity = z.infer<typeof ContactIdentitySchema>;
 
@@ -71,6 +82,7 @@ export const GovernmentIdSchema = z.object({
   verification_level: VerificationLevel.default('UNVERIFIED'),
   verified_at: z.string().nullable().default(null),
   added_at: z.string(),
+  verification_proof: VerificationProofSchema.optional(),
 });
 export type GovernmentId = z.infer<typeof GovernmentIdSchema>;
 
@@ -92,6 +104,7 @@ export const CompanyIdSchema = z.object({
   verification_level: VerificationLevel.default('UNVERIFIED'),
   verified_at: z.string().nullable().default(null),
   added_at: z.string(),
+  verification_proof: VerificationProofSchema.optional(),
 });
 export type CompanyId = z.infer<typeof CompanyIdSchema>;
 

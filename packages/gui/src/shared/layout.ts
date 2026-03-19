@@ -200,6 +200,7 @@ export interface RenderPageOptions {
     showContextSwitcher?: boolean;
     extraOwnerNavItems?: { path: string; label: string; icon: string }[];
     extraAdminNavItems?: { path: string; label: string; icon: string }[];
+    verificationProviders?: string[];
 }
 
 export function renderPage(
