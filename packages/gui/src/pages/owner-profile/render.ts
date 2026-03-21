@@ -162,6 +162,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
     const isOrg = data.principal_type === "ORG";
 
     const verificationProviders = renderPageOptions?.verificationProviders ?? [];
+    const isHosted = renderPageOptions?.isHosted ?? false;
 
     const contactRows = contacts
         .map(
@@ -171,7 +172,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
                     const providerKey = c.type === "EMAIL" ? "email-otp" : c.type === "PHONE" ? "sms-otp" : null;
                     if (providerKey && verificationProviders.includes(providerKey)) {
                         verifyCell = `<button class="btn btn-primary btn-sm" data-action="verify-contact" data-index="${i}" data-provider="${providerKey}" data-type="${escapeHtml(c.type)}">Verify</button>`;
-                    } else if (providerKey) {
+                    } else if (providerKey && !isHosted) {
                         verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
                     }
                 }
@@ -181,7 +182,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
       <td>${escapeHtml(c.value)}</td>
       <td>${escapeHtml(c.label ?? "-")}</td>
       <td>${escapeHtml(c.platform ?? "-")}</td>
-      <td>${c.verified ? '<span class="badge badge-green">Verified</span>' : '<span class="badge badge-muted">Unverified</span>'} ${verifyCell}</td>
+      <td class="profile-status-cell">${c.verified ? '<span class="badge badge-green">Verified</span>' : '<span class="badge badge-muted">Unverified</span>'}${verifyCell ? `<div class="profile-verify-action">${verifyCell}</div>` : ""}</td>
       <td><button class="btn btn-secondary profile-btn-remove" data-action="remove-contact" data-index="${i}">Remove</button></td>
     </tr>
   `;
@@ -196,7 +197,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
                 if (g.verification_level !== "VERIFIED") {
                     if (g.country === "SE" && verificationProviders.includes("bankid")) {
                         verifyCell = `<button class="btn btn-primary btn-sm" data-action="verify-gov-id" data-index="${i}" data-provider="bankid">Verify with BankID</button>`;
-                    } else if (g.country === "SE") {
+                    } else if (g.country === "SE" && !isHosted) {
                         verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
                     }
                 }
@@ -205,7 +206,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
       <td>${countryFlag(g.country)} ${escapeHtml(g.country)} ${escapeHtml(EU_COUNTRY_NAMES[g.country] ?? "")}</td>
       <td>${escapeHtml(GOV_ID_LABELS[g.id_type] ?? g.id_type)}</td>
       <td class="mono">${escapeHtml(g.id_value)}</td>
-      <td>${verificationBadge(g.verification_level)} ${verifyCell}</td>
+      <td class="profile-status-cell">${verificationBadge(g.verification_level)}${verifyCell ? `<div class="profile-verify-action">${verifyCell}</div>` : ""}</td>
       <td><button class="btn btn-secondary profile-btn-remove" data-action="remove-gov-id" data-index="${i}">Remove</button></td>
     </tr>
   `;
@@ -220,7 +221,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
                 if (c.verification_level !== "VERIFIED") {
                     if (c.country === "SE" && c.id_type === "COMPANY_REG" && verificationProviders.includes("bolagsverket")) {
                         verifyCell = `<button class="btn btn-primary btn-sm" data-action="verify-company-id" data-index="${i}" data-provider="bolagsverket">Verify with Bolagsverket</button>`;
-                    } else if (c.country === "SE" && c.id_type === "COMPANY_REG") {
+                    } else if (c.country === "SE" && c.id_type === "COMPANY_REG" && !isHosted) {
                         verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
                     }
                 }
@@ -229,7 +230,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
       <td>${escapeHtml(c.id_type)}</td>
       <td>${c.country ? countryFlag(c.country) + " " + escapeHtml(c.country) : "-"}</td>
       <td class="mono">${escapeHtml(c.id_value)}</td>
-      <td>${verificationBadge(c.verification_level)} ${verifyCell}</td>
+      <td class="profile-status-cell">${verificationBadge(c.verification_level)}${verifyCell ? `<div class="profile-verify-action">${verifyCell}</div>` : ""}</td>
       <td><button class="btn btn-secondary profile-btn-remove" data-action="remove-company-id" data-index="${i}">Remove</button></td>
     </tr>
   `;

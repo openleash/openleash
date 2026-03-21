@@ -120,5 +120,9 @@
 /* Popover paragraph spacing */
 .profile-popover-text { margin-bottom: 8px; }
 
+/* Status cell: badge + verify action stacked */
+.profile-status-cell { white-space: nowrap; }
+.profile-verify-action { margin-top: 4px; }
+
 /* "Available in hosted solution" inline label */
-.profile-hosted-only { font-size: 11px; color: var(--text-muted); font-style: italic; margin-left: 4px; }
+.profile-hosted-only { font-size: 11px; color: var(--text-muted); font-style: italic; }

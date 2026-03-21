@@ -201,6 +201,7 @@ export interface RenderPageOptions {
     extraOwnerNavItems?: { path: string; label: string; icon: string }[];
     extraAdminNavItems?: { path: string; label: string; icon: string }[];
     verificationProviders?: string[];
+    isHosted?: boolean;
 }
 
 export function renderPage(

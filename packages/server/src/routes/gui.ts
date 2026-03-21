@@ -53,6 +53,7 @@ export function registerGuiRoutes(
             extraOwnerNavItems: pluginManifest?.ownerNavItems,
             extraAdminNavItems: pluginManifest?.adminNavItems,
             verificationProviders: pluginManifest?.verificationProviders,
+            isHosted: true,
         }
         : pluginManifest
             ? {
