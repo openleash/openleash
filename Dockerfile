@@ -19,6 +19,7 @@ COPY packages/sdk-ts/ packages/sdk-ts/
 COPY packages/cli/ packages/cli/
 
 RUN npx tsc -b tsconfig.docker.json
+RUN cd packages/gui && npx vite build
 
 FROM node:22-slim
 
