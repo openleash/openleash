@@ -1,4 +1,4 @@
-FROM node:22 AS builder
+FROM node:24 AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ COPY packages/cli/ packages/cli/
 RUN npx tsc -b tsconfig.docker.json
 RUN cd packages/gui && npx vite build
 
-FROM node:22-slim
+FROM node:24-slim
 
 LABEL org.opencontainers.image.source="https://github.com/openleash/openleash"
 LABEL org.opencontainers.image.description="OpenLeash — open-source authorization layer for AI agents"
