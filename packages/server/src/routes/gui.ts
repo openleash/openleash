@@ -24,10 +24,11 @@ import {
     renderApiReference,
     renderApiReferenceUnavailable,
     renderMcpGlove,
+    setVersion,
 } from "@openleash/gui";
 import { createAdminAuth } from "../middleware/admin-auth.js";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
-import { getVersion } from "../version.js";
+import { getVersion, getVersionInfo } from "../version.js";
 import { bootstrapState } from "../bootstrap.js";
 
 export interface GuiRoutesOptions {
@@ -42,6 +43,8 @@ export function registerGuiRoutes(
     config: OpenleashConfig,
     options?: GuiRoutesOptions,
 ) {
+    const vinfo = getVersionInfo();
+    setVersion(vinfo.version, vinfo.commitHash ?? undefined);
     const adminAuth = createAdminAuth(config);
     const rootDir = path.dirname(dataDir);
     const statePath = path.join(dataDir, "state.md");

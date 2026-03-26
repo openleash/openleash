@@ -1,21 +1,42 @@
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
-let cachedVersion: string | null = null;
+export interface VersionInfo {
+  version: string;
+  commitHash: string | null;
+}
 
-export function getVersion(): string {
-  if (cachedVersion) return cachedVersion;
+let cached: VersionInfo | null = null;
 
+function readPackageVersion(): string {
   try {
-    const desc = execSync("git describe --tags --match 'v[0-9]*' --exclude 'packages/*' --dirty --always", {
+    const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+    return (pkg as { version?: string }).version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
+
+function getCommitHash(): string | null {
+  try {
+    return execSync('git rev-parse --short HEAD', {
       encoding: 'utf-8',
       timeout: 3000,
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
-    cachedVersion = desc;
   } catch {
-    // No git or no tags — fall back to package version
-    cachedVersion = '0.5.4';
+    return null;
   }
+}
 
-  return cachedVersion;
+export function getVersionInfo(): VersionInfo {
+  if (cached) return cached;
+  cached = { version: `v${readPackageVersion()}`, commitHash: getCommitHash() };
+  return cached;
+}
+
+export function getVersion(): string {
+  const { version, commitHash } = getVersionInfo();
+  return commitHash ? `${version} (${commitHash})` : version;
 }

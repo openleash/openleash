@@ -1,6 +1,14 @@
 import dayjs from "dayjs";
 import { assetTags } from "./manifest.js";
 
+let _version = "";
+let _commitHash = "";
+
+export function setVersion(v: string, commitHash?: string): void {
+    _version = v;
+    _commitHash = commitHash ?? "";
+}
+
 const NAV_ITEMS = [
     { path: "/gui/dashboard", label: "Dashboard", icon: "dashboard" },
     { path: "/gui/owners", label: "Owners", icon: "group" },
@@ -212,7 +220,9 @@ export function renderPage(
     options?: RenderPageOptions,
 ): string {
     const isOwner = context === "owner";
-    const extraItems = isOwner ? (options?.extraOwnerNavItems ?? []) : (options?.extraAdminNavItems ?? []);
+    const extraItems = isOwner
+        ? (options?.extraOwnerNavItems ?? [])
+        : (options?.extraAdminNavItems ?? []);
     const navItems = [...(isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS), ...extraItems];
     const subtitle = isOwner ? "Owner Portal" : "Authorization GUI";
     const dashboardPath = isOwner ? "/gui/owner/dashboard" : "/gui/dashboard";
@@ -282,7 +292,9 @@ export function renderPage(
       </div>
     </div>
     <div class="sidebar-switchers">
-      ${showSwitcher ? `<div class="context-switcher">
+      ${
+          showSwitcher
+              ? `<div class="context-switcher">
         <a href="/gui/dashboard" class="context-tab${!isOwner ? " active" : ""}">
           <span class="context-tab-icon material-symbols-outlined">admin_panel_settings</span>
           <span class="context-tab-label">Admin</span>
@@ -291,7 +303,9 @@ export function renderPage(
           <span class="context-tab-icon material-symbols-outlined">person</span>
           <span class="context-tab-label">Owner</span>
         </a>
-      </div>` : ""}
+      </div>`
+              : ""
+      }
       <div class="theme-switcher">
         <button class="theme-btn" data-theme="system" title="System theme"><span class="material-symbols-outlined">desktop_windows</span></button>
         <button class="theme-btn" data-theme="light" title="Light theme"><span class="material-symbols-outlined">light_mode</span></button>
@@ -300,6 +314,7 @@ export function renderPage(
     </div>
     ${navHtml}
     <div class="sidebar-bottom">
+      ${_version ? `<div class="sidebar-version"><span>${escapeHtml(_version)}</span>${_commitHash ? `<span class="sidebar-commit">(${escapeHtml(_commitHash)})</span>` : ""}</div>` : ""}
       ${logoutHtml}
       <button class="sidebar-toggle" title="Toggle sidebar">
         <span class="material-symbols-outlined collapse-icon">left_panel_close</span>
