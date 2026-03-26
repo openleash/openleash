@@ -641,10 +641,12 @@ export function registerGuiRoutes(
             (r) => r.owner_principal_id === session.sub,
         );
 
-        // Pending: filter from cached state, paginate, then read files
+        // Pending: filter from cached state, paginate from end (newest first), then read files
         const pendingEntries = approvalEntries.filter((e) => e.status === "PENDING");
         const pendingOffset = (pendingPage - 1) * pendingPageSize;
-        const pendingSlice = pendingEntries.slice(pendingOffset, pendingOffset + pendingPageSize);
+        const pendingStart = Math.max(pendingEntries.length - pendingOffset - pendingPageSize, 0);
+        const pendingEnd = pendingEntries.length - pendingOffset;
+        const pendingSlice = pendingEntries.slice(pendingStart, pendingEnd);
 
         // Resolved: use StateRepository for cached owner->resolved mapping
         const resolvedOffset = (resolvedPage - 1) * resolvedPageSize;

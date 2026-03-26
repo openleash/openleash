@@ -230,7 +230,10 @@ export class StateIndex {
   ): { items: StateApprovalRequestEntry[]; total: number } {
     this.ensureFresh();
     const entries = this.resolvedByOwner.get(ownerId) ?? [];
-    return { items: entries.slice(offset, offset + limit), total: entries.length };
+    const total = entries.length;
+    const start = Math.max(total - offset - limit, 0);
+    const end = total - offset;
+    return { items: entries.slice(start, end), total };
   }
 
   private ensureFresh(): void {
