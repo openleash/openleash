@@ -72,22 +72,22 @@ describe('FileAuditStore', () => {
 
     const store = new FileAuditStore(tmpDir);
 
-    // Page 1
+    // Page 1 — newest entries (read from end)
     const p1 = store.readPage(3, 0);
     expect(p1.total).toBe(10);
     expect(p1.items).toHaveLength(3);
-    expect(p1.items[0].event_type).toBe('EVT_0');
-    expect(p1.items[2].event_type).toBe('EVT_2');
+    expect(p1.items[0].event_type).toBe('EVT_7');
+    expect(p1.items[2].event_type).toBe('EVT_9');
 
     // Page 2
     const p2 = store.readPage(3, 3);
     expect(p2.items).toHaveLength(3);
-    expect(p2.items[0].event_type).toBe('EVT_3');
+    expect(p2.items[0].event_type).toBe('EVT_4');
 
     // Last page (partial)
     const p4 = store.readPage(3, 9);
     expect(p4.items).toHaveLength(1);
-    expect(p4.items[0].event_type).toBe('EVT_9');
+    expect(p4.items[0].event_type).toBe('EVT_0');
 
     // Beyond range
     const p5 = store.readPage(3, 10);
@@ -136,15 +136,15 @@ describe('FileAuditStore', () => {
     const p1 = store.readByPrincipal('owner-a', new Set(), 3, 0);
     expect(p1.total).toBe(10);
     expect(p1.items).toHaveLength(3);
-    expect(p1.items[0].event_type).toBe('EVT_0');
+    expect(p1.items[0].event_type).toBe('EVT_7');
 
     const p2 = store.readByPrincipal('owner-a', new Set(), 3, 3);
     expect(p2.items).toHaveLength(3);
-    expect(p2.items[0].event_type).toBe('EVT_3');
+    expect(p2.items[0].event_type).toBe('EVT_4');
 
     const pLast = store.readByPrincipal('owner-a', new Set(), 3, 9);
     expect(pLast.items).toHaveLength(1);
-    expect(pLast.items[0].event_type).toBe('EVT_9');
+    expect(pLast.items[0].event_type).toBe('EVT_0');
   });
 
   // ─── append + incremental index ────────────────────────────────────
