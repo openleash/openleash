@@ -233,6 +233,9 @@ export interface OwnerFrontmatter {
   passphrase_hash?: string;
   passphrase_salt?: string;
   passphrase_set_at?: string;
+  // External auth provider link (e.g., Firebase)
+  external_auth_provider?: string;
+  external_auth_id?: string;
   // Two-factor authentication
   totp_secret_b32?: string;
   totp_enabled?: boolean;
