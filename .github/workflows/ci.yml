@@ -101,7 +101,7 @@ jobs:
         run: npm run build
 
       - name: Publish @openleash/core
-        uses: JS-DevTools/npm-publish@v3
+        uses: JS-DevTools/npm-publish@v4
         with:
           package: packages/core
           access: public
@@ -109,7 +109,7 @@ jobs:
           token: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @openleash/gui
-        uses: JS-DevTools/npm-publish@v3
+        uses: JS-DevTools/npm-publish@v4
         with:
           package: packages/gui
           access: public
@@ -117,7 +117,7 @@ jobs:
           token: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @openleash/server
-        uses: JS-DevTools/npm-publish@v3
+        uses: JS-DevTools/npm-publish@v4
         with:
           package: packages/server
           access: public
@@ -125,7 +125,7 @@ jobs:
           token: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @openleash/cli
-        uses: JS-DevTools/npm-publish@v3
+        uses: JS-DevTools/npm-publish@v4
         with:
           package: packages/cli
           access: public
@@ -133,7 +133,7 @@ jobs:
           token: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @openleash/sdk-ts
-        uses: JS-DevTools/npm-publish@v3
+        uses: JS-DevTools/npm-publish@v4
         with:
           package: packages/sdk-ts
           access: public
@@ -179,10 +179,10 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -190,7 +190,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/openleash/openleash
           tags: |
@@ -200,7 +200,7 @@ jobs:
             type=sha,prefix=
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
