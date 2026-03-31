@@ -181,8 +181,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
       <td><span class="badge badge-muted">${escapeHtml(c.type)}</span></td>
       <td>${escapeHtml(c.value)}</td>
       <td>${escapeHtml(c.label ?? "-")}</td>
-      <td>${escapeHtml(c.platform ?? "-")}</td>
-      <td class="profile-status-cell">${c.verified ? '<span class="badge badge-green">Verified</span>' : '<span class="badge badge-muted">Unverified</span>'}${verifyCell ? `<div class="profile-verify-action">${verifyCell}</div>` : ""}</td>
+      <td class="profile-status-cell">${c.verified ? '<span class="badge badge-green">Verified</span>' : `<span class="badge badge-muted">Unverified</span>${verifyCell ? ` ${verifyCell}` : ""}`}</td>
       <td><button class="btn btn-secondary profile-btn-remove" data-action="remove-contact" data-index="${i}">Remove</button></td>
     </tr>
   `;
@@ -352,8 +351,8 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
           contacts.length > 0
               ? `
       <table>
-        <colgroup><col style="width:140px"><col><col style="width:120px"><col style="width:120px"><col style="width:130px"><col style="width:80px"></colgroup>
-        <thead><tr><th>Type</th><th>Value</th><th>Label</th><th>Platform</th><th>Status</th><th></th></tr></thead>
+        <colgroup><col style="width:120px"><col><col style="width:120px"><col style="width:180px"><col style="width:80px"></colgroup>
+        <thead><tr><th>Type</th><th>Value</th><th>Label</th><th>Status</th><th></th></tr></thead>
         <tbody>${contactRows}</tbody>
       </table>
       `
@@ -371,18 +370,14 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
               <option value="SOCIAL_MEDIA">Social Media</option>
             </select>
           </div>
-          <div>
-            <label class="detail-label">Value</label>
-            <input type="text" id="contact-value" class="form-input" placeholder="e.g. user@example.com">
+          <div id="contact-value-group">
+            <label class="detail-label" id="contact-value-label">Email address</label>
+            <input type="email" id="contact-value" class="form-input" placeholder="you@example.com" autocomplete="email">
             <div class="field-error" id="err-contact-value"></div>
           </div>
           <div>
             <label class="detail-label">Label (optional)</label>
-            <input type="text" id="contact-label" class="form-input" placeholder="e.g. Work">
-          </div>
-          <div>
-            <label class="detail-label">Platform (optional)</label>
-            <input type="text" id="contact-platform" class="form-input" placeholder="e.g. Slack">
+            <input type="text" id="contact-label" class="form-input" placeholder="e.g. Work, Personal">
           </div>
           <div class="profile-form-full-row">
             <button class="btn btn-primary btn-sm" id="btn-add-contact">Add</button>

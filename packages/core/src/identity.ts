@@ -225,9 +225,9 @@ export function validateContactIdentities(contacts: ContactIdentity[]): Validati
         }
         return { valid: true };
       case 'PHONE':
-        // E.164 format or common phone formats
-        if (!/^\+?[\d\s\-().]{7,20}$/.test(c.value)) {
-          return { valid: false, error: 'Invalid phone format' };
+        // Must include country code (start with +)
+        if (!/^\+\d[\d\s\-()]{6,19}$/.test(c.value)) {
+          return { valid: false, error: 'Phone number must include country code (e.g. +46 70 123 4567)' };
         }
         return { valid: true };
       default:

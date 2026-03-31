@@ -95,21 +95,56 @@ async function updateName() {
 
 // ─── Contact identities ────────────────────────────────────────────
 
+// ─── Type-specific input switching ─────────────────────────────────
+
+const contactTypeInputConfig: Record<string, { label: string; type: string; placeholder: string; autocomplete: string }> = {
+    EMAIL: { label: "Email address", type: "email", placeholder: "you@example.com", autocomplete: "email" },
+    PHONE: { label: "Phone number", type: "tel", placeholder: "+46 70 123 4567", autocomplete: "tel" },
+    INSTANT_MESSAGE: { label: "Username or handle", type: "text", placeholder: "e.g. @user", autocomplete: "off" },
+    SOCIAL_MEDIA: { label: "Profile URL or handle", type: "url", placeholder: "e.g. https://x.com/user", autocomplete: "off" },
+};
+
+const contactTypeSelect = document.getElementById("contact-type") as HTMLSelectElement | null;
+if (contactTypeSelect) {
+    contactTypeSelect.addEventListener("change", () => {
+        const cfg = contactTypeInputConfig[contactTypeSelect.value] ?? contactTypeInputConfig.EMAIL;
+        const input = document.getElementById("contact-value") as HTMLInputElement;
+        const label = document.getElementById("contact-value-label") as HTMLElement;
+        input.type = cfg.type;
+        input.placeholder = cfg.placeholder;
+        input.autocomplete = cfg.autocomplete;
+        label.textContent = cfg.label;
+        olFieldError("contact-value", "");
+    });
+}
+
+function validateContactValue(type: string, value: string): string | null {
+    if (!value) return "Value is required";
+    if (type === "EMAIL") {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Enter a valid email address";
+    } else if (type === "PHONE") {
+        // Must start with + and country code, then digits/spaces/dashes
+        if (!/^\+\d[\d\s\-()]{6,19}$/.test(value)) return "Enter a phone number with country code (e.g. +46 70 123 4567)";
+    }
+    return null;
+}
+
 async function addContact() {
     const type = (document.getElementById("contact-type") as HTMLSelectElement).value;
     const value = (document.getElementById("contact-value") as HTMLInputElement).value.trim();
     const label = (document.getElementById("contact-label") as HTMLInputElement).value.trim();
-    const platform = (document.getElementById("contact-platform") as HTMLInputElement).value.trim();
     olFieldError("contact-value", "");
-    if (!value) {
-        olFieldError("contact-value", "Value is required");
+
+    const error = validateContactValue(type, value);
+    if (error) {
+        olFieldError("contact-value", error);
         return;
     }
+
     const entry: Record<string, unknown> = {
         type, value, added_at: new Date().toISOString(), verified: false, verified_at: null,
     };
     if (label) entry.label = label;
-    if (platform) entry.platform = platform;
     const updated = contacts.concat([entry as unknown as ContactIdentity]);
     if (await saveProfile({ contact_identities: updated })) window.location.reload();
 }
