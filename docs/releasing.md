@@ -22,7 +22,11 @@ Bump versions in each `package.json` before publishing.
 
 ## Python (`openleash-sdk`)
 
-Published to PyPI. Requires a PyPI API token.
+Published to PyPI via CI using Trusted Publisher (OIDC). No API token needed — PyPI trusts the GitHub Actions workflow directly.
+
+**Automated (recommended):** Push a `v*` tag and the `publish-pypi` job in `ci.yml` will build and publish automatically.
+
+**Manual:**
 
 ```bash
 cd packages/sdk-python
