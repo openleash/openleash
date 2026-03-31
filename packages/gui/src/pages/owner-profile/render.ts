@@ -171,7 +171,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
                 if (!c.verified) {
                     const providerKey = c.type === "EMAIL" ? "email-otp" : c.type === "PHONE" ? "sms-otp" : null;
                     if (providerKey && verificationProviders.includes(providerKey)) {
-                        verifyCell = `<button class="btn btn-primary btn-sm" data-action="verify-contact" data-index="${i}" data-provider="${providerKey}" data-type="${escapeHtml(c.type)}">Verify</button>`;
+                        verifyCell = `<a href="/gui/owner/verification" class="btn btn-primary btn-sm">Verify</a>`;
                     } else if (providerKey && !isHosted) {
                         verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
                     }
@@ -195,7 +195,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
                 let verifyCell = "";
                 if (g.verification_level !== "VERIFIED") {
                     if (g.country === "SE" && verificationProviders.includes("bankid")) {
-                        verifyCell = `<button class="btn btn-primary btn-sm" data-action="verify-gov-id" data-index="${i}" data-provider="bankid">Verify with BankID</button>`;
+                        verifyCell = `<a href="/gui/owner/verification" class="btn btn-primary btn-sm">Verify</a>`;
                     } else if (g.country === "SE" && !isHosted) {
                         verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
                     }
@@ -205,7 +205,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
       <td>${countryFlag(g.country)} ${escapeHtml(g.country)} ${escapeHtml(EU_COUNTRY_NAMES[g.country] ?? "")}</td>
       <td>${escapeHtml(GOV_ID_LABELS[g.id_type] ?? g.id_type)}</td>
       <td class="mono">${escapeHtml(g.id_value)}</td>
-      <td class="profile-status-cell">${verificationBadge(g.verification_level)}${verifyCell ? `<div class="profile-verify-action">${verifyCell}</div>` : ""}</td>
+      <td class="profile-status-cell">${verificationBadge(g.verification_level)}${verifyCell ? ` ${verifyCell}` : ""}</td>
       <td><button class="btn btn-secondary profile-btn-remove" data-action="remove-gov-id" data-index="${i}">Remove</button></td>
     </tr>
   `;
@@ -219,7 +219,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
                 let verifyCell = "";
                 if (c.verification_level !== "VERIFIED") {
                     if (c.country === "SE" && c.id_type === "COMPANY_REG" && verificationProviders.includes("bolagsverket")) {
-                        verifyCell = `<button class="btn btn-primary btn-sm" data-action="verify-company-id" data-index="${i}" data-provider="bolagsverket">Verify with Bolagsverket</button>`;
+                        verifyCell = `<a href="/gui/owner/verification" class="btn btn-primary btn-sm">Verify</a>`;
                     } else if (c.country === "SE" && c.id_type === "COMPANY_REG" && !isHosted) {
                         verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
                     }
@@ -229,7 +229,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
       <td>${escapeHtml(c.id_type)}</td>
       <td>${c.country ? countryFlag(c.country) + " " + escapeHtml(c.country) : "-"}</td>
       <td class="mono">${escapeHtml(c.id_value)}</td>
-      <td class="profile-status-cell">${verificationBadge(c.verification_level)}${verifyCell ? `<div class="profile-verify-action">${verifyCell}</div>` : ""}</td>
+      <td class="profile-status-cell">${verificationBadge(c.verification_level)}${verifyCell ? ` ${verifyCell}` : ""}</td>
       <td><button class="btn btn-secondary profile-btn-remove" data-action="remove-company-id" data-index="${i}">Remove</button></td>
     </tr>
   `;
@@ -490,39 +490,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
             : ""
     }
 
-    <!-- BankID Verification Modal -->
-    <div id="bankid-modal" class="modal-overlay" data-close-modal="bankid-modal">
-      <div class="modal">
-        <div class="modal-title">Verify with BankID</div>
-        <div id="bankid-step-init">
-          <p class="profile-modal-text">Open the BankID app on your device and follow the instructions.</p>
-          <div id="bankid-qr" class="profile-qr-wrap"></div>
-          <p class="profile-modal-text" id="bankid-status-text">Waiting for BankID...</p>
-        </div>
-        <div id="bankid-step-error" class="hidden">
-          <p class="modal-error" id="bankid-error-text"></p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" id="btn-bankid-cancel">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- OTP Verification Modal -->
-    <div id="otp-modal" class="modal-overlay" data-close-modal="otp-modal">
-      <div class="modal">
-        <div class="modal-title" id="otp-modal-title">Verify</div>
-        <p class="profile-modal-text" id="otp-modal-desc"></p>
-        <input type="text" id="otp-code" class="form-input profile-input-full" placeholder="Enter 6-digit code" maxlength="6">
-        <div id="otp-error" class="modal-error"></div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" data-close-modal="otp-modal">Cancel</button>
-          <button class="btn btn-primary" id="btn-otp-verify">Verify</button>
-        </div>
-      </div>
-    </div>
-
-    <script>window.__PAGE_DATA__ = { contacts: ${JSON.stringify(contacts)}, govIds: ${JSON.stringify(govIds)}, companyIds: ${JSON.stringify(companyIds)}, idTypesMap: ${idTypesJson}, idLabelsMap: ${idLabelsJson}, verificationProviders: ${JSON.stringify(verificationProviders)} };</script>
+    <script>window.__PAGE_DATA__ = { contacts: ${JSON.stringify(contacts)}, govIds: ${JSON.stringify(govIds)}, companyIds: ${JSON.stringify(companyIds)}, idTypesMap: ${idTypesJson}, idLabelsMap: ${idLabelsJson} };</script>
     ${assetTags("pages/owner-profile/client.ts")}
   `;
     return renderPage("Profile", content, "/gui/owner/profile", "owner", renderPageOptions);

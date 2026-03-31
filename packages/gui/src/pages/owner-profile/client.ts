@@ -41,7 +41,6 @@ interface OwnerProfilePageData {
     companyIds: CompanyId[];
     idTypesMap: Record<string, string[]>;
     idLabelsMap: Record<string, string>;
-    verificationProviders: string[];
 }
 
 declare global {
@@ -52,7 +51,7 @@ declare global {
 
 // ─── Page data ──────────────────────────────────────────────────────
 
-const { contacts, govIds, companyIds, idTypesMap, idLabelsMap, verificationProviders } = window.__PAGE_DATA__;
+const { contacts, govIds, companyIds, idTypesMap, idLabelsMap } = window.__PAGE_DATA__;
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -309,158 +308,6 @@ async function confirmDisableTotp() {
     }
 }
 
-// ─── Identity verification ──────────────────────────────────────────
-
-let bankidPollTimer: ReturnType<typeof setInterval> | null = null;
-let bankidOrderRef: string | null = null;
-
-async function startBankIdVerification(govIdIndex: number) {
-    openModal("bankid-modal");
-    document.getElementById("bankid-step-init")!.classList.remove("hidden");
-    document.getElementById("bankid-step-error")!.classList.add("hidden");
-    document.getElementById("bankid-status-text")!.textContent = "Waiting for BankID...";
-    document.getElementById("bankid-qr")!.innerHTML = "";
-
-    const res = await fetch("/verification/bankid/initiate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gov_id_index: govIdIndex }),
-    });
-    if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        showBankIdError(olApiError(data, "Failed to start BankID verification"));
-        return;
-    }
-    const data = await res.json();
-    bankidOrderRef = data.order_ref;
-    if (data.qr_data) {
-        document.getElementById("bankid-qr")!.innerHTML = `<img src="${data.qr_data}" alt="BankID QR code">`;
-    }
-
-    bankidPollTimer = setInterval(() => pollBankId(), 2000);
-}
-
-async function pollBankId() {
-    if (!bankidOrderRef) return;
-    const res = await fetch(`/verification/bankid/status/${bankidOrderRef}`);
-    if (!res.ok) {
-        stopBankIdPoll();
-        showBankIdError("Failed to check BankID status");
-        return;
-    }
-    const data = await res.json();
-    if (data.status === "complete") {
-        stopBankIdPoll();
-        olToast("Identity verified with BankID", "success");
-        window.location.reload();
-    } else if (data.status === "failed") {
-        stopBankIdPoll();
-        showBankIdError(data.hint_code || "BankID verification failed");
-    } else {
-        document.getElementById("bankid-status-text")!.textContent = data.hint_code || "Waiting for BankID...";
-        if (data.qr_data) {
-            document.getElementById("bankid-qr")!.innerHTML = `<img src="${data.qr_data}" alt="BankID QR code">`;
-        }
-    }
-}
-
-function stopBankIdPoll() {
-    if (bankidPollTimer) {
-        clearInterval(bankidPollTimer);
-        bankidPollTimer = null;
-    }
-    bankidOrderRef = null;
-}
-
-function cancelBankId() {
-    if (bankidOrderRef) {
-        fetch(`/verification/bankid/cancel/${bankidOrderRef}`, { method: "POST" }).catch(() => {});
-    }
-    stopBankIdPoll();
-    closeModal("bankid-modal");
-}
-
-function showBankIdError(msg: string) {
-    document.getElementById("bankid-step-init")!.classList.add("hidden");
-    document.getElementById("bankid-step-error")!.classList.remove("hidden");
-    document.getElementById("bankid-error-text")!.textContent = msg;
-}
-
-let otpProvider: string | null = null;
-let _otpContactIndex: number | null = null;
-let otpOrderRef: string | null = null;
-
-async function startOtpVerification(contactIndex: number, provider: string) {
-    otpProvider = provider;
-    _otpContactIndex = contactIndex;
-
-    const label = provider === "sms-otp" ? "SMS" : "Email";
-    document.getElementById("otp-modal-title")!.textContent = `Verify via ${label}`;
-    document.getElementById("otp-modal-desc")!.textContent = `A verification code will be sent to your ${label.toLowerCase()}.`;
-    (document.getElementById("otp-code") as HTMLInputElement).value = "";
-    document.getElementById("otp-error")!.textContent = "";
-    openModal("otp-modal");
-
-    const endpoint = provider === "sms-otp" ? "/verification/sms/initiate" : "/verification/email/initiate";
-    const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_index: contactIndex }),
-    });
-    if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        document.getElementById("otp-error")!.textContent = olApiError(data, "Failed to send code");
-        return;
-    }
-    const data = await res.json();
-    otpOrderRef = data.order_ref;
-    document.getElementById("otp-modal-desc")!.textContent = `A verification code has been sent. Enter the 6-digit code below.`;
-}
-
-async function verifyOtp() {
-    const code = (document.getElementById("otp-code") as HTMLInputElement).value.trim();
-    const errEl = document.getElementById("otp-error")!;
-    if (!code) {
-        errEl.textContent = "Enter the verification code";
-        return;
-    }
-    if (!otpProvider || !otpOrderRef) {
-        errEl.textContent = "No verification in progress";
-        return;
-    }
-    const endpoint = otpProvider === "sms-otp" ? "/verification/sms/verify" : "/verification/email/verify";
-    const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_ref: otpOrderRef, code }),
-    });
-    if (res.ok) {
-        olToast("Contact verified", "success");
-        window.location.reload();
-    } else {
-        const data = await res.json().catch(() => ({}));
-        errEl.textContent = olApiError(data, "Invalid code");
-    }
-}
-
-async function startBolagsverketVerification(companyIdIndex: number) {
-    const res = await fetch("/verification/bolagsverket/lookup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_id_index: companyIdIndex }),
-    });
-    if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        olToast(olApiError(data, "Verification failed"), "error");
-        return;
-    }
-    olToast("Company verified via Bolagsverket", "success");
-    window.location.reload();
-}
-
-// Suppress unused variable warning
-void verificationProviders;
-
 // ─── Event bindings ─────────────────────────────────────────────────
 
 document.getElementById("btn-show-name-edit")?.addEventListener("click", showNameEdit);
@@ -474,9 +321,6 @@ document.getElementById("btn-download-codes")?.addEventListener("click", downloa
 document.getElementById("btn-confirm-totp")?.addEventListener("click", confirmTotp);
 document.getElementById("btn-open-disable-modal")?.addEventListener("click", openDisableModal);
 document.getElementById("btn-confirm-disable-totp")?.addEventListener("click", confirmDisableTotp);
-document.getElementById("btn-bankid-cancel")?.addEventListener("click", cancelBankId);
-document.getElementById("btn-otp-verify")?.addEventListener("click", verifyOtp);
-
 document.getElementById("gov-country")?.addEventListener("change", updateIdTypes);
 
 // Close modal buttons and overlay clicks
@@ -496,8 +340,5 @@ document.addEventListener("click", (e) => {
         case "remove-contact": removeContact(idx); break;
         case "remove-gov-id": removeGovId(idx); break;
         case "remove-company-id": removeCompanyId(idx); break;
-        case "verify-contact": startOtpVerification(idx, btn.dataset.provider!); break;
-        case "verify-gov-id": startBankIdVerification(idx); break;
-        case "verify-company-id": startBolagsverketVerification(idx); break;
     }
 });
