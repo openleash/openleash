@@ -352,7 +352,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
           contacts.length > 0
               ? `
       <table>
-        <colgroup><col style="width:140px"><col><col style="width:120px"><col style="width:120px"><col style="width:130px"><col style="width:60px"></colgroup>
+        <colgroup><col style="width:140px"><col><col style="width:120px"><col style="width:120px"><col style="width:130px"><col style="width:80px"></colgroup>
         <thead><tr><th>Type</th><th>Value</th><th>Label</th><th>Platform</th><th>Status</th><th></th></tr></thead>
         <tbody>${contactRows}</tbody>
       </table>
@@ -402,7 +402,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
           govIds.length > 0
               ? `
       <table>
-        <colgroup><col style="width:160px"><col style="width:180px"><col><col style="width:130px"><col style="width:60px"></colgroup>
+        <colgroup><col style="width:160px"><col style="width:180px"><col><col style="width:130px"><col style="width:80px"></colgroup>
         <thead><tr><th>Country</th><th>ID Type</th><th>Value</th><th>Status</th><th></th></tr></thead>
         <tbody>${govIdRows}</tbody>
       </table>
@@ -453,7 +453,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
           companyIds.length > 0
               ? `
       <table>
-        <colgroup><col style="width:180px"><col style="width:160px"><col><col style="width:130px"><col style="width:60px"></colgroup>
+        <colgroup><col style="width:180px"><col style="width:160px"><col><col style="width:130px"><col style="width:80px"></colgroup>
         <thead><tr><th>Type</th><th>Country</th><th>Value</th><th>Status</th><th></th></tr></thead>
         <tbody>${companyIdRows}</tbody>
       </table>
