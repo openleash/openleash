@@ -57,12 +57,16 @@ export function registerGuiRoutes(
             extraAdminNavItems: pluginManifest?.adminNavItems,
             verificationProviders: pluginManifest?.verificationProviders,
             isHosted: true,
+            extraHeadHtml: pluginManifest?.extraHeadHtml,
+            extraBodyHtml: pluginManifest?.extraBodyHtml,
         }
         : pluginManifest
             ? {
                 extraOwnerNavItems: pluginManifest.ownerNavItems,
                 extraAdminNavItems: pluginManifest.adminNavItems,
                 verificationProviders: pluginManifest?.verificationProviders,
+                extraHeadHtml: pluginManifest?.extraHeadHtml,
+                extraBodyHtml: pluginManifest?.extraBodyHtml,
             }
             : undefined;
 
