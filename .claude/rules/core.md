@@ -22,6 +22,8 @@ The authorization engine. All other packages depend on this.
 - `state.ts` — Legacy standalone file I/O functions (all `@deprecated` — use `store.*` instead). `StateIndex` used internally by `FileStateRepository`.
 - `types.ts` — All domain types defined as Zod schemas with inferred TypeScript types. Zod schemas and TS types share the same name (e.g., `DecisionResult` is both).
 - `audit.ts` — `AuditStore` interface + `FileAuditStore`. Legacy standalone functions `@deprecated`.
+- `events.ts` — `OpenleashEvents` typed event emitter. Events: `approval_request.created`, `policy_draft.created`. Passed to plugins via `ServerPluginContext.events`.
+- `server-plugin.ts` — `ServerPluginContext`, `ServerPluginManifest`, `CreateServerPlugin`. Manifest supports `extraHeadHtml`/`extraBodyHtml` for injecting HTML into owner pages.
 
 ## Conventions
 
