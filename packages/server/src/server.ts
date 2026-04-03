@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import helmet from '@fastify/helmet';
-import { NonceCache } from '@openleash/core';
+import { NonceCache, OpenleashEvents } from '@openleash/core';
 import type { OpenleashConfig, DataStore, ServerPluginManifest } from '@openleash/core';
 import { loadServerPlugin } from '@openleash/core';
 import { initManifest } from '@openleash/gui';
@@ -58,6 +58,7 @@ export async function createServer(options: CreateServerOptions) {
   );
 
   const nonceCache = new NonceCache(config.security.nonce_ttl_seconds);
+  const events = new OpenleashEvents();
 
   // Register routes
   registerHealthRoutes(app, { hasApiReference: !!openapiSpec });
@@ -66,7 +67,7 @@ export async function createServer(options: CreateServerOptions) {
   registerAgentRoutes(app, store);
   registerAuthorizeRoutes(app, store, config, nonceCache);
   registerOwnerRoutes(app, store, config);
-  registerAgentSelfRoutes(app, store, config, nonceCache);
+  registerAgentSelfRoutes(app, store, config, nonceCache, events);
   registerAdminRoutes(app, store, config);
   if (config.instance?.mode !== 'hosted') {
     registerPlaygroundRoutes(app, config);
@@ -80,6 +81,7 @@ export async function createServer(options: CreateServerOptions) {
       store,
       config,
       dataDir,
+      events,
     });
 
     // Serve plugin static assets if provided

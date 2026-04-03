@@ -1,5 +1,6 @@
 import type { DataStore } from './store.js';
 import type { OpenleashConfig } from './types.js';
+import type { OpenleashEvents } from './events.js';
 
 // ─── Plugin navigation ──────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ export interface ServerPluginContext {
   store: DataStore;
   config: OpenleashConfig;
   dataDir: string;
+  events: OpenleashEvents;
 }
 
 // ─── Plugin manifest ────────────────────────────────────────────────

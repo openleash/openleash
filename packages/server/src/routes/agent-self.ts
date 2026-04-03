@@ -9,6 +9,7 @@ import {
 import type {
   DataStore,
   OpenleashConfig,
+  OpenleashEvents,
   AgentFrontmatter,
   StateAgentEntry,
   ApprovalRequestFrontmatter,
@@ -20,7 +21,8 @@ export function registerAgentSelfRoutes(
   app: FastifyInstance,
   store: DataStore,
   config: OpenleashConfig,
-  nonceCache: NonceCache
+  nonceCache: NonceCache,
+  events: OpenleashEvents,
 ) {
   const agentAuth = createAgentAuth(config, store, nonceCache);
 
@@ -124,6 +126,17 @@ export function registerAgentSelfRoutes(
       justification: body.justification ?? null,
       action_payload: action.payload ?? null,
       subject_principal_id: action.subject?.principal_id ?? null,
+      expires_at: expiresAt.toISOString(),
+    });
+
+    events.emit('approval_request.created', {
+      approval_request_id: approvalRequestId,
+      decision_id: body.decision_id,
+      agent_id: agent.agent_id,
+      agent_principal_id: agentEntry.agent_principal_id,
+      owner_principal_id: agentEntry.owner_principal_id,
+      action_type: action.action_type,
+      justification: body.justification ?? null,
       expires_at: expiresAt.toISOString(),
     });
 
@@ -252,6 +265,15 @@ export function registerAgentSelfRoutes(
       owner_principal_id: agentEntry.owner_principal_id,
       justification: body.justification ?? null,
       applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
+    });
+
+    events.emit('policy_draft.created', {
+      policy_draft_id: policyDraftId,
+      agent_id: agent.agent_id,
+      agent_principal_id: agentEntry.agent_principal_id,
+      owner_principal_id: agentEntry.owner_principal_id,
+      name: draft.name,
+      justification: body.justification ?? null,
     });
 
     return {
