@@ -93,7 +93,7 @@ Once you're registered:
 1. **Verify connectivity** — call `GET /v1/health` to confirm the server is reachable.
 2. **Check if a policy is bound** — your owner must bind a policy to you before authorization requests will succeed. Until then, `POST /v1/authorize` will return a `403` error with code `NO_POLICY`.
 3. **Make a test authorization call** — try a simple `authorize` request to confirm your signing works. Expect `DENY` or `NO_POLICY` if no policy grants the action yet.
-4. **Get a policy bound** — either ask your owner to create one via the owner portal (`/gui/owner/policies`), or [propose a policy draft](#proposing-policies-policy-drafts) yourself.
+4. **Get a policy bound** — either ask your owner to create one via the owner portal (`/gui/policies`), or [propose a policy draft](#proposing-policies-policy-drafts) yourself.
 
 ## API Reference
 

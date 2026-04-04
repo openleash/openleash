@@ -168,15 +168,15 @@ This lets agents self-serve within the owner's control — the owner always has 
 
 ## 👤 Owner Portal
 
-The owner portal is a self-service web interface where owners can manage their policies, review pending approval requests, and view registered agents. Access it at `/gui/owner/login`.
+The owner portal is a self-service web interface where owners can manage their policies, review pending approval requests, and view registered agents. Access it at `/gui/login`.
 
 **Setup flow:**
 
 1. An admin creates an owner via the Admin Dashboard (`/gui/dashboard`) or `npx openleash wizard`
 2. The admin generates a setup invite — the GUI produces a copyable setup link
-3. The owner opens the link (`/gui/owner/setup?invite_id=...&invite_token=...`) and chooses a passphrase
+3. The owner opens the link (`/gui/owner-setup?invite_id=...&invite_token=...`) and chooses a passphrase
 4. After setup, the owner is offered to create an **agent invite** — a single URL that an agent uses to register itself
-5. The owner logs in at `/gui/owner/login` with their Owner Principal ID and passphrase
+5. The owner logs in at `/gui/login` with their Owner Principal ID and passphrase
 
 ## 🤖 Agent Registration
 
@@ -196,8 +196,8 @@ const agent = await redeemAgentInvite({
 
 Owners can create agent invites from:
 - The owner setup page (offered immediately after setting a passphrase)
-- The owner agents page (`/gui/owner/agents`)
-- The admin agents page (`/gui/agents`)
+- The owner agents page (`/gui/admin/agents`)
+- The admin agents page (`/gui/admin/agents`)
 
 See [AGENTS.md](AGENTS.md) for the full agent integration guide.
 
