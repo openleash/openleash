@@ -75,9 +75,9 @@ export function registerGuiRoutes(
     app.addHook("onRequest", async (request, reply) => {
         if (!fs.existsSync(statePath)) {
             bootstrapState(rootDir);
-            // Let setup-related routes through without redirect
+            // Let setup-related and admin routes through without redirect
             const url = request.url.split("?")[0];
-            if (url === "/gui" || url === "/gui/setup") return;
+            if (url === "/gui" || url === "/gui/setup" || url.startsWith("/gui/admin")) return;
             reply.redirect("/gui");
         }
     });
