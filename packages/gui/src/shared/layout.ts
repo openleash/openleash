@@ -280,7 +280,7 @@ export function renderPage(
         })
         .join("\n");
 
-    const showSwitcher = options?.showContextSwitcher !== false && (options?.isAdmin === true || !isOwner);
+    const showSwitcher = options?.isAdmin === true || (!isOwner && options?.showContextSwitcher !== false);
 
     const logoutHtml = isOwner
         ? `
