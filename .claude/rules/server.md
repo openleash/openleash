@@ -13,7 +13,7 @@ Fastify HTTP server. Depends on `@openleash/core`.
 - `routes/` — Each file exports a `registerXxxRoutes(app, store, ...)` function. All data access goes through `DataStore`. Core endpoint is `authorize.ts` (POST /v1/authorize).
 - `middleware/agent-auth.ts` — `createAgentAuth(config, store, nonceCache)` — verifies signed requests via store.
 - `middleware/owner-auth.ts` — `createOwnerAuth(config, store)` — PASETO session token verification via store.
-- `middleware/admin-auth.ts` — Bearer token or localhost check for admin routes.
+- `middleware/admin-auth.ts` — `createAdminAuth(config, store)` — RBAC: verifies PASETO session with `admin` role, falls back to legacy Bearer token (API-only) and localhost bypass (self-hosted only). Attaches `adminSession { principal_id, auth_method }` to request.
 - `bootstrap.ts` — `bootstrapState(rootDir, store?)` — delegates to `store.initialize()` if store provided.
 - `config.ts` — Loads `config.yaml` from project root.
 
