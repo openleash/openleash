@@ -34,7 +34,9 @@ document.getElementById("login-form")!.addEventListener("submit", async (e) => {
         }
 
         document.cookie = "openleash_session=" + data.token + "; path=/; SameSite=Strict";
-        window.location.href = "/gui/dashboard";
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get("redirect");
+        window.location.href = redirect && redirect.startsWith("/gui/") ? redirect : "/gui/dashboard";
     } catch {
         errorEl.textContent = "Network error";
         errorEl.style.display = "block";

@@ -142,6 +142,7 @@ export interface OwnerData {
     totp_enabled?: boolean;
     totp_enabled_at?: string;
     has_passphrase?: boolean;
+    roles?: string[];
 }
 
 export interface OwnerDetailData {
@@ -225,6 +226,17 @@ function contactTypeLabel(type: string): string {
     }
 }
 
+function rolesBadges(roles?: string[]): string {
+    if (!roles || roles.length === 0) return '<span class="badge badge-muted">owner</span>';
+    return roles
+        .map((r) =>
+            r === "admin"
+                ? `<span class="badge badge-amber">${escapeHtml(r)}</span>`
+                : `<span class="badge badge-muted">${escapeHtml(r)}</span>`,
+        )
+        .join(" ");
+}
+
 // ─── Owners List Page ─────────────────────────────────────────────────
 
 export function renderOwners(owners: OwnerData[]): string {
@@ -238,6 +250,7 @@ export function renderOwners(owners: OwnerData[]): string {
       <td>${escapeHtml(o.display_name ?? "-")}</td>
       <td>${escapeHtml(o.principal_type ?? "-")}</td>
       <td>${statusBadge(o.status)}</td>
+      <td>${rolesBadges(o.roles)}</td>
       <td class="mono">${o.created_at ? formatTimestamp(o.created_at, true) : "-"}</td>
       <td>
         <a href="/gui/admin/owners/${escapeHtml(o.owner_principal_id)}" class="btn btn-secondary btn-sm">View</a>
@@ -282,19 +295,20 @@ export function renderOwners(owners: OwnerData[]): string {
 
     <div class="card">
       <table>
-        <colgroup><col style="width:320px"><col><col style="width:100px"><col style="width:130px"><col style="width:170px"><col style="width:100px"></colgroup>
+        <colgroup><col style="width:320px"><col><col style="width:100px"><col style="width:130px"><col style="width:130px"><col style="width:170px"><col style="width:100px"></colgroup>
         <thead>
           <tr>
             <th>Principal ID</th>
             <th>Display Name</th>
             <th>Type</th>
             <th>Status${infoIcon("owners-status", INFO_OWNER_STATUS)}</th>
+            <th>Roles</th>
             <th>Created</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="6" class="owners-table-empty">No owners registered</td></tr>'}
+          ${rows || '<tr><td colspan="7" class="owners-table-empty">No owners registered</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -605,6 +619,15 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
             <td>${statusBadge(owner.status)}</td>
           </tr>
           <tr>
+            <td class="owners-detail-label">Roles</td>
+            <td>
+              ${rolesBadges(owner.roles)}
+              <button id="btn-toggle-admin" class="btn btn-secondary btn-sm" style="margin-left:8px">
+                ${(owner.roles ?? []).includes("admin") ? "Revoke Admin" : "Grant Admin"}
+              </button>
+            </td>
+          </tr>
+          <tr>
             <td class="owners-detail-label">Created</td>
             <td class="mono">${owner.created_at ? formatTimestamp(owner.created_at) : "-"}</td>
           </tr>
@@ -775,7 +798,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       <a href="/gui/admin/owners" class="btn btn-secondary">Back to Owners</a>
     </div>
 
-    <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.owner_principal_id)}', activityPage: ${activity_log.page}, activityPageSize: ${activity_log.pageSize}, activityTotal: ${activity_log.total} };</script>
+    <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.owner_principal_id)}', roles: ${JSON.stringify(owner.roles ?? ["owner"])}, activityPage: ${activity_log.page}, activityPageSize: ${activity_log.pageSize}, activityTotal: ${activity_log.total} };</script>
     ${assetTags("pages/owners/client.ts")}
   `;
 

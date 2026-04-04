@@ -244,6 +244,7 @@ export function formatNameWithId(name: string | undefined, uuid: string): string
 
 export interface RenderPageOptions {
     showContextSwitcher?: boolean;
+    isAdmin?: boolean;
     extraOwnerNavItems?: { path: string; label: string; icon: string }[];
     extraAdminNavItems?: { path: string; label: string; icon: string }[];
     verificationProviders?: string[];
@@ -279,7 +280,7 @@ export function renderPage(
         })
         .join("\n");
 
-    const showSwitcher = options?.showContextSwitcher !== false;
+    const showSwitcher = options?.showContextSwitcher !== false && (options?.isAdmin === true || !isOwner);
 
     const logoutHtml = isOwner
         ? `

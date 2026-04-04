@@ -16,18 +16,30 @@ import type {
   CompanyId,
   Signatory,
   SignatoryRule,
+  UserRole,
 } from '@openleash/core';
+import { UserRole as UserRoleEnum, resolveUserRoles } from '@openleash/core';
 // Note: identity sub-types kept in imports for owner creation
 import { createAdminAuth } from '../middleware/admin-auth.js';
+import type { AdminSession } from '../middleware/admin-auth.js';
 import { validateBody } from '../validate.js';
 import { CreateOwnerSchema } from '@openleash/gui';
 
 export function registerAdminRoutes(app: FastifyInstance, store: DataStore, config: OpenleashConfig) {
-  const adminAuth = createAdminAuth(config);
+  const adminAuth = createAdminAuth(config, store);
 
-  // POST /v1/admin/login — validate admin token (used by the admin login GUI)
-  app.post('/v1/admin/login', { preHandler: adminAuth }, async () => {
-    return { ok: true };
+  function getAdminSession(request: unknown): AdminSession | undefined {
+    return (request as Record<string, unknown>).adminSession as AdminSession | undefined;
+  }
+
+  // POST /v1/admin/login — validate admin credentials (session or legacy token)
+  app.post('/v1/admin/login', { preHandler: adminAuth }, async (request) => {
+    const session = getAdminSession(request);
+    return {
+      ok: true,
+      principal_id: session?.principal_id ?? null,
+      auth_method: session?.auth_method ?? null,
+    };
   });
 
   // POST /v1/admin/owners
@@ -141,7 +153,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       display_name: body.display_name,
       principal_type: body.principal_type,
       identity_assurance_level: owner.identity_assurance_level ?? null,
-    });
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
     return {
       owner_principal_id: ownerId,
@@ -191,7 +203,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       owner_principal_id: ownerId,
       invite_id: inviteId,
       expires_at: expiresAt,
-    });
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
     return {
       invite_id: inviteId,
@@ -232,7 +244,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     store.audit.append('AGENT_INVITE_CREATED', {
       owner_principal_id: ownerId,
       invite_id: inviteId,
-    });
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
     return {
       invite_id: inviteId,
@@ -293,9 +305,70 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     store.audit.append('OWNER_TOTP_DISABLED', {
       owner_principal_id: ownerId,
       disabled_by: 'admin',
-    });
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
     return { owner_principal_id: ownerId, status: 'totp_disabled' };
+  });
+
+  // ─── Role management ────────────────────────────────────────────────
+
+  // GET /v1/admin/owners/:ownerId/roles
+  app.get('/v1/admin/owners/:ownerId/roles', { preHandler: adminAuth }, async (request, reply) => {
+    const { ownerId } = request.params as { ownerId: string };
+
+    const state = store.state.getState();
+    const ownerEntry = state.owners.find((o) => o.owner_principal_id === ownerId);
+    if (!ownerEntry) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Owner not found' } });
+      return;
+    }
+
+    const owner = store.owners.read(ownerId);
+    return { owner_principal_id: ownerId, roles: resolveUserRoles(owner) };
+  });
+
+  // PUT /v1/admin/owners/:ownerId/roles
+  app.put('/v1/admin/owners/:ownerId/roles', { preHandler: adminAuth }, async (request, reply) => {
+    const { ownerId } = request.params as { ownerId: string };
+    const body = request.body as { roles?: unknown };
+
+    if (!body.roles || !Array.isArray(body.roles)) {
+      reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'roles must be an array' } });
+      return;
+    }
+
+    // Validate each role
+    const roles: UserRole[] = [];
+    for (const r of body.roles) {
+      const parsed = UserRoleEnum.safeParse(r);
+      if (!parsed.success) {
+        reply.code(400).send({
+          error: { code: 'INVALID_ROLE', message: `Invalid role: ${r}. Valid roles: owner, admin` },
+        });
+        return;
+      }
+      roles.push(parsed.data);
+    }
+
+    const state = store.state.getState();
+    const ownerEntry = state.owners.find((o) => o.owner_principal_id === ownerId);
+    if (!ownerEntry) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Owner not found' } });
+      return;
+    }
+
+    const owner = store.owners.read(ownerId);
+    const previousRoles = resolveUserRoles(owner);
+    owner.roles = roles;
+    store.owners.write(owner);
+
+    store.audit.append('USER_ROLES_UPDATED', {
+      owner_principal_id: ownerId,
+      previous_roles: previousRoles,
+      new_roles: roles,
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    return { owner_principal_id: ownerId, roles };
   });
 
   // GET /v1/admin/audit
@@ -313,7 +386,8 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     const state = store.state.getState();
     const owners = state.owners.map((entry) => {
       try {
-        return store.owners.read(entry.owner_principal_id);
+        const owner = store.owners.read(entry.owner_principal_id);
+        return { ...owner, roles: resolveUserRoles(owner) };
       } catch {
         return { owner_principal_id: entry.owner_principal_id, error: 'file_not_found' };
       }

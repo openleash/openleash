@@ -100,6 +100,7 @@ export interface IssueSessionParams {
   key: ServerKeyFile;
   ownerPrincipalId: string;
   ttlSeconds: number;
+  roles?: string[];
 }
 
 export async function issueSessionToken(params: IssueSessionParams): Promise<{
@@ -117,6 +118,7 @@ export async function issueSessionToken(params: IssueSessionParams): Promise<{
     iat: now.toISOString(),
     exp: exp.toISOString(),
     purpose: 'owner_session',
+    roles: params.roles,
   };
 
   const privateKey = getPrivateKeyObject(params.key);

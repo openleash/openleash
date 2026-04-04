@@ -15,6 +15,7 @@ import {
     verifyTotp,
     generateBackupCodes,
     verifyBackupCode,
+    resolveUserRoles,
 } from "@openleash/core";
 import type {
     OpenleashConfig,
@@ -86,6 +87,7 @@ export function registerOwnerRoutes(
             passphrase_hash: hash,
             passphrase_salt: salt,
             passphrase_set_at: new Date().toISOString(),
+            roles: ["owner", "admin"],
         });
 
         // Update state
@@ -225,10 +227,12 @@ export function registerOwnerRoutes(
         // Issue session token
         const activeKey = store.keys.read(state.server_keys.active_kid);
         const ttl = config.sessions?.ttl_seconds ?? 28800;
+        const roles = resolveUserRoles(owner);
         const session = await issueSessionToken({
             key: activeKey,
             ownerPrincipalId: body.owner_principal_id,
             ttlSeconds: ttl,
+            roles,
         });
 
         store.audit.append("OWNER_LOGIN", {
@@ -240,6 +244,7 @@ export function registerOwnerRoutes(
             token: session.token,
             expires_at: session.expiresAt,
             owner_principal_id: body.owner_principal_id,
+            roles,
         };
     });
 

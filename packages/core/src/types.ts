@@ -214,6 +214,14 @@ export interface ServerKeyFile {
   revoked_at: string | null;
 }
 
+// ─── User roles (RBAC) ──────────────────────────────────────────────
+export const UserRole = z.enum(['owner', 'admin']);
+export type UserRole = z.infer<typeof UserRole>;
+
+export function resolveUserRoles(owner: OwnerFrontmatter): UserRole[] {
+  return owner.roles && owner.roles.length > 0 ? owner.roles : ['owner'];
+}
+
 // ─── Owner file frontmatter ──────────────────────────────────────────
 export interface OwnerFrontmatter {
   owner_principal_id: string;
@@ -236,6 +244,8 @@ export interface OwnerFrontmatter {
   // External auth provider link (e.g., Firebase)
   external_auth_provider?: string;
   external_auth_id?: string;
+  // User roles (RBAC)
+  roles?: UserRole[];
   // Two-factor authentication
   totp_secret_b32?: string;
   totp_enabled?: boolean;
@@ -360,6 +370,7 @@ export interface SessionClaims {
   iat: string;
   exp: string;
   purpose: 'owner_session';
+  roles?: string[];
 }
 
 export interface ApprovalTokenClaims {

@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { FastifyInstance } from "fastify";
+import { resolveUserRoles } from "@openleash/core";
 import type { OpenleashConfig, SessionClaims, DataStore, ServerPluginManifest } from "@openleash/core";
 import {
     renderDashboard,
@@ -20,7 +21,6 @@ import {
     renderOwnerPolicyCreate,
     renderOwnerProfile,
     renderInitialSetup,
-    renderAdminLogin,
     renderApiReference,
     renderApiReferenceUnavailable,
     renderMcpGlove,
@@ -86,12 +86,12 @@ export function registerGuiRoutes(
 ) {
     const vinfo = getVersionInfo();
     setVersion(vinfo.version, vinfo.commitHash ?? undefined);
-    const adminAuth = createAdminAuth(config);
+    const adminAuth = createAdminAuth(config, store);
     const rootDir = path.dirname(dataDir);
     const statePath = path.join(dataDir, "state.md");
     const isHosted = config.instance?.mode === "hosted";
     const pluginManifest = options?.pluginManifest;
-    const ownerRenderOptions = isHosted
+    const baseRenderOptions = isHosted
         ? {
             showContextSwitcher: false,
             extraOwnerNavItems: pluginManifest?.ownerNavItems,
@@ -110,6 +110,15 @@ export function registerGuiRoutes(
                 extraBodyHtml: pluginManifest?.extraBodyHtml,
             }
             : undefined;
+
+    /** Build render options with isAdmin from session claims. */
+    function ownerRenderOptionsFor(session: SessionClaims) {
+        const hasAdminRole = (session.roles ?? []).includes("admin");
+        return baseRenderOptions
+            ? { ...baseRenderOptions, isAdmin: hasAdminRole }
+            : hasAdminRole ? { isAdmin: true } : undefined;
+    }
+
 
     // Guard: if the data directory or state file is missing, re-bootstrap and
     // redirect to the initial setup page so the user can start fresh.
@@ -157,10 +166,9 @@ export function registerGuiRoutes(
         reply.redirect("/gui/admin/dashboard");
     });
 
-    // Admin login page (no auth)
+    // Admin login — redirect to unified owner login
     app.get("/gui/admin/login", async (_request, reply) => {
-        const html = renderAdminLogin();
-        reply.type("text/html").send(html);
+        reply.redirect("/gui/login?redirect=/gui/admin/dashboard");
     });
 
     // Dashboard
@@ -191,7 +199,8 @@ export function registerGuiRoutes(
         const state = store.state.getState();
         const owners = state.owners.map((entry) => {
             try {
-                return store.owners.read(entry.owner_principal_id);
+                const owner = store.owners.read(entry.owner_principal_id);
+                return { ...owner, roles: resolveUserRoles(owner) };
             } catch {
                 return {
                     owner_principal_id: entry.owner_principal_id,
@@ -279,7 +288,7 @@ export function registerGuiRoutes(
                 }
             }
 
-            const ownerWithMeta = { ...owner, has_passphrase: !!owner.passphrase_hash };
+            const ownerWithMeta = { ...owner, has_passphrase: !!owner.passphrase_hash, roles: resolveUserRoles(owner) };
             const html = renderOwnerDetail({
                 owner: ownerWithMeta,
                 agents,
@@ -559,7 +568,7 @@ export function registerGuiRoutes(
             policy_count: policyCount,
             pending_approvals: pendingApprovals,
             pending_policy_drafts: pendingPolicyDrafts,
-        }, ownerRenderOptions);
+        }, ownerRenderOptionsFor(session));
         reply.type("text/html").send(html);
     });
 
@@ -596,7 +605,7 @@ export function registerGuiRoutes(
         const html = renderOwnerAgents(agents, {
             totp_enabled: !!agentOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
-        }, ownerRenderOptions);
+        }, ownerRenderOptionsFor(session));
         reply.type("text/html").send(html);
     });
 
@@ -675,13 +684,15 @@ export function registerGuiRoutes(
             totp_enabled: !!policyOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
             agent_names: agentNames,
-        }, ownerRenderOptions);
+        }, ownerRenderOptionsFor(session));
         reply.type("text/html").send(html);
     });
 
     // Owner create policy
-    app.get("/gui/policies/create", { preHandler: ownerAuth }, async (_request, reply) => {
-        const html = renderOwnerPolicyCreate(ownerRenderOptions);
+    app.get("/gui/policies/create", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const html = renderOwnerPolicyCreate(ownerRenderOptionsFor(session));
         reply.type("text/html").send(html);
     });
 
@@ -766,7 +777,7 @@ export function registerGuiRoutes(
             totp_enabled: !!approvalOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
             agent_names: approvalAgentNames,
-        }, ownerRenderOptions);
+        }, ownerRenderOptionsFor(session));
         reply.type("text/html").send(html);
     });
 
@@ -794,7 +805,7 @@ export function registerGuiRoutes(
             totp_enabled: !!owner.totp_enabled,
             totp_enabled_at: owner.totp_enabled_at,
             totp_backup_codes_remaining: owner.totp_backup_codes_hash?.length,
-        }, ownerRenderOptions);
+        }, ownerRenderOptionsFor(session));
         reply.type("text/html").send(html);
     });
 
@@ -833,7 +844,7 @@ export function registerGuiRoutes(
             pageSize,
             { owners: ownerNames, agents: agentNames, eventTypes },
             "owner",
-            ownerRenderOptions,
+            ownerRenderOptionsFor(session),
         );
         reply.type("text/html").send(html);
     });

@@ -6,6 +6,7 @@ import { olToast, olFieldError, olConfirm, olApiError } from "../../shared/commo
 
 interface OwnersPageData {
     ownerId?: string;
+    roles?: string[];
     activityPage?: number;
     activityPageSize?: number;
     activityTotal?: number;
@@ -124,6 +125,38 @@ async function generateInvite() {
     }
 }
 
+async function toggleAdminRole() {
+    const ownerId = pageData.ownerId!;
+    const currentRoles = pageData.roles ?? ["owner"];
+    const hasAdmin = currentRoles.includes("admin");
+    const action = hasAdmin ? "revoke admin role from" : "grant admin role to";
+
+    if (!(await olConfirm(`Are you sure you want to ${action} this user?`, hasAdmin ? "Revoke Admin" : "Grant Admin"))) return;
+
+    const newRoles = hasAdmin
+        ? currentRoles.filter((r) => r !== "admin")
+        : [...currentRoles, "admin"];
+    // Ensure 'owner' is always present
+    if (!newRoles.includes("owner")) newRoles.unshift("owner");
+
+    try {
+        const res = await fetch("/v1/admin/owners/" + ownerId + "/roles", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ roles: newRoles }),
+        });
+        if (res.ok) {
+            olToast(hasAdmin ? "Admin role revoked" : "Admin role granted", "success");
+            setTimeout(() => { window.location.reload(); }, 800);
+        } else {
+            const err = await res.json();
+            olToast(olApiError(err, "Failed to update roles"), "error");
+        }
+    } catch {
+        olToast("Network error", "error");
+    }
+}
+
 // ─── Event bindings ─────────────────────────────────────────────────
 
 document.querySelectorAll<HTMLElement>("[data-toggle-form]").forEach((el) => {
@@ -144,6 +177,7 @@ document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
 document.getElementById("invite-btn")?.addEventListener("click", generateInvite);
 document.getElementById("copy-btn")?.addEventListener("click", copyLink);
 document.getElementById("btn-admin-disable-totp")?.addEventListener("click", adminDisableTotp);
+document.getElementById("btn-toggle-admin")?.addEventListener("click", toggleAdminRole);
 
 // Activity log page size change
 document.getElementById("activity-page-size")?.addEventListener("change", (e) => {
