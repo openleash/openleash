@@ -62,6 +62,10 @@ export default defineConfig({
                     __dirname,
                     "src/pages/config/client.ts",
                 ),
+                "pages/about/client": resolve(
+                    __dirname,
+                    "src/pages/about/client.ts",
+                ),
                 "pages/dashboard/client": resolve(
                     __dirname,
                     "src/pages/dashboard/client.ts",

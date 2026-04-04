@@ -648,6 +648,16 @@ body.theme-light .form-select {
   font-size: 10px;
   color: var(--text-muted);
 }
+.sidebar-version-link {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.sidebar-version-link:hover {
+  color: var(--green-bright);
+}
 body.sidebar-collapsed .sidebar-version { display: none; }
 
 /* ─── Collapsed sidebar ─────────────────────────────────────────────── */

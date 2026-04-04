@@ -33,6 +33,8 @@ export { renderOwnerProfile } from "./pages/owner-profile/render.js";
 export type { OwnerProfileData } from "./pages/owner-profile/render.js";
 export { renderInitialSetup } from "./pages/initial-setup/render.js";
 export { renderAdminLogin } from "./pages/admin-login/render.js";
+export { renderAbout } from "./pages/about/render.js";
+export type { AboutData, PackageInfo } from "./pages/about/render.js";
 export { renderApiReference, renderApiReferenceUnavailable } from "./pages/api-reference/render.js";
 export * from "./shared/validation.js";
 export { initManifest, resolveAsset, resolveAssetCss, assetTags, getClientDir } from "./shared/manifest.js";

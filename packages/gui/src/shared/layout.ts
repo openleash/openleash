@@ -355,7 +355,7 @@ export function renderPage(
     </div>
     ${navHtml}
     <div class="sidebar-bottom">
-      ${_version ? `<div class="sidebar-version"><span>${escapeHtml(_version)}</span>${_commitHash ? `<span class="sidebar-commit">(${escapeHtml(_commitHash)})</span>` : ""}</div>` : ""}
+      ${_version ? `<div class="sidebar-version">${!isOwner ? `<a href="/gui/admin/about" class="sidebar-version-link">` : ""}<span>${escapeHtml(_version)}</span>${_commitHash ? `<span class="sidebar-commit">(${escapeHtml(_commitHash)})</span>` : ""}${!isOwner ? `</a>` : ""}</div>` : ""}
       ${logoutHtml}
       <button class="sidebar-toggle" title="Toggle sidebar">
         <span class="material-symbols-outlined collapse-icon">left_panel_close</span>

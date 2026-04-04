@@ -24,8 +24,10 @@ import {
     renderApiReference,
     renderApiReferenceUnavailable,
     renderMcpGlove,
+    renderAbout,
     setVersion,
 } from "@openleash/gui";
+import type { PackageInfo } from "@openleash/gui";
 import { createAdminAuth } from "../middleware/admin-auth.js";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
 import { getVersion, getVersionInfo } from "../version.js";
@@ -34,6 +36,45 @@ import { bootstrapState } from "../bootstrap.js";
 export interface GuiRoutesOptions {
     hasApiReference?: boolean;
     pluginManifest?: ServerPluginManifest;
+}
+
+/**
+ * Scan node_modules for installed @openleash/* packages and return
+ * their names and versions. Walks up from both __dirname and process.cwd()
+ * to find the node_modules/@openleash directory.
+ */
+function discoverOpenleashPackages(): PackageInfo[] {
+    const packages: PackageInfo[] = [];
+    const seen = new Set<string>();
+
+    function scanDir(startDir: string) {
+        let dir = startDir;
+        for (let i = 0; i < 10; i++) {
+            const nmDir = path.join(dir, "node_modules", "@openleash");
+            if (fs.existsSync(nmDir)) {
+                try {
+                    for (const entry of fs.readdirSync(nmDir, { withFileTypes: true })) {
+                        if (!entry.isDirectory()) continue;
+                        const pkgPath = path.join(nmDir, entry.name, "package.json");
+                        try {
+                            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as { name?: string; version?: string };
+                            if (pkg.name && pkg.version && !seen.has(pkg.name)) {
+                                seen.add(pkg.name);
+                                packages.push({ name: pkg.name, version: pkg.version });
+                            }
+                        } catch { /* skip */ }
+                    }
+                } catch { /* skip */ }
+            }
+            const parent = path.dirname(dir);
+            if (parent === dir) break;
+            dir = parent;
+        }
+    }
+
+    scanDir(__dirname);
+    scanDir(process.cwd());
+    return packages.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function registerGuiRoutes(
@@ -461,6 +502,18 @@ export function registerGuiRoutes(
         const html = options?.hasApiReference
             ? renderApiReference()
             : renderApiReferenceUnavailable();
+        reply.type("text/html").send(html);
+    });
+
+    // About — version and installed packages
+    app.get("/gui/admin/about", { preHandler: adminAuth }, async (_request, reply) => {
+        const packages = discoverOpenleashPackages();
+        const html = renderAbout({
+            version: vinfo.version,
+            commitHash: vinfo.commitHash,
+            nodeVersion: process.version,
+            packages,
+        });
         reply.type("text/html").send(html);
     });
 
