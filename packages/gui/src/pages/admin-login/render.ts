@@ -1,4 +1,5 @@
 import { assetTags } from "../../shared/manifest.js";
+import { authBrandHtml } from "../../shared/layout.js";
 
 export function renderAdminLogin(): string {
     return `<!DOCTYPE html>
@@ -13,8 +14,7 @@ export function renderAdminLogin(): string {
 <body>
   <script>(function(){var t=localStorage.getItem('ol_theme')||'system';if(t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches))document.body.classList.add('theme-light');})();</script>
   <div class="login-card">
-    <h1>OpenLeash</h1>
-    <div class="subtitle">Admin Console</div>
+    ${authBrandHtml("Admin Console")}
     <form id="login-form">
       <div class="form-group">
         <label>Admin Token</label>

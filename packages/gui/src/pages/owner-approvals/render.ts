@@ -121,7 +121,7 @@ function renderPagination(
     const offset = (page - 1) * pageSize;
     const pageStart = total === 0 ? 0 : offset + 1;
     const pageEnd = Math.min(offset + pageSize, total);
-    const basePath = "/gui/owner/approvals";
+    const basePath = "/gui/approvals";
 
     const prevDisabled = page <= 1 ? " disabled" : "";
     const nextDisabled = page >= totalPages ? " disabled" : "";
@@ -233,7 +233,7 @@ export function renderOwnerApprovals(
 
     const totpBanner =
         requireTotp && !totpEnabled
-            ? '<div class="alert alert-error approvals-totp-banner">Two-factor authentication is required. <a href="/gui/owner/profile" class="approvals-totp-link">Set up 2FA in your Profile.</a></div>'
+            ? '<div class="alert alert-error approvals-totp-banner">Two-factor authentication is required. <a href="/gui/profile" class="approvals-totp-link">Set up 2FA in your Profile.</a></div>'
             : "";
 
     const pendingPagination = pending.total > 0 ? renderPagination(pending, "pending", resolvedParams) : "";
@@ -275,5 +275,5 @@ export function renderOwnerApprovals(
     <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled}, pendingPage: ${pending.page}, pendingPageSize: ${pending.pageSize}, resolvedPage: ${resolved.page}, resolvedPageSize: ${resolved.pageSize} };</script>
     ${assetTags("pages/owner-approvals/client.ts")}
   `;
-    return renderPage("Approvals", content, "/gui/owner/approvals", "owner", renderPageOptions);
+    return renderPage("Approvals", content, "/gui/approvals", "owner", renderPageOptions);
 }

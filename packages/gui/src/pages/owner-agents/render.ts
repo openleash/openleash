@@ -59,7 +59,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
 
     ${
         requireTotp && !totpEnabled
-            ? '<div class="alert alert-error agents-totp-banner">Two-factor authentication is required to revoke agents. <a href="/gui/owner/profile" class="agents-totp-link">Set up 2FA in your Profile.</a></div>'
+            ? '<div class="alert alert-error agents-totp-banner">Two-factor authentication is required to revoke agents. <a href="/gui/profile" class="agents-totp-link">Set up 2FA in your Profile.</a></div>'
             : ""
     }
 
@@ -85,5 +85,5 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
     <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled} };</script>
     ${assetTags("pages/owner-agents/client.ts")}
   `;
-    return renderPage("My Agents", content, "/gui/owner/agents", "owner", renderPageOptions);
+    return renderPage("My Agents", content, "/gui/agents", "owner", renderPageOptions);
 }

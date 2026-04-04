@@ -1,4 +1,4 @@
-export { renderPage, setVersion, escapeHtml, formatNameWithId, copyableId } from "./shared/layout.js";
+export { renderPage, setVersion, escapeHtml, formatNameWithId, copyableId, authBrandHtml } from "./shared/layout.js";
 export type { RenderPageOptions } from "./shared/layout.js";
 export { renderDashboard } from "./pages/dashboard/render.js";
 export type { DashboardData } from "./pages/dashboard/render.js";

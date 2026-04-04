@@ -76,58 +76,58 @@ describe('GUI routes', () => {
     expect(res.headers.location).toBe('/gui/dashboard');
   });
 
-  it('GET /gui/dashboard returns HTML', async () => {
-    const res = await app.inject({ method: 'GET', url: '/gui/dashboard' });
+  it('GET /gui/admin/dashboard returns HTML', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui/admin/dashboard' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.payload).toContain('Dashboard');
     expect(res.payload).toContain('OpenLeash');
   });
 
-  it('GET /gui/owners returns HTML with owner table', async () => {
-    const res = await app.inject({ method: 'GET', url: '/gui/owners' });
+  it('GET /gui/admin/owners returns HTML with owner table', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui/admin/owners' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.payload).toContain('Owners');
   });
 
-  it('GET /gui/agents returns HTML', async () => {
-    const res = await app.inject({ method: 'GET', url: '/gui/agents' });
+  it('GET /gui/admin/agents returns HTML', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui/admin/agents' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.payload).toContain('Agents');
   });
 
-  it('GET /gui/policies returns HTML with policy list', async () => {
-    const res = await app.inject({ method: 'GET', url: '/gui/policies' });
+  it('GET /gui/admin/policies returns HTML with policy list', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui/admin/policies' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.payload).toContain('Policies');
     expect(res.payload).toContain(policyId.slice(0, 8));
   });
 
-  it('GET /gui/policies/:policyId returns policy editor', async () => {
-    const res = await app.inject({ method: 'GET', url: `/gui/policies/${policyId}` });
+  it('GET /gui/admin/policies/:policyId returns policy editor', async () => {
+    const res = await app.inject({ method: 'GET', url: `/gui/admin/policies/${policyId}` });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.payload).toContain('View Policy');
     expect(res.payload).toContain('allow_read');
   });
 
-  it('GET /gui/policies/:invalid returns 404', async () => {
-    const res = await app.inject({ method: 'GET', url: `/gui/policies/${crypto.randomUUID()}` });
+  it('GET /gui/admin/policies/:invalid returns 404', async () => {
+    const res = await app.inject({ method: 'GET', url: `/gui/admin/policies/${crypto.randomUUID()}` });
     expect(res.statusCode).toBe(404);
   });
 
-  it('GET /gui/config returns HTML', async () => {
-    const res = await app.inject({ method: 'GET', url: '/gui/config' });
+  it('GET /gui/admin/config returns HTML', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui/admin/config' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.payload).toContain('Configuration');
   });
 
-  it('GET /gui/audit returns HTML', async () => {
-    const res = await app.inject({ method: 'GET', url: '/gui/audit' });
+  it('GET /gui/admin/audit returns HTML', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui/admin/audit' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.payload).toContain('Audit Log');
@@ -158,7 +158,7 @@ describe('GUI disabled', () => {
   });
 
   it('GET /gui returns 404 when GUI disabled', async () => {
-    const res = await app.inject({ method: 'GET', url: '/gui/dashboard' });
+    const res = await app.inject({ method: 'GET', url: '/gui/admin/dashboard' });
     expect(res.statusCode).toBe(404);
   });
 });
@@ -353,7 +353,7 @@ describe('initial setup flow', () => {
     expect(res.headers.location).toBe('/gui/dashboard');
   });
 
-  it('GET /gui redirects to /gui/dashboard after setup', async () => {
+  it('GET /gui redirects to /gui/dashboard (owner) after setup', async () => {
     const res = await app.inject({ method: 'GET', url: '/gui' });
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe('/gui/dashboard');

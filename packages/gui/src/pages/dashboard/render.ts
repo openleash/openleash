@@ -79,7 +79,7 @@ export function renderDashboard(data: DashboardData): string {
               ${
                   c.owners > 0
                       ? '<span class="text-success">Done</span>'
-                      : 'Go to <a href="/gui/owners" class="link-green">Owners</a> and create your first owner principal.'
+                      : 'Go to <a href="/gui/admin/owners" class="link-green">Owners</a> and create your first owner principal.'
               }
             </div>
           </div>
@@ -92,7 +92,7 @@ export function renderDashboard(data: DashboardData): string {
               ${
                   c.agents > 0
                       ? '<span class="text-success">Done</span>'
-                      : 'Go to <a href="/gui/agents" class="link-green">Agents</a> and register an AI agent with an Ed25519 keypair.'
+                      : 'Go to <a href="/gui/admin/agents" class="link-green">Agents</a> and register an AI agent with an Ed25519 keypair.'
               }
             </div>
           </div>
@@ -105,7 +105,7 @@ export function renderDashboard(data: DashboardData): string {
               ${
                   c.policies > 0
                       ? '<span class="text-success">Done</span>'
-                      : 'Go to <a href="/gui/policies" class="link-green">Policies</a> to define YAML-based authorization rules for your agents.'
+                      : 'Go to <a href="/gui/admin/policies" class="link-green">Policies</a> to define YAML-based authorization rules for your agents.'
               }
             </div>
           </div>
@@ -166,11 +166,11 @@ export function renderDashboard(data: DashboardData): string {
             <span class="material-symbols-outlined">menu_book</span>
             <span>Documentation</span>
           </a>
-          <a href="/gui/api-reference" class="quick-link">
+          <a href="/gui/admin/api-reference" class="quick-link">
             <span class="material-symbols-outlined">api</span>
             <span>API Reference</span>
           </a>
-          <a href="/gui/mcp-glove" class="quick-link">
+          <a href="/gui/admin/mcp-glove" class="quick-link">
             <span class="material-symbols-outlined">handshake</span>
             <span>MCP Glove</span>
           </a>
@@ -215,5 +215,5 @@ export function renderDashboard(data: DashboardData): string {
     ${assetTags("pages/dashboard/client.ts")}
   `;
 
-    return renderPage("Dashboard", content, "/gui/dashboard");
+    return renderPage("Dashboard", content, "/gui/admin/dashboard");
 }

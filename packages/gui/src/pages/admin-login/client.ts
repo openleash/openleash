@@ -28,7 +28,7 @@ document.getElementById("login-form")!.addEventListener("submit", async (e) => {
         }
 
         document.cookie = "openleash_admin=" + token + "; path=/; SameSite=Strict";
-        window.location.href = "/gui/dashboard";
+        window.location.href = "/gui/admin/dashboard";
     } catch {
         errorEl.textContent = "Network error";
         errorEl.style.display = "block";

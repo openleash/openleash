@@ -171,7 +171,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
                 if (!c.verified) {
                     const providerKey = c.type === "EMAIL" ? "email-otp" : c.type === "PHONE" ? "sms-otp" : null;
                     if (providerKey && verificationProviders.includes(providerKey)) {
-                        verifyCell = `<a href="/gui/owner/verification" class="btn btn-primary btn-sm">Verify</a>`;
+                        verifyCell = `<a href="/gui/verification" class="btn btn-primary btn-sm">Verify</a>`;
                     } else if (providerKey && !isHosted) {
                         verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
                     }
@@ -195,7 +195,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
                 let verifyCell = "";
                 if (g.verification_level !== "VERIFIED") {
                     if (g.country === "SE" && verificationProviders.includes("bankid")) {
-                        verifyCell = `<a href="/gui/owner/verification" class="btn btn-primary btn-sm">Verify</a>`;
+                        verifyCell = `<a href="/gui/verification" class="btn btn-primary btn-sm">Verify</a>`;
                     } else if (g.country === "SE" && !isHosted) {
                         verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
                     }
@@ -219,7 +219,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
                 let verifyCell = "";
                 if (c.verification_level !== "VERIFIED") {
                     if (c.country === "SE" && c.id_type === "COMPANY_REG" && verificationProviders.includes("bolagsverket")) {
-                        verifyCell = `<a href="/gui/owner/verification" class="btn btn-primary btn-sm">Verify</a>`;
+                        verifyCell = `<a href="/gui/verification" class="btn btn-primary btn-sm">Verify</a>`;
                     } else if (c.country === "SE" && c.id_type === "COMPANY_REG" && !isHosted) {
                         verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
                     }
@@ -493,7 +493,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
     <script>window.__PAGE_DATA__ = { contacts: ${JSON.stringify(contacts)}, govIds: ${JSON.stringify(govIds)}, companyIds: ${JSON.stringify(companyIds)}, idTypesMap: ${idTypesJson}, idLabelsMap: ${idLabelsJson} };</script>
     ${assetTags("pages/owner-profile/client.ts")}
   `;
-    return renderPage("Profile", content, "/gui/owner/profile", "owner", renderPageOptions);
+    return renderPage("Profile", content, "/gui/profile", "owner", renderPageOptions);
 }
 
 const ASSURANCE_LEVEL_INFO: Record<string, { badge: string; label: string }> = {

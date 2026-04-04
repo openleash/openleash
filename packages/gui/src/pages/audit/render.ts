@@ -73,7 +73,7 @@ function validBadge(valid: boolean): string {
 function eventSummary(
     entry: AuditEntry,
     nameMap?: AuditNameMap,
-    policyBasePath = "/gui/policies",
+    policyBasePath = "/gui/admin/policies",
 ): string {
     const meta = entry.metadata_json;
     switch (entry.event_type) {
@@ -96,7 +96,7 @@ function eventSummary(
         case "POLICY_UNBOUND":
             if (meta.policy_id) {
                 const pid = String(meta.policy_id);
-                if (policyBasePath === "/gui/owner/policies") {
+                if (policyBasePath === "/gui/policies") {
                     return `<span class="mono">${escapeHtml(pid.slice(0, 8))}...</span>`;
                 }
                 return `<a href="${policyBasePath}/${escapeHtml(pid)}" class="table-link mono">${escapeHtml(pid.slice(0, 8))}...</a>`;
@@ -526,7 +526,7 @@ function formatJsonCollapsible(key: string, val: unknown): string {
 function formatMetadata(
     meta: Record<string, unknown>,
     nameMap?: AuditNameMap,
-    policyBasePath = "/gui/policies",
+    policyBasePath = "/gui/admin/policies",
 ): string {
     const entries = Object.entries(meta);
     if (entries.length === 0) return '<span class="text-muted">No metadata</span>';
@@ -548,7 +548,7 @@ function formatMetadata(
 
             // Link policy_id to editor (admin only — owner has no detail view)
             if (key === "policy_id" && typeof val === "string") {
-                if (policyBasePath === "/gui/owner/policies") {
+                if (policyBasePath === "/gui/policies") {
                     return `<div class="audit-meta-row">${keyHtml}: <span class="mono">${escapeHtml(val)}</span></div>`;
                 }
                 return `<div class="audit-meta-row">${keyHtml}: <a href="${policyBasePath}/${escapeHtml(val)}" class="table-link mono">${escapeHtml(val)}</a></div>`;
@@ -600,8 +600,8 @@ export function renderAudit(
     renderPageOptions?: RenderPageOptions,
 ): string {
     const isOwner = context === "owner";
-    const policyBasePath = isOwner ? "/gui/owner/policies" : "/gui/policies";
-    const auditBasePath = isOwner ? "/gui/owner/audit" : "/gui/audit";
+    const policyBasePath = isOwner ? "/gui/policies" : "/gui/admin/policies";
+    const auditBasePath = isOwner ? "/gui/audit" : "/gui/admin/audit";
     const total = data.total;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     // Reverse to show newest first

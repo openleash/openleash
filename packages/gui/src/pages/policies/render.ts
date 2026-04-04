@@ -31,13 +31,13 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
             return `
     <tr>
       <td>
-        ${p.name ? `<a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)}</a>` : ""}
-        <div class="policies-copyable-wrap"><a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a></div>
+        ${p.name ? `<a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)}</a>` : ""}
+        <div class="policies-copyable-wrap"><a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a></div>
       </td>
       <td>${copyableId(p.owner_principal_id)}</td>
       <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
       <td>
-        <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="btn btn-secondary btn-sm">View</a>
+        <a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="btn btn-secondary btn-sm">View</a>
       </td>
     </tr>`;
         })
@@ -49,7 +49,7 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
       <div class="empty-state-title">No Policies Yet</div>
       <p class="empty-state-text">
         Policies are created by owners through the
-        <a href="/gui/owner/login" class="link-green">Owner Portal</a>.
+        <a href="/gui/login" class="link-green">Owner Portal</a>.
         Each owner can create YAML-based authorization rules for their agents from the
         <strong class="text-primary-force">My Policies</strong> section of their portal.
       </p>
@@ -135,7 +135,7 @@ rules:
     ${assetTags("pages/policies/client.ts")}
   `;
 
-    return renderPage("Policies", content, "/gui/policies");
+    return renderPage("Policies", content, "/gui/admin/policies");
 }
 
 export interface PolicyDetail {
@@ -211,7 +211,7 @@ export function renderPolicyViewer(
       <textarea class="yaml-editor" readonly>${escapeHtml(policy.policy_yaml)}</textarea>
 
       <div class="toolbar policies-toolbar">
-        <a href="/gui/policies" class="btn btn-secondary">Back to List</a>
+        <a href="/gui/admin/policies" class="btn btn-secondary">Back to List</a>
       </div>
     </div>
 
@@ -238,5 +238,5 @@ export function renderPolicyViewer(
     ${assetTags("pages/policies/client.ts")}
   `;
 
-    return renderPage("View Policy", content, "/gui/policies");
+    return renderPage("View Policy", content, "/gui/admin/policies");
 }

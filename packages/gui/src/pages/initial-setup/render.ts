@@ -1,4 +1,5 @@
 import { assetTags } from "../../shared/manifest.js";
+import { authBrandHtml } from "../../shared/layout.js";
 
 export function renderInitialSetup(): string {
     return `<!DOCTYPE html>
@@ -13,8 +14,7 @@ export function renderInitialSetup(): string {
 <body>
   <script>(function(){var t=localStorage.getItem('ol_theme')||'system';if(t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches))document.body.classList.add('theme-light');})();</script>
   <div class="setup-card">
-    <h1>OpenLeash</h1>
-    <div class="subtitle">Initial Setup</div>
+    ${authBrandHtml("Initial Setup")}
     <form id="setup-form">
       <div class="form-group">
         <label>Display Name</label>
@@ -58,8 +58,8 @@ export function renderInitialSetup(): string {
       </div>
 
       <div id="success-links" class="success-links isetup-hidden">
-        <a href="/gui/dashboard">Admin Dashboard</a>
-        <a id="login-link" href="/gui/owner/login">Owner Login</a>
+        <a href="/gui/admin/dashboard">Admin Dashboard</a>
+        <a id="login-link" href="/gui/login">Owner Login</a>
       </div>
     </div>
   </div>

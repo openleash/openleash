@@ -79,11 +79,11 @@ document.addEventListener("click", (e) => {
 // Pending page size change
 document.getElementById("pending-page-size")?.addEventListener("change", (e) => {
     const newSize = (e.target as HTMLSelectElement).value;
-    window.location.href = `/gui/owner/approvals?pending_page=1&pending_page_size=${newSize}&resolved_page=${pageData.resolvedPage}&resolved_page_size=${pageData.resolvedPageSize}`;
+    window.location.href = `/gui/approvals?pending_page=1&pending_page_size=${newSize}&resolved_page=${pageData.resolvedPage}&resolved_page_size=${pageData.resolvedPageSize}`;
 });
 
 // Resolved page size change
 document.getElementById("resolved-page-size")?.addEventListener("change", (e) => {
     const newSize = (e.target as HTMLSelectElement).value;
-    window.location.href = `/gui/owner/approvals?pending_page=${pageData.pendingPage}&pending_page_size=${pageData.pendingPageSize}&resolved_page=1&resolved_page_size=${newSize}`;
+    window.location.href = `/gui/approvals?pending_page=${pageData.pendingPage}&pending_page_size=${pageData.pendingPageSize}&resolved_page=1&resolved_page_size=${newSize}`;
 });

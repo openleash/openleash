@@ -82,7 +82,7 @@ export function registerGuiRoutes(
         }
     });
 
-    // Redirect /gui — if no owners, go to setup; otherwise dashboard
+    // Redirect /gui — if no owners, go to setup; otherwise owner dashboard
     if (!pluginManifest?.handlesRootPath) {
         app.get("/gui", async (_request, reply) => {
             const state = store.state.getState();
@@ -97,7 +97,7 @@ export function registerGuiRoutes(
     // Initial setup page (no auth) — disabled in hosted mode
     app.get("/gui/setup", async (_request, reply) => {
         if (isHosted) {
-            reply.redirect("/gui/owner/login");
+            reply.redirect("/gui/login");
             return;
         }
         const state = store.state.getState();
@@ -118,7 +118,7 @@ export function registerGuiRoutes(
     });
 
     // Dashboard
-    app.get("/gui/dashboard", { preHandler: adminAuth }, async (_request, reply) => {
+    app.get("/gui/admin/dashboard", { preHandler: adminAuth }, async (_request, reply) => {
         const state = store.state.getState();
         const stateData = {
             version: state.version,
@@ -141,7 +141,7 @@ export function registerGuiRoutes(
     });
 
     // Owners
-    app.get("/gui/owners", { preHandler: adminAuth }, async (_request, reply) => {
+    app.get("/gui/admin/owners", { preHandler: adminAuth }, async (_request, reply) => {
         const state = store.state.getState();
         const owners = state.owners.map((entry) => {
             try {
@@ -158,7 +158,7 @@ export function registerGuiRoutes(
     });
 
     // Owner detail
-    app.get("/gui/owners/:ownerId", { preHandler: adminAuth }, async (request, reply) => {
+    app.get("/gui/admin/owners/:ownerId", { preHandler: adminAuth }, async (request, reply) => {
         const { ownerId } = request.params as { ownerId: string };
         const query = request.query as { activity_page?: string; activity_page_size?: string };
         const activityPageSize = Math.min(Math.max(parseInt(query.activity_page_size || "25", 10) || 25, 1), 100);
@@ -253,7 +253,7 @@ export function registerGuiRoutes(
     });
 
     // Agents
-    app.get("/gui/agents", { preHandler: adminAuth }, async (_request, reply) => {
+    app.get("/gui/admin/agents", { preHandler: adminAuth }, async (_request, reply) => {
         const state = store.state.getState();
         const agents = state.agents.map((entry) => {
             try {
@@ -287,7 +287,7 @@ export function registerGuiRoutes(
     });
 
     // Policies list
-    app.get("/gui/policies", { preHandler: adminAuth }, async (_request, reply) => {
+    app.get("/gui/admin/policies", { preHandler: adminAuth }, async (_request, reply) => {
         const state = store.state.getState();
         const policies = state.policies.map((entry) => {
             try {
@@ -303,7 +303,7 @@ export function registerGuiRoutes(
     });
 
     // Policy viewer
-    app.get("/gui/policies/:policyId", { preHandler: adminAuth }, async (request, reply) => {
+    app.get("/gui/admin/policies/:policyId", { preHandler: adminAuth }, async (request, reply) => {
         const { policyId } = request.params as { policyId: string };
         const state = store.state.getState();
         const entry = state.policies.find((p) => p.policy_id === policyId);
@@ -347,7 +347,7 @@ export function registerGuiRoutes(
     });
 
     // Config
-    app.get("/gui/config", { preHandler: adminAuth }, async (_request, reply) => {
+    app.get("/gui/admin/config", { preHandler: adminAuth }, async (_request, reply) => {
         const configData = {
             server: config.server,
             admin: {
@@ -364,7 +364,7 @@ export function registerGuiRoutes(
     });
 
     // MCP Glove
-    app.get("/gui/mcp-glove", { preHandler: adminAuth }, async (_request, reply) => {
+    app.get("/gui/admin/mcp-glove", { preHandler: adminAuth }, async (_request, reply) => {
         const state = store.state.getState();
 
         const agents = state.agents.map((entry) => {
@@ -421,7 +421,7 @@ export function registerGuiRoutes(
     });
 
     // Audit log
-    app.get("/gui/audit", { preHandler: adminAuth }, async (request, reply) => {
+    app.get("/gui/admin/audit", { preHandler: adminAuth }, async (request, reply) => {
         const query = request.query as { page?: string; page_size?: string };
         const pageSize = Math.min(Math.max(parseInt(query.page_size || "25", 10) || 25, 1), 100);
         const page = Math.max(parseInt(query.page || "1", 10) || 1, 1);
@@ -452,7 +452,7 @@ export function registerGuiRoutes(
     });
 
     // API Reference (embedded Scalar)
-    app.get("/gui/api-reference", { preHandler: adminAuth }, async (_request, reply) => {
+    app.get("/gui/admin/api-reference", { preHandler: adminAuth }, async (_request, reply) => {
         const html = options?.hasApiReference
             ? renderApiReference()
             : renderApiReferenceUnavailable();
@@ -465,20 +465,20 @@ export function registerGuiRoutes(
 
     // Login page (no auth) — skipped if plugin replaces it
     if (!pluginManifest?.replacesOwnerLogin) {
-        app.get("/gui/owner/login", async (_request, reply) => {
+        app.get("/gui/login", async (_request, reply) => {
             const html = renderOwnerLogin(isHosted ? { hosted: true } : undefined);
             reply.type("text/html").send(html);
         });
     }
 
     // Setup page (no auth — invite token acts as proof)
-    app.get("/gui/owner/setup", async (_request, reply) => {
+    app.get("/gui/owner-setup", async (_request, reply) => {
         const html = renderOwnerSetup();
         reply.type("text/html").send(html);
     });
 
     // Owner dashboard
-    app.get("/gui/owner/dashboard", { preHandler: ownerAuth }, async (request, reply) => {
+    app.get("/gui/dashboard", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const state = store.state.getState();
@@ -506,7 +506,7 @@ export function registerGuiRoutes(
     });
 
     // Owner agents
-    app.get("/gui/owner/agents", { preHandler: ownerAuth }, async (request, reply) => {
+    app.get("/gui/agents", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const state = store.state.getState();
@@ -543,7 +543,7 @@ export function registerGuiRoutes(
     });
 
     // Owner policies (includes policy drafts)
-    app.get("/gui/owner/policies", { preHandler: ownerAuth }, async (request, reply) => {
+    app.get("/gui/policies", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const state = store.state.getState();
@@ -622,13 +622,13 @@ export function registerGuiRoutes(
     });
 
     // Owner create policy
-    app.get("/gui/owner/policies/create", { preHandler: ownerAuth }, async (_request, reply) => {
+    app.get("/gui/policies/create", { preHandler: ownerAuth }, async (_request, reply) => {
         const html = renderOwnerPolicyCreate(ownerRenderOptions);
         reply.type("text/html").send(html);
     });
 
     // Owner approvals
-    app.get("/gui/owner/approvals", { preHandler: ownerAuth }, async (request, reply) => {
+    app.get("/gui/approvals", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const query = request.query as {
@@ -713,12 +713,12 @@ export function registerGuiRoutes(
     });
 
     // Owner policy drafts — redirect to merged policies page
-    app.get("/gui/owner/policy-drafts", { preHandler: ownerAuth }, async (_request, reply) => {
-        reply.redirect("/gui/owner/policies");
+    app.get("/gui/policy-drafts", { preHandler: ownerAuth }, async (_request, reply) => {
+        reply.redirect("/gui/policies");
     });
 
     // Owner profile
-    app.get("/gui/owner/profile", { preHandler: ownerAuth }, async (request, reply) => {
+    app.get("/gui/profile", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const owner = store.owners.read(session.sub);
@@ -741,7 +741,7 @@ export function registerGuiRoutes(
     });
 
     // Owner audit
-    app.get("/gui/owner/audit", { preHandler: ownerAuth }, async (request, reply) => {
+    app.get("/gui/audit", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const query = request.query as { page?: string; page_size?: string };

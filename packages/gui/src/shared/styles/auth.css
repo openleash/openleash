@@ -7,6 +7,8 @@
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
   --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
@@ -16,10 +18,12 @@
   --green-bright: #34d399;
   --green-mid: #10b981;
   --green-dark: #065f46;
+  --amber-bright: #fbbf24;
   --text-primary: #e8f0f8;
   --text-secondary: #8899aa;
   --text-muted: #556677;
   --border-subtle: rgba(136, 153, 170, 0.15);
+  --border-accent: rgba(52, 211, 153, 0.2);
   --radius-md: 12px;
   --color-primary: #10b981;
   --color-success: #34d399;
@@ -35,10 +39,12 @@ body.theme-light {
   --green-bright: #047e58;
   --green-mid: #059669;
   --green-dark: #d1fae5;
+  --amber-bright: #d97706;
   --text-primary: #1a1a2e;
   --text-secondary: #4a5568;
   --text-muted: #5c708c;
   --border-subtle: rgba(0, 0, 0, 0.1);
+  --border-accent: rgba(5, 150, 105, 0.15);
   --color-primary: #059669;
   --color-success: #059669;
   --color-danger: #dc2626;
@@ -58,6 +64,71 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle radial glow behind the card */
+body::before {
+  content: '';
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  width: 800px;
+  height: 800px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse, rgba(52, 211, 153, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.theme-light::before {
+  background: radial-gradient(ellipse, rgba(5, 150, 105, 0.04) 0%, transparent 70%);
+}
+
+/* ─── Branding header ───────────────────────────────────────────── */
+
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.auth-logo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 4px 12px rgba(52, 211, 153, 0.15));
+}
+
+body.theme-light .auth-logo {
+  filter: drop-shadow(0 4px 12px rgba(5, 150, 105, 0.1));
+}
+
+.auth-brand h1 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--text-primary), var(--green-bright));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+}
+
+.auth-brand .subtitle {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.auth-tagline {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 6px;
+  letter-spacing: 0.2px;
 }
 
 /* ─── Shared card ────────────────────────────────────────────────── */
@@ -68,18 +139,27 @@ body {
   border-radius: var(--radius-md);
   padding: 40px;
   width: 100%;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--border-accent);
+}
+
+body.theme-light .login-card,
+body.theme-light .setup-card {
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.06), 0 0 0 1px var(--border-accent);
 }
 
 .login-card { max-width: 420px; }
 .setup-card { max-width: 480px; }
 
-.login-card h1, .setup-card h1 {
+/* Legacy h1/subtitle for pages not yet using .auth-brand */
+.login-card > h1, .setup-card > h1 {
   color: var(--green-bright);
   font-size: 22px;
   margin-bottom: 4px;
 }
 
-.login-card .subtitle, .setup-card .subtitle {
+.login-card > .subtitle, .setup-card > .subtitle {
   color: var(--text-muted);
   font-size: 13px;
   margin-bottom: 28px;
@@ -98,6 +178,7 @@ body {
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: 500;
 }
 
 .form-group input, .form-group select {
@@ -110,6 +191,7 @@ body {
   font-family: var(--font-body);
   font-size: 13px;
   outline: none;
+  transition: border-color 0.2s;
 }
 
 .form-group input[type="password"] {
@@ -118,6 +200,7 @@ body {
 
 .form-group input:focus, .form-group select:focus {
   border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
 }
 
 .form-hint {
@@ -140,19 +223,27 @@ body {
   color: white;
   border: none;
   border-radius: 8px;
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   margin-top: 8px;
+  transition: filter 0.15s, transform 0.15s;
 }
 
 .btn-login:hover, .btn-setup:hover {
   filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.btn-login:active, .btn-setup:active {
+  transform: translateY(0);
 }
 
 .btn-setup:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
 .btn-secondary {
@@ -162,9 +253,11 @@ body {
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
+  font-family: var(--font-body);
   font-size: 14px;
   cursor: pointer;
   margin-top: 8px;
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .btn-secondary:hover {
@@ -331,6 +424,7 @@ body {
   text-decoration: none;
   font-size: 13px;
   text-align: center;
+  transition: border-color 0.15s;
 }
 
 .success-links a:hover {

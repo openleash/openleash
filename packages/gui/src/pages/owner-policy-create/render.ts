@@ -31,11 +31,11 @@ rules:
       </div>
       <div class="policy-create-actions">
         <button id="btn-create-policy" class="btn btn-primary">Create Policy</button>
-        <a href="/gui/owner/policies" class="btn btn-secondary">Cancel</a>
+        <a href="/gui/policies" class="btn btn-secondary">Cancel</a>
       </div>
     </div>
 
     ${assetTags("pages/owner-policy-create/client.ts")}
   `;
-    return renderPage("Create Policy", content, "/gui/owner/policies", "owner", renderPageOptions);
+    return renderPage("Create Policy", content, "/gui/policies", "owner", renderPageOptions);
 }

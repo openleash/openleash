@@ -122,5 +122,5 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
     ${assetTags("pages/agents/client.ts")}
   `;
 
-    return renderPage("Agents", content, "/gui/agents");
+    return renderPage("Agents", content, "/gui/admin/agents");
 }

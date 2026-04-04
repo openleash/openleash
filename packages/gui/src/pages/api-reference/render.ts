@@ -25,7 +25,7 @@ export function renderApiReference(): string {
     ${assetTags("pages/api-reference/client.ts")}
   `;
 
-  return renderPage('API Reference', content, '/gui/api-reference');
+  return renderPage('API Reference', content, '/gui/admin/api-reference');
 }
 
 export function renderApiReferenceUnavailable(): string {
@@ -50,5 +50,5 @@ export function renderApiReferenceUnavailable(): string {
     </div>
   `;
 
-  return renderPage('API Reference', content, '/gui/api-reference');
+  return renderPage('API Reference', content, '/gui/admin/api-reference');
 }

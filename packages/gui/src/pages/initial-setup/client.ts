@@ -65,7 +65,7 @@ document.getElementById("setup-form")!.addEventListener("submit", async (e) => {
         // Auto-login to get session token for agent invite creation
         if (ownerPrincipalId) {
             (document.getElementById("login-link") as HTMLAnchorElement).href =
-                "/gui/owner/login?owner_id=" + encodeURIComponent(ownerPrincipalId);
+                "/gui/login?owner_id=" + encodeURIComponent(ownerPrincipalId);
             try {
                 const loginRes = await fetch("/v1/owner/login", {
                     method: "POST",

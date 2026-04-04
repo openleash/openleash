@@ -42,7 +42,7 @@ export function renderOwnerDashboard(data: OwnerDashboardData, renderPageOptions
             ? `
     <div class="card odash-notice">
       <span class="odash-notice-text">You have ${data.pending_approvals} pending approval request${data.pending_approvals > 1 ? "s" : ""}.</span>
-      <a href="/gui/owner/approvals" class="odash-notice-action">Review now</a>
+      <a href="/gui/approvals" class="odash-notice-action">Review now</a>
     </div>`
             : ""
     }
@@ -52,7 +52,7 @@ export function renderOwnerDashboard(data: OwnerDashboardData, renderPageOptions
             ? `
     <div class="card odash-notice">
       <span class="odash-notice-text">You have ${data.pending_policy_drafts} pending policy draft${data.pending_policy_drafts > 1 ? "s" : ""} from your agents.</span>
-      <a href="/gui/owner/policy-drafts" class="odash-notice-action">Review now</a>
+      <a href="/gui/policy-drafts" class="odash-notice-action">Review now</a>
     </div>`
             : ""
     }
@@ -81,7 +81,7 @@ export function renderOwnerDashboard(data: OwnerDashboardData, renderPageOptions
               ${
                   data.agent_count > 0
                       ? '<span class="text-success">Done</span>'
-                      : 'Your administrator will register agents on your behalf. They will appear in <a href="/gui/owner/agents" class="link-green">My Agents</a>.'
+                      : 'Your administrator will register agents on your behalf. They will appear in <a href="/gui/agents" class="link-green">My Agents</a>.'
               }
             </div>
           </div>
@@ -94,7 +94,7 @@ export function renderOwnerDashboard(data: OwnerDashboardData, renderPageOptions
               ${
                   data.policy_count > 0
                       ? '<span class="text-success">Done</span>'
-                      : 'Go to <a href="/gui/owner/policies" class="link-green">My Policies</a> and write YAML rules that control what your agents can do.'
+                      : 'Go to <a href="/gui/policies" class="link-green">My Policies</a> and write YAML rules that control what your agents can do.'
               }
             </div>
           </div>
@@ -104,7 +104,7 @@ export function renderOwnerDashboard(data: OwnerDashboardData, renderPageOptions
           <div>
             <div class="odash-step-title">Review Approval Requests</div>
             <div class="detail-hint">
-              When your policies use REQUIRE_APPROVAL, agents will ask for your permission in <a href="/gui/owner/approvals" class="link-green">Approvals</a>.
+              When your policies use REQUIRE_APPROVAL, agents will ask for your permission in <a href="/gui/approvals" class="link-green">Approvals</a>.
             </div>
           </div>
         </div>
@@ -119,31 +119,31 @@ export function renderOwnerDashboard(data: OwnerDashboardData, renderPageOptions
         <div class="card-title">What You Can Do</div>
         <div class="odash-feature-list">
           <div>
-            <a href="/gui/owner/agents" class="odash-feature-link">My Agents</a>
+            <a href="/gui/agents" class="odash-feature-link">My Agents</a>
             <p class="odash-feature-desc">
               View all AI agents registered under your account. You can see their status and revoke access to any agent that should no longer act on your behalf.
             </p>
           </div>
           <div>
-            <a href="/gui/owner/policies" class="odash-feature-link">My Policies</a>
+            <a href="/gui/policies" class="odash-feature-link">My Policies</a>
             <p class="odash-feature-desc">
               Create and edit YAML-based authorization policies. Policies define which actions your agents are allowed or denied, and can require human approval for sensitive operations.
             </p>
           </div>
           <div>
-            <a href="/gui/owner/approvals" class="odash-feature-link">Approvals</a>
+            <a href="/gui/approvals" class="odash-feature-link">Approvals</a>
             <p class="odash-feature-desc">
               Review and approve or deny requests from your agents. When a policy requires human approval, the agent's request appears here for you to review.
             </p>
           </div>
           <div>
-            <a href="/gui/owner/policy-drafts" class="odash-feature-link">Policy Drafts</a>
+            <a href="/gui/policy-drafts" class="odash-feature-link">Policy Drafts</a>
             <p class="odash-feature-desc">
               Your agents can propose new policies when they need access to action types not yet covered. Review the proposed YAML and approve or deny each draft.
             </p>
           </div>
           <div>
-            <a href="/gui/owner/profile" class="odash-feature-link">Profile</a>
+            <a href="/gui/profile" class="odash-feature-link">Profile</a>
             <p class="odash-feature-desc">
               Manage your identity information, including contact details, government IDs, and company identifiers. Higher identity assurance levels unlock more capabilities.
             </p>
@@ -169,7 +169,7 @@ export function renderOwnerDashboard(data: OwnerDashboardData, renderPageOptions
           <div>
             <div class="odash-concept-title">Audit Trail</div>
             <p class="odash-feature-desc">
-              Every action is recorded in an append-only <a href="/gui/owner/audit" class="link-green">audit log</a>. You can review all authorization decisions, approvals, and agent activity.
+              Every action is recorded in an append-only <a href="/gui/audit" class="link-green">audit log</a>. You can review all authorization decisions, approvals, and agent activity.
             </p>
           </div>
           <div>
@@ -184,5 +184,5 @@ export function renderOwnerDashboard(data: OwnerDashboardData, renderPageOptions
 
     ${assetTags("pages/owner-dashboard/client.ts")}
   `;
-    return renderPage("Dashboard", content, "/gui/owner/dashboard", "owner", renderPageOptions);
+    return renderPage("Dashboard", content, "/gui/dashboard", "owner", renderPageOptions);
 }

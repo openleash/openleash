@@ -10,7 +10,7 @@ export function createOwnerAuth(config: OpenleashConfig, store: DataStore) {
 
     function deny(code: string, message: string) {
       if (isGuiRequest) {
-        reply.redirect('/gui/owner/login');
+        reply.redirect('/gui/login');
       } else {
         reply.code(401).send({ error: { code, message } });
       }

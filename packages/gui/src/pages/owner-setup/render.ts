@@ -1,4 +1,5 @@
 import { assetTags } from "../../shared/manifest.js";
+import { authBrandHtml } from "../../shared/layout.js";
 
 export function renderOwnerSetup(): string {
     return `<!DOCTYPE html>
@@ -13,12 +14,11 @@ export function renderOwnerSetup(): string {
 <body>
   <script>(function(){var t=localStorage.getItem('ol_theme')||'system';if(t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches))document.body.classList.add('theme-light');})();</script>
   <div class="setup-card">
-    <h1>OpenLeash</h1>
-    <div class="subtitle">Account Setup</div>
+    ${authBrandHtml("Account Setup")}
     <div id="missing-params" class="missing-params osetup-hidden">
       <p>This setup link is missing required parameters.</p>
       <p>Ask your administrator to generate a new setup invite.</p>
-      <p class="osetup-login-link"><a href="/gui/owner/login">Go to login</a></p>
+      <p class="osetup-login-link"><a href="/gui/login">Go to login</a></p>
     </div>
     <form id="setup-form" class="osetup-hidden">
       <div class="form-group">

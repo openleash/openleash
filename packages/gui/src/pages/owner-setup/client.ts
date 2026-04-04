@@ -20,8 +20,8 @@ if (!inviteId || !inviteToken) {
 function goToLogin() {
     const id = ownerPrincipalId || ownerIdParam;
     window.location.href = id
-        ? "/gui/owner/login?owner_id=" + encodeURIComponent(id)
-        : "/gui/owner/login";
+        ? "/gui/login?owner_id=" + encodeURIComponent(id)
+        : "/gui/login";
 }
 
 document.getElementById("setup-form")!.addEventListener("submit", async (e) => {

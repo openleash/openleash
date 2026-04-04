@@ -60,5 +60,5 @@ export function renderConfig(data: ConfigData): string {
     ${assetTags("pages/config/client.ts")}
   `;
 
-  return renderPage('Configuration', content, '/gui/config');
+  return renderPage('Configuration', content, '/gui/admin/config');
 }

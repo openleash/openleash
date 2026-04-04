@@ -4,29 +4,67 @@ import { assetTags } from "./manifest.js";
 let _version = "";
 let _commitHash = "";
 
+/**
+ * Logo SVG markup for standalone auth pages (login, setup).
+ * The full lobster mark with gradient, claws, eyes, collar, and leash.
+ */
+export const AUTH_LOGO_SVG = `<svg class="auth-logo" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="OpenLeash logo">
+  <defs>
+    <linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#065f46"/>
+    </linearGradient>
+  </defs>
+  <path d="M60 10 C32 10 18 30 18 48 C18 66 32 80 46 84 L46 88 L54 88 L54 84 C54 84 60 86 66 84 L66 88 L74 88 L74 84 C88 80 102 66 102 48 C102 30 88 10 60 10Z" fill="url(#lg)"/>
+  <path d="M22 38 C8 34 2 43 6 52 C10 61 20 57 24 48 C27 42 24 38 22 38Z" fill="url(#lg)"/>
+  <path d="M98 38 C112 34 118 43 114 52 C110 61 100 57 96 48 C93 42 96 38 98 38Z" fill="url(#lg)"/>
+  <path d="M46 15 Q36 5 31 8" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M74 15 Q84 5 89 8" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="45" cy="30" r="5.5" fill="#050a0e"/>
+  <circle cx="75" cy="30" r="5.5" fill="#050a0e"/>
+  <circle cx="46" cy="29" r="2" fill="#fbbf24"/>
+  <circle cx="76" cy="29" r="2" fill="#fbbf24"/>
+  <path d="M28 56 C42 64 78 64 92 56" stroke="#fbbf24" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M60 62 L60 98 Q58 106 50 108" stroke="#fbbf24" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <ellipse cx="45" cy="109" rx="8" ry="4.5" fill="none" stroke="#fbbf24" stroke-width="3"/>
+</svg>`;
+
+/**
+ * Render the branding header for standalone auth pages.
+ * Includes the lobster logo, gradient title, and tagline.
+ */
+export function authBrandHtml(subtitle: string): string {
+    return `<div class="auth-brand">
+    ${AUTH_LOGO_SVG}
+    <h1>OpenLeash</h1>
+    <div class="subtitle">${escapeHtml(subtitle)}</div>
+    <div class="auth-tagline">Authorization guardrails for AI agents</div>
+  </div>`;
+}
+
 export function setVersion(v: string, commitHash?: string): void {
     _version = v;
     _commitHash = commitHash ?? "";
 }
 
 const NAV_ITEMS = [
-    { path: "/gui/dashboard", label: "Dashboard", icon: "dashboard" },
-    { path: "/gui/owners", label: "Owners", icon: "group" },
-    { path: "/gui/agents", label: "Agents", icon: "smart_toy" },
-    { path: "/gui/policies", label: "Policies", icon: "policy" },
-    { path: "/gui/config", label: "Config", icon: "settings" },
-    { path: "/gui/mcp-glove", label: "MCP Glove", icon: "handshake" },
-    { path: "/gui/audit", label: "Audit Log", icon: "receipt_long" },
-    { path: "/gui/api-reference", label: "API Docs", icon: "api" },
+    { path: "/gui/admin/dashboard", label: "Dashboard", icon: "dashboard" },
+    { path: "/gui/admin/owners", label: "Owners", icon: "group" },
+    { path: "/gui/admin/agents", label: "Agents", icon: "smart_toy" },
+    { path: "/gui/admin/policies", label: "Policies", icon: "policy" },
+    { path: "/gui/admin/config", label: "Config", icon: "settings" },
+    { path: "/gui/admin/mcp-glove", label: "MCP Glove", icon: "handshake" },
+    { path: "/gui/admin/audit", label: "Audit Log", icon: "receipt_long" },
+    { path: "/gui/admin/api-reference", label: "API Docs", icon: "api" },
 ];
 
 const OWNER_NAV_ITEMS = [
-    { path: "/gui/owner/dashboard", label: "Dashboard", icon: "dashboard" },
-    { path: "/gui/owner/profile", label: "Profile", icon: "account_circle" },
-    { path: "/gui/owner/agents", label: "My Agents", icon: "smart_toy" },
-    { path: "/gui/owner/policies", label: "My Policies", icon: "policy" },
-    { path: "/gui/owner/approvals", label: "Approvals", icon: "task_alt" },
-    { path: "/gui/owner/audit", label: "Audit Log", icon: "receipt_long" },
+    { path: "/gui/dashboard", label: "Dashboard", icon: "dashboard" },
+    { path: "/gui/profile", label: "Profile", icon: "account_circle" },
+    { path: "/gui/agents", label: "My Agents", icon: "smart_toy" },
+    { path: "/gui/policies", label: "My Policies", icon: "policy" },
+    { path: "/gui/approvals", label: "Approvals", icon: "task_alt" },
+    { path: "/gui/audit", label: "Audit Log", icon: "receipt_long" },
 ];
 
 function escapeHtml(str: string): string {
@@ -227,7 +265,7 @@ export function renderPage(
         : (options?.extraAdminNavItems ?? []);
     const navItems = [...(isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS), ...extraItems];
     const subtitle = isOwner ? "Owner Portal" : "Authorization GUI";
-    const dashboardPath = isOwner ? "/gui/owner/dashboard" : "/gui/dashboard";
+    const dashboardPath = isOwner ? "/gui/dashboard" : "/gui/admin/dashboard";
 
     const navHtml = navItems
         .map((item) => {
@@ -298,11 +336,11 @@ export function renderPage(
       ${
           showSwitcher
               ? `<div class="context-switcher">
-        <a href="/gui/dashboard" class="context-tab${!isOwner ? " active" : ""}">
+        <a href="/gui/admin/dashboard" class="context-tab${!isOwner ? " active" : ""}">
           <span class="context-tab-icon material-symbols-outlined">admin_panel_settings</span>
           <span class="context-tab-label">Admin</span>
         </a>
-        <a href="/gui/owner/dashboard" class="context-tab${isOwner ? " active" : ""}">
+        <a href="/gui/dashboard" class="context-tab${isOwner ? " active" : ""}">
           <span class="context-tab-icon material-symbols-outlined">person</span>
           <span class="context-tab-label">Owner</span>
         </a>

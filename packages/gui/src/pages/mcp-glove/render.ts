@@ -112,7 +112,7 @@ export function renderMcpGlove(data: McpGlovePageData): string {
       </div>
     </div>
 
-    ${act.total > 0 ? `<div class="glove-audit-link"><a href="/gui/audit?filter=communication." class="btn btn-secondary glove-btn-audit">View filtered audit log</a></div>` : ""}
+    ${act.total > 0 ? `<div class="glove-audit-link"><a href="/gui/admin/audit?filter=communication." class="btn btn-secondary glove-btn-audit">View filtered audit log</a></div>` : ""}
 
     <div class="card">
       <div class="card-title">Config Generator</div>
@@ -183,5 +183,5 @@ export function renderMcpGlove(data: McpGlovePageData): string {
     ${assetTags("pages/mcp-glove/client.ts")}
   `;
 
-    return renderPage("MCP Glove", content, "/gui/mcp-glove");
+    return renderPage("MCP Glove", content, "/gui/admin/mcp-glove");
 }

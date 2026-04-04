@@ -233,14 +233,14 @@ export function renderOwners(owners: OwnerData[]): string {
             (o) => `
     <tr>
       <td class="mono">
-        <a href="/gui/owners/${escapeHtml(o.owner_principal_id)}" class="table-link">${escapeHtml(o.owner_principal_id)}</a>
+        <a href="/gui/admin/owners/${escapeHtml(o.owner_principal_id)}" class="table-link">${escapeHtml(o.owner_principal_id)}</a>
       </td>
       <td>${escapeHtml(o.display_name ?? "-")}</td>
       <td>${escapeHtml(o.principal_type ?? "-")}</td>
       <td>${statusBadge(o.status)}</td>
       <td class="mono">${o.created_at ? formatTimestamp(o.created_at, true) : "-"}</td>
       <td>
-        <a href="/gui/owners/${escapeHtml(o.owner_principal_id)}" class="btn btn-secondary btn-sm">View</a>
+        <a href="/gui/admin/owners/${escapeHtml(o.owner_principal_id)}" class="btn btn-secondary btn-sm">View</a>
       </td>
     </tr>
   `,
@@ -303,7 +303,7 @@ export function renderOwners(owners: OwnerData[]): string {
     ${assetTags("pages/owners/client.ts")}
   `;
 
-    return renderPage("Owners", content, "/gui/owners");
+    return renderPage("Owners", content, "/gui/admin/owners");
 }
 
 // ─── Contact Identities Card (read-only) ─────────────────────────────
@@ -433,7 +433,7 @@ function renderSignatoriesCard(
                 s.human_owner_principal_id.slice(0, 8) + "...";
             return `
     <tr>
-      <td><a href="/gui/owners/${escapeHtml(s.human_owner_principal_id)}" class="table-link">${escapeHtml(name)}</a></td>
+      <td><a href="/gui/admin/owners/${escapeHtml(s.human_owner_principal_id)}" class="table-link">${escapeHtml(name)}</a></td>
       <td>${escapeHtml(s.role.replace(/_/g, " "))}</td>
       <td>${escapeHtml(s.signing_authority)}</td>
       <td>${escapeHtml(s.scope_description ?? "-")}</td>
@@ -524,7 +524,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
             (p) => `
     <tr>
       <td class="mono">
-        <a href="/gui/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a>
+        <a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a>
       </td>
       <td>${p.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(p.applies_to_agent_principal_id), p.applies_to_agent_principal_id) : '<span class="owners-all-agents">all agents</span>'}</td>
     </tr>
@@ -723,7 +723,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
                     const offset = (page - 1) * pageSize;
                     const pageStart = offset + 1;
                     const pageEnd = Math.min(offset + pageSize, total);
-                    const basePath = `/gui/owners/${escapeHtml(owner.owner_principal_id)}`;
+                    const basePath = `/gui/admin/owners/${escapeHtml(owner.owner_principal_id)}`;
 
                     const prevDisabled = page <= 1 ? " disabled" : "";
                     const nextDisabled = page >= totalPages ? " disabled" : "";
@@ -772,12 +772,12 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     </div>
 
     <div class="toolbar">
-      <a href="/gui/owners" class="btn btn-secondary">Back to Owners</a>
+      <a href="/gui/admin/owners" class="btn btn-secondary">Back to Owners</a>
     </div>
 
     <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.owner_principal_id)}', activityPage: ${activity_log.page}, activityPageSize: ${activity_log.pageSize}, activityTotal: ${activity_log.total} };</script>
     ${assetTags("pages/owners/client.ts")}
   `;
 
-    return renderPage(owner.display_name ?? "Owner", content, "/gui/owners");
+    return renderPage(owner.display_name ?? "Owner", content, "/gui/admin/owners");
 }

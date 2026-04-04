@@ -154,7 +154,7 @@ export function renderOwnerPolicies(
     // --- Pending Drafts section ---
     const totpBanner =
         requireTotp && !totpEnabled
-            ? '<div class="alert alert-error opol-totp-banner">Two-factor authentication is required to delete policies or approve/deny drafts. <a href="/gui/owner/profile" class="opol-alert-link">Set up 2FA in your Profile.</a></div>'
+            ? '<div class="alert alert-error opol-totp-banner">Two-factor authentication is required to delete policies or approve/deny drafts. <a href="/gui/profile" class="opol-alert-link">Set up 2FA in your Profile.</a></div>'
             : "";
 
     const pendingRows =
@@ -233,7 +233,7 @@ export function renderOwnerPolicies(
     const content = `
     <div class="page-header flex-between">
       <h2>My Policies</h2>
-      <a href="/gui/owner/policies/create" class="btn btn-primary opol-create-link"><span class="material-symbols-outlined opol-btn-icon">add</span>Create Policy</a>
+      <a href="/gui/policies/create" class="btn btn-primary opol-create-link"><span class="material-symbols-outlined opol-btn-icon">add</span>Create Policy</a>
     </div>
 
     <div class="card opol-card-flush">
@@ -281,5 +281,5 @@ export function renderOwnerPolicies(
     <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled} };</script>
     ${assetTags("pages/owner-policies/client.ts")}
   `;
-    return renderPage("My Policies", content, "/gui/owner/policies", "owner", renderPageOptions);
+    return renderPage("My Policies", content, "/gui/policies", "owner", renderPageOptions);
 }

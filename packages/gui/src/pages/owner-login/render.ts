@@ -1,4 +1,5 @@
 import { assetTags } from "../../shared/manifest.js";
+import { authBrandHtml } from "../../shared/layout.js";
 
 export interface OwnerLoginOptions {
     hosted?: boolean;
@@ -18,8 +19,7 @@ export function renderOwnerLogin(options?: OwnerLoginOptions): string {
 <body>
   <script>(function(){var t=localStorage.getItem('ol_theme')||'system';if(t==='light'||(t==='system'&&window.matchMedia('(prefers-color-scheme: light)').matches))document.body.classList.add('theme-light');})();</script>
   <div class="login-card">
-    <h1>OpenLeash</h1>
-    <div class="subtitle">Owner Portal</div>
+    ${authBrandHtml("Owner Portal")}
     <form id="login-form">
       <div class="form-group">
         <label>Owner Principal ID</label>
@@ -36,7 +36,7 @@ export function renderOwnerLogin(options?: OwnerLoginOptions): string {
       <summary>First time? How to set up your account</summary>
       <div class="help-steps">
         <ol>
-          <li>An admin creates your owner account via the <a href="/gui/dashboard" class="link-green">Admin Dashboard</a> or <code>npx openleash wizard</code></li>
+          <li>An admin creates your owner account via the <a href="/gui/admin/dashboard" class="link-green">Admin Dashboard</a> or <code>npx openleash wizard</code></li>
           <li>The admin generates a setup invite for you</li>
           <li>Open the setup link to choose your passphrase</li>
           <li>Log in above with your Owner Principal ID and passphrase</li>
@@ -44,7 +44,7 @@ export function renderOwnerLogin(options?: OwnerLoginOptions): string {
       </div>
     </details>
     <div class="admin-link">
-      <a href="/gui/dashboard">Admin Dashboard</a>
+      <a href="/gui/admin/dashboard">Admin Dashboard</a>
     </div>`}
   </div>
 </body>

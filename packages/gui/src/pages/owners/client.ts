@@ -113,7 +113,7 @@ async function generateInvite() {
 
         const data = await res.json();
         document.getElementById("invite-result")!.classList.remove("hidden");
-        const setupUrl = window.location.origin + "/gui/owner/setup?invite_id=" + encodeURIComponent(data.invite_id) + "&invite_token=" + encodeURIComponent(data.invite_token) + "&owner_id=" + encodeURIComponent(ownerId);
+        const setupUrl = window.location.origin + "/gui/owner-setup?invite_id=" + encodeURIComponent(data.invite_id) + "&invite_token=" + encodeURIComponent(data.invite_token) + "&owner_id=" + encodeURIComponent(ownerId);
         document.getElementById("invite-link")!.textContent = setupUrl;
         btn.style.display = "none";
     } catch (err: unknown) {
@@ -149,5 +149,5 @@ document.getElementById("btn-admin-disable-totp")?.addEventListener("click", adm
 document.getElementById("activity-page-size")?.addEventListener("change", (e) => {
     if (!pageData.ownerId) return;
     const newSize = (e.target as HTMLSelectElement).value;
-    window.location.href = `/gui/owners/${pageData.ownerId}?activity_page=1&activity_page_size=${newSize}`;
+    window.location.href = `/gui/admin/owners/${pageData.ownerId}?activity_page=1&activity_page_size=${newSize}`;
 });

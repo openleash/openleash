@@ -17,7 +17,7 @@ async function createPolicy() {
     });
 
     if (res.ok) {
-        window.location.href = "/gui/owner/policies";
+        window.location.href = "/gui/policies";
     } else {
         const data = await res.json();
         olToast(olApiError(data, "Failed to create policy"), "error");
