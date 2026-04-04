@@ -111,6 +111,11 @@ export function registerGuiRoutes(
 
     // ─── Admin GUI routes ─────────────────────────────────────────────
 
+    // Redirect /gui/admin to admin dashboard
+    app.get("/gui/admin", async (_request, reply) => {
+        reply.redirect("/gui/admin/dashboard");
+    });
+
     // Admin login page (no auth)
     app.get("/gui/admin/login", async (_request, reply) => {
         const html = renderAdminLogin();
