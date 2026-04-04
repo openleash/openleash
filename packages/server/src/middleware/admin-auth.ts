@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { verifySessionToken } from '@openleash/core';
+import { verifySessionToken, resolveUserRoles } from '@openleash/core';
 import type { OpenleashConfig, DataStore } from '@openleash/core';
 
 export interface AdminSession {
@@ -33,13 +33,15 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore) {
       const result = await verifySessionToken(sessionToken, keys);
 
       if (result.valid && result.claims) {
-        const roles = result.claims.roles ?? [];
-        if (roles.includes('admin')) {
-          // Verify owner still exists and is active
-          const ownerEntry = state.owners.find((o) => o.owner_principal_id === result.claims!.sub);
-          if (ownerEntry) {
-            const owner = store.owners.read(result.claims.sub);
-            if (owner.status === 'ACTIVE') {
+        // Verify owner still exists and is active
+        const ownerEntry = state.owners.find((o) => o.owner_principal_id === result.claims!.sub);
+        if (ownerEntry) {
+          const owner = store.owners.read(result.claims.sub);
+          if (owner.status === 'ACTIVE') {
+            // Use roles from token if present, otherwise read from store
+            // (plugins may issue tokens without roles)
+            const roles = result.claims.roles ?? resolveUserRoles(owner);
+            if (roles.includes('admin')) {
               attachSession({ principal_id: result.claims.sub, auth_method: 'session' });
               return;
             }

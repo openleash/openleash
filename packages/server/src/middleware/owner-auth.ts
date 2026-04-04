@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import {
   verifySessionToken,
+  resolveUserRoles,
 } from '@openleash/core';
 import type { OpenleashConfig, DataStore } from '@openleash/core';
 
@@ -62,6 +63,12 @@ export function createOwnerAuth(config: OpenleashConfig, store: DataStore) {
     if (owner.status !== 'ACTIVE') {
       deny('OWNER_INACTIVE', 'Owner account is not active');
       return;
+    }
+
+    // Enrich session claims with roles from store (authoritative source,
+    // ensures roles work even if the token was issued by a plugin without roles)
+    if (!result.claims.roles) {
+      result.claims.roles = resolveUserRoles(owner);
     }
 
     // Attach session info to request
