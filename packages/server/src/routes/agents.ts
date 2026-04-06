@@ -26,7 +26,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
     const body = request.body as {
       agent_id: string;
       agent_pubkey_b64: string;
-      owner_principal_id?: string;
+      owner_type?: 'user' | 'org';
+      owner_id?: string;
       agent_attributes_json?: Record<string, unknown>;
     };
 
@@ -46,7 +47,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
       challenge_b64: challengeBytes.toString('base64'),
       agent_id: body.agent_id,
       agent_pubkey_b64: body.agent_pubkey_b64,
-      owner_principal_id: body.owner_principal_id,
+      owner_type: body.owner_type,
+      owner_id: body.owner_id,
       agent_attributes_json: body.agent_attributes_json,
       expires_at: expiresAt,
     };
@@ -56,7 +58,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
     store.audit.append('AGENT_CHALLENGE_ISSUED', {
       challenge_id: challengeId,
       agent_id: body.agent_id,
-      owner_principal_id: body.owner_principal_id ?? null,
+      owner_type: body.owner_type ?? null,
+      owner_id: body.owner_id ?? null,
       expires_at: expiresAt,
     });
 
@@ -74,14 +77,15 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
       agent_id: string;
       agent_pubkey_b64: string;
       signature_b64: string;
-      owner_principal_id: string;
+      owner_type: 'user' | 'org';
+      owner_id: string;
       agent_attributes_json?: Record<string, unknown>;
       webhook_url: string;
       webhook_secret: string;
       webhook_auth_token: string;
     };
 
-    if (!body.challenge_id || !body.agent_id || !body.agent_pubkey_b64 || !body.signature_b64 || !body.owner_principal_id) {
+    if (!body.challenge_id || !body.agent_id || !body.agent_pubkey_b64 || !body.signature_b64 || !body.owner_type || !body.owner_id) {
       reply.code(400).send({
         error: { code: 'INVALID_REQUEST', message: 'Missing required fields' },
       });
@@ -167,7 +171,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
     store.agents.write({
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
-      owner_principal_id: body.owner_principal_id,
+      owner_type: body.owner_type,
+      owner_id: body.owner_id,
       public_key_b64: body.agent_pubkey_b64,
       status: 'ACTIVE',
       attributes: body.agent_attributes_json ?? {},
@@ -183,7 +188,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
       s.agents.push({
         agent_principal_id: agentPrincipalId,
         agent_id: body.agent_id,
-        owner_principal_id: body.owner_principal_id,
+        owner_type: body.owner_type,
+      owner_id: body.owner_id,
         path: `./agents/${agentPrincipalId}.md`,
       });
     });
@@ -191,7 +197,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
     store.audit.append('AGENT_REGISTERED', {
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
-      owner_principal_id: body.owner_principal_id,
+      owner_type: body.owner_type,
+      owner_id: body.owner_id,
       agent_attributes_json: body.agent_attributes_json ?? null,
       webhook_url: body.webhook_url,
     });
@@ -199,7 +206,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
     return {
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
-      owner_principal_id: body.owner_principal_id,
+      owner_type: body.owner_type,
+      owner_id: body.owner_id,
       status: 'ACTIVE',
       created_at: createdAt,
     };
@@ -487,7 +495,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
     store.agents.write({
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
-      owner_principal_id: invite.owner_principal_id,
+      owner_type: invite.owner_type,
+      owner_id: invite.owner_id,
       public_key_b64: body.agent_pubkey_b64,
       status: 'ACTIVE',
       attributes: {},
@@ -503,7 +512,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
       s.agents.push({
         agent_principal_id: agentPrincipalId,
         agent_id: body.agent_id,
-        owner_principal_id: invite.owner_principal_id,
+        owner_type: invite.owner_type,
+        owner_id: invite.owner_id,
         path: `./agents/${agentPrincipalId}.md`,
       });
     });
@@ -516,7 +526,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
     store.audit.append('AGENT_REGISTERED_VIA_INVITE', {
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
-      owner_principal_id: invite.owner_principal_id,
+      owner_type: invite.owner_type,
+      owner_id: invite.owner_id,
       invite_id: inviteId,
       webhook_url: body.webhook_url,
     });
@@ -533,7 +544,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
     return {
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
-      owner_principal_id: invite.owner_principal_id,
+      owner_type: invite.owner_type,
+      owner_id: invite.owner_id,
       status: 'ACTIVE',
       created_at: createdAt,
       webhook_url: body.webhook_url,

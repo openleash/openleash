@@ -9,7 +9,7 @@ import { bootstrapState } from '../src/bootstrap.js';
 import {
   readState,
   writeState,
-  writeOwnerFile,
+  writeUserFile,
   writeSetupInviteFile,
   hashPassphrase,
   createFileDataStore,
@@ -32,11 +32,10 @@ describe('owner auth', () => {
     bootstrapState(rootDir);
     const config = loadConfig(rootDir);
 
-    // Create a test owner (bootstrap no longer creates one)
+    // Create a test user (bootstrap no longer creates one)
     ownerId = crypto.randomUUID();
-    writeOwnerFile(dataDir, {
-      owner_principal_id: ownerId,
-      principal_type: 'HUMAN',
+    writeUserFile(dataDir, {
+      user_principal_id: ownerId,
       display_name: 'Test Owner',
       status: 'ACTIVE',
       attributes: {},
@@ -44,8 +43,8 @@ describe('owner auth', () => {
     });
 
     const state = readState(dataDir);
-    state.owners.push({
-      owner_principal_id: ownerId,
+    state.users.push({
+      user_principal_id: ownerId,
       path: `./owners/${ownerId}.md`,
     });
     writeState(dataDir, state);
@@ -57,7 +56,7 @@ describe('owner auth', () => {
 
     writeSetupInviteFile(dataDir, {
       invite_id: inviteId,
-      owner_principal_id: ownerId,
+      user_principal_id: ownerId,
       token_hash: hash,
       token_salt: salt,
       expires_at: new Date(Date.now() + 3600000).toISOString(),
@@ -90,7 +89,7 @@ describe('owner auth', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
     expect(body.status).toBe('setup_complete');
-    expect(body.owner_principal_id).toBe(ownerId);
+    expect(body.user_principal_id).toBe(ownerId);
   });
 
   it('POST /v1/owner/setup rejects already used invite', async () => {
@@ -113,7 +112,7 @@ describe('owner auth', () => {
       method: 'POST',
       url: '/v1/owner/login',
       payload: {
-        owner_principal_id: ownerId,
+        user_principal_id: ownerId,
         passphrase: 'my-secure-passphrase-123',
       },
     });
@@ -121,7 +120,7 @@ describe('owner auth', () => {
     const body = JSON.parse(res.payload);
     expect(body.token).toMatch(/^v4\.public\./);
     expect(body.expires_at).toBeDefined();
-    expect(body.owner_principal_id).toBe(ownerId);
+    expect(body.user_principal_id).toBe(ownerId);
     sessionToken = body.token;
   });
 
@@ -130,7 +129,7 @@ describe('owner auth', () => {
       method: 'POST',
       url: '/v1/owner/login',
       payload: {
-        owner_principal_id: ownerId,
+        user_principal_id: ownerId,
         passphrase: 'wrong-passphrase',
       },
     });
@@ -147,7 +146,7 @@ describe('owner auth', () => {
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
-    expect(body.owner_principal_id).toBe(ownerId);
+    expect(body.user_principal_id).toBe(ownerId);
     expect(body.display_name).toBe('Test Owner');
     // Should not expose passphrase fields
     expect(body.passphrase_hash).toBeUndefined();
@@ -195,7 +194,7 @@ describe('owner auth', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
     expect(body.policy_id).toBeDefined();
-    expect(body.owner_principal_id).toBe(ownerId);
+    expect(body.user_principal_id).toBe(ownerId);
   });
 
   it('POST /v1/owner/logout works', async () => {
@@ -213,15 +212,15 @@ describe('owner auth', () => {
     // Create a second owner
     const createRes = await app.inject({
       method: 'POST',
-      url: '/v1/admin/owners',
-      payload: { principal_type: 'HUMAN', display_name: 'Other Owner' },
+      url: '/v1/admin/users',
+      payload: { display_name: 'Other Owner' },
     });
     const other = JSON.parse(createRes.payload);
 
     // Try to access the other owner's profile from the first owner's session
     const agentsRes = await app.inject({
       method: 'PUT',
-      url: `/v1/owner/agents/${other.owner_principal_id}`,
+      url: `/v1/owner/agents/${other.user_principal_id}`,
       headers: { authorization: `Bearer ${sessionToken}` },
       payload: { status: 'REVOKED' },
     });

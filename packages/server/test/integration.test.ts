@@ -9,7 +9,7 @@ import { bootstrapState } from '../src/bootstrap.js';
 import {
   readState,
   writeState,
-  writeOwnerFile,
+  writeUserFile,
   writeAgentFile,
   writePolicyFile,
   sha256Hex,
@@ -47,11 +47,10 @@ describe('server integration', () => {
     agentId = 'test-agent';
     agentPrincipalId = crypto.randomUUID();
 
-    // Create a test owner (bootstrap no longer creates one)
+    // Create a test user (bootstrap no longer creates one)
     ownerPrincipalId = crypto.randomUUID();
-    writeOwnerFile(dataDir, {
-      owner_principal_id: ownerPrincipalId,
-      principal_type: 'HUMAN',
+    writeUserFile(dataDir, {
+      user_principal_id: ownerPrincipalId,
       display_name: 'Test Owner',
       status: 'ACTIVE',
       attributes: {},
@@ -59,15 +58,16 @@ describe('server integration', () => {
     });
 
     const state = readState(dataDir);
-    state.owners.push({
-      owner_principal_id: ownerPrincipalId,
+    state.users.push({
+      user_principal_id: ownerPrincipalId,
       path: `./owners/${ownerPrincipalId}.md`,
     });
 
     writeAgentFile(dataDir, {
       agent_principal_id: agentPrincipalId,
       agent_id: agentId,
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: ownerPrincipalId,
       public_key_b64: publicKeyB64,
       status: 'ACTIVE',
       attributes: {},
@@ -81,7 +81,8 @@ describe('server integration', () => {
     state.agents.push({
       agent_principal_id: agentPrincipalId,
       agent_id: agentId,
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: ownerPrincipalId,
       path: `./agents/${agentPrincipalId}.md`,
     });
 
@@ -105,7 +106,8 @@ rules:
 
     state.policies.push({
       policy_id: policyId,
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: ownerPrincipalId,
       applies_to_agent_principal_id: null,
       name: null,
       description: null,
@@ -113,7 +115,8 @@ rules:
     });
     // Replace existing bindings so our test policy is used
     state.bindings = [{
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: ownerPrincipalId,
       policy_id: policyId,
       applies_to_agent_principal_id: null,
     }];
@@ -163,7 +166,8 @@ rules:
       payload: {
         agent_id: newAgentId,
         agent_pubkey_b64: newPubKeyB64,
-        owner_principal_id: ownerPrincipalId,
+        owner_type: 'user',
+        owner_id: ownerPrincipalId,
       },
     });
     expect(challengeRes.statusCode).toBe(200);
@@ -182,7 +186,8 @@ rules:
         agent_id: newAgentId,
         agent_pubkey_b64: newPubKeyB64,
         signature_b64: signature.toString('base64'),
-        owner_principal_id: ownerPrincipalId,
+        owner_type: 'user',
+        owner_id: ownerPrincipalId,
         webhook_url: 'https://new-agent.example.com/webhook',
         webhook_secret: 'new-agent-secret',
         webhook_auth_token: 'new-agent-auth-token',

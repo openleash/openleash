@@ -87,8 +87,7 @@ const GOV_ID_LABELS: Record<string, string> = {
 // ─── Interfaces ───────────────────────────────────────────────────────
 
 export interface OwnerData {
-    owner_principal_id: string;
-    principal_type?: string;
+    user_principal_id: string;
     display_name?: string;
     status?: string;
     attributes?: Record<string, unknown>;
@@ -113,36 +112,10 @@ export interface OwnerData {
         verified_at: string | null;
         added_at: string;
     }[];
-    company_ids?: {
-        id_type: string;
-        country?: string;
-        id_value: string;
-        verification_level: string;
-        verified_at: string | null;
-        added_at: string;
-    }[];
-    signatories?: {
-        signatory_id: string;
-        human_owner_principal_id: string;
-        role: string;
-        signing_authority: string;
-        scope_description?: string;
-        valid_from?: string;
-        valid_until: string | null;
-        added_at: string;
-    }[];
-    signatory_rules?: {
-        rule_id: string;
-        description: string;
-        required_signatories: number;
-        from_roles?: string[];
-        scope_description?: string;
-        conditions?: Record<string, unknown>;
-    }[];
     totp_enabled?: boolean;
     totp_enabled_at?: string;
     has_passphrase?: boolean;
-    roles?: string[];
+    system_roles?: string[];
 }
 
 export interface OwnerDetailData {
@@ -160,7 +133,7 @@ export interface OwnerDetailData {
         page: number;
         pageSize: number;
     };
-    linked_humans?: { owner_principal_id: string; display_name: string }[];
+    linked_humans?: { user_principal_id: string; display_name: string }[];
 }
 
 // ─── Badge helpers ────────────────────────────────────────────────────
@@ -245,15 +218,14 @@ export function renderOwners(owners: OwnerData[]): string {
             (o) => `
     <tr>
       <td class="mono">
-        <a href="/gui/admin/owners/${escapeHtml(o.owner_principal_id)}" class="table-link">${escapeHtml(o.owner_principal_id)}</a>
+        <a href="/gui/admin/owners/${escapeHtml(o.user_principal_id)}" class="table-link">${escapeHtml(o.user_principal_id)}</a>
       </td>
       <td>${escapeHtml(o.display_name ?? "-")}</td>
-      <td>${escapeHtml(o.principal_type ?? "-")}</td>
       <td>${statusBadge(o.status)}</td>
-      <td>${rolesBadges(o.roles)}</td>
+      <td>${rolesBadges(o.system_roles)}</td>
       <td class="mono">${o.created_at ? formatTimestamp(o.created_at, true) : "-"}</td>
       <td>
-        <a href="/gui/admin/owners/${escapeHtml(o.owner_principal_id)}" class="btn btn-secondary btn-sm">View</a>
+        <a href="/gui/admin/owners/${escapeHtml(o.user_principal_id)}" class="btn btn-secondary btn-sm">View</a>
       </td>
     </tr>
   `,
@@ -278,15 +250,6 @@ export function renderOwners(owners: OwnerData[]): string {
         <div class="field-error" id="err-display-name"></div>
       </div>
 
-      <div class="form-group">
-        <label for="principal-type">Principal Type</label>
-        <select id="principal-type" class="form-select">
-          <option value="HUMAN">HUMAN</option>
-          <option value="ORG">ORG</option>
-        </select>
-        <div class="form-help">HUMAN for individual users, ORG for organizations</div>
-      </div>
-
       <div class="toolbar">
         <button id="create-btn" class="btn btn-primary">Create Owner</button>
         <button class="btn btn-secondary" data-toggle-form>Cancel</button>
@@ -295,12 +258,11 @@ export function renderOwners(owners: OwnerData[]): string {
 
     <div class="card">
       <table>
-        <colgroup><col style="width:320px"><col><col style="width:100px"><col style="width:130px"><col style="width:130px"><col style="width:170px"><col style="width:100px"></colgroup>
+        <colgroup><col style="width:320px"><col><col style="width:130px"><col style="width:130px"><col style="width:170px"><col style="width:100px"></colgroup>
         <thead>
           <tr>
             <th>Principal ID</th>
             <th>Display Name</th>
-            <th>Type</th>
             <th>Status${infoIcon("owners-status", INFO_OWNER_STATUS)}</th>
             <th>Roles</th>
             <th>Created</th>
@@ -308,7 +270,7 @@ export function renderOwners(owners: OwnerData[]): string {
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="7" class="owners-table-empty">No owners registered</td></tr>'}
+          ${rows || '<tr><td colspan="6" class="owners-table-empty">No owners registered</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -395,124 +357,6 @@ function renderGovernmentIdsCard(owner: OwnerData): string {
   `;
 }
 
-// ─── Company IDs Card (read-only) ────────────────────────────────────
-
-function renderCompanyIdsCard(owner: OwnerData): string {
-    const ids = owner.company_ids ?? [];
-    const rows = ids
-        .map(
-            (c) => `
-    <tr>
-      <td>${escapeHtml(c.id_type)}</td>
-      <td>${c.country ? `${countryFlag(c.country)} ${escapeHtml(c.country)}` : "-"}</td>
-      <td class="mono">${escapeHtml(c.id_value)}</td>
-      <td>${verificationBadge(c.verification_level)}</td>
-    </tr>
-  `,
-        )
-        .join("");
-
-    return `
-    <div class="card">
-      <div class="card-title">Company IDs (${ids.length})${infoIcon("admin-company-verification", INFO_VERIFICATION_LEVEL)}</div>
-      ${
-          ids.length > 0
-              ? `
-      <table>
-        <colgroup><col style="width:180px"><col style="width:160px"><col><col style="width:130px"></colgroup>
-        <thead>
-          <tr><th>Type</th><th>Country</th><th>Value</th><th>Status</th></tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-      `
-              : '<p class="owners-empty-section">No company IDs</p>'
-      }
-    </div>
-  `;
-}
-
-// ─── Signatories Card (read-only) ────────────────────────────────────
-
-function renderSignatoriesCard(
-    owner: OwnerData,
-    linkedHumans: { owner_principal_id: string; display_name: string }[],
-): string {
-    const signatories = owner.signatories ?? [];
-    const humanMap = new Map(linkedHumans.map((h) => [h.owner_principal_id, h.display_name]));
-    const rows = signatories
-        .map((s) => {
-            const name =
-                humanMap.get(s.human_owner_principal_id) ??
-                s.human_owner_principal_id.slice(0, 8) + "...";
-            return `
-    <tr>
-      <td><a href="/gui/admin/owners/${escapeHtml(s.human_owner_principal_id)}" class="table-link">${escapeHtml(name)}</a></td>
-      <td>${escapeHtml(s.role.replace(/_/g, " "))}</td>
-      <td>${escapeHtml(s.signing_authority)}</td>
-      <td>${escapeHtml(s.scope_description ?? "-")}</td>
-    </tr>
-    `;
-        })
-        .join("");
-
-    return `
-    <div class="card">
-      <div class="card-title">Signatories (${signatories.length})</div>
-      ${
-          signatories.length > 0
-              ? `
-      <table>
-        <colgroup><col><col style="width:140px"><col style="width:140px"><col></colgroup>
-        <thead>
-          <tr><th>Person</th><th>Role</th><th>Authority</th><th>Scope</th></tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-      `
-              : '<p class="owners-empty-section">No signatories</p>'
-      }
-    </div>
-  `;
-}
-
-// ─── Signatory Rules Card (read-only) ────────────────────────────────
-
-function renderSignatoryRulesCard(owner: OwnerData): string {
-    const rules = owner.signatory_rules ?? [];
-    const rows = rules
-        .map(
-            (r) => `
-    <tr>
-      <td>${escapeHtml(r.description)}</td>
-      <td>${r.required_signatories}</td>
-      <td>${escapeHtml((r.from_roles ?? []).join(", ") || "Any")}</td>
-      <td>${escapeHtml(r.scope_description ?? "-")}</td>
-    </tr>
-  `,
-        )
-        .join("");
-
-    return `
-    <div class="card">
-      <div class="card-title">Signatory Rules (${rules.length})</div>
-      ${
-          rules.length > 0
-              ? `
-      <table>
-        <colgroup><col><col style="width:100px"><col style="width:140px"><col></colgroup>
-        <thead>
-          <tr><th>Description</th><th>Required</th><th>Roles</th><th>Scope</th></tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-      `
-              : '<p class="owners-empty-section">No signatory rules</p>'
-      }
-    </div>
-  `;
-}
-
 // ─── Owner Detail Page ────────────────────────────────────────────────
 
 export function renderOwnerDetail(data: OwnerDetailData): string {
@@ -594,7 +438,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         ${statusBadge(owner.status)}${infoIcon("detail-owner-status", INFO_OWNER_STATUS)}
         ${assuranceBadge(owner.identity_assurance_level)}
       </div>
-      <p>${copyableId(owner.owner_principal_id, owner.owner_principal_id.length)}</p>
+      <p>${copyableId(owner.user_principal_id, owner.user_principal_id.length)}</p>
     </div>
 
     <div class="card">
@@ -604,15 +448,11 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         <tbody>
           <tr>
             <td class="owners-detail-label">Principal ID</td>
-            <td>${copyableId(owner.owner_principal_id, owner.owner_principal_id.length)}</td>
+            <td>${copyableId(owner.user_principal_id, owner.user_principal_id.length)}</td>
           </tr>
           <tr>
             <td class="owners-detail-label">Display Name</td>
             <td>${escapeHtml(owner.display_name ?? "-")}</td>
-          </tr>
-          <tr>
-            <td class="owners-detail-label">Type</td>
-            <td>${escapeHtml(owner.principal_type ?? "-")}</td>
           </tr>
           <tr>
             <td class="owners-detail-label">Status</td>
@@ -621,9 +461,9 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
           <tr>
             <td class="owners-detail-label">Roles</td>
             <td>
-              ${rolesBadges(owner.roles)}
+              ${rolesBadges(owner.system_roles)}
               <button id="btn-toggle-admin" class="btn btn-secondary btn-sm" style="margin-left:8px">
-                ${(owner.roles ?? []).includes("admin") ? "Revoke Admin" : "Grant Admin"}
+                ${(owner.system_roles ?? []).includes("admin") ? "Revoke Admin" : "Grant Admin"}
               </button>
             </td>
           </tr>
@@ -697,10 +537,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     }
 
     ${renderContactIdentitiesCard(owner)}
-    ${owner.principal_type === "HUMAN" ? renderGovernmentIdsCard(owner) : ""}
-    ${owner.principal_type === "ORG" ? renderCompanyIdsCard(owner) : ""}
-    ${owner.principal_type === "ORG" ? renderSignatoriesCard(owner, linked_humans ?? []) : ""}
-    ${owner.principal_type === "ORG" ? renderSignatoryRulesCard(owner) : ""}
+    ${renderGovernmentIdsCard(owner)}
 
     <div class="card">
       <div class="card-title">Agents (${agents.length})</div>
@@ -746,7 +583,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
                     const offset = (page - 1) * pageSize;
                     const pageStart = offset + 1;
                     const pageEnd = Math.min(offset + pageSize, total);
-                    const basePath = `/gui/admin/owners/${escapeHtml(owner.owner_principal_id)}`;
+                    const basePath = `/gui/admin/owners/${escapeHtml(owner.user_principal_id)}`;
 
                     const prevDisabled = page <= 1 ? " disabled" : "";
                     const nextDisabled = page >= totalPages ? " disabled" : "";
@@ -798,7 +635,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       <a href="/gui/admin/owners" class="btn btn-secondary">Back to Owners</a>
     </div>
 
-    <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.owner_principal_id)}', roles: ${JSON.stringify(owner.roles ?? ["owner"])}, activityPage: ${activity_log.page}, activityPageSize: ${activity_log.pageSize}, activityTotal: ${activity_log.total} };</script>
+    <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.user_principal_id)}', roles: ${JSON.stringify(owner.system_roles ?? ["owner"])}, activityPage: ${activity_log.page}, activityPageSize: ${activity_log.pageSize}, activityTotal: ${activity_log.total} };</script>
     ${assetTags("pages/owners/client.ts")}
   `;
 

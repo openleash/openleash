@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createServer } from '../src/server.js';
 import { loadConfig } from '../src/config.js';
 import { bootstrapState } from '../src/bootstrap.js';
-import { readState, writeState, writeOwnerFile, writePolicyFile, createFileDataStore } from '@openleash/core';
+import { readState, writeState, writeUserFile, writePolicyFile, createFileDataStore } from '@openleash/core';
 import type { FastifyInstance } from 'fastify';
 
 describe('GUI routes', () => {
@@ -22,11 +22,10 @@ describe('GUI routes', () => {
     bootstrapState(rootDir);
     const config = loadConfig(rootDir);
 
-    // Create a test owner (bootstrap no longer creates one)
+    // Create a test user (bootstrap no longer creates one)
     const ownerPrincipalId = crypto.randomUUID();
-    writeOwnerFile(dataDir, {
-      owner_principal_id: ownerPrincipalId,
-      principal_type: 'HUMAN',
+    writeUserFile(dataDir, {
+      user_principal_id: ownerPrincipalId,
       display_name: 'Test Owner',
       status: 'ACTIVE',
       attributes: {},
@@ -34,8 +33,8 @@ describe('GUI routes', () => {
     });
 
     const state = readState(dataDir);
-    state.owners.push({
-      owner_principal_id: ownerPrincipalId,
+    state.users.push({
+      user_principal_id: ownerPrincipalId,
       path: `./owners/${ownerPrincipalId}.md`,
     });
 
@@ -46,14 +45,16 @@ describe('GUI routes', () => {
 
     state.policies.push({
       policy_id: policyId,
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: ownerPrincipalId,
       applies_to_agent_principal_id: null,
       name: null,
       description: null,
       path: `./policies/${policyId}.yaml`,
     });
     state.bindings.push({
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: ownerPrincipalId,
       policy_id: policyId,
       applies_to_agent_principal_id: null,
     });
@@ -176,11 +177,10 @@ describe('admin API - new endpoints', () => {
     bootstrapState(rootDir);
     const config = loadConfig(rootDir);
 
-    // Create a test owner (bootstrap no longer creates one)
+    // Create a test user (bootstrap no longer creates one)
     const ownerPrincipalId = crypto.randomUUID();
-    writeOwnerFile(dataDir, {
-      owner_principal_id: ownerPrincipalId,
-      principal_type: 'HUMAN',
+    writeUserFile(dataDir, {
+      user_principal_id: ownerPrincipalId,
       display_name: 'Test Owner',
       status: 'ACTIVE',
       attributes: {},
@@ -192,13 +192,14 @@ describe('admin API - new endpoints', () => {
     writePolicyFile(dataDir, policyId, policyYaml);
 
     const state = readState(dataDir);
-    state.owners.push({
-      owner_principal_id: ownerPrincipalId,
+    state.users.push({
+      user_principal_id: ownerPrincipalId,
       path: `./owners/${ownerPrincipalId}.md`,
     });
     state.policies.push({
       policy_id: policyId,
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: ownerPrincipalId,
       applies_to_agent_principal_id: null,
       name: null,
       description: null,
@@ -217,13 +218,13 @@ describe('admin API - new endpoints', () => {
     fs.rmSync(rootDir, { recursive: true, force: true });
   });
 
-  it('GET /v1/admin/owners returns owners list', async () => {
-    const res = await app.inject({ method: 'GET', url: '/v1/admin/owners' });
+  it('GET /v1/admin/users returns users list', async () => {
+    const res = await app.inject({ method: 'GET', url: '/v1/admin/users' });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
-    expect(body.owners).toBeInstanceOf(Array);
-    expect(body.owners.length).toBeGreaterThan(0);
-    expect(body.owners[0].owner_principal_id).toBeDefined();
+    expect(body.users).toBeInstanceOf(Array);
+    expect(body.users.length).toBeGreaterThan(0);
+    expect(body.users[0].user_principal_id).toBeDefined();
   });
 
   it('GET /v1/admin/agents returns agents list', async () => {
@@ -270,8 +271,8 @@ describe('admin API - new endpoints', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
     expect(body.counts).toBeDefined();
-    expect(body.counts.owners).toBeGreaterThanOrEqual(1);
-    expect(body.version).toBe(1);
+    expect(body.counts.users).toBeGreaterThanOrEqual(1);
+    expect(body.version).toBe(2);
     expect(body.active_kid).toBeDefined();
   });
 });
@@ -320,16 +321,15 @@ describe('initial setup flow', () => {
       url: '/v1/initial-setup',
       payload: {
         display_name: 'Setup Owner',
-        principal_type: 'HUMAN',
         passphrase: 'test-passphrase-123',
       },
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
     expect(body.status).toBe('setup_complete');
-    expect(body.owner_principal_id).toBeDefined();
+    expect(body.user_principal_id).toBeDefined();
     expect(body.display_name).toBe('Setup Owner');
-    createdOwnerId = body.owner_principal_id;
+    createdOwnerId = body.user_principal_id;
   });
 
   it('POST /v1/initial-setup returns 403 when owners already exist', async () => {
@@ -338,7 +338,6 @@ describe('initial setup flow', () => {
       url: '/v1/initial-setup',
       payload: {
         display_name: 'Another Owner',
-        principal_type: 'HUMAN',
         passphrase: 'another-passphrase-123',
       },
     });
@@ -364,13 +363,13 @@ describe('initial setup flow', () => {
       method: 'POST',
       url: '/v1/owner/login',
       payload: {
-        owner_principal_id: createdOwnerId,
+        user_principal_id: createdOwnerId,
         passphrase: 'test-passphrase-123',
       },
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
     expect(body.token).toMatch(/^v4\.public\./);
-    expect(body.owner_principal_id).toBe(createdOwnerId);
+    expect(body.user_principal_id).toBe(createdOwnerId);
   });
 });

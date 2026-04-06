@@ -3,8 +3,13 @@ import * as path from 'node:path';
 import {
   readState,
   writeState,
-  writeOwnerFile,
-  readOwnerFile,
+  writeUserFile,
+  readUserFile,
+  writeOrgFile,
+  readOrgFile,
+  writeMembershipFile,
+  readMembershipFile,
+  deleteMembershipFile,
   writeAgentFile,
   readAgentFile,
   writePolicyFile,
@@ -32,7 +37,9 @@ import type {
   AgentFrontmatter,
   AgentInvite,
   ApprovalRequestFrontmatter,
-  OwnerFrontmatter,
+  UserFrontmatter,
+  OrganizationFrontmatter,
+  OrgMembership,
   PolicyDraftFrontmatter,
   ServerKeyFile,
   SetupInvite,
@@ -41,7 +48,9 @@ import type {
 } from './types.js';
 import type {
   DataStore,
-  OwnerRepository,
+  UserRepository,
+  OrganizationRepository,
+  OrgMembershipRepository,
   AgentRepository,
   PolicyRepository,
   ApprovalRequestRepository,
@@ -54,15 +63,67 @@ import type {
 
 // ─── File-based repository implementations ──────────────────────────
 
-class FileOwnerRepository implements OwnerRepository {
+class FileUserRepository implements UserRepository {
   constructor(private readonly dataDir: string) {}
 
-  read(ownerPrincipalId: string): OwnerFrontmatter {
-    return readOwnerFile(this.dataDir, ownerPrincipalId);
+  read(userPrincipalId: string): UserFrontmatter {
+    return readUserFile(this.dataDir, userPrincipalId);
   }
 
-  write(owner: OwnerFrontmatter, body?: string): void {
-    writeOwnerFile(this.dataDir, owner, body);
+  write(user: UserFrontmatter, body?: string): void {
+    writeUserFile(this.dataDir, user, body);
+  }
+}
+
+class FileOrganizationRepository implements OrganizationRepository {
+  constructor(private readonly dataDir: string) {}
+
+  read(orgId: string): OrganizationFrontmatter {
+    return readOrgFile(this.dataDir, orgId);
+  }
+
+  write(org: OrganizationFrontmatter, body?: string): void {
+    writeOrgFile(this.dataDir, org, body);
+  }
+}
+
+class FileOrgMembershipRepository implements OrgMembershipRepository {
+  constructor(private readonly dataDir: string) {}
+
+  read(membershipId: string): OrgMembership {
+    return readMembershipFile(this.dataDir, membershipId);
+  }
+
+  write(membership: OrgMembership): void {
+    writeMembershipFile(this.dataDir, membership);
+  }
+
+  delete(membershipId: string): void {
+    deleteMembershipFile(this.dataDir, membershipId);
+  }
+
+  listByOrg(orgId: string): OrgMembership[] {
+    const dir = path.join(this.dataDir, 'memberships');
+    if (!fs.existsSync(dir)) return [];
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+    const results: OrgMembership[] = [];
+    for (const file of files) {
+      const membership = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8')) as OrgMembership;
+      if (membership.org_id === orgId) results.push(membership);
+    }
+    return results;
+  }
+
+  listByUser(userPrincipalId: string): OrgMembership[] {
+    const dir = path.join(this.dataDir, 'memberships');
+    if (!fs.existsSync(dir)) return [];
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+    const results: OrgMembership[] = [];
+    for (const file of files) {
+      const membership = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8')) as OrgMembership;
+      if (membership.user_principal_id === userPrincipalId) results.push(membership);
+    }
+    return results;
   }
 }
 
@@ -182,18 +243,21 @@ class FileStateRepository implements StateRepository {
   }
 
   getResolvedApprovals(
+    ownerType: string,
     ownerId: string,
     limit: number,
     offset: number,
   ): { items: StateApprovalRequestEntry[]; total: number } {
-    return this.stateIndex.getResolvedApprovals(ownerId, limit, offset);
+    return this.stateIndex.getResolvedApprovals(ownerType, ownerId, limit, offset);
   }
 }
 
 // ─── FileDataStore ──────────────────────────────────────────────────
 
 export class FileDataStore implements DataStore {
-  readonly owners: OwnerRepository;
+  readonly users: UserRepository;
+  readonly organizations: OrganizationRepository;
+  readonly memberships: OrgMembershipRepository;
   readonly agents: AgentRepository;
   readonly policies: PolicyRepository;
   readonly approvalRequests: ApprovalRequestRepository;
@@ -208,7 +272,9 @@ export class FileDataStore implements DataStore {
 
   constructor(dataDir: string) {
     this.dataDir = dataDir;
-    this.owners = new FileOwnerRepository(dataDir);
+    this.users = new FileUserRepository(dataDir);
+    this.organizations = new FileOrganizationRepository(dataDir);
+    this.memberships = new FileOrgMembershipRepository(dataDir);
     this.agents = new FileAgentRepository(dataDir);
     this.policies = new FilePolicyRepository(dataDir);
     this.approvalRequests = new FileApprovalRequestRepository(dataDir);
@@ -224,7 +290,9 @@ export class FileDataStore implements DataStore {
     // Ensure data directories
     fs.mkdirSync(this.dataDir, { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'keys'), { recursive: true });
-    fs.mkdirSync(path.join(this.dataDir, 'owners'), { recursive: true });
+    fs.mkdirSync(path.join(this.dataDir, 'users'), { recursive: true });
+    fs.mkdirSync(path.join(this.dataDir, 'organizations'), { recursive: true });
+    fs.mkdirSync(path.join(this.dataDir, 'memberships'), { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'agents'), { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'policies'), { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'approval-requests'), { recursive: true });
@@ -243,13 +311,15 @@ export class FileDataStore implements DataStore {
       this.keys.write(key);
 
       const state: StateData = {
-        version: 1,
+        version: 2,
         created_at: new Date().toISOString(),
         server_keys: {
           active_kid: key.kid,
           keys: [{ kid: key.kid, path: `./keys/${key.kid}.json` }],
         },
-        owners: [],
+        users: [],
+        organizations: [],
+        memberships: [],
         agents: [],
         policies: [],
         bindings: [],

@@ -245,7 +245,7 @@ export function formatNameWithId(name: string | undefined, uuid: string): string
 export interface RenderPageOptions {
     showContextSwitcher?: boolean;
     isAdmin?: boolean;
-    extraOwnerNavItems?: { path: string; label: string; icon: string }[];
+    extraUserNavItems?: { path: string; label: string; icon: string }[];
     extraAdminNavItems?: { path: string; label: string; icon: string }[];
     verificationProviders?: string[];
     isHosted?: boolean;
@@ -262,7 +262,7 @@ export function renderPage(
 ): string {
     const isOwner = context === "owner";
     const extraItems = isOwner
-        ? (options?.extraOwnerNavItems ?? [])
+        ? (options?.extraUserNavItems ?? [])
         : (options?.extraAdminNavItems ?? []);
     const navItems = [...(isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS), ...extraItems];
     const subtitle = isOwner ? "Owner Portal" : "Authorization GUI";

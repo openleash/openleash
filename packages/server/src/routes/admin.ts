@@ -1,29 +1,31 @@
 import * as crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import {
-  validateOwnerIdentity,
+  validateUserIdentity,
   validateGovernmentIdValue,
   validateCompanyIdValue,
-  computeAssuranceLevel,
+  computeUserAssuranceLevel,
+  computeOrgAssuranceLevel,
   hashPassphrase,
+  resolveSystemRoles,
 } from '@openleash/core';
 import type {
   DataStore,
   OpenleashConfig,
-  OwnerFrontmatter,
+  UserFrontmatter,
+  OrganizationFrontmatter,
   ContactIdentity,
   GovernmentId,
   CompanyId,
   Signatory,
   SignatoryRule,
-  UserRole,
+  SystemRole,
 } from '@openleash/core';
-import { UserRole as UserRoleEnum, resolveUserRoles } from '@openleash/core';
-// Note: identity sub-types kept in imports for owner creation
+import { SystemRole as SystemRoleEnum } from '@openleash/core';
 import { createAdminAuth } from '../middleware/admin-auth.js';
 import type { AdminSession } from '../middleware/admin-auth.js';
 import { validateBody } from '../validate.js';
-import { CreateOwnerSchema } from '@openleash/gui';
+import { CreateUserSchema, CreateOrgSchema } from '@openleash/gui';
 
 export function registerAdminRoutes(app: FastifyInstance, store: DataStore, config: OpenleashConfig) {
   const adminAuth = createAdminAuth(config, store);
@@ -32,7 +34,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     return (request as Record<string, unknown>).adminSession as AdminSession | undefined;
   }
 
-  // POST /v1/admin/login — validate admin credentials (session or legacy token)
+  // POST /v1/admin/login
   app.post('/v1/admin/login', { preHandler: adminAuth }, async (request) => {
     const session = getAdminSession(request);
     return {
@@ -42,27 +44,22 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     };
   });
 
-  // POST /v1/admin/owners
-  app.post('/v1/admin/owners', { preHandler: adminAuth }, async (request, reply) => {
-    const validated = validateBody(request.body, CreateOwnerSchema, reply);
+  // ─── User management ──────────────────────────────────────────────
+
+  // POST /v1/admin/users
+  app.post('/v1/admin/users', { preHandler: adminAuth }, async (request, reply) => {
+    const validated = validateBody(request.body, CreateUserSchema, reply);
     if (!validated) return;
 
     const body = request.body as {
-      principal_type: 'HUMAN' | 'ORG';
       display_name: string;
-      attributes_json?: Record<string, unknown>;
       contact_identities?: ContactIdentity[];
       government_ids?: GovernmentId[];
-      company_ids?: CompanyId[];
-      signatories?: Signatory[];
-      signatory_rules?: SignatoryRule[];
     };
 
-    const ownerId = crypto.randomUUID();
-    const createdAt = new Date().toISOString();
-    const now = createdAt;
+    const userId = crypto.randomUUID();
+    const now = new Date().toISOString();
 
-    // Auto-assign UUIDs and timestamps to identity sub-objects
     const contacts = (body.contact_identities ?? []).map((c) => ({
       ...c,
       contact_id: c.contact_id || crypto.randomUUID(),
@@ -78,12 +75,97 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       added_at: g.added_at || now,
     }));
 
+    for (const g of govIds) {
+      if (g.verification_level === 'UNVERIFIED') {
+        const result = validateGovernmentIdValue(g.country, g.id_type, g.id_value);
+        if (result.valid) g.verification_level = 'FORMAT_VALID';
+      }
+    }
+
+    const user: UserFrontmatter = {
+      user_principal_id: userId,
+      display_name: body.display_name,
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: now,
+      ...(contacts.length > 0 && { contact_identities: contacts }),
+      ...(govIds.length > 0 && { government_ids: govIds }),
+    };
+
+    const validation = validateUserIdentity(user);
+    if (validation.type_errors.length > 0) {
+      reply.code(400).send({
+        error: { code: 'INVALID_IDENTITY', message: validation.type_errors.join('; ') },
+      });
+      return;
+    }
+
+    user.identity_assurance_level = computeUserAssuranceLevel(user);
+
+    store.users.write(user);
+
+    store.state.updateState((s) => {
+      s.users.push({
+        user_principal_id: userId,
+        path: `./users/${userId}.md`,
+      });
+    });
+
+    store.audit.append('USER_CREATED', {
+      user_principal_id: userId,
+      display_name: body.display_name,
+      identity_assurance_level: user.identity_assurance_level ?? null,
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    return {
+      user_principal_id: userId,
+      display_name: body.display_name,
+      status: 'ACTIVE',
+      identity_assurance_level: user.identity_assurance_level,
+      created_at: now,
+    };
+  });
+
+  // ─── Organization management ──────────────────────────────────────
+
+  // POST /v1/admin/organizations
+  app.post('/v1/admin/organizations', { preHandler: adminAuth }, async (request, reply) => {
+    const validated = validateBody(request.body, CreateOrgSchema, reply);
+    if (!validated) return;
+
+    const body = request.body as {
+      display_name: string;
+      created_by_user_id: string;
+      contact_identities?: ContactIdentity[];
+      company_ids?: CompanyId[];
+      signatories?: Signatory[];
+      signatory_rules?: SignatoryRule[];
+    };
+
+    const orgId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    const contacts = (body.contact_identities ?? []).map((c) => ({
+      ...c,
+      contact_id: c.contact_id || crypto.randomUUID(),
+      verified: c.verified ?? false,
+      verified_at: c.verified_at ?? null,
+      added_at: c.added_at || now,
+    }));
+
     const companyIds = (body.company_ids ?? []).map((c) => ({
       ...c,
       verification_level: c.verification_level || 'UNVERIFIED',
       verified_at: c.verified_at ?? null,
       added_at: c.added_at || now,
     }));
+
+    for (const c of companyIds) {
+      if (c.verification_level === 'UNVERIFIED') {
+        const result = validateCompanyIdValue(c.id_type, c.id_value, c.country);
+        if (result.valid) c.verification_level = 'FORMAT_VALID';
+      }
+    }
 
     const signatories = (body.signatories ?? []).map((s) => ({
       ...s,
@@ -97,100 +179,88 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       rule_id: r.rule_id || crypto.randomUUID(),
     }));
 
-    // Auto-upgrade verification_level for gov IDs that pass format validation
-    for (const g of govIds) {
-      if (g.verification_level === 'UNVERIFIED') {
-        const result = validateGovernmentIdValue(g.country, g.id_type, g.id_value);
-        if (result.valid) g.verification_level = 'FORMAT_VALID';
-      }
-    }
-
-    // Auto-upgrade verification_level for company IDs that pass format validation
-    for (const c of companyIds) {
-      if (c.verification_level === 'UNVERIFIED') {
-        const result = validateCompanyIdValue(c.id_type, c.id_value, c.country);
-        if (result.valid) c.verification_level = 'FORMAT_VALID';
-      }
-    }
-
-    const owner: OwnerFrontmatter = {
-      owner_principal_id: ownerId,
-      principal_type: body.principal_type,
+    const org: OrganizationFrontmatter = {
+      org_id: orgId,
       display_name: body.display_name,
       status: 'ACTIVE',
-      attributes: body.attributes_json ?? {},
-      created_at: createdAt,
+      attributes: {},
+      created_at: now,
+      created_by_user_id: body.created_by_user_id,
+      verification_status: 'unverified',
       ...(contacts.length > 0 && { contact_identities: contacts }),
-      ...(govIds.length > 0 && { government_ids: govIds }),
       ...(companyIds.length > 0 && { company_ids: companyIds }),
       ...(signatories.length > 0 && { signatories }),
       ...(signatoryRules.length > 0 && { signatory_rules: signatoryRules }),
     };
 
-    // Validate type constraints
-    const validation = validateOwnerIdentity(owner);
-    if (validation.type_errors.length > 0) {
-      reply.code(400).send({
-        error: { code: 'INVALID_IDENTITY', message: validation.type_errors.join('; ') },
-      });
-      return;
-    }
+    org.identity_assurance_level = computeOrgAssuranceLevel(org);
 
-    // Compute and set assurance level
-    owner.identity_assurance_level = computeAssuranceLevel(owner);
+    store.organizations.write(org);
 
-    store.owners.write(owner);
+    // Create org_admin membership for the creating user
+    const membershipId = crypto.randomUUID();
+    store.memberships.write({
+      membership_id: membershipId,
+      org_id: orgId,
+      user_principal_id: body.created_by_user_id,
+      role: 'org_admin',
+      status: 'active',
+      invited_by_user_id: null,
+      created_at: now,
+    });
 
     store.state.updateState((s) => {
-      s.owners.push({
-        owner_principal_id: ownerId,
-        path: `./owners/${ownerId}.md`,
+      s.organizations.push({
+        org_id: orgId,
+        path: `./organizations/${orgId}.md`,
+      });
+      s.memberships.push({
+        membership_id: membershipId,
+        org_id: orgId,
+        user_principal_id: body.created_by_user_id,
+        role: 'org_admin',
+        path: `./memberships/${membershipId}.json`,
       });
     });
 
-    store.audit.append('OWNER_CREATED', {
-      owner_principal_id: ownerId,
+    store.audit.append('ORG_CREATED', {
+      org_id: orgId,
       display_name: body.display_name,
-      principal_type: body.principal_type,
-      identity_assurance_level: owner.identity_assurance_level ?? null,
+      created_by_user_id: body.created_by_user_id,
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
     return {
-      owner_principal_id: ownerId,
-      principal_type: body.principal_type,
+      org_id: orgId,
       display_name: body.display_name,
       status: 'ACTIVE',
-      identity_assurance_level: owner.identity_assurance_level,
-      created_at: createdAt,
+      created_by_user_id: body.created_by_user_id,
+      created_at: now,
     };
   });
 
   // ─── Setup invite ──────────────────────────────────────────────────
 
-  // POST /v1/admin/owners/:ownerId/setup-invite
-  app.post('/v1/admin/owners/:ownerId/setup-invite', { preHandler: adminAuth }, async (request, reply) => {
-    const { ownerId } = request.params as { ownerId: string };
+  // POST /v1/admin/users/:userId/setup-invite
+  app.post('/v1/admin/users/:userId/setup-invite', { preHandler: adminAuth }, async (request, reply) => {
+    const { userId } = request.params as { userId: string };
 
-    // Verify owner exists
     const state = store.state.getState();
-    const ownerEntry = state.owners.find((o) => o.owner_principal_id === ownerId);
-    if (!ownerEntry) {
+    const userEntry = state.users.find((u) => u.user_principal_id === userId);
+    if (!userEntry) {
       reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: 'Owner not found' },
+        error: { code: 'NOT_FOUND', message: 'User not found' },
       });
       return;
     }
 
-    // Generate random invite token
     const inviteToken = crypto.randomBytes(32).toString('base64url');
     const inviteId = crypto.randomUUID();
     const { hash, salt } = hashPassphrase(inviteToken);
-
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24h
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
     store.setupInvites.write({
       invite_id: inviteId,
-      owner_principal_id: ownerId,
+      user_principal_id: userId,
       token_hash: hash,
       token_salt: salt,
       expires_at: expiresAt,
@@ -199,8 +269,8 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       created_at: new Date().toISOString(),
     });
 
-    store.audit.append('OWNER_SETUP_INVITE_CREATED', {
-      owner_principal_id: ownerId,
+    store.audit.append('USER_SETUP_INVITE_CREATED', {
+      user_principal_id: userId,
       invite_id: inviteId,
       expires_at: expiresAt,
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
@@ -212,15 +282,15 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     };
   });
 
-  // POST /v1/admin/owners/:ownerId/agent-invite
-  app.post('/v1/admin/owners/:ownerId/agent-invite', { preHandler: adminAuth }, async (request, reply) => {
-    const { ownerId } = request.params as { ownerId: string };
+  // POST /v1/admin/users/:userId/agent-invite
+  app.post('/v1/admin/users/:userId/agent-invite', { preHandler: adminAuth }, async (request, reply) => {
+    const { userId } = request.params as { userId: string };
 
     const state = store.state.getState();
-    const ownerEntry = state.owners.find((o) => o.owner_principal_id === ownerId);
-    if (!ownerEntry) {
+    const userEntry = state.users.find((u) => u.user_principal_id === userId);
+    if (!userEntry) {
       reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: 'Owner not found' },
+        error: { code: 'NOT_FOUND', message: 'User not found' },
       });
       return;
     }
@@ -232,7 +302,8 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
 
     store.agentInvites.write({
       invite_id: inviteId,
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: userId,
       token_hash: hash,
       token_salt: salt,
       expires_at: expiresAt,
@@ -242,7 +313,8 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     });
 
     store.audit.append('AGENT_INVITE_CREATED', {
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: userId,
       invite_id: inviteId,
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
@@ -253,97 +325,138 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     };
   });
 
-  // DELETE /v1/admin/owners/:ownerId
-  app.delete('/v1/admin/owners/:ownerId', { preHandler: adminAuth }, async (request, reply) => {
-    const { ownerId } = request.params as { ownerId: string };
-    const state = store.state.getState();
-    const ownerIndex = state.owners.findIndex((o) => o.owner_principal_id === ownerId);
+  // POST /v1/admin/organizations/:orgId/agent-invite
+  app.post('/v1/admin/organizations/:orgId/agent-invite', { preHandler: adminAuth }, async (request, reply) => {
+    const { orgId } = request.params as { orgId: string };
 
-    if (ownerIndex === -1) {
+    const state = store.state.getState();
+    const orgEntry = state.organizations.find((o) => o.org_id === orgId);
+    if (!orgEntry) {
       reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: 'Owner not found' },
+        error: { code: 'NOT_FOUND', message: 'Organization not found' },
       });
       return;
     }
 
-    // Remove from state
-    store.state.updateState((s) => {
-      const idx = s.owners.findIndex((o) => o.owner_principal_id === ownerId);
-      if (idx !== -1) s.owners.splice(idx, 1);
+    const inviteToken = crypto.randomBytes(32).toString('base64url');
+    const inviteId = crypto.randomUUID();
+    const { hash, salt } = hashPassphrase(inviteToken);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    store.agentInvites.write({
+      invite_id: inviteId,
+      owner_type: 'org',
+      owner_id: orgId,
+      token_hash: hash,
+      token_salt: salt,
+      expires_at: expiresAt,
+      used: false,
+      used_at: null,
+      created_at: new Date().toISOString(),
     });
 
-    return { owner_principal_id: ownerId, status: 'deleted' };
+    store.audit.append('AGENT_INVITE_CREATED', {
+      owner_type: 'org',
+      owner_id: orgId,
+      invite_id: inviteId,
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    return {
+      invite_id: inviteId,
+      invite_token: inviteToken,
+      expires_at: expiresAt,
+    };
   });
 
-  // POST /v1/admin/owners/:ownerId/disable-totp
-  app.post('/v1/admin/owners/:ownerId/disable-totp', { preHandler: adminAuth }, async (request, reply) => {
-    const { ownerId } = request.params as { ownerId: string };
+  // DELETE /v1/admin/users/:userId
+  app.delete('/v1/admin/users/:userId', { preHandler: adminAuth }, async (request, reply) => {
+    const { userId } = request.params as { userId: string };
+    const state = store.state.getState();
+    const idx = state.users.findIndex((u) => u.user_principal_id === userId);
+
+    if (idx === -1) {
+      reply.code(404).send({
+        error: { code: 'NOT_FOUND', message: 'User not found' },
+      });
+      return;
+    }
+
+    store.state.updateState((s) => {
+      const i = s.users.findIndex((u) => u.user_principal_id === userId);
+      if (i !== -1) s.users.splice(i, 1);
+    });
+
+    return { user_principal_id: userId, status: 'deleted' };
+  });
+
+  // POST /v1/admin/users/:userId/disable-totp
+  app.post('/v1/admin/users/:userId/disable-totp', { preHandler: adminAuth }, async (request, reply) => {
+    const { userId } = request.params as { userId: string };
 
     const state = store.state.getState();
-    const ownerEntry = state.owners.find((o) => o.owner_principal_id === ownerId);
-    if (!ownerEntry) {
+    const userEntry = state.users.find((u) => u.user_principal_id === userId);
+    if (!userEntry) {
       reply.code(404).send({
-        error: { code: 'NOT_FOUND', message: 'Owner not found' },
+        error: { code: 'NOT_FOUND', message: 'User not found' },
       });
       return;
     }
 
-    const owner = store.owners.read(ownerId);
-    if (!owner.totp_enabled) {
+    const user = store.users.read(userId);
+    if (!user.totp_enabled) {
       reply.code(400).send({
-        error: { code: 'TOTP_NOT_ENABLED', message: 'TOTP is not enabled for this owner' },
+        error: { code: 'TOTP_NOT_ENABLED', message: 'TOTP is not enabled for this user' },
       });
       return;
     }
 
-    delete owner.totp_secret_b32;
-    delete owner.totp_enabled;
-    delete owner.totp_enabled_at;
-    delete owner.totp_backup_codes_hash;
-    store.owners.write(owner);
+    delete user.totp_secret_b32;
+    delete user.totp_enabled;
+    delete user.totp_enabled_at;
+    delete user.totp_backup_codes_hash;
+    store.users.write(user);
 
-    store.audit.append('OWNER_TOTP_DISABLED', {
-      owner_principal_id: ownerId,
+    store.audit.append('USER_TOTP_DISABLED', {
+      user_principal_id: userId,
       disabled_by: 'admin',
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
-    return { owner_principal_id: ownerId, status: 'totp_disabled' };
+    return { user_principal_id: userId, status: 'totp_disabled' };
   });
 
-  // ─── Role management ────────────────────────────────────────────────
+  // ─── System role management ─────────────────────────────────────────
 
-  // GET /v1/admin/owners/:ownerId/roles
-  app.get('/v1/admin/owners/:ownerId/roles', { preHandler: adminAuth }, async (request, reply) => {
-    const { ownerId } = request.params as { ownerId: string };
+  // GET /v1/admin/users/:userId/roles
+  app.get('/v1/admin/users/:userId/roles', { preHandler: adminAuth }, async (request, reply) => {
+    const { userId } = request.params as { userId: string };
 
     const state = store.state.getState();
-    const ownerEntry = state.owners.find((o) => o.owner_principal_id === ownerId);
-    if (!ownerEntry) {
-      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Owner not found' } });
+    const userEntry = state.users.find((u) => u.user_principal_id === userId);
+    if (!userEntry) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'User not found' } });
       return;
     }
 
-    const owner = store.owners.read(ownerId);
-    return { owner_principal_id: ownerId, roles: resolveUserRoles(owner) };
+    const user = store.users.read(userId);
+    return { user_principal_id: userId, system_roles: resolveSystemRoles(user) };
   });
 
-  // PUT /v1/admin/owners/:ownerId/roles
-  app.put('/v1/admin/owners/:ownerId/roles', { preHandler: adminAuth }, async (request, reply) => {
-    const { ownerId } = request.params as { ownerId: string };
-    const body = request.body as { roles?: unknown };
+  // PUT /v1/admin/users/:userId/roles
+  app.put('/v1/admin/users/:userId/roles', { preHandler: adminAuth }, async (request, reply) => {
+    const { userId } = request.params as { userId: string };
+    const body = request.body as { system_roles?: unknown };
 
-    if (!body.roles || !Array.isArray(body.roles)) {
-      reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'roles must be an array' } });
+    if (!body.system_roles || !Array.isArray(body.system_roles)) {
+      reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'system_roles must be an array' } });
       return;
     }
 
-    // Validate each role
-    const roles: UserRole[] = [];
-    for (const r of body.roles) {
-      const parsed = UserRoleEnum.safeParse(r);
+    const roles: SystemRole[] = [];
+    for (const r of body.system_roles) {
+      const parsed = SystemRoleEnum.safeParse(r);
       if (!parsed.success) {
         reply.code(400).send({
-          error: { code: 'INVALID_ROLE', message: `Invalid role: ${r}. Valid roles: owner, admin` },
+          error: { code: 'INVALID_ROLE', message: `Invalid role: ${r}. Valid roles: admin` },
         });
         return;
       }
@@ -351,24 +464,24 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     }
 
     const state = store.state.getState();
-    const ownerEntry = state.owners.find((o) => o.owner_principal_id === ownerId);
-    if (!ownerEntry) {
-      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Owner not found' } });
+    const userEntry = state.users.find((u) => u.user_principal_id === userId);
+    if (!userEntry) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'User not found' } });
       return;
     }
 
-    const owner = store.owners.read(ownerId);
-    const previousRoles = resolveUserRoles(owner);
-    owner.roles = roles;
-    store.owners.write(owner);
+    const user = store.users.read(userId);
+    const previousRoles = resolveSystemRoles(user);
+    user.system_roles = roles;
+    store.users.write(user);
 
-    store.audit.append('USER_ROLES_UPDATED', {
-      owner_principal_id: ownerId,
-      previous_roles: previousRoles,
-      new_roles: roles,
+    store.audit.append('USER_UPDATED', {
+      user_principal_id: userId,
+      previous_system_roles: previousRoles,
+      new_system_roles: roles,
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
-    return { owner_principal_id: ownerId, roles };
+    return { user_principal_id: userId, system_roles: roles };
   });
 
   // GET /v1/admin/audit
@@ -381,21 +494,34 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     return { ...data, next_cursor: nextCursor };
   });
 
-  // GET /v1/admin/owners — list all owners with details
-  app.get('/v1/admin/owners', { preHandler: adminAuth }, async () => {
+  // GET /v1/admin/users — list all users
+  app.get('/v1/admin/users', { preHandler: adminAuth }, async () => {
     const state = store.state.getState();
-    const owners = state.owners.map((entry) => {
+    const users = state.users.map((entry) => {
       try {
-        const owner = store.owners.read(entry.owner_principal_id);
-        return { ...owner, roles: resolveUserRoles(owner) };
+        const user = store.users.read(entry.user_principal_id);
+        return { ...user, system_roles: resolveSystemRoles(user) };
       } catch {
-        return { owner_principal_id: entry.owner_principal_id, error: 'file_not_found' };
+        return { user_principal_id: entry.user_principal_id, error: 'file_not_found' };
       }
     });
-    return { owners };
+    return { users };
   });
 
-  // GET /v1/admin/agents — list all agents with details
+  // GET /v1/admin/organizations — list all organizations
+  app.get('/v1/admin/organizations', { preHandler: adminAuth }, async () => {
+    const state = store.state.getState();
+    const organizations = state.organizations.map((entry) => {
+      try {
+        return store.organizations.read(entry.org_id);
+      } catch {
+        return { org_id: entry.org_id, error: 'file_not_found' };
+      }
+    });
+    return { organizations };
+  });
+
+  // GET /v1/admin/agents — list all agents
   app.get('/v1/admin/agents', { preHandler: adminAuth }, async () => {
     const state = store.state.getState();
     const agents = state.agents.map((entry) => {
@@ -408,7 +534,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     return { agents };
   });
 
-  // GET /v1/admin/policies — list all policies with YAML content
+  // GET /v1/admin/policies — list all policies
   app.get('/v1/admin/policies', { preHandler: adminAuth }, async () => {
     const state = store.state.getState();
     const policies = state.policies.map((entry) => {
@@ -422,7 +548,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     return { policies };
   });
 
-  // GET /v1/admin/policies/:policyId — get single policy
+  // GET /v1/admin/policies/:policyId
   app.get('/v1/admin/policies/:policyId', { preHandler: adminAuth }, async (request, reply) => {
     const { policyId } = request.params as { policyId: string };
     const state = store.state.getState();
@@ -439,7 +565,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     }
   });
 
-  // GET /v1/admin/config — return sanitized config
+  // GET /v1/admin/config
   app.get('/v1/admin/config', { preHandler: adminAuth }, async () => {
     return {
       server: config.server,
@@ -454,14 +580,16 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     };
   });
 
-  // GET /v1/admin/state — return state summary
+  // GET /v1/admin/state
   app.get('/v1/admin/state', { preHandler: adminAuth }, async () => {
     const state = store.state.getState();
     return {
       version: state.version,
       created_at: state.created_at,
       counts: {
-        owners: state.owners.length,
+        users: state.users.length,
+        organizations: state.organizations.length,
+        memberships: state.memberships.length,
         agents: state.agents.length,
         policies: state.policies.length,
         bindings: state.bindings.length,

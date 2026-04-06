@@ -11,7 +11,8 @@ import { assetTags } from "../../shared/manifest.js";
 
 export interface PolicyListEntry {
     policy_id: string;
-    owner_principal_id: string;
+    owner_type: string;
+    owner_id: string;
     applies_to_agent_principal_id: string | null;
     name: string | null;
     description: string | null;
@@ -20,7 +21,8 @@ export interface PolicyListEntry {
 }
 
 export interface BindingEntry {
-    owner_principal_id: string;
+    owner_type: string;
+    owner_id: string;
     policy_id: string;
     applies_to_agent_principal_id: string | null;
 }
@@ -34,7 +36,7 @@ export function renderPolicies(policies: PolicyListEntry[]): string {
         ${p.name ? `<a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)}</a>` : ""}
         <div class="policies-copyable-wrap"><a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a></div>
       </td>
-      <td>${copyableId(p.owner_principal_id)}</td>
+      <td>${copyableId(p.owner_id)}</td>
       <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
       <td>
         <a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="btn btn-secondary btn-sm">View</a>
@@ -140,7 +142,8 @@ rules:
 
 export interface PolicyDetail {
     policy_id: string;
-    owner_principal_id: string;
+    owner_type: string;
+    owner_id: string;
     applies_to_agent_principal_id: string | null;
     name: string | null;
     description: string | null;
@@ -161,7 +164,7 @@ export function renderPolicyViewer(
         .map(
             (b) => `
     <tr>
-      <td>${formatNameWithId(ownerMap.get(b.owner_principal_id), b.owner_principal_id)}</td>
+      <td>${formatNameWithId(ownerMap.get(b.owner_id), b.owner_id)}</td>
       <td>${b.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(b.applies_to_agent_principal_id), b.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
     </tr>
   `,
@@ -198,7 +201,7 @@ export function renderPolicyViewer(
           }
           <tr>
             <td class="text-muted">Owner</td>
-            <td>${formatNameWithId(ownerMap.get(policy.owner_principal_id), policy.owner_principal_id)}</td>
+            <td>${formatNameWithId(ownerMap.get(policy.owner_id), policy.owner_id)}</td>
           </tr>
           <tr>
             <td class="text-muted">Applies To</td>

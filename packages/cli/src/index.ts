@@ -19,6 +19,7 @@ import {
   ownerAddSignatoryCommand,
   ownerValidateCommand,
 } from './commands/owner.js';
+import { migrateCommand } from './commands/migrate.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -116,6 +117,9 @@ async function main() {
             console.log('Usage: openleash owner <list|show|add-contact|add-gov-id|add-company-id|add-signatory|validate>');
         }
         break;
+      case 'migrate':
+        await migrateCommand(args.slice(1));
+        break;
       case 'testvectors':
         await testvectorsCommand();
         break;
@@ -149,6 +153,7 @@ Commands:
   policy validate      Validate a policy file
   policy delete        Delete a policy and its bindings
   policy unbind        Remove policy bindings
+  migrate v2           Migrate data from v1 to v2 (dry-run by default, --apply to execute)
   playground list      List playground scenarios
   playground run <n>   Run a playground scenario
   keys list            List signing keys

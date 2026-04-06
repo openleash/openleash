@@ -40,11 +40,10 @@ export async function initCommand(store: DataStore, args: string[]) {
   bootstrapState(rootDir, store);
   console.log('State bootstrapped.');
 
-  // 2. Create owner
+  // 2. Create user
   const ownerId = crypto.randomUUID();
-  store.owners.write({
-    owner_principal_id: ownerId,
-    principal_type: 'HUMAN',
+  store.users.write({
+    user_principal_id: ownerId,
     display_name: ownerName,
     status: 'ACTIVE',
     attributes: {},
@@ -52,12 +51,12 @@ export async function initCommand(store: DataStore, args: string[]) {
   });
 
   store.state.updateState((s) => {
-    s.owners.push({
-      owner_principal_id: ownerId,
+    s.users.push({
+      user_principal_id: ownerId,
       path: `./owners/${ownerId}.md`,
     });
   });
-  store.audit.append('OWNER_CREATED', { owner_principal_id: ownerId, display_name: ownerName });
+  store.audit.append('USER_CREATED', { user_principal_id: ownerId, display_name: ownerName });
   console.log(`Owner created: ${ownerName} (${ownerId})`);
 
   // 3. Generate Ed25519 keypair
@@ -72,7 +71,8 @@ export async function initCommand(store: DataStore, args: string[]) {
   store.agents.write({
     agent_principal_id: agentPrincipalId,
     agent_id: agentId,
-    owner_principal_id: ownerId,
+    owner_type: 'user',
+    owner_id: ownerId,
     public_key_b64: agentPublicKeyB64,
     status: 'ACTIVE',
     attributes: {},
@@ -87,7 +87,8 @@ export async function initCommand(store: DataStore, args: string[]) {
     s.agents.push({
       agent_principal_id: agentPrincipalId,
       agent_id: agentId,
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       path: `./agents/${agentPrincipalId}.md`,
     });
   });
@@ -103,14 +104,16 @@ export async function initCommand(store: DataStore, args: string[]) {
   store.state.updateState((s) => {
     s.policies.push({
       policy_id: policyId,
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       applies_to_agent_principal_id: null,
       name: null,
       description: null,
       path: `./policies/${policyId}.yaml`,
     });
     s.bindings.push({
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       policy_id: policyId,
       applies_to_agent_principal_id: null,
     });

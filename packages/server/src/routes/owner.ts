@@ -7,32 +7,29 @@ import {
     issueApprovalToken,
     hashPassphrase,
     verifyPassphrase,
-    validateOwnerIdentity,
-    computeAssuranceLevel,
+    validateUserIdentity,
+    computeUserAssuranceLevel,
     generateTotpSecret,
     generateTotpUri,
     generateTotpQrSvg,
     verifyTotp,
     generateBackupCodes,
     verifyBackupCode,
-    resolveUserRoles,
+    resolveSystemRoles,
 } from "@openleash/core";
 import type {
     OpenleashConfig,
     SessionClaims,
     ContactIdentity,
     GovernmentId,
-    CompanyId,
-    Signatory,
-    SignatoryRule,
     DataStore,
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
 import { validateBody } from "../validate.js";
 import {
     InitialSetupSchema,
-    OwnerSetupSchema,
-    OwnerLoginSchema,
+    UserSetupSchema,
+    UserLoginSchema,
     TotpVerifySchema,
     SavePolicySchema,
 } from "@openleash/gui";
@@ -59,11 +56,9 @@ export function registerOwnerRoutes(
         const body = validateBody(request.body, InitialSetupSchema, reply);
         if (!body) return;
 
-        const principalType = body.principal_type;
-
-        // Guard: only allowed when no owners exist
+        // Guard: only allowed when no users exist
         const state = store.state.getState();
-        if (state.owners.length > 0) {
+        if (state.users.length > 0) {
             reply.code(403).send({
                 error: {
                     code: "SETUP_ALREADY_COMPLETED",
@@ -73,13 +68,12 @@ export function registerOwnerRoutes(
             return;
         }
 
-        // Create the first owner
-        const ownerId = crypto.randomUUID();
+        // Create the first user (always a human)
+        const userId = crypto.randomUUID();
         const { hash, salt } = hashPassphrase(body.passphrase);
 
-        store.owners.write({
-            owner_principal_id: ownerId,
-            principal_type: principalType as "HUMAN" | "ORG",
+        store.users.write({
+            user_principal_id: userId,
             display_name: body.display_name,
             status: "ACTIVE",
             attributes: {},
@@ -87,32 +81,32 @@ export function registerOwnerRoutes(
             passphrase_hash: hash,
             passphrase_salt: salt,
             passphrase_set_at: new Date().toISOString(),
-            roles: ["owner", "admin"],
+            system_roles: ["admin"],
         });
 
         // Update state
         store.state.updateState(s => {
-            s.owners.push({
-                owner_principal_id: ownerId,
-                path: `./owners/${ownerId}.md`,
+            s.users.push({
+                user_principal_id: userId,
+                path: `./users/${userId}.md`,
             });
         });
 
         store.audit.append("INITIAL_SETUP_COMPLETED", {
-            owner_principal_id: ownerId,
+            user_principal_id: userId,
             display_name: body.display_name,
         });
 
         return {
             status: "setup_complete",
-            owner_principal_id: ownerId,
+            user_principal_id: userId,
             display_name: body.display_name,
         };
     });
 
     // POST /v1/owner/setup — complete setup with invite token + passphrase
     app.post("/v1/owner/setup", async (request, reply) => {
-        const body = validateBody(request.body, OwnerSetupSchema, reply);
+        const body = validateBody(request.body, UserSetupSchema, reply);
         if (!body) return;
 
         // Load invite
@@ -151,41 +145,41 @@ export function registerOwnerRoutes(
             return;
         }
 
-        // Hash passphrase and store on owner
+        // Hash passphrase and store on user
         const { hash, salt } = hashPassphrase(body.passphrase);
 
-        const owner = store.owners.read(invite.owner_principal_id);
-        owner.passphrase_hash = hash;
-        owner.passphrase_salt = salt;
-        owner.passphrase_set_at = new Date().toISOString();
-        store.owners.write(owner);
+        const user = store.users.read(invite.user_principal_id);
+        user.passphrase_hash = hash;
+        user.passphrase_salt = salt;
+        user.passphrase_set_at = new Date().toISOString();
+        store.users.write(user);
 
         // Mark invite as used
         invite.used = true;
         invite.used_at = new Date().toISOString();
         store.setupInvites.write(invite);
 
-        store.audit.append("OWNER_SETUP_COMPLETED", {
-            owner_principal_id: invite.owner_principal_id,
+        store.audit.append("USER_SETUP_COMPLETED", {
+            user_principal_id: invite.user_principal_id,
         });
 
         return {
             status: "setup_complete",
-            owner_principal_id: invite.owner_principal_id,
+            user_principal_id: invite.user_principal_id,
         };
     });
 
     // POST /v1/owner/login
     app.post("/v1/owner/login", async (request, reply) => {
-        const body = validateBody(request.body, OwnerLoginSchema, reply);
+        const body = validateBody(request.body, UserLoginSchema, reply);
         if (!body) return;
 
-        // Look up owner
+        // Look up user
         const state = store.state.getState();
-        const ownerEntry = state.owners.find(
-            (o) => o.owner_principal_id === body.owner_principal_id,
+        const userEntry = state.users.find(
+            (u) => u.user_principal_id === body.user_principal_id,
         );
-        if (!ownerEntry) {
+        if (!userEntry) {
             reply.code(401).send({
                 error: { code: "INVALID_CREDENTIALS", message: "Invalid credentials" },
             });
@@ -194,7 +188,7 @@ export function registerOwnerRoutes(
 
         let owner;
         try {
-            owner = store.owners.read(body.owner_principal_id);
+            owner = store.users.read(body.user_principal_id);
         } catch {
             reply.code(401).send({
                 error: { code: "INVALID_CREDENTIALS", message: "Invalid credentials" },
@@ -227,24 +221,32 @@ export function registerOwnerRoutes(
         // Issue session token
         const activeKey = store.keys.read(state.server_keys.active_kid);
         const ttl = config.sessions?.ttl_seconds ?? 28800;
-        const roles = resolveUserRoles(owner);
+        const systemRoles = resolveSystemRoles(owner);
+        // Load org memberships for token claims
+        const memberships = store.memberships.listByUser(body.user_principal_id);
+        const orgMemberships = memberships
+            .filter((m) => m.status === "active")
+            .map((m) => ({ org_id: m.org_id, role: m.role }));
+
         const session = await issueSessionToken({
             key: activeKey,
-            ownerPrincipalId: body.owner_principal_id,
+            userPrincipalId: body.user_principal_id,
             ttlSeconds: ttl,
-            roles,
+            systemRoles,
+            orgMemberships: orgMemberships.length > 0 ? orgMemberships : undefined,
         });
 
-        store.audit.append("OWNER_LOGIN", {
-            owner_principal_id: body.owner_principal_id,
+        store.audit.append("USER_LOGIN", {
+            user_principal_id: body.user_principal_id,
             display_name: owner.display_name,
         });
 
         return {
             token: session.token,
             expires_at: session.expiresAt,
-            owner_principal_id: body.owner_principal_id,
-            roles,
+            user_principal_id: body.user_principal_id,
+            system_roles: systemRoles,
+            org_memberships: orgMemberships,
         };
     });
 
@@ -253,8 +255,8 @@ export function registerOwnerRoutes(
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
 
-        store.audit.append("OWNER_LOGOUT", {
-            owner_principal_id: session.sub,
+        store.audit.append("USER_LOGOUT", {
+            user_principal_id: session.sub,
         });
 
         return { status: "logged_out" };
@@ -266,7 +268,7 @@ export function registerOwnerRoutes(
     app.get("/v1/owner/profile", { preHandler: ownerAuth }, async (request) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const owner = store.owners.read(session.sub);
+        const user = store.users.read(session.sub);
 
         // Strip sensitive fields
         const {
@@ -274,9 +276,9 @@ export function registerOwnerRoutes(
             passphrase_salt: _salt,
             totp_secret_b32: _secret,
             totp_backup_codes_hash: _codes,
-            ...safeOwner
-        } = owner;
-        return { ...safeOwner, totp_enabled: !!owner.totp_enabled };
+            ...safeUser
+        } = user;
+        return { ...safeUser, totp_enabled: !!user.totp_enabled };
     });
 
     // PUT /v1/owner/profile
@@ -287,16 +289,13 @@ export function registerOwnerRoutes(
             display_name?: string;
             contact_identities?: ContactIdentity[];
             government_ids?: GovernmentId[];
-            company_ids?: CompanyId[];
-            signatories?: Signatory[];
-            signatory_rules?: SignatoryRule[];
         };
 
-        const owner = store.owners.read(session.sub);
+        const user = store.users.read(session.sub);
 
-        if (body.display_name !== undefined) owner.display_name = body.display_name;
+        if (body.display_name !== undefined) user.display_name = body.display_name;
         if (body.contact_identities !== undefined) {
-            owner.contact_identities = body.contact_identities.map((c) => ({
+            user.contact_identities = body.contact_identities.map((c) => ({
                 ...c,
                 contact_id: c.contact_id || crypto.randomUUID(),
                 verified: c.verified ?? false,
@@ -304,24 +303,9 @@ export function registerOwnerRoutes(
                 added_at: c.added_at || new Date().toISOString(),
             }));
         }
-        if (body.government_ids !== undefined) owner.government_ids = body.government_ids;
-        if (body.company_ids !== undefined) owner.company_ids = body.company_ids;
-        if (body.signatories !== undefined) {
-            owner.signatories = body.signatories.map((s) => ({
-                ...s,
-                signatory_id: s.signatory_id || crypto.randomUUID(),
-                valid_until: s.valid_until ?? null,
-                added_at: s.added_at || new Date().toISOString(),
-            }));
-        }
-        if (body.signatory_rules !== undefined) {
-            owner.signatory_rules = body.signatory_rules.map((r) => ({
-                ...r,
-                rule_id: r.rule_id || crypto.randomUUID(),
-            }));
-        }
+        if (body.government_ids !== undefined) user.government_ids = body.government_ids;
 
-        const validation = validateOwnerIdentity(owner);
+        const validation = validateUserIdentity(user);
         if (validation.type_errors.length > 0) {
             reply.code(400).send({
                 error: { code: "INVALID_IDENTITY", message: validation.type_errors.join("; ") },
@@ -329,15 +313,15 @@ export function registerOwnerRoutes(
             return;
         }
 
-        owner.identity_assurance_level = computeAssuranceLevel(owner);
-        store.owners.write(owner);
+        user.identity_assurance_level = computeUserAssuranceLevel(user);
+        store.users.write(user);
 
-        store.audit.append("OWNER_UPDATED", {
-            owner_principal_id: session.sub,
+        store.audit.append("USER_UPDATED", {
+            user_principal_id: session.sub,
         });
 
-        const { passphrase_hash: _hash, passphrase_salt: _salt, ...safeOwner } = owner;
-        return safeOwner;
+        const { passphrase_hash: _hash, passphrase_salt: _salt, ...safeUser } = user;
+        return safeUser;
     });
 
     // ─── Agents (scoped to owner) ─────────────────────────────────────
@@ -348,7 +332,7 @@ export function registerOwnerRoutes(
             .ownerSession as SessionClaims;
         const state = store.state.getState();
         const agents = state.agents
-            .filter((a) => a.owner_principal_id === session.sub)
+            .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
             .map((entry) => {
                 try {
                     return store.agents.read(entry.agent_principal_id);
@@ -372,7 +356,7 @@ export function registerOwnerRoutes(
 
         const state = store.state.getState();
         const agentEntry = state.agents.find(
-            (a) => a.agent_principal_id === agentId && a.owner_principal_id === session.sub,
+            (a) => a.agent_principal_id === agentId && a.owner_type === "user" && a.owner_id === session.sub,
         );
 
         if (!agentEntry) {
@@ -384,7 +368,7 @@ export function registerOwnerRoutes(
 
         // Require 2FA when revoking an agent
         if (body.status === "REVOKED") {
-            const owner = store.owners.read(session.sub);
+            const owner = store.users.read(session.sub);
             const ok = await verifyTotpForApproval(request, reply, owner, session);
             if (!ok) return;
         }
@@ -415,7 +399,8 @@ export function registerOwnerRoutes(
 
         store.agentInvites.write({
             invite_id: inviteId,
-            owner_principal_id: session.sub,
+            owner_type: "user",
+            owner_id: session.sub,
             token_hash: hash,
             token_salt: salt,
             expires_at: expiresAt,
@@ -425,7 +410,7 @@ export function registerOwnerRoutes(
         });
 
         store.audit.append("AGENT_INVITE_CREATED", {
-            owner_principal_id: session.sub,
+            user_principal_id: session.sub,
             invite_id: inviteId,
         });
 
@@ -444,7 +429,7 @@ export function registerOwnerRoutes(
             .ownerSession as SessionClaims;
         const state = store.state.getState();
         const policies = state.policies
-            .filter((p) => p.owner_principal_id === session.sub)
+            .filter((p) => p.owner_type === "user" && p.owner_id === session.sub)
             .map((entry) => {
                 try {
                     const yaml = store.policies.read(entry.policy_id);
@@ -486,7 +471,8 @@ export function registerOwnerRoutes(
         store.state.updateState(s => {
             s.policies.push({
                 policy_id: policyId,
-                owner_principal_id: session.sub,
+                owner_type: "user",
+                owner_id: session.sub,
                 applies_to_agent_principal_id: appliesToAgent,
                 name: policyName,
                 description: policyDescription,
@@ -494,7 +480,8 @@ export function registerOwnerRoutes(
             });
 
             s.bindings.push({
-                owner_principal_id: session.sub,
+                owner_type: "user",
+                owner_id: session.sub,
                 policy_id: policyId,
                 applies_to_agent_principal_id: appliesToAgent,
             });
@@ -502,13 +489,13 @@ export function registerOwnerRoutes(
 
         store.audit.append("POLICY_UPSERTED", {
             policy_id: policyId,
-            owner_principal_id: session.sub,
+            user_principal_id: session.sub,
             applies_to_agent_principal_id: appliesToAgent,
         });
 
         return {
             policy_id: policyId,
-            owner_principal_id: session.sub,
+            user_principal_id: session.sub,
             applies_to_agent_principal_id: appliesToAgent,
         };
     });
@@ -521,7 +508,7 @@ export function registerOwnerRoutes(
 
         const state = store.state.getState();
         const entry = state.policies.find(
-            (p) => p.policy_id === policyId && p.owner_principal_id === session.sub,
+            (p) => p.policy_id === policyId && p.owner_type === "user" && p.owner_id === session.sub,
         );
 
         if (!entry) {
@@ -551,7 +538,7 @@ export function registerOwnerRoutes(
 
         const state = store.state.getState();
         const entry = state.policies.find(
-            (p) => p.policy_id === policyId && p.owner_principal_id === session.sub,
+            (p) => p.policy_id === policyId && p.owner_type === "user" && p.owner_id === session.sub,
         );
 
         if (!entry) {
@@ -594,7 +581,7 @@ export function registerOwnerRoutes(
 
         store.audit.append("POLICY_UPDATED", {
             policy_id: policyId,
-            owner_principal_id: session.sub,
+            user_principal_id: session.sub,
         });
 
         return { policy_id: policyId, status: "updated" };
@@ -611,7 +598,7 @@ export function registerOwnerRoutes(
 
             const state = store.state.getState();
             const policyIndex = state.policies.findIndex(
-                (p) => p.policy_id === policyId && p.owner_principal_id === session.sub,
+                (p) => p.policy_id === policyId && p.owner_type === "user" && p.owner_id === session.sub,
             );
 
             if (policyIndex === -1) {
@@ -622,7 +609,7 @@ export function registerOwnerRoutes(
             }
 
             // Require 2FA when deleting a policy
-            const owner = store.owners.read(session.sub);
+            const owner = store.users.read(session.sub);
             const ok = await verifyTotpForApproval(request, reply, owner, session);
             if (!ok) return;
 
@@ -635,7 +622,7 @@ export function registerOwnerRoutes(
 
             store.audit.append("POLICY_DELETED", {
                 policy_id: policyId,
-                owner_principal_id: session.sub,
+                user_principal_id: session.sub,
             });
 
             return { policy_id: policyId, status: "deleted" };
@@ -648,7 +635,7 @@ export function registerOwnerRoutes(
     app.post("/v1/owner/totp/setup", { preHandler: ownerAuth }, async (request) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const owner = store.owners.read(session.sub);
+        const owner = store.users.read(session.sub);
 
         const secret = generateTotpSecret();
         const uri = generateTotpUri(secret, owner.display_name);
@@ -657,7 +644,7 @@ export function registerOwnerRoutes(
         owner.totp_secret_b32 = secret;
         owner.totp_enabled = false;
         owner.totp_backup_codes_hash = hashes;
-        store.owners.write(owner);
+        store.users.write(owner);
 
         const qr_svg = generateTotpQrSvg(uri);
 
@@ -670,7 +657,7 @@ export function registerOwnerRoutes(
             .ownerSession as SessionClaims;
         const body = validateBody(request.body, TotpVerifySchema, reply);
         if (!body) return;
-        const owner = store.owners.read(session.sub);
+        const owner = store.users.read(session.sub);
 
         if (!owner.totp_secret_b32) {
             reply.code(400).send({
@@ -688,10 +675,10 @@ export function registerOwnerRoutes(
 
         owner.totp_enabled = true;
         owner.totp_enabled_at = new Date().toISOString();
-        store.owners.write(owner);
+        store.users.write(owner);
 
-        store.audit.append("OWNER_TOTP_ENABLED", {
-            owner_principal_id: session.sub,
+        store.audit.append("USER_TOTP_ENABLED", {
+            user_principal_id: session.sub,
         });
 
         return { status: "totp_enabled" };
@@ -702,7 +689,7 @@ export function registerOwnerRoutes(
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const body = request.body as { code: string };
-        const owner = store.owners.read(session.sub);
+        const owner = store.users.read(session.sub);
 
         if (!owner.totp_enabled || !owner.totp_secret_b32) {
             reply.code(400).send({
@@ -729,10 +716,10 @@ export function registerOwnerRoutes(
         delete owner.totp_enabled;
         delete owner.totp_enabled_at;
         delete owner.totp_backup_codes_hash;
-        store.owners.write(owner);
+        store.users.write(owner);
 
-        store.audit.append("OWNER_TOTP_DISABLED", {
-            owner_principal_id: session.sub,
+        store.audit.append("USER_TOTP_DISABLED", {
+            user_principal_id: session.sub,
         });
 
         return { status: "totp_disabled" };
@@ -786,10 +773,10 @@ export function registerOwnerRoutes(
             const result = verifyBackupCode(code, owner.totp_backup_codes_hash);
             if (result.valid) {
                 owner.totp_backup_codes_hash = result.remainingHashes;
-                store.owners.write(owner as import("@openleash/core").OwnerFrontmatter);
+                store.users.write(owner as import("@openleash/core").UserFrontmatter);
 
-                store.audit.append("OWNER_TOTP_BACKUP_USED", {
-                    owner_principal_id: session.sub,
+                store.audit.append("USER_TOTP_BACKUP_USED", {
+                    user_principal_id: session.sub,
                     remaining_codes: result.remainingHashes.length,
                 });
                 return true;
@@ -812,7 +799,7 @@ export function registerOwnerRoutes(
 
         const state = store.state.getState();
         let requests = (state.approval_requests ?? []).filter(
-            (r) => r.owner_principal_id === session.sub,
+            (r) => r.owner_type === "user" && r.owner_id === session.sub,
         );
 
         if (query.status) {
@@ -841,7 +828,7 @@ export function registerOwnerRoutes(
 
             const state = store.state.getState();
             const entry = (state.approval_requests ?? []).find(
-                (r) => r.approval_request_id === id && r.owner_principal_id === session.sub,
+                (r) => r.approval_request_id === id && r.owner_type === "user" && r.owner_id === session.sub,
             );
 
             if (!entry) {
@@ -872,7 +859,7 @@ export function registerOwnerRoutes(
 
             const state = store.state.getState();
             const entry = (state.approval_requests ?? []).find(
-                (r) => r.approval_request_id === id && r.owner_principal_id === session.sub,
+                (r) => r.approval_request_id === id && r.owner_type === "user" && r.owner_id === session.sub,
             );
 
             if (!entry) {
@@ -883,7 +870,7 @@ export function registerOwnerRoutes(
             }
 
             // TOTP verification
-            const approveOwner = store.owners.read(session.sub);
+            const approveOwner = store.users.read(session.sub);
             if (!(await verifyTotpForApproval(request, reply, approveOwner, session))) return;
 
             const req = store.approvalRequests.read(id);
@@ -921,7 +908,8 @@ export function registerOwnerRoutes(
             const approvalToken = await issueApprovalToken({
                 key: activeKey,
                 approvalRequestId: id,
-                ownerPrincipalId: session.sub,
+                ownerType: "user",
+                ownerId: session.sub,
                 agentId: req.agent_id,
                 actionType: req.action_type,
                 actionHash: req.action_hash,
@@ -944,7 +932,7 @@ export function registerOwnerRoutes(
 
             store.audit.append("APPROVAL_REQUEST_APPROVED", {
                 approval_request_id: id,
-                owner_principal_id: session.sub,
+                user_principal_id: session.sub,
                 agent_id: req.agent_id,
                 action_type: req.action_type,
                 agent_principal_id: req.agent_principal_id,
@@ -991,12 +979,12 @@ export function registerOwnerRoutes(
             const body = request.body as { reason?: string; totp_code?: string } | null;
 
             // TOTP verification
-            const denyOwner = store.owners.read(session.sub);
+            const denyOwner = store.users.read(session.sub);
             if (!(await verifyTotpForApproval(request, reply, denyOwner, session))) return;
 
             const state = store.state.getState();
             const entry = (state.approval_requests ?? []).find(
-                (r) => r.approval_request_id === id && r.owner_principal_id === session.sub,
+                (r) => r.approval_request_id === id && r.owner_type === "user" && r.owner_id === session.sub,
             );
 
             if (!entry) {
@@ -1033,7 +1021,7 @@ export function registerOwnerRoutes(
 
             store.audit.append("APPROVAL_REQUEST_DENIED", {
                 approval_request_id: id,
-                owner_principal_id: session.sub,
+                user_principal_id: session.sub,
                 agent_id: req.agent_id,
                 action_type: req.action_type,
                 agent_principal_id: req.agent_principal_id,
@@ -1077,7 +1065,7 @@ export function registerOwnerRoutes(
 
         const state = store.state.getState();
         let drafts = (state.policy_drafts ?? []).filter(
-            (d) => d.owner_principal_id === session.sub,
+            (d) => d.owner_type === "user" && d.owner_id === session.sub,
         );
 
         if (query.status) {
@@ -1103,7 +1091,7 @@ export function registerOwnerRoutes(
 
         const state = store.state.getState();
         const entry = (state.policy_drafts ?? []).find(
-            (d) => d.policy_draft_id === id && d.owner_principal_id === session.sub,
+            (d) => d.policy_draft_id === id && d.owner_type === "user" && d.owner_id === session.sub,
         );
 
         if (!entry) {
@@ -1133,7 +1121,7 @@ export function registerOwnerRoutes(
 
             const state = store.state.getState();
             const entry = (state.policy_drafts ?? []).find(
-                (d) => d.policy_draft_id === id && d.owner_principal_id === session.sub,
+                (d) => d.policy_draft_id === id && d.owner_type === "user" && d.owner_id === session.sub,
             );
 
             if (!entry) {
@@ -1144,7 +1132,7 @@ export function registerOwnerRoutes(
             }
 
             // TOTP verification
-            const approveOwner = store.owners.read(session.sub);
+            const approveOwner = store.users.read(session.sub);
             if (!(await verifyTotpForApproval(request, reply, approveOwner, session))) return;
 
             const draft = store.policyDrafts.read(id);
@@ -1185,7 +1173,8 @@ export function registerOwnerRoutes(
             store.state.updateState(s => {
                 s.policies.push({
                     policy_id: policyId,
-                    owner_principal_id: session.sub,
+                    owner_type: "user",
+                    owner_id: session.sub,
                     applies_to_agent_principal_id: appliesToAgent,
                     name: draft.name ?? null,
                     description: draft.description ?? null,
@@ -1193,7 +1182,8 @@ export function registerOwnerRoutes(
                 });
 
                 s.bindings.push({
-                    owner_principal_id: session.sub,
+                    owner_type: "user",
+                    owner_id: session.sub,
                     policy_id: policyId,
                     applies_to_agent_principal_id: appliesToAgent,
                 });
@@ -1207,7 +1197,7 @@ export function registerOwnerRoutes(
             store.audit.append("POLICY_DRAFT_APPROVED", {
                 policy_draft_id: id,
                 policy_id: policyId,
-                owner_principal_id: session.sub,
+                user_principal_id: session.sub,
                 agent_id: draft.agent_id,
                 agent_principal_id: draft.agent_principal_id,
                 applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
@@ -1253,12 +1243,12 @@ export function registerOwnerRoutes(
             const body = request.body as { reason?: string; totp_code?: string } | null;
 
             // TOTP verification
-            const denyOwner = store.owners.read(session.sub);
+            const denyOwner = store.users.read(session.sub);
             if (!(await verifyTotpForApproval(request, reply, denyOwner, session))) return;
 
             const state = store.state.getState();
             const entry = (state.policy_drafts ?? []).find(
-                (d) => d.policy_draft_id === id && d.owner_principal_id === session.sub,
+                (d) => d.policy_draft_id === id && d.owner_type === "user" && d.owner_id === session.sub,
             );
 
             if (!entry) {
@@ -1295,7 +1285,7 @@ export function registerOwnerRoutes(
 
             store.audit.append("POLICY_DRAFT_DENIED", {
                 policy_draft_id: id,
-                owner_principal_id: session.sub,
+                user_principal_id: session.sub,
                 agent_id: draft.agent_id,
                 agent_principal_id: draft.agent_principal_id,
                 applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
@@ -1344,7 +1334,7 @@ export function registerOwnerRoutes(
         const state = store.state.getState();
         const ownerAgentIds = new Set(
             state.agents
-                .filter((a) => a.owner_principal_id === session.sub)
+                .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
                 .map((a) => a.agent_principal_id),
         );
 

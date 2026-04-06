@@ -5,7 +5,9 @@ import type {
   AgentFrontmatter,
   AgentInvite,
   ApprovalRequestFrontmatter,
-  OwnerFrontmatter,
+  UserFrontmatter,
+  OrganizationFrontmatter,
+  OrgMembership,
   PolicyDraftFrontmatter,
   SetupInvite,
   StateApprovalRequestEntry,
@@ -38,62 +40,6 @@ export function parseStateMd(content: string): StateData {
   return parseYaml(yamlMatch[1]) as StateData;
 }
 
-/** @deprecated Use `store.owners.write()` instead. */
-export function writeOwnerFile(
-  dataDir: string,
-  owner: OwnerFrontmatter,
-  body?: string
-): void {
-  const ownersDir = path.join(dataDir, 'owners');
-  fs.mkdirSync(ownersDir, { recursive: true });
-  const filePath = path.join(ownersDir, `${owner.owner_principal_id}.md`);
-  const frontmatter = stringifyYaml(owner, { lineWidth: 0 }).trim();
-  const content = `---\n${frontmatter}\n---\n\n${body ?? `Owner: ${owner.display_name}`}\n`;
-  fs.writeFileSync(filePath, content, 'utf-8');
-}
-
-/** @deprecated Use `store.owners.read()` instead. */
-export function readOwnerFile(dataDir: string, ownerPrincipalId: string): OwnerFrontmatter {
-  const filePath = path.join(dataDir, 'owners', `${ownerPrincipalId}.md`);
-  const content = fs.readFileSync(filePath, 'utf-8');
-  return parseFrontmatter(content) as unknown as OwnerFrontmatter;
-}
-
-/** @deprecated Use `store.agents.write()` instead. */
-export function writeAgentFile(
-  dataDir: string,
-  agent: AgentFrontmatter,
-  body?: string
-): void {
-  const agentsDir = path.join(dataDir, 'agents');
-  fs.mkdirSync(agentsDir, { recursive: true });
-  const filePath = path.join(agentsDir, `${agent.agent_principal_id}.md`);
-  const frontmatter = stringifyYaml(agent, { lineWidth: 0 }).trim();
-  const content = `---\n${frontmatter}\n---\n\n${body ?? `Agent: ${agent.agent_id}`}\n`;
-  fs.writeFileSync(filePath, content, 'utf-8');
-}
-
-/** @deprecated Use `store.agents.read()` instead. */
-export function readAgentFile(dataDir: string, agentPrincipalId: string): AgentFrontmatter {
-  const filePath = path.join(dataDir, 'agents', `${agentPrincipalId}.md`);
-  const content = fs.readFileSync(filePath, 'utf-8');
-  return parseFrontmatter(content) as unknown as AgentFrontmatter;
-}
-
-/** @deprecated Use `store.policies.write()` instead. */
-export function writePolicyFile(dataDir: string, policyId: string, yamlContent: string): void {
-  const policiesDir = path.join(dataDir, 'policies');
-  fs.mkdirSync(policiesDir, { recursive: true });
-  const filePath = path.join(policiesDir, `${policyId}.yaml`);
-  fs.writeFileSync(filePath, yamlContent, 'utf-8');
-}
-
-/** @deprecated Use `store.policies.read()` instead. */
-export function readPolicyFile(dataDir: string, policyId: string): string {
-  const filePath = path.join(dataDir, 'policies', `${policyId}.yaml`);
-  return fs.readFileSync(filePath, 'utf-8');
-}
-
 function parseFrontmatter(content: string): Record<string, unknown> {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
   if (!match) {
@@ -102,7 +48,87 @@ function parseFrontmatter(content: string): Record<string, unknown> {
   return parseYaml(match[1]) as Record<string, unknown>;
 }
 
-/** @deprecated Use `store.policies.delete()` instead. */
+function writeFrontmatterFile(filePath: string, data: Record<string, unknown>, body: string): void {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  const frontmatter = stringifyYaml(data, { lineWidth: 0 }).trim();
+  const content = `---\n${frontmatter}\n---\n\n${body}\n`;
+  fs.writeFileSync(filePath, content, 'utf-8');
+}
+
+function readFrontmatterFile<T>(filePath: string): T {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  return parseFrontmatter(content) as unknown as T;
+}
+
+// ─── User files ─────────────────────────────────────────────────────
+
+export function writeUserFile(dataDir: string, user: UserFrontmatter, body?: string): void {
+  const filePath = path.join(dataDir, 'users', `${user.user_principal_id}.md`);
+  writeFrontmatterFile(filePath, user as unknown as Record<string, unknown>, body ?? `User: ${user.display_name}`);
+}
+
+export function readUserFile(dataDir: string, userPrincipalId: string): UserFrontmatter {
+  return readFrontmatterFile<UserFrontmatter>(path.join(dataDir, 'users', `${userPrincipalId}.md`));
+}
+
+// ─── Organization files ─────────────────────────────────────────────
+
+export function writeOrgFile(dataDir: string, org: OrganizationFrontmatter, body?: string): void {
+  const filePath = path.join(dataDir, 'organizations', `${org.org_id}.md`);
+  writeFrontmatterFile(filePath, org as unknown as Record<string, unknown>, body ?? `Organization: ${org.display_name}`);
+}
+
+export function readOrgFile(dataDir: string, orgId: string): OrganizationFrontmatter {
+  return readFrontmatterFile<OrganizationFrontmatter>(path.join(dataDir, 'organizations', `${orgId}.md`));
+}
+
+// ─── Membership files ───────────────────────────────────────────────
+
+export function writeMembershipFile(dataDir: string, membership: OrgMembership): void {
+  const dir = path.join(dataDir, 'memberships');
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${membership.membership_id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(membership, null, 2), 'utf-8');
+}
+
+export function readMembershipFile(dataDir: string, membershipId: string): OrgMembership {
+  const filePath = path.join(dataDir, 'memberships', `${membershipId}.json`);
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+export function deleteMembershipFile(dataDir: string, membershipId: string): void {
+  const filePath = path.join(dataDir, 'memberships', `${membershipId}.json`);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+}
+
+// ─── Agent files ────────────────────────────────────────────────────
+
+export function writeAgentFile(dataDir: string, agent: AgentFrontmatter, body?: string): void {
+  const filePath = path.join(dataDir, 'agents', `${agent.agent_principal_id}.md`);
+  writeFrontmatterFile(filePath, agent as unknown as Record<string, unknown>, body ?? `Agent: ${agent.agent_id}`);
+}
+
+export function readAgentFile(dataDir: string, agentPrincipalId: string): AgentFrontmatter {
+  return readFrontmatterFile<AgentFrontmatter>(path.join(dataDir, 'agents', `${agentPrincipalId}.md`));
+}
+
+// ─── Policy files ───────────────────────────────────────────────────
+
+export function writePolicyFile(dataDir: string, policyId: string, yamlContent: string): void {
+  const policiesDir = path.join(dataDir, 'policies');
+  fs.mkdirSync(policiesDir, { recursive: true });
+  const filePath = path.join(policiesDir, `${policyId}.yaml`);
+  fs.writeFileSync(filePath, yamlContent, 'utf-8');
+}
+
+export function readPolicyFile(dataDir: string, policyId: string): string {
+  const filePath = path.join(dataDir, 'policies', `${policyId}.yaml`);
+  return fs.readFileSync(filePath, 'utf-8');
+}
+
 export function deletePolicyFile(dataDir: string, policyId: string): void {
   const filePath = path.join(dataDir, "policies", `${policyId}.yaml`);
   if (fs.existsSync(filePath)) {
@@ -112,57 +138,40 @@ export function deletePolicyFile(dataDir: string, policyId: string): void {
 
 // ─── Approval request files ─────────────────────────────────────────
 
-/** @deprecated Use `store.approvalRequests.write()` instead. */
-export function writeApprovalRequestFile(
-  dataDir: string,
-  req: ApprovalRequestFrontmatter
-): void {
-  const dir = path.join(dataDir, 'approval-requests');
-  fs.mkdirSync(dir, { recursive: true });
-  const filePath = path.join(dir, `${req.approval_request_id}.md`);
-  const frontmatter = stringifyYaml(req, { lineWidth: 0 }).trim();
-  const content = `---\n${frontmatter}\n---\n\nApproval request for action: ${req.action_type}\n`;
-  fs.writeFileSync(filePath, content, 'utf-8');
+export function writeApprovalRequestFile(dataDir: string, req: ApprovalRequestFrontmatter): void {
+  const filePath = path.join(dataDir, 'approval-requests', `${req.approval_request_id}.md`);
+  writeFrontmatterFile(
+    filePath,
+    req as unknown as Record<string, unknown>,
+    `Approval request for action: ${req.action_type}`,
+  );
 }
 
-/** @deprecated Use `store.approvalRequests.read()` instead. */
-export function readApprovalRequestFile(
-  dataDir: string,
-  approvalRequestId: string
-): ApprovalRequestFrontmatter {
-  const filePath = path.join(dataDir, 'approval-requests', `${approvalRequestId}.md`);
-  const content = fs.readFileSync(filePath, 'utf-8');
-  return parseFrontmatter(content) as unknown as ApprovalRequestFrontmatter;
+export function readApprovalRequestFile(dataDir: string, approvalRequestId: string): ApprovalRequestFrontmatter {
+  return readFrontmatterFile<ApprovalRequestFrontmatter>(
+    path.join(dataDir, 'approval-requests', `${approvalRequestId}.md`),
+  );
 }
 
 // ─── Policy draft files ─────────────────────────────────────────────
 
-/** @deprecated Use `store.policyDrafts.write()` instead. */
-export function writePolicyDraftFile(
-  dataDir: string,
-  draft: PolicyDraftFrontmatter
-): void {
-  const dir = path.join(dataDir, 'policy-drafts');
-  fs.mkdirSync(dir, { recursive: true });
-  const filePath = path.join(dir, `${draft.policy_draft_id}.md`);
-  const frontmatter = stringifyYaml(draft, { lineWidth: 0 }).trim();
-  const content = `---\n${frontmatter}\n---\n\nPolicy draft from agent: ${draft.agent_id}\n`;
-  fs.writeFileSync(filePath, content, 'utf-8');
+export function writePolicyDraftFile(dataDir: string, draft: PolicyDraftFrontmatter): void {
+  const filePath = path.join(dataDir, 'policy-drafts', `${draft.policy_draft_id}.md`);
+  writeFrontmatterFile(
+    filePath,
+    draft as unknown as Record<string, unknown>,
+    `Policy draft from agent: ${draft.agent_id}`,
+  );
 }
 
-/** @deprecated Use `store.policyDrafts.read()` instead. */
-export function readPolicyDraftFile(
-  dataDir: string,
-  policyDraftId: string
-): PolicyDraftFrontmatter {
-  const filePath = path.join(dataDir, 'policy-drafts', `${policyDraftId}.md`);
-  const content = fs.readFileSync(filePath, 'utf-8');
-  return parseFrontmatter(content) as unknown as PolicyDraftFrontmatter;
+export function readPolicyDraftFile(dataDir: string, policyDraftId: string): PolicyDraftFrontmatter {
+  return readFrontmatterFile<PolicyDraftFrontmatter>(
+    path.join(dataDir, 'policy-drafts', `${policyDraftId}.md`),
+  );
 }
 
 // ─── Setup invite files ─────────────────────────────────────────────
 
-/** @deprecated Use `store.setupInvites.write()` instead. */
 export function writeSetupInviteFile(dataDir: string, invite: SetupInvite): void {
   const dir = path.join(dataDir, 'invites');
   fs.mkdirSync(dir, { recursive: true });
@@ -170,13 +179,11 @@ export function writeSetupInviteFile(dataDir: string, invite: SetupInvite): void
   fs.writeFileSync(filePath, JSON.stringify(invite, null, 2), 'utf-8');
 }
 
-/** @deprecated Use `store.setupInvites.read()` instead. */
 export function readSetupInviteFile(dataDir: string, inviteId: string): SetupInvite {
   const filePath = path.join(dataDir, 'invites', `${inviteId}.json`);
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
 }
 
-/** @deprecated Use `store.setupInvites.delete()` instead. */
 export function deleteSetupInviteFile(dataDir: string, inviteId: string): void {
   const filePath = path.join(dataDir, 'invites', `${inviteId}.json`);
   if (fs.existsSync(filePath)) {
@@ -186,7 +193,6 @@ export function deleteSetupInviteFile(dataDir: string, inviteId: string): void {
 
 // ─── Agent invite files ────────────────────────────────────────────
 
-/** @deprecated Use `store.agentInvites.write()` instead. */
 export function writeAgentInviteFile(dataDir: string, invite: AgentInvite): void {
   const dir = path.join(dataDir, 'agent-invites');
   fs.mkdirSync(dir, { recursive: true });
@@ -194,7 +200,6 @@ export function writeAgentInviteFile(dataDir: string, invite: AgentInvite): void
   fs.writeFileSync(filePath, JSON.stringify(invite, null, 2), 'utf-8');
 }
 
-/** @deprecated Use `store.agentInvites.read()` instead. */
 export function readAgentInviteFile(dataDir: string, inviteId: string): AgentInvite {
   const filePath = path.join(dataDir, 'agent-invites', `${inviteId}.json`);
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -208,7 +213,7 @@ export class StateIndex {
   private cachedState: StateData | null = null;
   private cachedMtimeMs = 0;
   private cachedSize = 0;
-  /** owner_principal_id → resolved entries (non-PENDING) */
+  /** ownerType:ownerId → resolved entries (non-PENDING) */
   private resolvedByOwner: Map<string, StateApprovalRequestEntry[]> = new Map();
 
   constructor(dataDir: string) {
@@ -224,12 +229,14 @@ export class StateIndex {
 
   /** Paginated resolved approval entries for a given owner. */
   getResolvedApprovals(
+    ownerType: string,
     ownerId: string,
     limit: number,
     offset: number,
   ): { items: StateApprovalRequestEntry[]; total: number } {
     this.ensureFresh();
-    const entries = this.resolvedByOwner.get(ownerId) ?? [];
+    const key = `${ownerType}:${ownerId}`;
+    const entries = this.resolvedByOwner.get(key) ?? [];
     const total = entries.length;
     const start = Math.max(total - offset - limit, 0);
     const end = total - offset;
@@ -261,10 +268,11 @@ export class StateIndex {
     const entries = this.cachedState?.approval_requests ?? [];
     for (const entry of entries) {
       if (entry.status === 'PENDING') continue;
-      let list = this.resolvedByOwner.get(entry.owner_principal_id);
+      const key = `${entry.owner_type}:${entry.owner_id}`;
+      let list = this.resolvedByOwner.get(key);
       if (!list) {
         list = [];
-        this.resolvedByOwner.set(entry.owner_principal_id, list);
+        this.resolvedByOwner.set(key, list);
       }
       list.push(entry);
     }

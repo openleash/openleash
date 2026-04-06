@@ -1,5 +1,5 @@
 import { V4 } from 'paseto';
-import type { ServerKeyFile, SessionClaims, ApprovalTokenClaims } from './types.js';
+import type { ServerKeyFile, SessionClaims, ApprovalTokenClaims, OrgMembershipClaim, OwnerType } from './types.js';
 import { getPrivateKeyObject, getPublicKeyObject } from './keys.js';
 
 export interface ProofClaims {
@@ -8,7 +8,8 @@ export interface ProofClaims {
   iat: string;
   exp: string;
   decision_id: string;
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   agent_id: string;
   action_type: string;
   action_hash: string;
@@ -20,7 +21,8 @@ export interface ProofClaims {
 export interface IssueProofParams {
   key: ServerKeyFile;
   decisionId: string;
-  ownerPrincipalId: string;
+  ownerType: OwnerType;
+  ownerId: string;
   agentId: string;
   actionType: string;
   actionHash: string;
@@ -44,7 +46,8 @@ export async function issueProofToken(params: IssueProofParams): Promise<{
     iat: now.toISOString(),
     exp: exp.toISOString(),
     decision_id: params.decisionId,
-    owner_principal_id: params.ownerPrincipalId,
+    owner_type: params.ownerType,
+    owner_id: params.ownerId,
     agent_id: params.agentId,
     action_type: params.actionType,
     action_hash: params.actionHash,
@@ -98,9 +101,10 @@ export async function verifyProofToken(
 
 export interface IssueSessionParams {
   key: ServerKeyFile;
-  ownerPrincipalId: string;
+  userPrincipalId: string;
   ttlSeconds: number;
-  roles?: string[];
+  systemRoles?: string[];
+  orgMemberships?: OrgMembershipClaim[];
 }
 
 export async function issueSessionToken(params: IssueSessionParams): Promise<{
@@ -114,11 +118,12 @@ export async function issueSessionToken(params: IssueSessionParams): Promise<{
   const claims: SessionClaims = {
     iss: 'openleash',
     kid: params.key.kid,
-    sub: params.ownerPrincipalId,
+    sub: params.userPrincipalId,
     iat: now.toISOString(),
     exp: exp.toISOString(),
-    purpose: 'owner_session',
-    roles: params.roles,
+    purpose: 'user_session',
+    system_roles: params.systemRoles,
+    org_memberships: params.orgMemberships,
   };
 
   const privateKey = getPrivateKeyObject(params.key);
@@ -140,7 +145,7 @@ export async function verifySessionToken(
       const publicKey = getPublicKeyObject(key);
       const payload = await V4.verify(token, publicKey) as SessionClaims;
 
-      if (payload.purpose !== 'owner_session') {
+      if (payload.purpose !== 'user_session') {
         return { valid: false, reason: 'Invalid token purpose' };
       }
 
@@ -165,7 +170,8 @@ export async function verifySessionToken(
 export interface IssueApprovalTokenParams {
   key: ServerKeyFile;
   approvalRequestId: string;
-  ownerPrincipalId: string;
+  ownerType: OwnerType;
+  ownerId: string;
   agentId: string;
   actionType: string;
   actionHash: string;
@@ -186,7 +192,8 @@ export async function issueApprovalToken(params: IssueApprovalTokenParams): Prom
     iat: now.toISOString(),
     exp: exp.toISOString(),
     approval_request_id: params.approvalRequestId,
-    owner_principal_id: params.ownerPrincipalId,
+    owner_type: params.ownerType,
+    owner_id: params.ownerId,
     agent_id: params.agentId,
     action_type: params.actionType,
     action_hash: params.actionHash,

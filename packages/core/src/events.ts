@@ -7,7 +7,8 @@ export interface ApprovalRequestCreatedEvent {
   decision_id: string;
   agent_id: string;
   agent_principal_id: string;
-  owner_principal_id: string;
+  owner_type: 'user' | 'org';
+  owner_id: string;
   action_type: string;
   justification: string | null;
   expires_at: string;
@@ -17,7 +18,8 @@ export interface PolicyDraftCreatedEvent {
   policy_draft_id: string;
   agent_id: string;
   agent_principal_id: string;
-  owner_principal_id: string;
+  owner_type: 'user' | 'org';
+  owner_id: string;
   name: string | null;
   justification: string | null;
 }

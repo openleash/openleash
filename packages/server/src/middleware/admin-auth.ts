@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { verifySessionToken, resolveUserRoles } from '@openleash/core';
+import { verifySessionToken, resolveSystemRoles } from '@openleash/core';
 import type { OpenleashConfig, DataStore } from '@openleash/core';
 
 export interface AdminSession {
@@ -13,11 +13,11 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore) {
     const isHosted = config.instance?.mode === 'hosted';
     const isGuiRequest = request.url.startsWith('/gui/');
 
-    function deny(code: string, message: string, statusCode = 401) {
+    function deny(code: string, message: string, _statusCode = 401) {
       if (isGuiRequest) {
         reply.redirect('/gui/login?redirect=' + encodeURIComponent(request.url));
       } else {
-        reply.code(statusCode).send({ error: { code, message } });
+        reply.code(_statusCode).send({ error: { code, message } });
       }
     }
 
@@ -33,15 +33,13 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore) {
       const result = await verifySessionToken(sessionToken, keys);
 
       if (result.valid && result.claims) {
-        // Verify owner still exists and is active
-        const ownerEntry = state.owners.find((o) => o.owner_principal_id === result.claims!.sub);
-        if (ownerEntry) {
-          const owner = store.owners.read(result.claims.sub);
-          if (owner.status === 'ACTIVE') {
-            // Use roles from token if present, otherwise read from store
-            // (plugins may issue tokens without roles)
-            const roles = result.claims.roles ?? resolveUserRoles(owner);
-            if (roles.includes('admin')) {
+        // Verify user still exists and is active
+        const userEntry = state.users.find((u) => u.user_principal_id === result.claims!.sub);
+        if (userEntry) {
+          const user = store.users.read(result.claims.sub);
+          if (user.status === 'ACTIVE') {
+            const systemRoles = result.claims.system_roles ?? resolveSystemRoles(user);
+            if (systemRoles.includes('admin')) {
               attachSession({ principal_id: result.claims.sub, auth_method: 'session' });
               return;
             }
@@ -53,7 +51,6 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore) {
     // ── Path 2: Legacy admin token (API-only) ─────────────────────────
     if (config.admin.token && validateAdminToken(request, config.admin.token)) {
       if (isGuiRequest) {
-        // For GUI, token auth is not allowed — redirect to login
         deny('ADMIN_UNAUTHORIZED', 'Please log in with your account');
         return;
       }
@@ -77,13 +74,11 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore) {
 }
 
 function extractSessionToken(request: FastifyRequest): string | undefined {
-  // Check Authorization header (could be a PASETO session token)
   const authHeader = request.headers.authorization;
   if (authHeader?.startsWith('Bearer v4.public.')) {
     return authHeader.slice(7);
   }
 
-  // Fallback to session cookie
   const cookieHeader = request.headers.cookie;
   if (cookieHeader) {
     const match = cookieHeader.match(/(?:^|;\s*)openleash_session=([^\s;]+)/);
@@ -103,24 +98,21 @@ function isLocalhostRequest(request: FastifyRequest): boolean {
 function validateAdminToken(request: FastifyRequest, expectedToken: string): boolean {
   if (!expectedToken) return false;
 
-  // Check Authorization header
   const authHeader = request.headers.authorization;
   if (authHeader) {
     const parts = authHeader.split(' ');
     if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
-      // Skip PASETO tokens — those are handled by session auth
       if (parts[1].startsWith('v4.public.')) return false;
       try {
         if (crypto.timingSafeEqual(Buffer.from(parts[1]), Buffer.from(expectedToken))) {
           return true;
         }
       } catch {
-        // length mismatch — fall through
+        // length mismatch
       }
     }
   }
 
-  // Fallback to admin cookie
   const cookieHeader = request.headers.cookie;
   if (cookieHeader) {
     const match = cookieHeader.match(/(?:^|;\s*)openleash_admin=([^\s;]+)/);

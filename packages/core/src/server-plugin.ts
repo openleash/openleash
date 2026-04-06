@@ -26,15 +26,42 @@ export interface ServerPluginContext {
   events: OpenleashEvents;
 }
 
+// ─── Org verification provider ─────────────────────────────────────
+
+export type { VerificationEvidence, RegistryCompanyInfo, UserFrontmatter, OrganizationFrontmatter } from './types.js';
+
+export interface OrgVerificationProvider {
+  provider_id: string;
+  display_name: string;
+  supported_countries: string[];
+
+  lookupCompany(registrationNumber: string, country: string): Promise<import('./types.js').RegistryCompanyInfo | null>;
+
+  matchAuthorizedPerson(
+    user: import('./types.js').UserFrontmatter,
+    companyInfo: import('./types.js').RegistryCompanyInfo,
+  ): Promise<import('./types.js').VerificationEvidence | null>;
+
+  initiateAsyncVerification?(
+    org: import('./types.js').OrganizationFrontmatter,
+    user: import('./types.js').UserFrontmatter,
+  ): Promise<{ reference_id: string; redirect_url?: string }>;
+
+  checkAsyncVerification?(reference_id: string): Promise<{
+    status: 'pending' | 'completed' | 'failed';
+    evidence?: import('./types.js').VerificationEvidence;
+  }>;
+}
+
 // ─── Plugin manifest ────────────────────────────────────────────────
 
 export interface ServerPluginManifest {
-  ownerNavItems?: NavItem[];
+  userNavItems?: NavItem[];
   adminNavItems?: NavItem[];
   handlesRootPath?: boolean;
-  replacesOwnerLogin?: boolean;
+  replacesUserLogin?: boolean;
   staticAssetsDir?: string;
-  verificationProviders?: string[];
+  verificationProviders?: OrgVerificationProvider[];
   extraHeadHtml?: string;
   extraBodyHtml?: string;
 }

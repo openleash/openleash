@@ -9,7 +9,7 @@ import {
   validateCompanyReg,
   type ValidationResult,
 } from './identity-validators.js';
-import type { OwnerFrontmatter } from './types.js';
+import type { UserFrontmatter, OrganizationFrontmatter } from './types.js';
 
 // ─── EU country codes ───────────────────────────────────────────────
 
@@ -237,83 +237,88 @@ export function validateContactIdentities(contacts: ContactIdentity[]): Validati
   });
 }
 
-/** Validate signatory references point to existing HUMAN owners. */
+/** Validate signatory references point to existing users. */
 export function validateSignatories(
   signatories: Signatory[],
-  resolveOwner: (id: string) => OwnerFrontmatter | null,
+  resolveUser: (id: string) => UserFrontmatter | null,
 ): ValidationResult[] {
   return signatories.map((s) => {
-    const owner = resolveOwner(s.human_owner_principal_id);
-    if (!owner) {
-      return { valid: false, error: `Referenced human owner ${s.human_owner_principal_id} not found` };
-    }
-    if (owner.principal_type !== 'HUMAN') {
-      return { valid: false, error: `Referenced owner ${s.human_owner_principal_id} is not a HUMAN (is ${owner.principal_type})` };
+    const user = resolveUser(s.human_owner_principal_id);
+    if (!user) {
+      return { valid: false, error: `Referenced user ${s.human_owner_principal_id} not found` };
     }
     return { valid: true };
   });
 }
 
-/** Validate all identity fields on an owner. */
-export function validateOwnerIdentity(
-  owner: OwnerFrontmatter,
-  resolveOwner?: (id: string) => OwnerFrontmatter | null,
+/** Validate all identity fields on a user. */
+export function validateUserIdentity(
+  user: UserFrontmatter,
 ): {
   contacts: ValidationResult[];
   government_ids: ValidationResult[];
+  type_errors: string[];
+} {
+  return {
+    contacts: user.contact_identities ? validateContactIdentities(user.contact_identities) : [],
+    government_ids: user.government_ids ? validateGovernmentIds(user.government_ids) : [],
+    type_errors: [],
+  };
+}
+
+/** Validate all identity fields on an organization. */
+export function validateOrgIdentity(
+  org: OrganizationFrontmatter,
+  resolveUser?: (id: string) => UserFrontmatter | null,
+): {
+  contacts: ValidationResult[];
   company_ids: ValidationResult[];
   signatories: ValidationResult[];
   type_errors: string[];
 } {
-  const typeErrors: string[] = [];
-
-  // Type constraint enforcement
-  if (owner.principal_type === 'ORG' && owner.government_ids?.length) {
-    typeErrors.push('Government IDs are only allowed for HUMAN owners');
-  }
-  if (owner.principal_type === 'HUMAN' && owner.company_ids?.length) {
-    typeErrors.push('Company IDs are only allowed for ORG owners');
-  }
-  if (owner.principal_type === 'HUMAN' && owner.signatories?.length) {
-    typeErrors.push('Signatories are only allowed for ORG owners');
-  }
-  if (owner.principal_type === 'HUMAN' && owner.signatory_rules?.length) {
-    typeErrors.push('Signatory rules are only allowed for ORG owners');
-  }
-
   return {
-    contacts: owner.contact_identities ? validateContactIdentities(owner.contact_identities) : [],
-    government_ids: owner.government_ids ? validateGovernmentIds(owner.government_ids) : [],
-    company_ids: owner.company_ids ? validateCompanyIds(owner.company_ids) : [],
-    signatories: owner.signatories && resolveOwner ? validateSignatories(owner.signatories, resolveOwner) : [],
-    type_errors: typeErrors,
+    contacts: org.contact_identities ? validateContactIdentities(org.contact_identities) : [],
+    company_ids: org.company_ids ? validateCompanyIds(org.company_ids) : [],
+    signatories: org.signatories && resolveUser ? validateSignatories(org.signatories, resolveUser) : [],
+    type_errors: [],
   };
 }
 
-/** Compute the identity assurance level from the owner's identity state. */
-export function computeAssuranceLevel(owner: OwnerFrontmatter): IdentityAssuranceLevel {
-  const govIds = owner.government_ids ?? [];
-  const companyIds = owner.company_ids ?? [];
-  const contacts = owner.contact_identities ?? [];
+/** Compute the identity assurance level from a user's identity state. */
+export function computeUserAssuranceLevel(user: UserFrontmatter): IdentityAssuranceLevel {
+  const govIds = user.government_ids ?? [];
+  const contacts = user.contact_identities ?? [];
 
-  // Check for verified government/company IDs (highest level)
-  const hasVerifiedId = [...govIds, ...companyIds].some(
-    (id) => id.verification_level === 'VERIFIED',
-  );
+  const hasVerifiedId = govIds.some((id) => id.verification_level === 'VERIFIED');
   if (hasVerifiedId) return 'ID_VERIFIED';
 
-  // Check for format-valid government/company IDs
-  const hasFormatValidId = [...govIds, ...companyIds].some(
-    (id) => id.verification_level === 'FORMAT_VALID',
-  );
+  const hasFormatValidId = govIds.some((id) => id.verification_level === 'FORMAT_VALID');
   if (hasFormatValidId) return 'ID_FORMAT_VALID';
 
-  // Check for verified contacts
   const hasVerifiedContact = contacts.some((c) => c.verified);
   if (hasVerifiedContact) return 'CONTACT_VERIFIED';
 
-  // Check for any declared identities
-  const hasAnyIdentity = contacts.length > 0 || govIds.length > 0 || companyIds.length > 0;
+  const hasAnyIdentity = contacts.length > 0 || govIds.length > 0;
+  if (hasAnyIdentity) return 'SELF_DECLARED';
+
+  return 'NONE';
+}
+
+/** Compute the identity assurance level from an organization's identity state. */
+export function computeOrgAssuranceLevel(org: OrganizationFrontmatter): IdentityAssuranceLevel {
+  const companyIds = org.company_ids ?? [];
+  const contacts = org.contact_identities ?? [];
+
+  const hasVerifiedId = companyIds.some((id) => id.verification_level === 'VERIFIED');
+  if (hasVerifiedId) return 'ID_VERIFIED';
+
+  const hasFormatValidId = companyIds.some((id) => id.verification_level === 'FORMAT_VALID');
+  if (hasFormatValidId) return 'ID_FORMAT_VALID';
+
+  const hasVerifiedContact = contacts.some((c) => c.verified);
+  if (hasVerifiedContact) return 'CONTACT_VERIFIED';
+
+  const hasAnyIdentity = contacts.length > 0 || companyIds.length > 0;
   if (hasAnyIdentity) return 'SELF_DECLARED';
 
   return 'NONE';

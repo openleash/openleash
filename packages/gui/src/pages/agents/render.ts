@@ -12,7 +12,8 @@ import { assetTags } from "../../shared/manifest.js";
 export interface AgentData {
     agent_principal_id: string;
     agent_id: string;
-    owner_principal_id: string;
+    owner_type: string;
+    owner_id: string;
     status: string;
     created_at: string;
     revoked_at: string | null;
@@ -21,7 +22,7 @@ export interface AgentData {
 }
 
 export interface OwnerOption {
-    owner_principal_id: string;
+    id: string;
     display_name: string;
 }
 
@@ -37,7 +38,7 @@ function statusBadge(status: string): string {
 }
 
 export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string {
-    const ownerMap = new Map(owners.map((o) => [o.owner_principal_id, o.display_name]));
+    const ownerMap = new Map(owners.map((o) => [o.id, o.display_name]));
 
     const rows = agents
         .map(
@@ -45,7 +46,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
     <tr>
       <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
       <td>${copyableId(a.agent_principal_id)}</td>
-      <td>${formatNameWithId(ownerMap.get(a.owner_principal_id), a.owner_principal_id)}</td>
+      <td>${formatNameWithId(ownerMap.get(a.owner_id), a.owner_id)}</td>
       <td>${statusBadge(a.status)}</td>
       <td class="mono text-ellipsis" title="${a.webhook_url ? escapeHtml(a.webhook_url) : ""}">${a.webhook_url ? escapeHtml(a.webhook_url) : "-"}</td>
       <td class="mono">${a.created_at ? formatTimestamp(a.created_at, true) : "-"}</td>
@@ -58,7 +59,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
     const ownerOptions = owners
         .map(
             (o) =>
-                `<option value="${escapeHtml(o.owner_principal_id)}">${escapeHtml(o.display_name)} (${escapeHtml(o.owner_principal_id.slice(0, 8))}...)</option>`,
+                `<option value="${escapeHtml(o.id)}">${escapeHtml(o.display_name)} (${escapeHtml(o.id.slice(0, 8))}...)</option>`,
         )
         .join("");
 
