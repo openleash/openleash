@@ -23,7 +23,7 @@ async function main() {
   console.log('Public key:', keypair.publicKeyB64);
 
   // Step 2: Get registration challenge
-  const ownerId = process.env.OWNER_PRINCIPAL_ID!;
+  const ownerId = process.env.USER_PRINCIPAL_ID!;
   const agentId = 'example-agent';
 
   const challenge = await registrationChallenge({

@@ -23,9 +23,9 @@ describe('GUI routes', () => {
     const config = loadConfig(rootDir);
 
     // Create a test user (bootstrap no longer creates one)
-    const ownerPrincipalId = crypto.randomUUID();
+    const userPrincipalId = crypto.randomUUID();
     writeUserFile(dataDir, {
-      user_principal_id: ownerPrincipalId,
+      user_principal_id: userPrincipalId,
       display_name: 'Test Owner',
       status: 'ACTIVE',
       attributes: {},
@@ -34,8 +34,8 @@ describe('GUI routes', () => {
 
     const state = readState(dataDir);
     state.users.push({
-      user_principal_id: ownerPrincipalId,
-      path: `./owners/${ownerPrincipalId}.md`,
+      user_principal_id: userPrincipalId,
+      path: `./owners/${userPrincipalId}.md`,
     });
 
     // Create a test policy
@@ -46,7 +46,7 @@ describe('GUI routes', () => {
     state.policies.push({
       policy_id: policyId,
       owner_type: 'user',
-      owner_id: ownerPrincipalId,
+      owner_id: userPrincipalId,
       applies_to_agent_principal_id: null,
       name: null,
       description: null,
@@ -54,7 +54,7 @@ describe('GUI routes', () => {
     });
     state.bindings.push({
       owner_type: 'user',
-      owner_id: ownerPrincipalId,
+      owner_id: userPrincipalId,
       policy_id: policyId,
       applies_to_agent_principal_id: null,
     });
@@ -178,9 +178,9 @@ describe('admin API - new endpoints', () => {
     const config = loadConfig(rootDir);
 
     // Create a test user (bootstrap no longer creates one)
-    const ownerPrincipalId = crypto.randomUUID();
+    const userPrincipalId = crypto.randomUUID();
     writeUserFile(dataDir, {
-      user_principal_id: ownerPrincipalId,
+      user_principal_id: userPrincipalId,
       display_name: 'Test Owner',
       status: 'ACTIVE',
       attributes: {},
@@ -193,13 +193,13 @@ describe('admin API - new endpoints', () => {
 
     const state = readState(dataDir);
     state.users.push({
-      user_principal_id: ownerPrincipalId,
-      path: `./owners/${ownerPrincipalId}.md`,
+      user_principal_id: userPrincipalId,
+      path: `./owners/${userPrincipalId}.md`,
     });
     state.policies.push({
       policy_id: policyId,
       owner_type: 'user',
-      owner_id: ownerPrincipalId,
+      owner_id: userPrincipalId,
       applies_to_agent_principal_id: null,
       name: null,
       description: null,

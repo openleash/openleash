@@ -229,7 +229,7 @@ The server verifies the signature over the raw challenge bytes, creates the agen
 
 ## Owner Session Tokens (PASETO v4.public)
 
-Owner sessions use PASETO v4.public tokens signed with the same Ed25519 key used for proof tokens. Session tokens are distinguished by the `purpose: 'owner_session'` claim.
+Owner sessions use PASETO v4.public tokens signed with the same Ed25519 key used for proof tokens. Session tokens are distinguished by the `purpose: 'user_session'` claim.
 
 ### Session Token Claims
 
@@ -240,7 +240,7 @@ Owner sessions use PASETO v4.public tokens signed with the same Ed25519 key used
 | `sub` | Owner `user_principal_id` |
 | `iat` | Issued-at timestamp |
 | `exp` | Expiration timestamp |
-| `purpose` | Always `"owner_session"` |
+| `purpose` | Always `"user_session"` |
 
 ### Issuance
 
@@ -416,8 +416,8 @@ All error responses follow this structure:
 |---|---|
 | `MISSING_TOKEN` | No session token in Authorization header or `openleash_session` cookie |
 | `INVALID_SESSION` | Session token is invalid, expired, or signature verification failed |
-| `OWNER_NOT_FOUND` | Owner from session token is not found in state |
-| `OWNER_INACTIVE` | Owner exists but has inactive status |
+| `USER_NOT_FOUND` | User from session token is not found in state |
+| `USER_INACTIVE` | User exists but has inactive status |
 
 ### Admin Authentication
 

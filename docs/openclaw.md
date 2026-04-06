@@ -28,7 +28,7 @@ This creates an owner, agent keypair, and policy in one step, and writes the cre
 | `OPENLEASH_URL` | Server URL (default: `http://127.0.0.1:8787`) |
 | `OPENLEASH_AGENT_ID` | The agent's string identifier |
 | `OPENLEASH_AGENT_PRIVATE_KEY_B64` | Base64-encoded Ed25519 private key (PKCS8 DER) |
-| `OWNER_PRINCIPAL_ID` | UUID of the owner (user) the agent acts on behalf of |
+| `USER_PRINCIPAL_ID` | UUID of the user the agent acts on behalf of |
 
 Load these in your agent runtime before making authorization calls.
 
@@ -55,7 +55,7 @@ const openleashUrl = process.env.OPENLEASH_URL || 'http://127.0.0.1:8787';
 async function executeWithAuthorization(
   actionType: string,
   payload: Record<string, unknown>,
-  ownerPrincipalId: string,
+  userPrincipalId: string,
   relyingParty?: { domain?: string; trust_profile?: string }
 ) {
   const action = {
@@ -63,7 +63,7 @@ async function executeWithAuthorization(
     action_type: actionType,
     requested_at: new Date().toISOString(),
     principal: { agent_id: agentId },
-    subject: { principal_id: ownerPrincipalId },
+    subject: { principal_id: userPrincipalId },
     relying_party: relyingParty,
     payload,
   };
@@ -108,7 +108,7 @@ async function handlePurchase(toolCall: { amount: number; currency: string; merc
       currency: toolCall.currency,
       merchant_domain: toolCall.merchant,
     },
-    process.env.OWNER_PRINCIPAL_ID!,
+    process.env.USER_PRINCIPAL_ID!,
     { domain: toolCall.merchant, trust_profile: 'LOW' }
   );
 

@@ -17,7 +17,7 @@ If creating new:
 - **Prompt:** Display name
 
 **Files written:**
-- `./data/owners/<uuid>.md` — Owner markdown file with YAML frontmatter
+- `./data/users/<uuid>.md` — User markdown file with YAML frontmatter
 - `./data/state.md` — Updated with new owner entry
 - `./data/audit.log.jsonl` — USER_CREATED event appended
 
