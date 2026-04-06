@@ -85,11 +85,24 @@ describe('GUI routes', () => {
     expect(res.payload).toContain('OpenLeash');
   });
 
-  it('GET /gui/admin/owners returns HTML with owner table', async () => {
+  it('GET /gui/admin/owners redirects to /gui/admin/users', async () => {
     const res = await app.inject({ method: 'GET', url: '/gui/admin/owners' });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe('/gui/admin/users');
+  });
+
+  it('GET /gui/admin/users returns HTML with user table', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui/admin/users' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.payload).toContain('Owners');
+  });
+
+  it('GET /gui/admin/organizations returns HTML', async () => {
+    const res = await app.inject({ method: 'GET', url: '/gui/admin/organizations' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.payload).toContain('Organizations');
   });
 
   it('GET /gui/admin/agents returns HTML', async () => {

@@ -521,6 +521,246 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     return { organizations };
   });
 
+  // GET /v1/admin/organizations/:orgId
+  app.get('/v1/admin/organizations/:orgId', { preHandler: adminAuth }, async (request, reply) => {
+    const { orgId } = request.params as { orgId: string };
+
+    const state = store.state.getState();
+    const entry = state.organizations.find((o) => o.org_id === orgId);
+    if (!entry) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Organization not found' } });
+      return;
+    }
+
+    try {
+      const org = store.organizations.read(orgId);
+      const members = store.memberships.listByOrg(orgId).map((m) => {
+        try {
+          const user = store.users.read(m.user_principal_id);
+          return { ...m, display_name: user.display_name };
+        } catch {
+          return { ...m, display_name: null };
+        }
+      });
+      return { ...org, members };
+    } catch {
+      reply.code(404).send({ error: { code: 'FILE_NOT_FOUND', message: 'Organization file not found' } });
+    }
+  });
+
+  // PUT /v1/admin/organizations/:orgId
+  app.put('/v1/admin/organizations/:orgId', { preHandler: adminAuth }, async (request, reply) => {
+    const { orgId } = request.params as { orgId: string };
+
+    const state = store.state.getState();
+    if (!state.organizations.find((o) => o.org_id === orgId)) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Organization not found' } });
+      return;
+    }
+
+    const body = request.body as {
+      display_name?: string;
+      contact_identities?: ContactIdentity[];
+      company_ids?: CompanyId[];
+    };
+
+    const org = store.organizations.read(orgId);
+    if (body.display_name !== undefined) org.display_name = body.display_name.trim();
+    if (body.contact_identities !== undefined) org.contact_identities = body.contact_identities;
+    if (body.company_ids !== undefined) {
+      org.company_ids = body.company_ids.map((cid) => {
+        const result = validateCompanyIdValue(cid.id_type, cid.id_value, cid.country);
+        return { ...cid, verification_level: result.valid ? 'FORMAT_VALID' as const : 'UNVERIFIED' as const };
+      });
+    }
+    org.identity_assurance_level = computeOrgAssuranceLevel(org);
+    store.organizations.write(org);
+
+    store.audit.append('ORG_UPDATED', {
+      org_id: orgId,
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    return { org_id: orgId, status: 'updated' };
+  });
+
+  // DELETE /v1/admin/organizations/:orgId
+  app.delete('/v1/admin/organizations/:orgId', { preHandler: adminAuth }, async (request, reply) => {
+    const { orgId } = request.params as { orgId: string };
+
+    const state = store.state.getState();
+    if (!state.organizations.find((o) => o.org_id === orgId)) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Organization not found' } });
+      return;
+    }
+
+    // Remove all memberships for this org
+    const memberships = store.memberships.listByOrg(orgId);
+    for (const m of memberships) {
+      store.memberships.delete(m.membership_id);
+    }
+
+    store.state.updateState((s) => {
+      const idx = s.organizations.findIndex((o) => o.org_id === orgId);
+      if (idx !== -1) s.organizations.splice(idx, 1);
+      s.memberships = s.memberships.filter((m) => m.org_id !== orgId);
+    });
+
+    store.audit.append('ORG_DELETED', {
+      org_id: orgId,
+      memberships_removed: memberships.length,
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    return { org_id: orgId, status: 'deleted' };
+  });
+
+  // GET /v1/admin/organizations/:orgId/members
+  app.get('/v1/admin/organizations/:orgId/members', { preHandler: adminAuth }, async (request, reply) => {
+    const { orgId } = request.params as { orgId: string };
+
+    const state = store.state.getState();
+    if (!state.organizations.find((o) => o.org_id === orgId)) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Organization not found' } });
+      return;
+    }
+
+    const members = store.memberships.listByOrg(orgId).map((m) => {
+      try {
+        const user = store.users.read(m.user_principal_id);
+        return { ...m, display_name: user.display_name };
+      } catch {
+        return { ...m, display_name: null };
+      }
+    });
+    return { members };
+  });
+
+  // POST /v1/admin/organizations/:orgId/members
+  app.post('/v1/admin/organizations/:orgId/members', { preHandler: adminAuth }, async (request, reply) => {
+    const { orgId } = request.params as { orgId: string };
+    const body = request.body as { user_principal_id: string; role: string };
+
+    const state = store.state.getState();
+    if (!state.organizations.find((o) => o.org_id === orgId)) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Organization not found' } });
+      return;
+    }
+
+    if (!body.user_principal_id || !body.role) {
+      reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'user_principal_id and role are required' } });
+      return;
+    }
+
+    const { OrgRole } = await import('@openleash/core');
+    const parsed = OrgRole.safeParse(body.role);
+    if (!parsed.success) {
+      reply.code(400).send({ error: { code: 'INVALID_ROLE', message: 'Invalid role. Valid: org_admin, org_member, org_viewer' } });
+      return;
+    }
+
+    if (!state.users.find((u) => u.user_principal_id === body.user_principal_id)) {
+      reply.code(404).send({ error: { code: 'USER_NOT_FOUND', message: 'Target user not found' } });
+      return;
+    }
+
+    const existing = store.memberships.listByOrg(orgId);
+    if (existing.find((m) => m.user_principal_id === body.user_principal_id)) {
+      reply.code(409).send({ error: { code: 'ALREADY_MEMBER', message: 'User is already a member' } });
+      return;
+    }
+
+    const membershipId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    store.memberships.write({
+      membership_id: membershipId,
+      org_id: orgId,
+      user_principal_id: body.user_principal_id,
+      role: parsed.data,
+      status: 'active',
+      invited_by_user_id: null,
+      created_at: now,
+    });
+
+    store.state.updateState((s) => {
+      s.memberships.push({
+        membership_id: membershipId,
+        org_id: orgId,
+        user_principal_id: body.user_principal_id,
+        role: parsed.data,
+        path: `./memberships/${membershipId}.json`,
+      });
+    });
+
+    store.audit.append('ORG_MEMBER_ADDED', {
+      org_id: orgId,
+      user_principal_id: body.user_principal_id,
+      role: parsed.data,
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    return { membership_id: membershipId, org_id: orgId, user_principal_id: body.user_principal_id, role: parsed.data };
+  });
+
+  // PUT /v1/admin/organizations/:orgId/members/:userId
+  app.put('/v1/admin/organizations/:orgId/members/:userId', { preHandler: adminAuth }, async (request, reply) => {
+    const { orgId, userId } = request.params as { orgId: string; userId: string };
+    const body = request.body as { role: string };
+
+    const { OrgRole } = await import('@openleash/core');
+    const parsed = OrgRole.safeParse(body.role);
+    if (!parsed.success) {
+      reply.code(400).send({ error: { code: 'INVALID_ROLE', message: 'Invalid role. Valid: org_admin, org_member, org_viewer' } });
+      return;
+    }
+
+    const members = store.memberships.listByOrg(orgId);
+    const target = members.find((m) => m.user_principal_id === userId);
+    if (!target) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Membership not found' } });
+      return;
+    }
+
+    const previousRole = target.role;
+    target.role = parsed.data;
+    store.memberships.write(target);
+    store.state.updateState((s) => {
+      const entry = s.memberships.find((m) => m.membership_id === target.membership_id);
+      if (entry) entry.role = parsed.data;
+    });
+
+    store.audit.append('ORG_MEMBER_UPDATED', {
+      org_id: orgId,
+      user_principal_id: userId,
+      previous_role: previousRole,
+      new_role: parsed.data,
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    return { membership_id: target.membership_id, role: parsed.data, status: 'updated' };
+  });
+
+  // DELETE /v1/admin/organizations/:orgId/members/:userId
+  app.delete('/v1/admin/organizations/:orgId/members/:userId', { preHandler: adminAuth }, async (request, reply) => {
+    const { orgId, userId } = request.params as { orgId: string; userId: string };
+
+    const members = store.memberships.listByOrg(orgId);
+    const target = members.find((m) => m.user_principal_id === userId);
+    if (!target) {
+      reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Membership not found' } });
+      return;
+    }
+
+    store.memberships.delete(target.membership_id);
+    store.state.updateState((s) => {
+      const idx = s.memberships.findIndex((m) => m.membership_id === target.membership_id);
+      if (idx !== -1) s.memberships.splice(idx, 1);
+    });
+
+    store.audit.append('ORG_MEMBER_REMOVED', {
+      org_id: orgId,
+      user_principal_id: userId,
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    return { membership_id: target.membership_id, status: 'removed' };
+  });
+
   // GET /v1/admin/agents — list all agents
   app.get('/v1/admin/agents', { preHandler: adminAuth }, async () => {
     const state = store.state.getState();

@@ -218,14 +218,14 @@ export function renderOwners(owners: OwnerData[]): string {
             (o) => `
     <tr>
       <td class="mono">
-        <a href="/gui/admin/owners/${escapeHtml(o.user_principal_id)}" class="table-link">${escapeHtml(o.user_principal_id)}</a>
+        <a href="/gui/admin/users/${escapeHtml(o.user_principal_id)}" class="table-link">${escapeHtml(o.user_principal_id)}</a>
       </td>
       <td>${escapeHtml(o.display_name ?? "-")}</td>
       <td>${statusBadge(o.status)}</td>
       <td>${rolesBadges(o.system_roles)}</td>
       <td class="mono">${o.created_at ? formatTimestamp(o.created_at, true) : "-"}</td>
       <td>
-        <a href="/gui/admin/owners/${escapeHtml(o.user_principal_id)}" class="btn btn-secondary btn-sm">View</a>
+        <a href="/gui/admin/users/${escapeHtml(o.user_principal_id)}" class="btn btn-secondary btn-sm">View</a>
       </td>
     </tr>
   `,
@@ -279,7 +279,7 @@ export function renderOwners(owners: OwnerData[]): string {
     ${assetTags("pages/owners/client.ts")}
   `;
 
-    return renderPage("Owners", content, "/gui/admin/owners");
+    return renderPage("Owners", content, "/gui/admin/users");
 }
 
 // ─── Contact Identities Card (read-only) ─────────────────────────────
@@ -583,7 +583,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
                     const offset = (page - 1) * pageSize;
                     const pageStart = offset + 1;
                     const pageEnd = Math.min(offset + pageSize, total);
-                    const basePath = `/gui/admin/owners/${escapeHtml(owner.user_principal_id)}`;
+                    const basePath = `/gui/admin/users/${escapeHtml(owner.user_principal_id)}`;
 
                     const prevDisabled = page <= 1 ? " disabled" : "";
                     const nextDisabled = page >= totalPages ? " disabled" : "";
@@ -632,12 +632,12 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     </div>
 
     <div class="toolbar">
-      <a href="/gui/admin/owners" class="btn btn-secondary">Back to Owners</a>
+      <a href="/gui/admin/users" class="btn btn-secondary">Back to Owners</a>
     </div>
 
     <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.user_principal_id)}', roles: ${JSON.stringify(owner.system_roles ?? ["owner"])}, activityPage: ${activity_log.page}, activityPageSize: ${activity_log.pageSize}, activityTotal: ${activity_log.total} };</script>
     ${assetTags("pages/owners/client.ts")}
   `;
 
-    return renderPage(owner.display_name ?? "Owner", content, "/gui/admin/owners");
+    return renderPage(owner.display_name ?? "Owner", content, "/gui/admin/users");
 }

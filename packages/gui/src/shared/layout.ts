@@ -49,7 +49,8 @@ export function setVersion(v: string, commitHash?: string): void {
 
 const NAV_ITEMS = [
     { path: "/gui/admin/dashboard", label: "Dashboard", icon: "dashboard" },
-    { path: "/gui/admin/owners", label: "Owners", icon: "group" },
+    { path: "/gui/admin/users", label: "Users", icon: "group" },
+    { path: "/gui/admin/organizations", label: "Organizations", icon: "corporate_fare" },
     { path: "/gui/admin/agents", label: "Agents", icon: "smart_toy" },
     { path: "/gui/admin/policies", label: "Policies", icon: "policy" },
     { path: "/gui/admin/config", label: "Config", icon: "settings" },

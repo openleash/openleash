@@ -25,6 +25,8 @@ import {
     renderApiReferenceUnavailable,
     renderMcpGlove,
     renderAbout,
+    renderAdminOrganizations,
+    renderAdminOrganizationDetail,
     setVersion,
 } from "@openleash/gui";
 import type { PackageInfo } from "@openleash/gui";
@@ -195,8 +197,17 @@ export function registerGuiRoutes(
         reply.type("text/html").send(html);
     });
 
-    // Owners
+    // Redirect old /gui/admin/owners to /gui/admin/users
     app.get("/gui/admin/owners", { preHandler: adminAuth }, async (_request, reply) => {
+        reply.redirect("/gui/admin/users");
+    });
+    app.get("/gui/admin/owners/:ownerId", { preHandler: adminAuth }, async (request, reply) => {
+        const { ownerId } = request.params as { ownerId: string };
+        reply.redirect(`/gui/admin/users/${ownerId}`);
+    });
+
+    // Users
+    app.get("/gui/admin/users", { preHandler: adminAuth }, async (_request, reply) => {
         const state = store.state.getState();
         const owners = state.users.map((entry) => {
             try {
@@ -226,8 +237,8 @@ export function registerGuiRoutes(
         reply.type("text/html").send(html);
     });
 
-    // Owner detail
-    app.get("/gui/admin/owners/:ownerId", { preHandler: adminAuth }, async (request, reply) => {
+    // User detail
+    app.get("/gui/admin/users/:ownerId", { preHandler: adminAuth }, async (request, reply) => {
         const { ownerId } = request.params as { ownerId: string };
         const query = request.query as { activity_page?: string; activity_page_size?: string };
         const activityPageSize = Math.min(Math.max(parseInt(query.activity_page_size || "25", 10) || 25, 1), 100);
@@ -313,6 +324,118 @@ export function registerGuiRoutes(
             reply.type("text/html").send(html);
         } catch {
             reply.code(404).type("text/html").send("<h1>Owner file not found</h1>");
+        }
+    });
+
+    // Organizations
+    type OrgContactIdentity = { contact_id: string; type: string; value: string; verified: boolean };
+    type OrgCompanyId = { id_type: string; id_value: string; country?: string; verification_level: string };
+
+    app.get("/gui/admin/organizations", { preHandler: adminAuth }, async (_request, reply) => {
+        const state = store.state.getState();
+        const orgs = state.organizations.map((entry) => {
+            try {
+                const org = store.organizations.read(entry.org_id);
+                const memberCount = store.memberships.listByOrg(entry.org_id).length;
+                const agentCount = state.agents.filter(
+                    (a) => a.owner_type === "org" && a.owner_id === entry.org_id,
+                ).length;
+                return {
+                    org_id: org.org_id,
+                    display_name: org.display_name,
+                    status: org.status,
+                    created_at: org.created_at,
+                    created_by_user_id: org.created_by_user_id,
+                    verification_status: org.verification_status,
+                    member_count: memberCount,
+                    agent_count: agentCount,
+                };
+            } catch {
+                return { org_id: entry.org_id, member_count: 0, agent_count: 0, error: "file_not_found" };
+            }
+        });
+        const html = renderAdminOrganizations(orgs);
+        reply.type("text/html").send(html);
+    });
+
+    // Organization detail
+    app.get("/gui/admin/organizations/:orgId", { preHandler: adminAuth }, async (request, reply) => {
+        const { orgId } = request.params as { orgId: string };
+        const state = store.state.getState();
+        const entry = state.organizations.find((o) => o.org_id === orgId);
+        if (!entry) {
+            reply.code(404).type("text/html").send("<h1>Organization not found</h1>");
+            return;
+        }
+
+        try {
+            const org = store.organizations.read(orgId);
+            const members = store.memberships.listByOrg(orgId).map((m) => {
+                try {
+                    const user = store.users.read(m.user_principal_id);
+                    return {
+                        membership_id: m.membership_id,
+                        user_principal_id: m.user_principal_id,
+                        display_name: user.display_name,
+                        role: m.role,
+                        status: m.status,
+                        created_at: m.created_at,
+                    };
+                } catch {
+                    return {
+                        membership_id: m.membership_id,
+                        user_principal_id: m.user_principal_id,
+                        display_name: null as string | null,
+                        role: m.role,
+                        status: m.status,
+                        created_at: m.created_at,
+                    };
+                }
+            });
+            const agents = state.agents
+                .filter((a) => a.owner_type === "org" && a.owner_id === orgId)
+                .map((a) => {
+                    try {
+                        const agent = store.agents.read(a.agent_principal_id);
+                        return {
+                            agent_id: agent.agent_id,
+                            agent_principal_id: agent.agent_principal_id,
+                            status: agent.status,
+                            created_at: agent.created_at,
+                        };
+                    } catch {
+                        return { agent_id: a.agent_id, agent_principal_id: a.agent_principal_id, status: "UNKNOWN", created_at: "" };
+                    }
+                });
+            const policies = state.policies
+                .filter((p) => p.owner_type === "org" && p.owner_id === orgId)
+                .map((p) => ({
+                    policy_id: p.policy_id,
+                    applies_to_agent_principal_id: p.applies_to_agent_principal_id,
+                    name: p.name,
+                }));
+
+            const html = renderAdminOrganizationDetail({
+                org: {
+                    org_id: org.org_id,
+                    display_name: org.display_name,
+                    status: org.status,
+                    created_at: org.created_at,
+                    created_by_user_id: org.created_by_user_id,
+                    verification_status: org.verification_status,
+                    member_count: members.length,
+                    agent_count: agents.length,
+                    contact_identities: org.contact_identities as OrgContactIdentity[] | undefined,
+                    company_ids: org.company_ids as OrgCompanyId[] | undefined,
+                    identity_assurance_level: org.identity_assurance_level,
+                },
+                members,
+                agents,
+                policies,
+            });
+            reply.type("text/html").send(html);
+        } catch {
+            reply.code(404).type("text/html").send("<h1>Organization file not found</h1>");
         }
     });
 

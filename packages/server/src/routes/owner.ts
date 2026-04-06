@@ -17,12 +17,16 @@ import {
     verifyBackupCode,
     resolveSystemRoles,
 } from "@openleash/core";
+import {
+    OrgRole,
+} from "@openleash/core";
 import type {
     OpenleashConfig,
     SessionClaims,
     ContactIdentity,
     GovernmentId,
     DataStore,
+    OrgMembership,
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
 import { validateBody } from "../validate.js";
@@ -419,6 +423,737 @@ export function registerOwnerRoutes(
             invite_token: inviteToken,
             expires_at: expiresAt,
         };
+    });
+
+    // ─── Organizations ─────────────────────────────────────────────────
+
+    const ORG_ROLE_LEVEL: Record<OrgRole, number> = { org_admin: 3, org_member: 2, org_viewer: 1 };
+
+    /**
+     * Verify the session user has at least `minRole` in the given org.
+     * Reads memberships from the store (not the token) for up-to-date data.
+     * Returns the membership on success, or sends 403 and returns null.
+     */
+    function requireOrgRole(
+        session: SessionClaims,
+        orgId: string,
+        minRole: OrgRole,
+        reply: FastifyReply,
+    ): OrgMembership | null {
+        const memberships = store.memberships.listByUser(session.sub);
+        const membership = memberships.find(
+            (m) => m.org_id === orgId && m.status === "active",
+        );
+        if (!membership || ORG_ROLE_LEVEL[membership.role] < ORG_ROLE_LEVEL[minRole]) {
+            reply.code(403).send({
+                error: { code: "FORBIDDEN", message: "Insufficient organization permissions" },
+            });
+            return null;
+        }
+        return membership;
+    }
+
+    // GET /v1/owner/organizations
+    app.get("/v1/owner/organizations", { preHandler: ownerAuth }, async (request) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const memberships = store.memberships.listByUser(session.sub);
+        const organizations = memberships
+            .filter((m) => m.status === "active")
+            .map((m) => {
+                try {
+                    const org = store.organizations.read(m.org_id);
+                    return {
+                        org_id: org.org_id,
+                        display_name: org.display_name,
+                        status: org.status,
+                        role: m.role,
+                        created_at: org.created_at,
+                        verification_status: org.verification_status,
+                    };
+                } catch {
+                    return { org_id: m.org_id, role: m.role, error: "file_not_found" };
+                }
+            });
+        return { organizations };
+    });
+
+    // GET /v1/owner/organizations/:orgId
+    app.get("/v1/owner/organizations/:orgId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        const membership = requireOrgRole(session, orgId, "org_viewer", reply);
+        if (!membership) return;
+
+        try {
+            const org = store.organizations.read(orgId);
+            const members = store.memberships.listByOrg(orgId);
+            return {
+                ...org,
+                member_count: members.length,
+                your_role: membership.role,
+            };
+        } catch {
+            reply.code(404).send({
+                error: { code: "NOT_FOUND", message: "Organization not found" },
+            });
+        }
+    });
+
+    // PUT /v1/owner/organizations/:orgId
+    app.put("/v1/owner/organizations/:orgId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const body = request.body as {
+            display_name?: string;
+            contact_identities?: ContactIdentity[];
+        };
+
+        const org = store.organizations.read(orgId);
+        if (body.display_name !== undefined) org.display_name = body.display_name.trim();
+        if (body.contact_identities !== undefined) org.contact_identities = body.contact_identities;
+        store.organizations.write(org);
+
+        store.audit.append("ORG_UPDATED", {
+            org_id: orgId,
+            updated_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return { org_id: orgId, status: "updated" };
+    });
+
+    // GET /v1/owner/organizations/:orgId/members
+    app.get("/v1/owner/organizations/:orgId/members", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        if (!requireOrgRole(session, orgId, "org_viewer", reply)) return;
+
+        const memberships = store.memberships.listByOrg(orgId);
+        const members = memberships.map((m) => {
+            try {
+                const user = store.users.read(m.user_principal_id);
+                return {
+                    membership_id: m.membership_id,
+                    user_principal_id: m.user_principal_id,
+                    display_name: user.display_name,
+                    role: m.role,
+                    status: m.status,
+                    created_at: m.created_at,
+                };
+            } catch {
+                return {
+                    membership_id: m.membership_id,
+                    user_principal_id: m.user_principal_id,
+                    display_name: null,
+                    role: m.role,
+                    status: m.status,
+                    created_at: m.created_at,
+                };
+            }
+        });
+        return { members };
+    });
+
+    // POST /v1/owner/organizations/:orgId/members
+    app.post("/v1/owner/organizations/:orgId/members", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const body = request.body as { user_principal_id: string; role: string };
+
+        if (!body.user_principal_id || !body.role) {
+            reply.code(400).send({
+                error: { code: "INVALID_BODY", message: "user_principal_id and role are required" },
+            });
+            return;
+        }
+
+        const parsed = OrgRole.safeParse(body.role);
+        if (!parsed.success) {
+            reply.code(400).send({
+                error: { code: "INVALID_ROLE", message: `Invalid role. Valid: org_admin, org_member, org_viewer` },
+            });
+            return;
+        }
+
+        // Verify user exists
+        const state = store.state.getState();
+        if (!state.users.find((u) => u.user_principal_id === body.user_principal_id)) {
+            reply.code(404).send({
+                error: { code: "USER_NOT_FOUND", message: "Target user not found" },
+            });
+            return;
+        }
+
+        // Check for existing membership
+        const existing = store.memberships.listByOrg(orgId);
+        if (existing.find((m) => m.user_principal_id === body.user_principal_id)) {
+            reply.code(409).send({
+                error: { code: "ALREADY_MEMBER", message: "User is already a member of this organization" },
+            });
+            return;
+        }
+
+        const membershipId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        const membership: OrgMembership = {
+            membership_id: membershipId,
+            org_id: orgId,
+            user_principal_id: body.user_principal_id,
+            role: parsed.data,
+            status: "active",
+            invited_by_user_id: session.sub,
+            created_at: now,
+        };
+
+        store.memberships.write(membership);
+        store.state.updateState((s) => {
+            s.memberships.push({
+                membership_id: membershipId,
+                org_id: orgId,
+                user_principal_id: body.user_principal_id,
+                role: parsed.data,
+                path: `./memberships/${membershipId}.json`,
+            });
+        });
+
+        store.audit.append("ORG_MEMBER_ADDED", {
+            org_id: orgId,
+            user_principal_id: body.user_principal_id,
+            role: parsed.data,
+            invited_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return { membership_id: membershipId, org_id: orgId, user_principal_id: body.user_principal_id, role: parsed.data };
+    });
+
+    // PUT /v1/owner/organizations/:orgId/members/:userId
+    app.put("/v1/owner/organizations/:orgId/members/:userId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, userId } = request.params as { orgId: string; userId: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const body = request.body as { role: string };
+        const parsed = OrgRole.safeParse(body.role);
+        if (!parsed.success) {
+            reply.code(400).send({
+                error: { code: "INVALID_ROLE", message: `Invalid role. Valid: org_admin, org_member, org_viewer` },
+            });
+            return;
+        }
+
+        const members = store.memberships.listByOrg(orgId);
+        const target = members.find((m) => m.user_principal_id === userId);
+        if (!target) {
+            reply.code(404).send({
+                error: { code: "NOT_FOUND", message: "Membership not found" },
+            });
+            return;
+        }
+
+        // Last-admin protection
+        if (target.role === "org_admin" && parsed.data !== "org_admin") {
+            const adminCount = members.filter((m) => m.role === "org_admin" && m.status === "active").length;
+            if (adminCount <= 1) {
+                reply.code(400).send({
+                    error: { code: "LAST_ADMIN", message: "Cannot demote the last organization admin" },
+                });
+                return;
+            }
+        }
+
+        const previousRole = target.role;
+        target.role = parsed.data;
+        store.memberships.write(target);
+        store.state.updateState((s) => {
+            const entry = s.memberships.find((m) => m.membership_id === target.membership_id);
+            if (entry) entry.role = parsed.data;
+        });
+
+        store.audit.append("ORG_MEMBER_UPDATED", {
+            org_id: orgId,
+            user_principal_id: userId,
+            previous_role: previousRole,
+            new_role: parsed.data,
+        }, { principal_id: session.sub });
+
+        return { membership_id: target.membership_id, role: parsed.data, status: "updated" };
+    });
+
+    // DELETE /v1/owner/organizations/:orgId/members/:userId
+    app.delete("/v1/owner/organizations/:orgId/members/:userId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, userId } = request.params as { orgId: string; userId: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const members = store.memberships.listByOrg(orgId);
+        const target = members.find((m) => m.user_principal_id === userId);
+        if (!target) {
+            reply.code(404).send({
+                error: { code: "NOT_FOUND", message: "Membership not found" },
+            });
+            return;
+        }
+
+        // Last-admin protection
+        if (target.role === "org_admin") {
+            const adminCount = members.filter((m) => m.role === "org_admin" && m.status === "active").length;
+            if (adminCount <= 1) {
+                reply.code(400).send({
+                    error: { code: "LAST_ADMIN", message: "Cannot remove the last organization admin" },
+                });
+                return;
+            }
+        }
+
+        store.memberships.delete(target.membership_id);
+        store.state.updateState((s) => {
+            const idx = s.memberships.findIndex((m) => m.membership_id === target.membership_id);
+            if (idx !== -1) s.memberships.splice(idx, 1);
+        });
+
+        store.audit.append("ORG_MEMBER_REMOVED", {
+            org_id: orgId,
+            user_principal_id: userId,
+        }, { principal_id: session.sub });
+
+        return { membership_id: target.membership_id, status: "removed" };
+    });
+
+    // GET /v1/owner/organizations/:orgId/agents
+    app.get("/v1/owner/organizations/:orgId/agents", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        if (!requireOrgRole(session, orgId, "org_viewer", reply)) return;
+
+        const state = store.state.getState();
+        const agents = state.agents
+            .filter((a) => a.owner_type === "org" && a.owner_id === orgId)
+            .map((entry) => {
+                try {
+                    return store.agents.read(entry.agent_principal_id);
+                } catch {
+                    return { agent_principal_id: entry.agent_principal_id, agent_id: entry.agent_id, error: "file_not_found" };
+                }
+            });
+        return { agents };
+    });
+
+    // POST /v1/owner/organizations/:orgId/agent-invites
+    app.post("/v1/owner/organizations/:orgId/agent-invites", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const inviteToken = crypto.randomBytes(32).toString("base64url");
+        const inviteId = crypto.randomUUID();
+        const { hash, salt } = hashPassphrase(inviteToken);
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+        store.agentInvites.write({
+            invite_id: inviteId,
+            owner_type: "org",
+            owner_id: orgId,
+            token_hash: hash,
+            token_salt: salt,
+            expires_at: expiresAt,
+            used: false,
+            used_at: null,
+            created_at: new Date().toISOString(),
+        });
+
+        store.audit.append("AGENT_INVITE_CREATED", {
+            org_id: orgId,
+            invite_id: inviteId,
+            created_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return { invite_id: inviteId, invite_token: inviteToken, expires_at: expiresAt };
+    });
+
+    // GET /v1/owner/organizations/:orgId/policies
+    app.get("/v1/owner/organizations/:orgId/policies", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        if (!requireOrgRole(session, orgId, "org_viewer", reply)) return;
+
+        const state = store.state.getState();
+        const policies = state.policies
+            .filter((p) => p.owner_type === "org" && p.owner_id === orgId)
+            .map((entry) => {
+                try {
+                    const yaml = store.policies.read(entry.policy_id);
+                    return { ...entry, policy_yaml: yaml };
+                } catch {
+                    return { ...entry, error: "file_not_found" };
+                }
+            });
+        return { policies };
+    });
+
+    // POST /v1/owner/organizations/:orgId/policies
+    app.post("/v1/owner/organizations/:orgId/policies", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const body = request.body as {
+            applies_to_agent_principal_id?: string | null;
+            policy_yaml: string;
+            name?: string;
+            description?: string;
+        };
+
+        try {
+            parsePolicyYaml(body.policy_yaml);
+        } catch (e: unknown) {
+            reply.code(400).send({
+                error: { code: "INVALID_POLICY", message: (e as Error).message },
+            });
+            return;
+        }
+
+        const policyId = crypto.randomUUID();
+        store.policies.write(policyId, body.policy_yaml);
+
+        const appliesToAgent = body.applies_to_agent_principal_id ?? null;
+        const policyName = body.name?.trim() || null;
+        const policyDescription = body.description?.trim() || null;
+
+        store.state.updateState(s => {
+            s.policies.push({
+                policy_id: policyId,
+                owner_type: "org",
+                owner_id: orgId,
+                applies_to_agent_principal_id: appliesToAgent,
+                name: policyName,
+                description: policyDescription,
+                path: `./policies/${policyId}.yaml`,
+            });
+            s.bindings.push({
+                owner_type: "org",
+                owner_id: orgId,
+                policy_id: policyId,
+                applies_to_agent_principal_id: appliesToAgent,
+            });
+        });
+
+        store.audit.append("POLICY_UPSERTED", {
+            policy_id: policyId,
+            org_id: orgId,
+            created_by: session.sub,
+            applies_to_agent_principal_id: appliesToAgent,
+        }, { principal_id: session.sub });
+
+        return { policy_id: policyId, org_id: orgId, applies_to_agent_principal_id: appliesToAgent };
+    });
+
+    // PUT /v1/owner/organizations/:orgId/policies/:policyId
+    app.put("/v1/owner/organizations/:orgId/policies/:policyId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, policyId } = request.params as { orgId: string; policyId: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const body = validateBody(request.body, SavePolicySchema, reply);
+        if (!body) return;
+
+        const state = store.state.getState();
+        const entry = state.policies.find(
+            (p) => p.policy_id === policyId && p.owner_type === "org" && p.owner_id === orgId,
+        );
+        if (!entry) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy not found" } });
+            return;
+        }
+
+        if (body.policy_yaml !== undefined) {
+            try {
+                parsePolicyYaml(body.policy_yaml);
+            } catch (e: unknown) {
+                reply.code(400).send({ error: { code: "INVALID_POLICY", message: (e as Error).message } });
+                return;
+            }
+            store.policies.write(policyId, body.policy_yaml);
+        }
+
+        let stateChanged = false;
+        if (body.name !== undefined) { entry.name = body.name?.trim() || null; stateChanged = true; }
+        if (body.description !== undefined) { entry.description = body.description?.trim() || null; stateChanged = true; }
+        if (stateChanged) {
+            store.state.updateState(s => {
+                const idx = s.policies.findIndex(p => p.policy_id === policyId);
+                if (idx !== -1) {
+                    if (body.name !== undefined) s.policies[idx].name = entry.name;
+                    if (body.description !== undefined) s.policies[idx].description = entry.description;
+                }
+            });
+        }
+
+        store.audit.append("POLICY_UPDATED", {
+            policy_id: policyId,
+            org_id: orgId,
+            updated_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return { policy_id: policyId, status: "updated" };
+    });
+
+    // DELETE /v1/owner/organizations/:orgId/policies/:policyId
+    app.delete("/v1/owner/organizations/:orgId/policies/:policyId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, policyId } = request.params as { orgId: string; policyId: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const state = store.state.getState();
+        const policyIndex = state.policies.findIndex(
+            (p) => p.policy_id === policyId && p.owner_type === "org" && p.owner_id === orgId,
+        );
+        if (policyIndex === -1) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy not found" } });
+            return;
+        }
+
+        store.policies.delete(policyId);
+        store.state.updateState(s => {
+            const idx = s.policies.findIndex(p => p.policy_id === policyId);
+            if (idx !== -1) s.policies.splice(idx, 1);
+            s.bindings = s.bindings.filter((b) => b.policy_id !== policyId);
+        });
+
+        store.audit.append("POLICY_DELETED", {
+            policy_id: policyId,
+            org_id: orgId,
+            deleted_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return { policy_id: policyId, status: "deleted" };
+    });
+
+    // GET /v1/owner/organizations/:orgId/approval-requests
+    app.get("/v1/owner/organizations/:orgId/approval-requests", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+        const query = request.query as { status?: string };
+
+        if (!requireOrgRole(session, orgId, "org_member", reply)) return;
+
+        const state = store.state.getState();
+        let requests = (state.approval_requests ?? []).filter(
+            (r) => r.owner_type === "org" && r.owner_id === orgId,
+        );
+        if (query.status) {
+            requests = requests.filter((r) => r.status === query.status);
+        }
+
+        const details = requests.map((entry) => {
+            try {
+                return store.approvalRequests.read(entry.approval_request_id);
+            } catch {
+                return { approval_request_id: entry.approval_request_id, error: "file_not_found" };
+            }
+        });
+        return { approval_requests: details };
+    });
+
+    // POST /v1/owner/organizations/:orgId/approval-requests/:id/approve
+    app.post("/v1/owner/organizations/:orgId/approval-requests/:id/approve", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, id } = request.params as { orgId: string; id: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const approveOwner = store.users.read(session.sub);
+        if (!(await verifyTotpForApproval(request, reply, approveOwner, session))) return;
+
+        const state = store.state.getState();
+        const entry = (state.approval_requests ?? []).find(
+            (r) => r.approval_request_id === id && r.owner_type === "org" && r.owner_id === orgId,
+        );
+        if (!entry) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Approval request not found" } });
+            return;
+        }
+
+        const req = store.approvalRequests.read(id);
+        if (req.status !== "PENDING") {
+            reply.code(400).send({
+                error: { code: "INVALID_STATUS", message: `Cannot approve request with status ${req.status}` },
+            });
+            return;
+        }
+
+        if (new Date(req.expires_at).getTime() < Date.now()) {
+            req.status = "EXPIRED";
+            store.approvalRequests.write(req);
+            store.state.updateState(s => {
+                const e = (s.approval_requests ?? []).find(r => r.approval_request_id === id);
+                if (e) e.status = "EXPIRED";
+            });
+            reply.code(400).send({ error: { code: "REQUEST_EXPIRED", message: "Approval request has expired" } });
+            return;
+        }
+
+        const activeKey = store.keys.read(state.server_keys.active_kid);
+        const ttl = config.approval?.token_ttl_seconds ?? 3600;
+        const approvalToken = await issueApprovalToken({
+            key: activeKey,
+            approvalRequestId: id,
+            ownerType: "org",
+            ownerId: orgId,
+            agentId: req.agent_id,
+            actionType: req.action_type,
+            actionHash: req.action_hash,
+            ttlSeconds: ttl,
+        });
+
+        req.status = "APPROVED";
+        req.approval_token = approvalToken.token;
+        req.approval_token_expires_at = approvalToken.expiresAt;
+        req.resolved_at = new Date().toISOString();
+        req.resolved_by = session.sub;
+        store.approvalRequests.write(req);
+
+        store.state.updateState(s => {
+            const e = (s.approval_requests ?? []).find(r => r.approval_request_id === id);
+            if (e) e.status = "APPROVED";
+        });
+
+        store.audit.append("APPROVAL_REQUEST_APPROVED", {
+            approval_request_id: id,
+            org_id: orgId,
+            approved_by: session.sub,
+            agent_id: req.agent_id,
+            action_type: req.action_type,
+            agent_principal_id: req.agent_principal_id,
+        }, { principal_id: session.sub });
+
+        const approveAgent = store.agents.read(req.agent_principal_id);
+        deliverWebhook({
+            webhookUrl: approveAgent.webhook_url,
+            webhookSecret: approveAgent.webhook_secret,
+            webhookAuthToken: approveAgent.webhook_auth_token,
+            payload: {
+                event_type: 'approval_request.approved',
+                timestamp: new Date().toISOString(),
+                agent_principal_id: req.agent_principal_id,
+                data: {
+                    approval_request_id: id,
+                    status: 'APPROVED',
+                    approval_token: approvalToken.token,
+                    approval_token_expires_at: approvalToken.expiresAt,
+                    action_type: req.action_type,
+                },
+            },
+            auditStore: store.audit,
+        });
+
+        return {
+            approval_request_id: id,
+            status: "APPROVED",
+            approval_token: approvalToken.token,
+            approval_token_expires_at: approvalToken.expiresAt,
+        };
+    });
+
+    // POST /v1/owner/organizations/:orgId/approval-requests/:id/deny
+    app.post("/v1/owner/organizations/:orgId/approval-requests/:id/deny", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, id } = request.params as { orgId: string; id: string };
+        const body = request.body as { reason?: string; totp_code?: string } | null;
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const denyOwner = store.users.read(session.sub);
+        if (!(await verifyTotpForApproval(request, reply, denyOwner, session))) return;
+
+        const state = store.state.getState();
+        const entry = (state.approval_requests ?? []).find(
+            (r) => r.approval_request_id === id && r.owner_type === "org" && r.owner_id === orgId,
+        );
+        if (!entry) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Approval request not found" } });
+            return;
+        }
+
+        const req = store.approvalRequests.read(id);
+        if (req.status !== "PENDING") {
+            reply.code(400).send({
+                error: { code: "INVALID_STATUS", message: `Cannot deny request with status ${req.status}` },
+            });
+            return;
+        }
+
+        req.status = "DENIED";
+        req.denial_reason = body?.reason ?? null;
+        req.resolved_at = new Date().toISOString();
+        req.resolved_by = session.sub;
+        store.approvalRequests.write(req);
+
+        store.state.updateState(s => {
+            const e = (s.approval_requests ?? []).find(r => r.approval_request_id === id);
+            if (e) e.status = "DENIED";
+        });
+
+        store.audit.append("APPROVAL_REQUEST_DENIED", {
+            approval_request_id: id,
+            org_id: orgId,
+            denied_by: session.sub,
+            agent_id: req.agent_id,
+            action_type: req.action_type,
+            agent_principal_id: req.agent_principal_id,
+            reason: body?.reason ?? null,
+        }, { principal_id: session.sub });
+
+        const denyAgent = store.agents.read(req.agent_principal_id);
+        deliverWebhook({
+            webhookUrl: denyAgent.webhook_url,
+            webhookSecret: denyAgent.webhook_secret,
+            webhookAuthToken: denyAgent.webhook_auth_token,
+            payload: {
+                event_type: 'approval_request.denied',
+                timestamp: new Date().toISOString(),
+                agent_principal_id: req.agent_principal_id,
+                data: {
+                    approval_request_id: id,
+                    status: 'DENIED',
+                    denial_reason: body?.reason ?? null,
+                    action_type: req.action_type,
+                },
+            },
+            auditStore: store.audit,
+        });
+
+        return { approval_request_id: id, status: "DENIED" };
     });
 
     // ─── Policies (scoped to owner) ──────────────────────────────────
