@@ -5,7 +5,7 @@ import "../../shared/styles/auth.css";
 import "./style.css";
 
 let loggedIn = false;
-let ownerPrincipalId: string | null = null;
+let userPrincipalId: string | null = null;
 
 function showLinks() {
     document.getElementById("create-invite-btn")!.style.display = "none";
@@ -19,7 +19,6 @@ document.getElementById("setup-form")!.addEventListener("submit", async (e) => {
     errorEl.style.display = "none";
 
     const displayName = (document.getElementById("display-name") as HTMLInputElement).value.trim();
-    const principalType = (document.getElementById("principal-type") as HTMLSelectElement).value;
     const passphrase = (document.getElementById("passphrase") as HTMLInputElement).value;
     const confirm = (document.getElementById("passphrase-confirm") as HTMLInputElement).value;
 
@@ -47,7 +46,7 @@ document.getElementById("setup-form")!.addEventListener("submit", async (e) => {
         const res = await fetch("/v1/initial-setup", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ display_name: displayName, principal_type: principalType, passphrase }),
+            body: JSON.stringify({ display_name: displayName, passphrase }),
         });
 
         const data = await res.json();
@@ -56,21 +55,21 @@ document.getElementById("setup-form")!.addEventListener("submit", async (e) => {
             errorEl.textContent = data?.error?.message || "Setup failed";
             errorEl.style.display = "block";
             btn.disabled = false;
-            btn.textContent = "Create Owner";
+            btn.textContent = "Create User";
             return;
         }
 
-        ownerPrincipalId = data.owner_principal_id;
+        userPrincipalId = data.user_principal_id;
 
         // Auto-login to get session token for agent invite creation
-        if (ownerPrincipalId) {
+        if (userPrincipalId) {
             (document.getElementById("login-link") as HTMLAnchorElement).href =
-                "/gui/login?owner_id=" + encodeURIComponent(ownerPrincipalId);
+                "/gui/login?owner_id=" + encodeURIComponent(userPrincipalId);
             try {
                 const loginRes = await fetch("/v1/owner/login", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ owner_principal_id: ownerPrincipalId, passphrase }),
+                    body: JSON.stringify({ user_principal_id: userPrincipalId, passphrase }),
                 });
                 if (loginRes.ok) {
                     const loginData = await loginRes.json();
@@ -94,7 +93,7 @@ document.getElementById("setup-form")!.addEventListener("submit", async (e) => {
         errorEl.textContent = "Network error";
         errorEl.style.display = "block";
         btn.disabled = false;
-        btn.textContent = "Create Owner";
+        btn.textContent = "Create User";
     }
 });
 

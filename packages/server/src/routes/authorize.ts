@@ -46,7 +46,8 @@ export function registerAuthorizeRoutes(
     store.audit.append('AUTHORIZE_CALLED', {
       agent_id: action.principal.agent_id,
       agent_principal_id: agentEntry.agent_principal_id,
-      owner_principal_id: agentEntry.owner_principal_id,
+      owner_type: agentEntry.owner_type,
+      owner_id: agentEntry.owner_id,
       action_type: action.action_type,
       action_id: action.action_id,
       payload: action.payload ?? null,
@@ -127,7 +128,8 @@ export function registerAuthorizeRoutes(
       const proof = await issueProofToken({
         key: activeKey,
         decisionId,
-        ownerPrincipalId: agentEntry.owner_principal_id,
+        ownerType: agentEntry.owner_type,
+        ownerId: agentEntry.owner_id,
         agentId: action.principal.agent_id,
         actionType: action.action_type,
         actionHash: currentActionHash,
@@ -140,7 +142,8 @@ export function registerAuthorizeRoutes(
         decision_id: decisionId,
         agent_id: action.principal.agent_id,
         action_type: action.action_type,
-        owner_principal_id: agentEntry.owner_principal_id,
+        owner_type: agentEntry.owner_type,
+        owner_id: agentEntry.owner_id,
         action_hash: currentActionHash,
       }, { decision_id: decisionId, action_id: action.action_id, principal_id: agentEntry.agent_principal_id });
 
@@ -153,7 +156,8 @@ export function registerAuthorizeRoutes(
         action_type: action.action_type,
         agent_id: action.principal.agent_id,
         agent_principal_id: agentEntry.agent_principal_id,
-        owner_principal_id: agentEntry.owner_principal_id,
+        owner_type: agentEntry.owner_type,
+        owner_id: agentEntry.owner_id,
         reason: 'Approved by owner',
         obligations: [],
       }, { decision_id: decisionId, action_id: action.action_id, principal_id: agentEntry.agent_principal_id });
@@ -177,7 +181,7 @@ export function registerAuthorizeRoutes(
     const binding = state.bindings.find((b) => {
       // Match by agent or owner
       if (b.applies_to_agent_principal_id === agentEntry.agent_principal_id) return true;
-      if (b.applies_to_agent_principal_id === null && b.owner_principal_id === agentEntry.owner_principal_id) return true;
+      if (b.applies_to_agent_principal_id === null && b.owner_type === agentEntry.owner_type && b.owner_id === agentEntry.owner_id) return true;
       return false;
     });
 
@@ -217,7 +221,8 @@ export function registerAuthorizeRoutes(
       const proof = await issueProofToken({
         key: activeKey,
         decisionId: response.decision_id,
-        ownerPrincipalId: agentEntry.owner_principal_id,
+        ownerType: agentEntry.owner_type,
+        ownerId: agentEntry.owner_id,
         agentId: action.principal.agent_id,
         actionType: action.action_type,
         actionHash: response.action_hash,
@@ -248,7 +253,8 @@ export function registerAuthorizeRoutes(
       action_type: action.action_type,
       agent_id: action.principal.agent_id,
       agent_principal_id: agentEntry.agent_principal_id,
-      owner_principal_id: agentEntry.owner_principal_id,
+      owner_type: agentEntry.owner_type,
+      owner_id: agentEntry.owner_id,
       reason: response.reason ?? null,
       obligations: response.obligations ?? [],
       policy_id: policyEntry.policy_id,

@@ -58,6 +58,8 @@ tags:
     description: Owner-scoped endpoints for managing agents, policies, and approval requests. Authenticated via PASETO session token.
   - name: Admin
     description: Server management endpoints protected by Bearer token and/or localhost check.
+  - name: Organization
+    description: Organization management endpoints for multi-user workspaces with role-based membership.
   - name: Playground
     description: Sandbox endpoint for testing policy evaluation without real agents or state.
 
@@ -206,10 +208,10 @@ paths:
                 agent_pubkey_b64:
                   type: string
                   description: Base64-encoded SPKI DER Ed25519 public key.
-                owner_principal_id:
+                user_principal_id:
                   type: string
                   format: uuid
-                  description: UUID of the owner to register under.
+                  description: UUID of the user to register under.
       responses:
         "200":
           description: Challenge issued.
@@ -245,7 +247,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [challenge_id, agent_id, agent_pubkey_b64, signature_b64, owner_principal_id]
+              required: [challenge_id, agent_id, agent_pubkey_b64, signature_b64, user_principal_id]
               properties:
                 challenge_id:
                   type: string
@@ -257,7 +259,7 @@ paths:
                 signature_b64:
                   type: string
                   description: Base64-encoded Ed25519 signature over the raw challenge bytes.
-                owner_principal_id:
+                user_principal_id:
                   type: string
                   format: uuid
       responses:
@@ -798,12 +800,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [status, owner_principal_id]
+                required: [status, user_principal_id]
                 properties:
                   status:
                     type: string
                     example: setup_complete
-                  owner_principal_id:
+                  user_principal_id:
                     type: string
                     format: uuid
         "400":
@@ -829,9 +831,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [owner_principal_id, passphrase]
+              required: [user_principal_id, passphrase]
               properties:
-                owner_principal_id:
+                user_principal_id:
                   type: string
                   format: uuid
                 passphrase:
@@ -843,7 +845,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [token, expires_at, owner_principal_id]
+                required: [token, expires_at, user_principal_id]
                 properties:
                   token:
                     type: string
@@ -851,7 +853,7 @@ paths:
                   expires_at:
                     type: string
                     format: date-time
-                  owner_principal_id:
+                  user_principal_id:
                     type: string
                     format: uuid
         "401":
@@ -1082,12 +1084,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [policy_id, owner_principal_id]
+                required: [policy_id, user_principal_id]
                 properties:
                   policy_id:
                     type: string
                     format: uuid
-                  owner_principal_id:
+                  user_principal_id:
                     type: string
                     format: uuid
                   applies_to_agent_principal_id:
@@ -1497,6 +1499,650 @@ paths:
                     type: integer
                     nullable: true
 
+  # ── Owner: Organizations ─────────────────────────────────────────────
+
+  /v1/owner/organizations:
+    post:
+      summary: Create organization
+      operationId: createOrganization
+      tags: [Organization, Owner]
+      description: |
+        Creates a new organization owned by the authenticated user.
+        The creator is automatically added as an `org_admin` member.
+      security:
+        - OwnerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [display_name]
+              properties:
+                display_name:
+                  type: string
+                contact_identities:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ContactIdentity"
+      responses:
+        "200":
+          description: Organization created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [org_id, display_name, status, created_at, your_role]
+                properties:
+                  org_id:
+                    type: string
+                    format: uuid
+                  display_name:
+                    type: string
+                  status:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+                  your_role:
+                    $ref: "#/components/schemas/OrgRole"
+        "400":
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      summary: List user's organizations
+      operationId: listOwnerOrganizations
+      tags: [Organization, Owner]
+      description: |
+        Returns all organizations the authenticated user is a member of.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Organization list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [organizations]
+                properties:
+                  organizations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OrganizationSummary"
+
+  /v1/owner/organizations/{orgId}:
+    get:
+      summary: Get organization detail
+      operationId: getOwnerOrganization
+      tags: [Organization, Owner]
+      description: |
+        Returns the full details of an organization the authenticated
+        user is a member of, including member count and the user's role.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Organization detail.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OrganizationSummary"
+                  - type: object
+                    properties:
+                      member_count:
+                        type: integer
+                      contact_identities:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ContactIdentity"
+                      company_ids:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CompanyId"
+        "404":
+          description: Organization not found or user is not a member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Update organization
+      operationId: updateOwnerOrganization
+      tags: [Organization, Owner]
+      description: |
+        Updates an organization's details. Requires `org_admin` role
+        in the organization.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                contact_identities:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ContactIdentity"
+      responses:
+        "200":
+          description: Organization updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationSummary"
+        "403":
+          description: Insufficient permissions (requires org_admin).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/organizations/{orgId}/members:
+    get:
+      summary: List organization members
+      operationId: listOrgMembers
+      tags: [Organization, Owner]
+      description: |
+        Returns all members of the organization. Requires membership
+        in the organization.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Member list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [members]
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OrgMembership"
+    post:
+      summary: Add organization member
+      operationId: addOrgMember
+      tags: [Organization, Owner]
+      description: |
+        Adds a user to the organization with the specified role.
+        Requires `org_admin` role in the organization.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_principal_id, role]
+              properties:
+                user_principal_id:
+                  type: string
+                  format: uuid
+                role:
+                  $ref: "#/components/schemas/OrgRole"
+      responses:
+        "200":
+          description: Member added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgMembership"
+        "400":
+          description: User already a member or invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Insufficient permissions (requires org_admin).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/organizations/{orgId}/members/{userId}:
+    put:
+      summary: Update member role
+      operationId: updateOrgMemberRole
+      tags: [Organization, Owner]
+      description: |
+        Updates a member's role in the organization. Requires `org_admin`
+        role in the organization.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/OrgMemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  $ref: "#/components/schemas/OrgRole"
+      responses:
+        "200":
+          description: Role updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgMembership"
+        "403":
+          description: Insufficient permissions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Member not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Remove organization member
+      operationId: removeOrgMember
+      tags: [Organization, Owner]
+      description: |
+        Removes a member from the organization. Requires `org_admin`
+        role in the organization. Cannot remove the last admin.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/OrgMemberId"
+      responses:
+        "200":
+          description: Member removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: removed
+        "403":
+          description: Insufficient permissions or cannot remove last admin.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/organizations/{orgId}/agents:
+    get:
+      summary: List organization agents
+      operationId: listOrgAgents
+      tags: [Organization, Owner]
+      description: |
+        Returns all agents belonging to the organization.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Agent list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agents]
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgentRegistration"
+
+  /v1/owner/organizations/{orgId}/agent-invites:
+    post:
+      summary: Create agent invite for organization
+      operationId: createOrgAgentInvite
+      tags: [Organization, Owner]
+      description: |
+        Creates a one-time agent registration invite scoped to the
+        organization. Requires `org_admin` or `org_member` role.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  description: Optional label for the invite.
+      responses:
+        "200":
+          description: Invite created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invite_id, invite_token, expires_at]
+                properties:
+                  invite_id:
+                    type: string
+                    format: uuid
+                  invite_token:
+                    type: string
+                    description: Plaintext invite token (one-time use).
+                  expires_at:
+                    type: string
+                    format: date-time
+
+  /v1/owner/organizations/{orgId}/policies:
+    get:
+      summary: List organization policies
+      operationId: listOrgPolicies
+      tags: [Organization, Owner]
+      description: |
+        Returns all policies belonging to the organization.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Policy list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policies]
+                properties:
+                  policies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PolicyEntry"
+    post:
+      summary: Create organization policy
+      operationId: createOrgPolicy
+      tags: [Organization, Owner]
+      description: |
+        Creates a new policy owned by the organization. The YAML is
+        validated against the policy schema. Requires `org_admin` or
+        `org_member` role.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy_yaml]
+              properties:
+                policy_yaml:
+                  type: string
+                applies_to_agent_principal_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        "200":
+          description: Policy created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy_id, org_id]
+                properties:
+                  policy_id:
+                    type: string
+                    format: uuid
+                  org_id:
+                    type: string
+                    format: uuid
+                  applies_to_agent_principal_id:
+                    type: string
+                    format: uuid
+                    nullable: true
+        "400":
+          description: Invalid policy YAML.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/organizations/{orgId}/policies/{policyId}:
+    put:
+      summary: Update organization policy
+      operationId: updateOrgPolicy
+      tags: [Organization, Owner]
+      description: |
+        Updates a policy owned by the organization. Requires `org_admin`
+        or `org_member` role.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/PolicyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy_yaml]
+              properties:
+                policy_yaml:
+                  type: string
+      responses:
+        "200":
+          description: Policy updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy_id, status]
+                properties:
+                  policy_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: updated
+        "404":
+          description: Policy not found in this organization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Delete organization policy
+      operationId: deleteOrgPolicy
+      tags: [Organization, Owner]
+      description: |
+        Deletes a policy owned by the organization. Requires `org_admin`
+        role.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/PolicyId"
+      responses:
+        "200":
+          description: Policy deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy_id, status]
+                properties:
+                  policy_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: deleted
+
+  /v1/owner/organizations/{orgId}/approval-requests:
+    get:
+      summary: List organization approval requests
+      operationId: listOrgApprovalRequests
+      tags: [Organization, Owner]
+      description: |
+        Returns approval requests for the organization's agents.
+        Supports filtering by status.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, DENIED, EXPIRED]
+      responses:
+        "200":
+          description: Approval request list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approval_requests]
+                properties:
+                  approval_requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApprovalRequestOwnerView"
+
+  /v1/owner/organizations/{orgId}/approval-requests/{approvalRequestId}/approve:
+    post:
+      summary: Approve organization approval request
+      operationId: approveOrgApprovalRequest
+      tags: [Organization, Owner]
+      description: |
+        Approves a pending approval request for an organization agent.
+        Generates a single-use PASETO approval token. Requires
+        `org_admin` or `org_member` role.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/ApprovalRequestId"
+      responses:
+        "200":
+          description: Request approved with approval token.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approval_request_id, status, approval_token, approval_token_expires_at]
+                properties:
+                  approval_request_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [APPROVED]
+                  approval_token:
+                    type: string
+                  approval_token_expires_at:
+                    type: string
+                    format: date-time
+
+  /v1/owner/organizations/{orgId}/approval-requests/{approvalRequestId}/deny:
+    post:
+      summary: Deny organization approval request
+      operationId: denyOrgApprovalRequest
+      tags: [Organization, Owner]
+      description: |
+        Denies a pending approval request for an organization agent.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/ApprovalRequestId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Request denied.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approval_request_id, status]
+                properties:
+                  approval_request_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [DENIED]
+
+  /v1/owner/session/refresh:
+    post:
+      summary: Refresh session token
+      operationId: refreshOwnerSession
+      tags: [Owner]
+      description: |
+        Issues a new PASETO session token with a fresh expiry, using
+        the current valid session token for authentication. Useful for
+        extending sessions without requiring re-login.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: New session token issued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, expires_at, user_principal_id]
+                properties:
+                  token:
+                    type: string
+                    description: New PASETO v4.public session token.
+                  expires_at:
+                    type: string
+                    format: date-time
+                  user_principal_id:
+                    type: string
+                    format: uuid
+        "401":
+          description: Session token invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   # ── Admin ───────────────────────────────────────────────────────────
 
   /v1/admin/owners:
@@ -1537,11 +2183,8 @@ paths:
           application/json:
             schema:
               type: object
-              required: [principal_type, display_name]
+              required: [display_name]
               properties:
-                principal_type:
-                  type: string
-                  enum: [HUMAN, ORG]
                 display_name:
                   type: string
                 contact_identities:
@@ -1624,9 +2267,9 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [owner_principal_id, status]
+                required: [user_principal_id, status]
                 properties:
-                  owner_principal_id:
+                  user_principal_id:
                     type: string
                     format: uuid
                   status:
@@ -1774,6 +2417,228 @@ paths:
                 type: object
                 description: Complete StateData object.
 
+  # ── Admin: Organizations ─────────────────────────────────────────────
+
+  /v1/admin/organizations/{orgId}:
+    get:
+      summary: Get organization detail (admin)
+      operationId: adminGetOrganization
+      tags: [Organization, Admin]
+      description: |
+        Returns the full details of an organization including its
+        members. Admin-only endpoint.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Organization detail with members.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OrganizationSummary"
+                  - type: object
+                    properties:
+                      member_count:
+                        type: integer
+                      members:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/OrgMembership"
+                      contact_identities:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ContactIdentity"
+                      company_ids:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CompanyId"
+        "404":
+          description: Organization not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Update organization (admin)
+      operationId: adminUpdateOrganization
+      tags: [Organization, Admin]
+      description: |
+        Updates an organization's details. Admin-only endpoint.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                contact_identities:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ContactIdentity"
+      responses:
+        "200":
+          description: Organization updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationSummary"
+    delete:
+      summary: Delete organization (admin)
+      operationId: adminDeleteOrganization
+      tags: [Organization, Admin]
+      description: |
+        Deletes an organization and all its memberships. Does not
+        delete associated agents or policies. Admin-only endpoint.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Organization deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [org_id, status]
+                properties:
+                  org_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: deleted
+
+  /v1/admin/organizations/{orgId}/members:
+    get:
+      summary: List organization members (admin)
+      operationId: adminListOrgMembers
+      tags: [Organization, Admin]
+      description: |
+        Returns all members of an organization. Admin-only endpoint.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Member list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [members]
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OrgMembership"
+    post:
+      summary: Add organization member (admin)
+      operationId: adminAddOrgMember
+      tags: [Organization, Admin]
+      description: |
+        Adds a user to an organization with the specified role.
+        Admin-only endpoint.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_principal_id, role]
+              properties:
+                user_principal_id:
+                  type: string
+                  format: uuid
+                role:
+                  $ref: "#/components/schemas/OrgRole"
+      responses:
+        "200":
+          description: Member added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgMembership"
+        "400":
+          description: User already a member or invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/admin/organizations/{orgId}/members/{userId}:
+    put:
+      summary: Update member role (admin)
+      operationId: adminUpdateOrgMemberRole
+      tags: [Organization, Admin]
+      description: |
+        Updates a member's role in an organization. Admin-only endpoint.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/OrgMemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  $ref: "#/components/schemas/OrgRole"
+      responses:
+        "200":
+          description: Role updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgMembership"
+        "404":
+          description: Member not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Remove organization member (admin)
+      operationId: adminRemoveOrgMember
+      tags: [Organization, Admin]
+      description: |
+        Removes a member from an organization. Admin-only endpoint.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/OrgMemberId"
+      responses:
+        "200":
+          description: Member removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: removed
+
   # ── Playground ──────────────────────────────────────────────────────
 
   /v1/playground/run:
@@ -1841,7 +2706,7 @@ components:
       scheme: bearer
       description: |
         PASETO v4.public session token issued by `POST /v1/owner/login`.
-        Contains `purpose: 'owner_session'` claim to distinguish from
+        Contains `purpose: 'user_session'` claim to distinguish from
         proof tokens. Default TTL is 8 hours (configurable via
         `sessions.ttl_seconds` in `config.yaml`).
 
@@ -1878,6 +2743,22 @@ components:
         type: string
         format: uuid
       description: UUID of the policy draft.
+    OrgId:
+      name: orgId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID of the organization.
+    OrgMemberId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID of the user principal to manage within the organization.
 
   schemas:
     Error:
@@ -1898,6 +2779,62 @@ components:
             details:
               type: object
               description: Additional structured details (e.g. Zod validation errors).
+
+    OrgRole:
+      type: string
+      enum: [org_admin, org_member, org_viewer]
+      description: |
+        Role of a user within an organization.
+        - `org_admin` — Full management: members, policies, agents, approvals.
+        - `org_member` — Can create policies, manage agents, handle approvals.
+        - `org_viewer` — Read-only access to organization resources.
+
+    OrganizationSummary:
+      type: object
+      description: Summary of an organization the user belongs to.
+      required: [org_id, display_name, status, role, created_at]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        status:
+          type: string
+          description: Organization status (e.g. `ACTIVE`, `SUSPENDED`).
+        role:
+          $ref: "#/components/schemas/OrgRole"
+        created_at:
+          type: string
+          format: date-time
+        verification_status:
+          type: string
+          enum: [UNVERIFIED, FORMAT_VALID, VERIFIED]
+          nullable: true
+          description: Verification status of the organization's identity.
+
+    OrgMembership:
+      type: object
+      description: A user's membership in an organization.
+      required: [membership_id, user_principal_id, role, status, created_at]
+      properties:
+        membership_id:
+          type: string
+          format: uuid
+        user_principal_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          description: Display name of the member.
+        role:
+          $ref: "#/components/schemas/OrgRole"
+        status:
+          type: string
+          description: Membership status (e.g. `ACTIVE`, `REMOVED`).
+        created_at:
+          type: string
+          format: date-time
 
     PublicKey:
       type: object
@@ -2057,7 +2994,7 @@ components:
     AgentRegistration:
       type: object
       description: A registered AI agent.
-      required: [agent_principal_id, agent_id, owner_principal_id, status, created_at]
+      required: [agent_principal_id, agent_id, owner_type, owner_id, status, created_at]
       properties:
         agent_principal_id:
           type: string
@@ -2066,7 +3003,11 @@ components:
         agent_id:
           type: string
           description: The agent's self-chosen identifier.
-        owner_principal_id:
+        owner_type:
+          type: string
+          enum: [user, org]
+          description: Type of owner (user or organization).
+        owner_id:
           type: string
           format: uuid
           description: UUID of the owner this agent belongs to.
@@ -2079,15 +3020,12 @@ components:
 
     Owner:
       type: object
-      description: An owner principal (human or organization) that holds policies and owns agents.
-      required: [owner_principal_id, principal_type, display_name, status, created_at]
+      description: A user principal that holds policies and owns agents.
+      required: [user_principal_id, display_name, status, created_at]
       properties:
-        owner_principal_id:
+        user_principal_id:
           type: string
           format: uuid
-        principal_type:
-          type: string
-          enum: [HUMAN, ORG]
         display_name:
           type: string
         status:
@@ -2199,12 +3137,15 @@ components:
     PolicyEntry:
       type: object
       description: A stored authorization policy with its binding information.
-      required: [policy_id, owner_principal_id, path]
+      required: [policy_id, owner_type, owner_id, path]
       properties:
         policy_id:
           type: string
           format: uuid
-        owner_principal_id:
+        owner_type:
+          type: string
+          enum: [user, org]
+        owner_id:
           type: string
           format: uuid
         applies_to_agent_principal_id:
@@ -2277,7 +3218,7 @@ components:
           format: uuid
         agent_id:
           type: string
-        owner_principal_id:
+        user_principal_id:
           type: string
           format: uuid
         action_type:
@@ -2370,7 +3311,7 @@ components:
         agent_principal_id:
           type: string
           format: uuid
-        owner_principal_id:
+        user_principal_id:
           type: string
           format: uuid
         applies_to_agent_principal_id:
@@ -2421,8 +3362,8 @@ components:
           type: string
           description: |
             Event type, e.g. `AUTHORIZE_CALLED`, `PROOF_ISSUED`,
-            `DECISION_CREATED`, `AGENT_REGISTERED`, `OWNER_CREATED`,
-            `POLICY_UPSERTED`, `OWNER_LOGIN`, `OWNER_LOGOUT`,
+            `DECISION_CREATED`, `AGENT_REGISTERED`, `USER_CREATED`,
+            `POLICY_UPSERTED`, `USER_LOGIN`, `USER_LOGOUT`,
             `APPROVAL_REQUEST_CREATED`, `APPROVAL_REQUEST_APPROVED`,
             `APPROVAL_REQUEST_DENIED`, `APPROVAL_TOKEN_USED`,
             `SERVER_STARTED`.

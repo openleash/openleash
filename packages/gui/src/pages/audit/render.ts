@@ -77,6 +77,7 @@ function eventSummary(
 ): string {
     const meta = entry.metadata_json;
     switch (entry.event_type) {
+        case "USER_CREATED":
         case "OWNER_CREATED":
             return meta.display_name ? escapeHtml(String(meta.display_name)) : "";
         case "AGENT_CHALLENGE_ISSUED":
@@ -160,9 +161,10 @@ function flowResult(icon: string, label: string, colorClass: string, tooltip = "
 function renderEventFlow(entry: AuditEntry, nameMap?: AuditNameMap): string {
     const meta = entry.metadata_json;
     const agentLabel = meta.agent_id ? String(meta.agent_id) : "Agent";
+    const ownerPid = meta.user_principal_id ?? meta.owner_principal_id;
     const ownerLabel =
-        nameMap && meta.owner_principal_id
-            ? (resolveId(String(meta.owner_principal_id), nameMap) ?? "Owner")
+        nameMap && ownerPid
+            ? (resolveId(String(ownerPid), nameMap) ?? "Owner")
             : "Owner";
     const actionLabel = meta.action_type ? String(meta.action_type) : "";
 
@@ -177,7 +179,7 @@ function renderEventFlow(entry: AuditEntry, nameMap?: AuditNameMap): string {
 
     const ownerTip =
         [
-            meta.owner_principal_id ? `owner_principal_id: ${meta.owner_principal_id}` : null,
+            ownerPid ? `user_principal_id: ${ownerPid}` : null,
             meta.display_name ? `name: ${meta.display_name}` : null,
         ]
             .filter(Boolean)
@@ -364,6 +366,7 @@ function renderEventFlow(entry: AuditEntry, nameMap?: AuditNameMap): string {
                 flowResult("check_circle", "Registered", "flow-result-allow", agentTip);
             break;
 
+        case "USER_LOGIN":
         case "OWNER_LOGIN":
             nodes =
                 flowNode("person", ownerLabel, "", ownerTip) +
@@ -373,13 +376,14 @@ function renderEventFlow(entry: AuditEntry, nameMap?: AuditNameMap): string {
                 flowResult("check_circle", "Login", "flow-result-allow");
             break;
 
+        case "USER_CREATED":
         case "OWNER_CREATED":
             nodes =
                 flowNode("admin_panel_settings", "Admin") +
                 flowArrow() +
                 flowNode("__openleash__", "OpenLeash") +
                 flowArrow("flow-arrow-allow") +
-                flowResult("check_circle", "Owner Created", "flow-result-allow", ownerTip);
+                flowResult("check_circle", "User Created", "flow-result-allow", ownerTip);
             break;
 
         case "POLICY_UPSERTED":
@@ -449,6 +453,7 @@ function renderEventFlow(entry: AuditEntry, nameMap?: AuditNameMap): string {
                 flowResult("token", "Challenge", "flow-result-pending", challengeTip);
             break;
 
+        case "USER_SETUP_INVITE_CREATED":
         case "OWNER_SETUP_INVITE_CREATED":
         case "AGENT_INVITE_CREATED":
             nodes =
@@ -537,7 +542,7 @@ function formatMetadata(
 
             // Resolve owner/agent principal IDs to names
             if (
-                (key === "owner_principal_id" || key === "agent_principal_id") &&
+                (key === "user_principal_id" || key === "owner_principal_id" || key === "agent_principal_id") &&
                 typeof val === "string" &&
                 nameMap
             ) {

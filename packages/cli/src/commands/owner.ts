@@ -3,12 +3,14 @@ import prompts from 'prompts';
 import {
   validateGovernmentIdValue,
   validateCompanyIdValue,
-  validateOwnerIdentity,
-  computeAssuranceLevel,
+  validateUserIdentity,
+  validateOrgIdentity,
+  computeUserAssuranceLevel,
+  computeOrgAssuranceLevel,
   EU_PERSONAL_ID_TYPES,
   EuCountryCode,
 } from '@openleash/core';
-import type { DataStore, OwnerFrontmatter, ContactIdentity, GovernmentId, CompanyId, Signatory } from '@openleash/core';
+import type { DataStore, UserFrontmatter, OrganizationFrontmatter, ContactIdentity, GovernmentId, CompanyId, Signatory } from '@openleash/core';
 import { bootstrapState } from '@openleash/server';
 
 const EU_COUNTRIES = EuCountryCode.options;
@@ -21,18 +23,18 @@ function ensureBootstrapped(store: DataStore): void {
 export async function ownerListCommand(store: DataStore) {
   ensureBootstrapped(store);
   const state = store.state.getState();
-  if (state.owners.length === 0) {
+  if (state.users.length === 0) {
     console.log('No owners registered.');
     return;
   }
-  console.log(`\n  ${'ID'.padEnd(38)} ${'Name'.padEnd(24)} ${'Type'.padEnd(6)} ${'Status'.padEnd(10)} Assurance`);
-  console.log(`  ${'-'.repeat(38)} ${'-'.repeat(24)} ${'-'.repeat(6)} ${'-'.repeat(10)} ${'-'.repeat(15)}`);
-  for (const entry of state.owners) {
+  console.log(`\n  ${'ID'.padEnd(38)} ${'Name'.padEnd(24)} ${'Status'.padEnd(10)} Assurance`);
+  console.log(`  ${'-'.repeat(38)} ${'-'.repeat(24)} ${'-'.repeat(10)} ${'-'.repeat(15)}`);
+  for (const entry of state.users) {
     try {
-      const o = store.owners.read(entry.owner_principal_id);
-      console.log(`  ${o.owner_principal_id} ${(o.display_name ?? '-').padEnd(24)} ${o.principal_type.padEnd(6)} ${(o.status ?? '-').padEnd(10)} ${o.identity_assurance_level ?? 'NONE'}`);
+      const o = store.users.read(entry.user_principal_id);
+      console.log(`  ${o.user_principal_id} ${(o.display_name ?? '-').padEnd(24)} ${(o.status ?? '-').padEnd(10)} ${o.identity_assurance_level ?? 'NONE'}`);
     } catch {
-      console.log(`  ${entry.owner_principal_id} (file not found)`);
+      console.log(`  ${entry.user_principal_id} (file not found)`);
     }
   }
   console.log();
@@ -45,52 +47,25 @@ export async function ownerShowCommand(store: DataStore, ownerId: string) {
   }
   ensureBootstrapped(store);
   try {
-    const owner = store.owners.read(ownerId);
-    console.log(`\n  Owner: ${owner.display_name}`);
-    console.log(`  ID:    ${owner.owner_principal_id}`);
-    console.log(`  Type:  ${owner.principal_type}`);
-    console.log(`  Status: ${owner.status}`);
-    console.log(`  Assurance: ${owner.identity_assurance_level ?? 'NONE'}`);
-    console.log(`  Created: ${owner.created_at}`);
+    const user = store.users.read(ownerId);
+    console.log(`\n  Owner: ${user.display_name}`);
+    console.log(`  ID:    ${user.user_principal_id}`);
+    console.log(`  Status: ${user.status}`);
+    console.log(`  Assurance: ${user.identity_assurance_level ?? 'NONE'}`);
+    console.log(`  Created: ${user.created_at}`);
 
-    if (owner.contact_identities?.length) {
+    if (user.contact_identities?.length) {
       console.log(`\n  Contact Identities:`);
-      for (const c of owner.contact_identities) {
+      for (const c of user.contact_identities) {
         console.log(`    ${c.type}: ${c.value}${c.label ? ` (${c.label})` : ''} [${c.verified ? 'VERIFIED' : 'UNVERIFIED'}]`);
       }
     }
 
-    if (owner.government_ids?.length) {
+    if (user.government_ids?.length) {
       console.log(`\n  Government IDs:`);
-      for (const g of owner.government_ids) {
+      for (const g of user.government_ids) {
         const masked = g.id_value.length > 4 ? '*'.repeat(g.id_value.length - 4) + g.id_value.slice(-4) : g.id_value;
         console.log(`    ${g.country}/${g.id_type}: ${masked} [${g.verification_level}]`);
-      }
-    }
-
-    if (owner.company_ids?.length) {
-      console.log(`\n  Company IDs:`);
-      for (const c of owner.company_ids) {
-        console.log(`    ${c.id_type}${c.country ? ` (${c.country})` : ''}: ${c.id_value} [${c.verification_level}]`);
-      }
-    }
-
-    if (owner.signatories?.length) {
-      console.log(`\n  Signatories:`);
-      for (const s of owner.signatories) {
-        let humanName = s.human_owner_principal_id.slice(0, 8) + '...';
-        try {
-          const h = store.owners.read(s.human_owner_principal_id);
-          humanName = h.display_name;
-        } catch { /* ignore */ }
-        console.log(`    ${humanName} — ${s.role} (${s.signing_authority})${s.scope_description ? ` — ${s.scope_description}` : ''}`);
-      }
-    }
-
-    if (owner.signatory_rules?.length) {
-      console.log(`\n  Signatory Rules:`);
-      for (const r of owner.signatory_rules) {
-        console.log(`    ${r.description} (${r.required_signatories} required${r.from_roles?.length ? `, roles: ${r.from_roles.join(', ')}` : ''})`);
       }
     }
 
@@ -106,7 +81,7 @@ export async function ownerAddContactCommand(store: DataStore, ownerId: string) 
     return;
   }
   ensureBootstrapped(store);
-  const owner = store.owners.read(ownerId);
+  const user = store.users.read(ownerId);
 
   const { type } = await prompts({
     type: 'select',
@@ -153,10 +128,10 @@ export async function ownerAddContactCommand(store: DataStore, ownerId: string) 
     added_at: new Date().toISOString(),
   };
 
-  owner.contact_identities = [...(owner.contact_identities ?? []), contact];
-  owner.identity_assurance_level = computeAssuranceLevel(owner);
-  store.owners.write(owner);
-  store.audit.append('OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_contact' });
+  user.contact_identities = [...(user.contact_identities ?? []), contact];
+  user.identity_assurance_level = computeUserAssuranceLevel(user);
+  store.users.write(user);
+  store.audit.append('USER_IDENTITY_UPDATED', { user_principal_id: ownerId, action: 'add_contact' });
   console.log(`  Contact added: ${type} ${value}`);
 }
 
@@ -166,12 +141,7 @@ export async function ownerAddGovIdCommand(store: DataStore, ownerId: string) {
     return;
   }
   ensureBootstrapped(store);
-  const owner = store.owners.read(ownerId);
-
-  if (owner.principal_type !== 'HUMAN') {
-    console.error('Government IDs are only allowed for HUMAN owners.');
-    return;
-  }
+  const user = store.users.read(ownerId);
 
   const { country } = await prompts({
     type: 'select',
@@ -221,7 +191,7 @@ export async function ownerAddGovIdCommand(store: DataStore, ownerId: string) {
   }
 
   // Check for duplicates
-  const existing = (owner.government_ids ?? []).find(
+  const existing = (user.government_ids ?? []).find(
     (g) => g.country === country && g.id_type === idType,
   );
   if (existing) {
@@ -238,10 +208,10 @@ export async function ownerAddGovIdCommand(store: DataStore, ownerId: string) {
     added_at: new Date().toISOString(),
   };
 
-  owner.government_ids = [...(owner.government_ids ?? []), govId];
-  owner.identity_assurance_level = computeAssuranceLevel(owner);
-  store.owners.write(owner);
-  store.audit.append('OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_government_id', country, id_type: idType });
+  user.government_ids = [...(user.government_ids ?? []), govId];
+  user.identity_assurance_level = computeUserAssuranceLevel(user);
+  store.users.write(user);
+  store.audit.append('USER_IDENTITY_UPDATED', { user_principal_id: ownerId, action: 'add_government_id', country, id_type: idType });
   console.log(`  Government ID added: ${country}/${idType} [${verificationLevel}]`);
 }
 
@@ -251,12 +221,7 @@ export async function ownerAddCompanyIdCommand(store: DataStore, ownerId: string
     return;
   }
   ensureBootstrapped(store);
-  const owner = store.owners.read(ownerId);
-
-  if (owner.principal_type !== 'ORG') {
-    console.error('Company IDs are only allowed for ORG owners.');
-    return;
-  }
+  const org = store.organizations.read(ownerId);
 
   const { idType } = await prompts({
     type: 'select',
@@ -313,10 +278,10 @@ export async function ownerAddCompanyIdCommand(store: DataStore, ownerId: string
     added_at: new Date().toISOString(),
   };
 
-  owner.company_ids = [...(owner.company_ids ?? []), companyId];
-  owner.identity_assurance_level = computeAssuranceLevel(owner);
-  store.owners.write(owner);
-  store.audit.append('OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_company_id', id_type: idType });
+  org.company_ids = [...(org.company_ids ?? []), companyId];
+  org.identity_assurance_level = computeOrgAssuranceLevel(org);
+  store.organizations.write(org);
+  store.audit.append('ORG_UPDATED', { org_id: ownerId, action: 'add_company_id', id_type: idType });
   console.log(`  Company ID added: ${idType} [${verificationLevel}]`);
 }
 
@@ -326,20 +291,15 @@ export async function ownerAddSignatoryCommand(store: DataStore, ownerId: string
     return;
   }
   ensureBootstrapped(store);
-  const owner = store.owners.read(ownerId);
-
-  if (owner.principal_type !== 'ORG') {
-    console.error('Signatories are only allowed for ORG owners.');
-    return;
-  }
+  const org = store.organizations.read(ownerId);
 
   const state = store.state.getState();
-  const humanOwners = state.owners
-    .map((o) => { try { return store.owners.read(o.owner_principal_id); } catch { return null; } })
-    .filter((o): o is OwnerFrontmatter => o !== null && o.principal_type === 'HUMAN');
+  const humanUsers = state.users
+    .map((o) => { try { return store.users.read(o.user_principal_id); } catch { return null; } })
+    .filter((o): o is UserFrontmatter => o !== null);
 
-  if (humanOwners.length === 0) {
-    console.error('No HUMAN owners found. Create a human owner first.');
+  if (humanUsers.length === 0) {
+    console.error('No users found. Create a user first.');
     return;
   }
 
@@ -347,9 +307,9 @@ export async function ownerAddSignatoryCommand(store: DataStore, ownerId: string
     type: 'select',
     name: 'humanId',
     message: 'Select person:',
-    choices: humanOwners.map((h) => ({
-      title: `${h.display_name} (${h.owner_principal_id.slice(0, 8)}...)`,
-      value: h.owner_principal_id,
+    choices: humanUsers.map((h) => ({
+      title: `${h.display_name} (${h.user_principal_id.slice(0, 8)}...)`,
+      value: h.user_principal_id,
     })),
   });
 
@@ -394,10 +354,10 @@ export async function ownerAddSignatoryCommand(store: DataStore, ownerId: string
     added_at: new Date().toISOString(),
   };
 
-  owner.signatories = [...(owner.signatories ?? []), signatory];
-  store.owners.write(owner);
-  store.audit.append('OWNER_IDENTITY_UPDATED', { owner_principal_id: ownerId, action: 'add_signatory', human_owner_principal_id: humanId, role });
-  console.log(`  Signatory added: ${humanOwners.find((h) => h.owner_principal_id === humanId)?.display_name} as ${role} (${authority})`);
+  org.signatories = [...(org.signatories ?? []), signatory];
+  store.organizations.write(org);
+  store.audit.append('ORG_UPDATED', { org_id: ownerId, action: 'add_signatory', human_owner_principal_id: humanId, role });
+  console.log(`  Signatory added: ${humanUsers.find((h) => h.user_principal_id === humanId)?.display_name} as ${role} (${authority})`);
 }
 
 export async function ownerValidateCommand(store: DataStore, ownerId: string) {
@@ -406,52 +366,93 @@ export async function ownerValidateCommand(store: DataStore, ownerId: string) {
     return;
   }
   ensureBootstrapped(store);
-  const owner = store.owners.read(ownerId);
 
-  const resolveOwner = (id: string): OwnerFrontmatter | null => {
-    try { return store.owners.read(id); } catch { return null; }
-  };
+  // Try reading as a user first
+  let user: UserFrontmatter | null = null;
+  try {
+    user = store.users.read(ownerId);
+  } catch { /* not a user */ }
 
-  const result = validateOwnerIdentity(owner, resolveOwner);
-  let hasErrors = false;
+  if (user) {
+    const result = validateUserIdentity(user);
+    let hasErrors = false;
 
-  if (result.type_errors.length > 0) {
-    console.log('\n  Type errors:');
-    for (const e of result.type_errors) console.log(`    - ${e}`);
-    hasErrors = true;
-  }
-
-  for (const [i, r] of result.contacts.entries()) {
-    if (!r.valid) {
-      console.log(`  Contact #${i + 1}: ${r.error}`);
+    if (result.type_errors.length > 0) {
+      console.log('\n  Type errors:');
+      for (const e of result.type_errors) console.log(`    - ${e}`);
       hasErrors = true;
     }
+
+    for (const [i, r] of result.contacts.entries()) {
+      if (!r.valid) {
+        console.log(`  Contact #${i + 1}: ${r.error}`);
+        hasErrors = true;
+      }
+    }
+
+    for (const [i, r] of result.government_ids.entries()) {
+      if (!r.valid) {
+        console.log(`  Government ID #${i + 1}: ${r.error}`);
+        hasErrors = true;
+      }
+    }
+
+    if (!hasErrors) {
+      console.log(`\n  All identity checks passed.`);
+    }
+
+    console.log(`  Identity assurance level: ${computeUserAssuranceLevel(user)}`);
+    return;
   }
 
-  for (const [i, r] of result.government_ids.entries()) {
-    if (!r.valid) {
-      console.log(`  Government ID #${i + 1}: ${r.error}`);
+  // Try as org
+  let org: OrganizationFrontmatter | null = null;
+  try {
+    org = store.organizations.read(ownerId);
+  } catch { /* not an org */ }
+
+  if (org) {
+    const resolveUser = (id: string): UserFrontmatter | null => {
+      try { return store.users.read(id); } catch { return null; }
+    };
+
+    const result = validateOrgIdentity(org, resolveUser);
+    let hasErrors = false;
+
+    if (result.type_errors.length > 0) {
+      console.log('\n  Type errors:');
+      for (const e of result.type_errors) console.log(`    - ${e}`);
       hasErrors = true;
     }
-  }
 
-  for (const [i, r] of result.company_ids.entries()) {
-    if (!r.valid) {
-      console.log(`  Company ID #${i + 1}: ${r.error}`);
-      hasErrors = true;
+    for (const [i, r] of result.contacts.entries()) {
+      if (!r.valid) {
+        console.log(`  Contact #${i + 1}: ${r.error}`);
+        hasErrors = true;
+      }
     }
-  }
 
-  for (const [i, r] of result.signatories.entries()) {
-    if (!r.valid) {
-      console.log(`  Signatory #${i + 1}: ${r.error}`);
-      hasErrors = true;
+    for (const [i, r] of result.company_ids.entries()) {
+      if (!r.valid) {
+        console.log(`  Company ID #${i + 1}: ${r.error}`);
+        hasErrors = true;
+      }
     }
+
+    for (const [i, r] of result.signatories.entries()) {
+      if (!r.valid) {
+        console.log(`  Signatory #${i + 1}: ${r.error}`);
+        hasErrors = true;
+      }
+    }
+
+    if (!hasErrors) {
+      console.log(`\n  All identity checks passed.`);
+    }
+
+    console.log(`  Identity assurance level: ${computeOrgAssuranceLevel(org)}`);
+    return;
   }
 
-  if (!hasErrors) {
-    console.log(`\n  All identity checks passed.`);
-  }
-
-  console.log(`  Identity assurance level: ${computeAssuranceLevel(owner)}`);
+  console.error(`Owner ${ownerId} not found.`);
 }

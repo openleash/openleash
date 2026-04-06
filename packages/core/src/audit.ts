@@ -285,7 +285,8 @@ export class FileAuditStore implements AuditStore {
 
     addPrincipal(event.principal_id);
     const meta = event.metadata_json as Record<string, unknown>;
-    addPrincipal(meta.owner_principal_id as string | undefined);
+    addPrincipal(meta.user_principal_id as string | undefined);
+    addPrincipal(meta.owner_principal_id as string | undefined); // backward compat with old audit logs
     addPrincipal(meta.agent_principal_id as string | undefined);
   }
 

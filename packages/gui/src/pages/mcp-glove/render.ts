@@ -2,8 +2,8 @@ import { renderPage, escapeHtml, infoIcon, INFO_MCP_GLOVE } from "../../shared/l
 import { assetTags } from "../../shared/manifest.js";
 
 export interface McpGlovePageData {
-    agents: { agent_id: string; display_name: string; owner_principal_id: string }[];
-    owners: { owner_principal_id: string; display_name: string }[];
+    agents: { agent_id: string; display_name: string; owner_type: string; owner_id: string }[];
+    owners: { id: string; display_name: string }[];
     server_url: string;
     glove_activity: { total: number; allow: number; deny: number; require_approval: number };
 }
@@ -56,12 +56,12 @@ const PROFILE_PAYLOAD_FIELDS = [
 export function renderMcpGlove(data: McpGlovePageData): string {
     const { agents, owners, server_url, glove_activity } = data;
 
-    const ownerMap = new Map(owners.map((o) => [o.owner_principal_id, o.display_name]));
+    const ownerMap = new Map(owners.map((o) => [o.id, o.display_name]));
 
     const agentOptions = agents
         .map((a) => {
             const ownerName =
-                ownerMap.get(a.owner_principal_id) ?? a.owner_principal_id.slice(0, 8);
+                ownerMap.get(a.owner_id) ?? a.owner_id.slice(0, 8);
             return `<option value="${escapeHtml(a.agent_id)}">${escapeHtml(a.display_name || a.agent_id)} (${escapeHtml(ownerName)})</option>`;
         })
         .join("\n");

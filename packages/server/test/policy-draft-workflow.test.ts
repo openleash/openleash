@@ -9,7 +9,7 @@ import { bootstrapState } from '../src/bootstrap.js';
 import {
   readState,
   writeState,
-  writeOwnerFile,
+  writeUserFile,
   writeAgentFile,
   writeSetupInviteFile,
   readPolicyFile,
@@ -59,11 +59,10 @@ describe('policy draft workflow', () => {
     bootstrapState(rootDir);
     const config = loadConfig(rootDir);
 
-    // Create a test owner
+    // Create a test user
     ownerId = crypto.randomUUID();
-    writeOwnerFile(dataDir, {
-      owner_principal_id: ownerId,
-      principal_type: 'HUMAN',
+    writeUserFile(dataDir, {
+      user_principal_id: ownerId,
       display_name: 'Test Owner',
       status: 'ACTIVE',
       attributes: {},
@@ -71,8 +70,8 @@ describe('policy draft workflow', () => {
     });
 
     const state = readState(dataDir);
-    state.owners.push({
-      owner_principal_id: ownerId,
+    state.users.push({
+      user_principal_id: ownerId,
       path: `./owners/${ownerId}.md`,
     });
     writeState(dataDir, state);
@@ -83,7 +82,7 @@ describe('policy draft workflow', () => {
     const { hash: invHash, salt: invSalt } = hashPassphrase(inviteToken);
     writeSetupInviteFile(dataDir, {
       invite_id: inviteId,
-      owner_principal_id: ownerId,
+      user_principal_id: ownerId,
       token_hash: invHash,
       token_salt: invSalt,
       expires_at: new Date(Date.now() + 3600000).toISOString(),
@@ -103,7 +102,8 @@ describe('policy draft workflow', () => {
     writeAgentFile(dataDir, {
       agent_principal_id: agentPrincipalId,
       agent_id: agentId,
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       public_key_b64: publicKeyDer.toString('base64'),
       status: 'ACTIVE',
       attributes: {},
@@ -119,7 +119,8 @@ describe('policy draft workflow', () => {
     updatedState.agents.push({
       agent_principal_id: agentPrincipalId,
       agent_id: agentId,
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       path: `./agents/${agentPrincipalId}.md`,
     });
     writeState(dataDir, updatedState);
@@ -140,7 +141,7 @@ describe('policy draft workflow', () => {
     const loginRes = await app.inject({
       method: 'POST',
       url: '/v1/owner/login',
-      payload: { owner_principal_id: ownerId, passphrase: 'test-passphrase-123' },
+      payload: { user_principal_id: ownerId, passphrase: 'test-passphrase-123' },
     });
     ownerSessionToken = JSON.parse(loginRes.payload).token;
   });

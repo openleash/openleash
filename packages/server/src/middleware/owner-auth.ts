@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import {
   verifySessionToken,
-  resolveUserRoles,
+  resolveSystemRoles,
 } from '@openleash/core';
 import type { OpenleashConfig, DataStore } from '@openleash/core';
 
@@ -52,23 +52,22 @@ export function createOwnerAuth(config: OpenleashConfig, store: DataStore) {
       return;
     }
 
-    // Verify owner exists and is active
-    const ownerEntry = state.owners.find((o) => o.owner_principal_id === result.claims!.sub);
-    if (!ownerEntry) {
-      deny('OWNER_NOT_FOUND', 'Owner not found');
+    // Verify user exists and is active
+    const userEntry = state.users.find((u) => u.user_principal_id === result.claims!.sub);
+    if (!userEntry) {
+      deny('USER_NOT_FOUND', 'User not found');
       return;
     }
 
-    const owner = store.owners.read(result.claims.sub);
-    if (owner.status !== 'ACTIVE') {
-      deny('OWNER_INACTIVE', 'Owner account is not active');
+    const user = store.users.read(result.claims.sub);
+    if (user.status !== 'ACTIVE') {
+      deny('USER_INACTIVE', 'User account is not active');
       return;
     }
 
-    // Enrich session claims with roles from store (authoritative source,
-    // ensures roles work even if the token was issued by a plugin without roles)
-    if (!result.claims.roles) {
-      result.claims.roles = resolveUserRoles(owner);
+    // Enrich session claims with system_roles from store (authoritative source)
+    if (!result.claims.system_roles) {
+      result.claims.system_roles = resolveSystemRoles(user);
     }
 
     // Attach session info to request

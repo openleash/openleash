@@ -28,7 +28,8 @@ describe('approval request state', () => {
       decision_id: '00000000-0000-0000-0000-000000000002',
       agent_principal_id: '00000000-0000-0000-0000-000000000003',
       agent_id: 'test-agent',
-      owner_principal_id: '00000000-0000-0000-0000-000000000004',
+      owner_type: 'user',
+      owner_id: '00000000-0000-0000-0000-000000000004',
       action_type: 'purchase',
       action_hash: 'abc123',
       action: {
@@ -76,7 +77,7 @@ describe('setup invite state', () => {
   it('writes and reads invite file', () => {
     const invite: SetupInvite = {
       invite_id: '00000000-0000-0000-0000-000000000010',
-      owner_principal_id: '00000000-0000-0000-0000-000000000001',
+      user_principal_id: '00000000-0000-0000-0000-000000000001',
       token_hash: 'hashed-token',
       token_salt: 'salt-value',
       expires_at: new Date(Date.now() + 3600000).toISOString(),
@@ -89,14 +90,14 @@ describe('setup invite state', () => {
 
     const read = readSetupInviteFile(dataDir, invite.invite_id);
     expect(read.invite_id).toBe(invite.invite_id);
-    expect(read.owner_principal_id).toBe(invite.owner_principal_id);
+    expect(read.user_principal_id).toBe(invite.user_principal_id);
     expect(read.used).toBe(false);
   });
 
   it('deletes invite file', () => {
     const invite: SetupInvite = {
       invite_id: '00000000-0000-0000-0000-000000000011',
-      owner_principal_id: '00000000-0000-0000-0000-000000000001',
+      user_principal_id: '00000000-0000-0000-0000-000000000001',
       token_hash: 'hashed-token',
       token_salt: 'salt-value',
       expires_at: new Date(Date.now() + 3600000).toISOString(),

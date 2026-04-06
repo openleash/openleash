@@ -32,7 +32,8 @@ export function registerAgentSelfRoutes(
     return {
       agent_principal_id: agent.agent_principal_id,
       agent_id: agent.agent_id,
-      owner_principal_id: agent.owner_principal_id,
+      owner_type: agent.owner_type,
+      owner_id: agent.owner_id,
       status: agent.status,
       attributes: agent.attributes,
       created_at: agent.created_at,
@@ -84,7 +85,8 @@ export function registerAgentSelfRoutes(
       decision_id: body.decision_id,
       agent_principal_id: agentEntry.agent_principal_id,
       agent_id: agent.agent_id,
-      owner_principal_id: agentEntry.owner_principal_id,
+      owner_type: agentEntry.owner_type,
+      owner_id: agentEntry.owner_id,
       action_type: action.action_type,
       action_hash: actionHash,
       action,
@@ -108,7 +110,8 @@ export function registerAgentSelfRoutes(
       if (!s.approval_requests) s.approval_requests = [];
       s.approval_requests.push({
         approval_request_id: approvalRequestId,
-        owner_principal_id: agentEntry.owner_principal_id,
+        owner_type: agentEntry.owner_type,
+      owner_id: agentEntry.owner_id,
         agent_principal_id: agentEntry.agent_principal_id,
         status: 'PENDING',
         path: `./approval-requests/${approvalRequestId}.md`,
@@ -119,7 +122,8 @@ export function registerAgentSelfRoutes(
       approval_request_id: approvalRequestId,
       agent_id: agent.agent_id,
       agent_principal_id: agentEntry.agent_principal_id,
-      owner_principal_id: agentEntry.owner_principal_id,
+      owner_type: agentEntry.owner_type,
+      owner_id: agentEntry.owner_id,
       action_type: action.action_type,
       decision_id: body.decision_id,
       action_hash: actionHash,
@@ -134,7 +138,8 @@ export function registerAgentSelfRoutes(
       decision_id: body.decision_id,
       agent_id: agent.agent_id,
       agent_principal_id: agentEntry.agent_principal_id,
-      owner_principal_id: agentEntry.owner_principal_id,
+      owner_type: agentEntry.owner_type,
+      owner_id: agentEntry.owner_id,
       action_type: action.action_type,
       justification: body.justification ?? null,
       expires_at: expiresAt.toISOString(),
@@ -228,7 +233,8 @@ export function registerAgentSelfRoutes(
       policy_draft_id: policyDraftId,
       agent_principal_id: agentEntry.agent_principal_id,
       agent_id: agent.agent_id,
-      owner_principal_id: agentEntry.owner_principal_id,
+      owner_type: agentEntry.owner_type,
+      owner_id: agentEntry.owner_id,
       applies_to_agent_principal_id: body.applies_to_agent_principal_id !== undefined
         ? body.applies_to_agent_principal_id
         : agentEntry.agent_principal_id,
@@ -251,7 +257,8 @@ export function registerAgentSelfRoutes(
       if (!s.policy_drafts) s.policy_drafts = [];
       s.policy_drafts.push({
         policy_draft_id: policyDraftId,
-        owner_principal_id: agentEntry.owner_principal_id,
+        owner_type: agentEntry.owner_type,
+      owner_id: agentEntry.owner_id,
         agent_principal_id: agentEntry.agent_principal_id,
         status: 'PENDING',
         path: `./policy-drafts/${policyDraftId}.md`,
@@ -262,7 +269,8 @@ export function registerAgentSelfRoutes(
       policy_draft_id: policyDraftId,
       agent_id: agent.agent_id,
       agent_principal_id: agentEntry.agent_principal_id,
-      owner_principal_id: agentEntry.owner_principal_id,
+      owner_type: agentEntry.owner_type,
+      owner_id: agentEntry.owner_id,
       justification: body.justification ?? null,
       applies_to_agent_principal_id: draft.applies_to_agent_principal_id,
     });
@@ -271,7 +279,8 @@ export function registerAgentSelfRoutes(
       policy_draft_id: policyDraftId,
       agent_id: agent.agent_id,
       agent_principal_id: agentEntry.agent_principal_id,
-      owner_principal_id: agentEntry.owner_principal_id,
+      owner_type: agentEntry.owner_type,
+      owner_id: agentEntry.owner_id,
       name: draft.name,
       justification: body.justification ?? null,
     });

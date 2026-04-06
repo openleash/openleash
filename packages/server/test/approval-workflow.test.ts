@@ -9,7 +9,7 @@ import { bootstrapState } from '../src/bootstrap.js';
 import {
   readState,
   writeState,
-  writeOwnerFile,
+  writeUserFile,
   writeAgentFile,
   writePolicyFile,
   writeSetupInviteFile,
@@ -61,11 +61,10 @@ describe('approval workflow', () => {
     bootstrapState(rootDir);
     const config = loadConfig(rootDir);
 
-    // Create a test owner (bootstrap no longer creates one)
+    // Create a test user (bootstrap no longer creates one)
     ownerId = crypto.randomUUID();
-    writeOwnerFile(dataDir, {
-      owner_principal_id: ownerId,
-      principal_type: 'HUMAN',
+    writeUserFile(dataDir, {
+      user_principal_id: ownerId,
       display_name: 'Test Owner',
       status: 'ACTIVE',
       attributes: {},
@@ -73,8 +72,8 @@ describe('approval workflow', () => {
     });
 
     const state = readState(dataDir);
-    state.owners.push({
-      owner_principal_id: ownerId,
+    state.users.push({
+      user_principal_id: ownerId,
       path: `./owners/${ownerId}.md`,
     });
     writeState(dataDir, state);
@@ -85,7 +84,7 @@ describe('approval workflow', () => {
     const { hash: invHash, salt: invSalt } = hashPassphrase(inviteToken);
     writeSetupInviteFile(dataDir, {
       invite_id: inviteId,
-      owner_principal_id: ownerId,
+      user_principal_id: ownerId,
       token_hash: invHash,
       token_salt: invSalt,
       expires_at: new Date(Date.now() + 3600000).toISOString(),
@@ -105,7 +104,8 @@ describe('approval workflow', () => {
     writeAgentFile(dataDir, {
       agent_principal_id: agentPrincipalId,
       agent_id: agentId,
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       public_key_b64: publicKeyDer.toString('base64'),
       status: 'ACTIVE',
       attributes: {},
@@ -134,18 +134,23 @@ rules:
     updatedState.agents.push({
       agent_principal_id: agentPrincipalId,
       agent_id: agentId,
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       path: `./agents/${agentPrincipalId}.md`,
     });
     updatedState.policies.push({
       policy_id: policyId,
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       applies_to_agent_principal_id: agentPrincipalId,
+      name: null,
+      description: null,
       path: `./policies/${policyId}.yaml`,
     });
     // Put agent-specific binding FIRST so it takes precedence over the default deny policy
     updatedState.bindings.unshift({
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       policy_id: policyId,
       applies_to_agent_principal_id: agentPrincipalId,
     });
@@ -167,7 +172,7 @@ rules:
     const loginRes = await app.inject({
       method: 'POST',
       url: '/v1/owner/login',
-      payload: { owner_principal_id: ownerId, passphrase: 'test-passphrase-123' },
+      payload: { user_principal_id: ownerId, passphrase: 'test-passphrase-123' },
     });
     ownerSessionToken = JSON.parse(loginRes.payload).token;
   });

@@ -9,7 +9,8 @@ describe('PASETO tokens', () => {
     const { token, expiresAt, claims } = await issueProofToken({
       key,
       decisionId: '00000000-0000-0000-0000-000000000001',
-      ownerPrincipalId: '00000000-0000-0000-0000-000000000002',
+      ownerType: 'user' as const,
+      ownerId: '00000000-0000-0000-0000-000000000002',
       agentId: 'test-agent',
       actionType: 'purchase',
       actionHash: 'abc123def456',
@@ -34,7 +35,8 @@ describe('PASETO tokens', () => {
     const { token } = await issueProofToken({
       key: key1,
       decisionId: '00000000-0000-0000-0000-000000000001',
-      ownerPrincipalId: '00000000-0000-0000-0000-000000000002',
+      ownerType: 'user' as const,
+      ownerId: '00000000-0000-0000-0000-000000000002',
       agentId: 'test-agent',
       actionType: 'purchase',
       actionHash: 'abc123def456',

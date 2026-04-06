@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { FastifyInstance } from "fastify";
-import { resolveUserRoles } from "@openleash/core";
+import { resolveSystemRoles } from "@openleash/core";
 import type { OpenleashConfig, SessionClaims, DataStore, ServerPluginManifest } from "@openleash/core";
 import {
     renderDashboard,
@@ -25,6 +25,8 @@ import {
     renderApiReferenceUnavailable,
     renderMcpGlove,
     renderAbout,
+    renderAdminOrganizations,
+    renderAdminOrganizationDetail,
     setVersion,
 } from "@openleash/gui";
 import type { PackageInfo } from "@openleash/gui";
@@ -91,21 +93,22 @@ export function registerGuiRoutes(
     const statePath = path.join(dataDir, "state.md");
     const isHosted = config.instance?.mode === "hosted";
     const pluginManifest = options?.pluginManifest;
+    const verificationProviderIds = pluginManifest?.verificationProviders?.map((p) => p.provider_id);
     const baseRenderOptions = isHosted
         ? {
             showContextSwitcher: false,
-            extraOwnerNavItems: pluginManifest?.ownerNavItems,
+            extraUserNavItems: pluginManifest?.userNavItems,
             extraAdminNavItems: pluginManifest?.adminNavItems,
-            verificationProviders: pluginManifest?.verificationProviders,
+            verificationProviders: verificationProviderIds,
             isHosted: true,
             extraHeadHtml: pluginManifest?.extraHeadHtml,
             extraBodyHtml: pluginManifest?.extraBodyHtml,
         }
         : pluginManifest
             ? {
-                extraOwnerNavItems: pluginManifest.ownerNavItems,
+                extraUserNavItems: pluginManifest.userNavItems,
                 extraAdminNavItems: pluginManifest.adminNavItems,
-                verificationProviders: pluginManifest?.verificationProviders,
+                verificationProviders: verificationProviderIds,
                 extraHeadHtml: pluginManifest?.extraHeadHtml,
                 extraBodyHtml: pluginManifest?.extraBodyHtml,
             }
@@ -113,7 +116,7 @@ export function registerGuiRoutes(
 
     /** Build render options with isAdmin from session claims. */
     function ownerRenderOptionsFor(session: SessionClaims) {
-        const hasAdminRole = (session.roles ?? []).includes("admin");
+        const hasAdminRole = (session.system_roles ?? []).includes("admin");
         return baseRenderOptions
             ? { ...baseRenderOptions, isAdmin: hasAdminRole }
             : hasAdminRole ? { isAdmin: true } : undefined;
@@ -136,7 +139,7 @@ export function registerGuiRoutes(
     if (!pluginManifest?.handlesRootPath) {
         app.get("/gui", async (_request, reply) => {
             const state = store.state.getState();
-            if (!isHosted && state.owners.length === 0) {
+            if (!isHosted && state.users.length === 0) {
                 reply.redirect("/gui/setup");
                 return;
             }
@@ -151,7 +154,7 @@ export function registerGuiRoutes(
             return;
         }
         const state = store.state.getState();
-        if (state.owners.length > 0) {
+        if (state.users.length > 0) {
             reply.redirect("/gui/dashboard");
             return;
         }
@@ -178,7 +181,7 @@ export function registerGuiRoutes(
             version: state.version,
             created_at: state.created_at,
             counts: {
-                owners: state.owners.length,
+                owners: state.users.length,
                 agents: state.agents.length,
                 policies: state.policies.length,
                 bindings: state.bindings.length,
@@ -194,33 +197,55 @@ export function registerGuiRoutes(
         reply.type("text/html").send(html);
     });
 
-    // Owners
+    // Redirect old /gui/admin/owners to /gui/admin/users
     app.get("/gui/admin/owners", { preHandler: adminAuth }, async (_request, reply) => {
+        reply.redirect("/gui/admin/users");
+    });
+    app.get("/gui/admin/owners/:ownerId", { preHandler: adminAuth }, async (request, reply) => {
+        const { ownerId } = request.params as { ownerId: string };
+        reply.redirect(`/gui/admin/users/${ownerId}`);
+    });
+
+    // Users
+    app.get("/gui/admin/users", { preHandler: adminAuth }, async (_request, reply) => {
         const state = store.state.getState();
-        const owners = state.owners.map((entry) => {
+        const owners = state.users.map((entry) => {
             try {
-                const owner = store.owners.read(entry.owner_principal_id);
-                return { ...owner, roles: resolveUserRoles(owner) };
+                const user = store.users.read(entry.user_principal_id);
+                return {
+                    user_principal_id: user.user_principal_id,
+                    display_name: user.display_name,
+                    status: user.status,
+                    attributes: user.attributes,
+                    created_at: user.created_at,
+                    identity_assurance_level: user.identity_assurance_level,
+                    contact_identities: user.contact_identities,
+                    government_ids: user.government_ids,
+                    totp_enabled: user.totp_enabled,
+                    totp_enabled_at: user.totp_enabled_at,
+                    has_passphrase: !!user.passphrase_hash,
+                    system_roles: resolveSystemRoles(user) as string[],
+                };
             } catch {
                 return {
-                    owner_principal_id: entry.owner_principal_id,
+                    user_principal_id: entry.user_principal_id,
                     error: "file_not_found",
-                } as { owner_principal_id: string; error: string };
+                } as { user_principal_id: string; error: string };
             }
         });
         const html = renderOwners(owners);
         reply.type("text/html").send(html);
     });
 
-    // Owner detail
-    app.get("/gui/admin/owners/:ownerId", { preHandler: adminAuth }, async (request, reply) => {
+    // User detail
+    app.get("/gui/admin/users/:ownerId", { preHandler: adminAuth }, async (request, reply) => {
         const { ownerId } = request.params as { ownerId: string };
         const query = request.query as { activity_page?: string; activity_page_size?: string };
         const activityPageSize = Math.min(Math.max(parseInt(query.activity_page_size || "25", 10) || 25, 1), 100);
         const activityPage = Math.max(parseInt(query.activity_page || "1", 10) || 1, 1);
         const activityOffset = (activityPage - 1) * activityPageSize;
         const state = store.state.getState();
-        const entry = state.owners.find((o) => o.owner_principal_id === ownerId);
+        const entry = state.users.find((o) => o.user_principal_id === ownerId);
 
         if (!entry) {
             reply.code(404).type("text/html").send("<h1>Owner not found</h1>");
@@ -228,11 +253,11 @@ export function registerGuiRoutes(
         }
 
         try {
-            const owner = store.owners.read(ownerId);
+            const user = store.users.read(ownerId);
 
-            // Agents belonging to this owner
+            // Agents belonging to this owner (user)
             const agents = state.agents
-                .filter((a) => a.owner_principal_id === ownerId)
+                .filter((a) => a.owner_type === "user" && a.owner_id === ownerId)
                 .map((a) => {
                     try {
                         const agent = store.agents.read(a.agent_principal_id);
@@ -252,9 +277,9 @@ export function registerGuiRoutes(
                     }
                 });
 
-            // Policies for this owner
+            // Policies for this owner (user)
             const policies = state.policies
-                .filter((p) => p.owner_principal_id === ownerId)
+                .filter((p) => p.owner_type === "user" && p.owner_id === ownerId)
                 .map((p) => ({
                     policy_id: p.policy_id,
                     applies_to_agent_principal_id: p.applies_to_agent_principal_id,
@@ -263,32 +288,27 @@ export function registerGuiRoutes(
             // Activity log for this owner
             const ownerAgentIds = new Set(
                 state.agents
-                    .filter((a) => a.owner_principal_id === ownerId)
+                    .filter((a) => a.owner_type === "user" && a.owner_id === ownerId)
                     .map((a) => a.agent_principal_id),
             );
             const activityResult = store.audit.readByPrincipal(ownerId, ownerAgentIds, activityPageSize, activityOffset);
 
-            // Resolve signatory human owner names for ORG owners
-            const linkedHumans: { owner_principal_id: string; display_name: string }[] = [];
-            if (owner.principal_type === "ORG" && owner.signatories?.length) {
-                const humanIds = new Set(owner.signatories.map((s) => s.human_owner_principal_id));
-                for (const hid of humanIds) {
-                    try {
-                        const h = store.owners.read(hid);
-                        linkedHumans.push({
-                            owner_principal_id: h.owner_principal_id,
-                            display_name: h.display_name,
-                        });
-                    } catch {
-                        linkedHumans.push({
-                            owner_principal_id: hid,
-                            display_name: hid.slice(0, 8) + "...",
-                        });
-                    }
-                }
-            }
+            const linkedHumans: { user_principal_id: string; display_name: string }[] = [];
 
-            const ownerWithMeta = { ...owner, has_passphrase: !!owner.passphrase_hash, roles: resolveUserRoles(owner) };
+            const ownerWithMeta = {
+                user_principal_id: user.user_principal_id,
+                display_name: user.display_name,
+                status: user.status,
+                attributes: user.attributes,
+                created_at: user.created_at,
+                identity_assurance_level: user.identity_assurance_level,
+                contact_identities: user.contact_identities,
+                government_ids: user.government_ids,
+                totp_enabled: user.totp_enabled,
+                totp_enabled_at: user.totp_enabled_at,
+                has_passphrase: !!user.passphrase_hash,
+                system_roles: resolveSystemRoles(user) as string[],
+            };
             const html = renderOwnerDetail({
                 owner: ownerWithMeta,
                 agents,
@@ -307,17 +327,140 @@ export function registerGuiRoutes(
         }
     });
 
+    // Organizations
+    type OrgContactIdentity = { contact_id: string; type: string; value: string; verified: boolean };
+    type OrgCompanyId = { id_type: string; id_value: string; country?: string; verification_level: string };
+
+    app.get("/gui/admin/organizations", { preHandler: adminAuth }, async (_request, reply) => {
+        const state = store.state.getState();
+        const orgs = state.organizations.map((entry) => {
+            try {
+                const org = store.organizations.read(entry.org_id);
+                const memberCount = store.memberships.listByOrg(entry.org_id).length;
+                const agentCount = state.agents.filter(
+                    (a) => a.owner_type === "org" && a.owner_id === entry.org_id,
+                ).length;
+                return {
+                    org_id: org.org_id,
+                    display_name: org.display_name,
+                    status: org.status,
+                    created_at: org.created_at,
+                    created_by_user_id: org.created_by_user_id,
+                    verification_status: org.verification_status,
+                    member_count: memberCount,
+                    agent_count: agentCount,
+                };
+            } catch {
+                return { org_id: entry.org_id, member_count: 0, agent_count: 0, error: "file_not_found" };
+            }
+        });
+        const html = renderAdminOrganizations(orgs);
+        reply.type("text/html").send(html);
+    });
+
+    // Organization detail
+    app.get("/gui/admin/organizations/:orgId", { preHandler: adminAuth }, async (request, reply) => {
+        const { orgId } = request.params as { orgId: string };
+        const state = store.state.getState();
+        const entry = state.organizations.find((o) => o.org_id === orgId);
+        if (!entry) {
+            reply.code(404).type("text/html").send("<h1>Organization not found</h1>");
+            return;
+        }
+
+        try {
+            const org = store.organizations.read(orgId);
+            const members = store.memberships.listByOrg(orgId).map((m) => {
+                try {
+                    const user = store.users.read(m.user_principal_id);
+                    return {
+                        membership_id: m.membership_id,
+                        user_principal_id: m.user_principal_id,
+                        display_name: user.display_name,
+                        role: m.role,
+                        status: m.status,
+                        created_at: m.created_at,
+                    };
+                } catch {
+                    return {
+                        membership_id: m.membership_id,
+                        user_principal_id: m.user_principal_id,
+                        display_name: null as string | null,
+                        role: m.role,
+                        status: m.status,
+                        created_at: m.created_at,
+                    };
+                }
+            });
+            const agents = state.agents
+                .filter((a) => a.owner_type === "org" && a.owner_id === orgId)
+                .map((a) => {
+                    try {
+                        const agent = store.agents.read(a.agent_principal_id);
+                        return {
+                            agent_id: agent.agent_id,
+                            agent_principal_id: agent.agent_principal_id,
+                            status: agent.status,
+                            created_at: agent.created_at,
+                        };
+                    } catch {
+                        return { agent_id: a.agent_id, agent_principal_id: a.agent_principal_id, status: "UNKNOWN", created_at: "" };
+                    }
+                });
+            const policies = state.policies
+                .filter((p) => p.owner_type === "org" && p.owner_id === orgId)
+                .map((p) => ({
+                    policy_id: p.policy_id,
+                    applies_to_agent_principal_id: p.applies_to_agent_principal_id,
+                    name: p.name,
+                }));
+
+            const html = renderAdminOrganizationDetail({
+                org: {
+                    org_id: org.org_id,
+                    display_name: org.display_name,
+                    status: org.status,
+                    created_at: org.created_at,
+                    created_by_user_id: org.created_by_user_id,
+                    verification_status: org.verification_status,
+                    member_count: members.length,
+                    agent_count: agents.length,
+                    contact_identities: org.contact_identities as OrgContactIdentity[] | undefined,
+                    company_ids: org.company_ids as OrgCompanyId[] | undefined,
+                    identity_assurance_level: org.identity_assurance_level,
+                },
+                members,
+                agents,
+                policies,
+            });
+            reply.type("text/html").send(html);
+        } catch {
+            reply.code(404).type("text/html").send("<h1>Organization file not found</h1>");
+        }
+    });
+
     // Agents
     app.get("/gui/admin/agents", { preHandler: adminAuth }, async (_request, reply) => {
         const state = store.state.getState();
         const agents = state.agents.map((entry) => {
             try {
-                return store.agents.read(entry.agent_principal_id);
+                const agent = store.agents.read(entry.agent_principal_id);
+                return {
+                    agent_principal_id: agent.agent_principal_id,
+                    agent_id: agent.agent_id,
+                    owner_type: entry.owner_type,
+                    owner_id: entry.owner_id,
+                    status: agent.status,
+                    created_at: agent.created_at,
+                    revoked_at: agent.revoked_at,
+                    webhook_url: agent.webhook_url,
+                };
             } catch {
                 return {
                     agent_principal_id: entry.agent_principal_id,
                     agent_id: entry.agent_id,
-                    owner_principal_id: entry.owner_principal_id,
+                    owner_type: entry.owner_type,
+                    owner_id: entry.owner_id,
                     status: "UNKNOWN",
                     created_at: "",
                     revoked_at: null,
@@ -326,14 +469,14 @@ export function registerGuiRoutes(
                 };
             }
         });
-        const owners = state.owners.map((entry) => {
+        const owners = state.users.map((entry) => {
             try {
-                const o = store.owners.read(entry.owner_principal_id);
-                return { owner_principal_id: o.owner_principal_id, display_name: o.display_name };
+                const u = store.users.read(entry.user_principal_id);
+                return { id: u.user_principal_id, display_name: u.display_name };
             } catch {
                 return {
-                    owner_principal_id: entry.owner_principal_id,
-                    display_name: entry.owner_principal_id.slice(0, 8),
+                    id: entry.user_principal_id,
+                    display_name: entry.user_principal_id.slice(0, 8),
                 };
             }
         });
@@ -345,11 +488,19 @@ export function registerGuiRoutes(
     app.get("/gui/admin/policies", { preHandler: adminAuth }, async (_request, reply) => {
         const state = store.state.getState();
         const policies = state.policies.map((entry) => {
+            const base = {
+                policy_id: entry.policy_id,
+                owner_type: entry.owner_type,
+                owner_id: entry.owner_id,
+                applies_to_agent_principal_id: entry.applies_to_agent_principal_id,
+                name: entry.name,
+                description: entry.description,
+            };
             try {
                 const yaml = store.policies.read(entry.policy_id);
-                return { ...entry, policy_yaml: yaml };
+                return { ...base, policy_yaml: yaml };
             } catch {
-                return { ...entry, error: "file_not_found" };
+                return { ...base, error: "file_not_found" };
             }
         });
 
@@ -371,28 +522,35 @@ export function registerGuiRoutes(
         try {
             const yaml = store.policies.read(policyId);
             const ownerNames = new Map(
-                state.owners.map((o) => {
+                state.users.map((o) => {
                     try {
                         return [
-                            o.owner_principal_id,
-                            store.owners.read(o.owner_principal_id).display_name,
+                            o.user_principal_id,
+                            store.users.read(o.user_principal_id).display_name,
                         ] as const;
                     } catch {
-                        return [o.owner_principal_id, undefined] as const;
+                        return [o.user_principal_id, undefined] as const;
                     }
                 }),
             );
             const agentNames = new Map(state.agents.map((a) => [a.agent_principal_id, a.agent_id]));
+            const bindingsForRender = state.bindings.map((b) => ({
+                owner_type: b.owner_type,
+                owner_id: b.owner_id,
+                policy_id: b.policy_id,
+                applies_to_agent_principal_id: b.applies_to_agent_principal_id,
+            }));
             const html = renderPolicyViewer(
                 {
                     policy_id: policyId,
-                    owner_principal_id: entry.owner_principal_id,
+                    owner_type: entry.owner_type,
+                    owner_id: entry.owner_id,
                     applies_to_agent_principal_id: entry.applies_to_agent_principal_id,
                     name: entry.name ?? null,
                     description: entry.description ?? null,
                     policy_yaml: yaml,
                 },
-                state.bindings,
+                bindingsForRender,
                 { owners: ownerNames as Map<string, string>, agents: agentNames },
             );
             reply.type("text/html").send(html);
@@ -428,25 +586,27 @@ export function registerGuiRoutes(
                 return {
                     agent_id: agent.agent_id,
                     display_name: agent.agent_id,
-                    owner_principal_id: entry.owner_principal_id,
+                    owner_type: entry.owner_type,
+                    owner_id: entry.owner_id,
                 };
             } catch {
                 return {
                     agent_id: entry.agent_id,
                     display_name: entry.agent_id,
-                    owner_principal_id: entry.owner_principal_id,
+                    owner_type: entry.owner_type,
+                    owner_id: entry.owner_id,
                 };
             }
         });
 
-        const owners = state.owners.map((entry) => {
+        const owners = state.users.map((entry) => {
             try {
-                const o = store.owners.read(entry.owner_principal_id);
-                return { owner_principal_id: o.owner_principal_id, display_name: o.display_name };
+                const u = store.users.read(entry.user_principal_id);
+                return { id: u.user_principal_id, display_name: u.display_name };
             } catch {
                 return {
-                    owner_principal_id: entry.owner_principal_id,
-                    display_name: entry.owner_principal_id.slice(0, 8),
+                    id: entry.user_principal_id,
+                    display_name: entry.user_principal_id.slice(0, 8),
                 };
             }
         });
@@ -484,14 +644,14 @@ export function registerGuiRoutes(
         const data = store.audit.readPage(pageSize, cursor);
         const state = store.state.getState();
         const ownerNames = new Map(
-            state.owners.map((o) => {
+            state.users.map((o) => {
                 try {
                     return [
-                        o.owner_principal_id,
-                        store.owners.read(o.owner_principal_id).display_name,
+                        o.user_principal_id,
+                        store.users.read(o.user_principal_id).display_name,
                     ] as const;
                 } catch {
-                    return [o.owner_principal_id, undefined] as const;
+                    return [o.user_principal_id, undefined] as const;
                 }
             }),
         );
@@ -531,7 +691,7 @@ export function registerGuiRoutes(
     const ownerAuth = createOwnerAuth(config, store);
 
     // Login page (no auth) — skipped if plugin replaces it
-    if (!pluginManifest?.replacesOwnerLogin) {
+    if (!pluginManifest?.replacesUserLogin) {
         app.get("/gui/login", async (_request, reply) => {
             const html = renderOwnerLogin(isHosted ? { hosted: true } : undefined);
             reply.type("text/html").send(html);
@@ -549,21 +709,21 @@ export function registerGuiRoutes(
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const state = store.state.getState();
-        const owner = store.owners.read(session.sub);
+        const user = store.users.read(session.sub);
 
-        const agentCount = state.agents.filter((a) => a.owner_principal_id === session.sub).length;
+        const agentCount = state.agents.filter((a) => a.owner_type === "user" && a.owner_id === session.sub).length;
         const policyCount = state.policies.filter(
-            (p) => p.owner_principal_id === session.sub,
+            (p) => p.owner_type === "user" && p.owner_id === session.sub,
         ).length;
         const pendingApprovals = (state.approval_requests ?? []).filter(
-            (r) => r.owner_principal_id === session.sub && r.status === "PENDING",
+            (r) => r.owner_type === "user" && r.owner_id === session.sub && r.status === "PENDING",
         ).length;
         const pendingPolicyDrafts = (state.policy_drafts ?? []).filter(
-            (d) => d.owner_principal_id === session.sub && d.status === "PENDING",
+            (d) => d.owner_type === "user" && d.owner_id === session.sub && d.status === "PENDING",
         ).length;
 
         const html = renderOwnerDashboard({
-            display_name: owner.display_name,
+            display_name: user.display_name,
             agent_count: agentCount,
             policy_count: policyCount,
             pending_approvals: pendingApprovals,
@@ -578,7 +738,7 @@ export function registerGuiRoutes(
             .ownerSession as SessionClaims;
         const state = store.state.getState();
         const agents = state.agents
-            .filter((a) => a.owner_principal_id === session.sub)
+            .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
             .map((entry) => {
                 try {
                     const agent = store.agents.read(entry.agent_principal_id);
@@ -601,7 +761,7 @@ export function registerGuiRoutes(
                     };
                 }
             });
-        const agentOwner = store.owners.read(session.sub);
+        const agentOwner = store.users.read(session.sub);
         const html = renderOwnerAgents(agents, {
             totp_enabled: !!agentOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
@@ -615,7 +775,7 @@ export function registerGuiRoutes(
             .ownerSession as SessionClaims;
         const state = store.state.getState();
         const policies = state.policies
-            .filter((p) => p.owner_principal_id === session.sub)
+            .filter((p) => p.owner_type === "user" && p.owner_id === session.sub)
             .map((entry) => {
                 try {
                     const yaml = store.policies.read(entry.policy_id);
@@ -636,7 +796,7 @@ export function registerGuiRoutes(
                 }
             });
         const draftEntries = (state.policy_drafts ?? []).filter(
-            (d) => d.owner_principal_id === session.sub,
+            (d) => d.owner_type === "user" && d.owner_id === session.sub,
         );
         const drafts = draftEntries.map((entry) => {
             try {
@@ -676,10 +836,10 @@ export function registerGuiRoutes(
         });
         const agentNames = new Map(
             state.agents
-                .filter((a) => a.owner_principal_id === session.sub)
+                .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
                 .map((a) => [a.agent_principal_id, a.agent_id]),
         );
-        const policyOwner = store.owners.read(session.sub);
+        const policyOwner = store.users.read(session.sub);
         const html = renderOwnerPolicies(policies, drafts, {
             totp_enabled: !!policyOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
@@ -711,7 +871,7 @@ export function registerGuiRoutes(
 
         const state = store.state.getState();
         const approvalEntries = (state.approval_requests ?? []).filter(
-            (r) => r.owner_principal_id === session.sub,
+            (r) => r.owner_type === "user" && r.owner_id === session.sub,
         );
 
         // Pending: filter from cached state, paginate from end (newest first), then read files
@@ -723,7 +883,7 @@ export function registerGuiRoutes(
 
         // Resolved: use StateRepository for cached owner->resolved mapping
         const resolvedOffset = (resolvedPage - 1) * resolvedPageSize;
-        const resolvedResult = store.state.getResolvedApprovals(session.sub, resolvedPageSize, resolvedOffset);
+        const resolvedResult = store.state.getResolvedApprovals("user", session.sub, resolvedPageSize, resolvedOffset);
 
         function readEntry(entry: { approval_request_id: string; agent_principal_id: string; status: string }) {
             try {
@@ -764,10 +924,10 @@ export function registerGuiRoutes(
             }
         }
 
-        const approvalOwner = store.owners.read(session.sub);
+        const approvalOwner = store.users.read(session.sub);
         const approvalAgentNames = new Map(
             state.agents
-                .filter((a) => a.owner_principal_id === session.sub)
+                .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
                 .map((a) => [a.agent_principal_id, a.agent_id]),
         );
         const html = renderOwnerApprovals({
@@ -790,21 +950,19 @@ export function registerGuiRoutes(
     app.get("/gui/profile", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const owner = store.owners.read(session.sub);
+        const user = store.users.read(session.sub);
 
         const html = renderOwnerProfile({
-            owner_principal_id: owner.owner_principal_id,
-            principal_type: owner.principal_type,
-            display_name: owner.display_name,
-            status: owner.status,
-            identity_assurance_level: owner.identity_assurance_level,
-            contact_identities: owner.contact_identities,
-            government_ids: owner.government_ids,
-            company_ids: owner.company_ids,
-            created_at: owner.created_at,
-            totp_enabled: !!owner.totp_enabled,
-            totp_enabled_at: owner.totp_enabled_at,
-            totp_backup_codes_remaining: owner.totp_backup_codes_hash?.length,
+            user_principal_id: user.user_principal_id,
+            display_name: user.display_name,
+            status: user.status,
+            identity_assurance_level: user.identity_assurance_level,
+            contact_identities: user.contact_identities,
+            government_ids: user.government_ids,
+            created_at: user.created_at,
+            totp_enabled: !!user.totp_enabled,
+            totp_enabled_at: user.totp_enabled_at,
+            totp_backup_codes_remaining: user.totp_backup_codes_hash?.length,
         }, ownerRenderOptionsFor(session));
         reply.type("text/html").send(html);
     });
@@ -820,7 +978,7 @@ export function registerGuiRoutes(
 
         const ownerAgentIds = new Set(
             state.agents
-                .filter((a) => a.owner_principal_id === session.sub)
+                .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
                 .map((a) => a.agent_principal_id),
         );
 
@@ -828,11 +986,11 @@ export function registerGuiRoutes(
         const data = store.audit.readByPrincipal(session.sub, ownerAgentIds, pageSize, offset);
 
         const ownerNames = new Map([
-            [session.sub, store.owners.read(session.sub).display_name],
+            [session.sub, store.users.read(session.sub).display_name],
         ]);
         const agentNames = new Map(
             state.agents
-                .filter((a) => a.owner_principal_id === session.sub)
+                .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
                 .map((a) => [a.agent_principal_id, a.agent_id]),
         );
         const eventTypes = [...new Set(data.items.map((e) => e.event_type))].sort();

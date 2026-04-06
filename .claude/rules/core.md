@@ -20,10 +20,11 @@ The authorization engine. All other packages depend on this.
 - `store.ts` — `DataStore` interface + per-entity repository interfaces. This is the storage abstraction layer — all server/CLI code uses `DataStore`.
 - `file-store.ts` — `FileDataStore` implements `DataStore` for file-based storage. Factory: `createFileDataStore(dataDir)`.
 - `state.ts` — Legacy standalone file I/O functions (all `@deprecated` — use `store.*` instead). `StateIndex` used internally by `FileStateRepository`.
-- `types.ts` — All domain types defined as Zod schemas with inferred TypeScript types. Zod schemas and TS types share the same name (e.g., `DecisionResult` is both). Includes `UserRole` (`'owner' | 'admin'`), `resolveUserRoles()` helper, and `roles` fields on `OwnerFrontmatter` + `SessionClaims`.
+- `types.ts` — All domain types defined as Zod schemas with inferred TypeScript types. Zod schemas and TS types share the same name (e.g., `DecisionResult` is both). Key entity types: `UserFrontmatter` (humans who auth), `OrganizationFrontmatter` (legal entities), `OrgMembership` (join table with `OrgRole`: `org_admin | org_member | org_viewer`), `AgentFrontmatter` (polymorphic ownership via `owner_type: 'user' | 'org'` + `owner_id`). System RBAC: `SystemRole` (`'admin'`), `resolveSystemRoles()` helper. Session: `SessionClaims` includes `system_roles` and `org_memberships` (array of `{ org_id, role }`).
 - `audit.ts` — `AuditStore` interface + `FileAuditStore`. Legacy standalone functions `@deprecated`.
 - `events.ts` — `OpenleashEvents` typed event emitter. Events: `approval_request.created`, `policy_draft.created`. Passed to plugins via `ServerPluginContext.events`.
-- `server-plugin.ts` — `ServerPluginContext`, `ServerPluginManifest`, `CreateServerPlugin`. Manifest supports `extraHeadHtml`/`extraBodyHtml` for injecting HTML into owner pages.
+- `server-plugin.ts` — `ServerPluginContext`, `ServerPluginManifest`, `CreateServerPlugin`, `OrgVerificationProvider` (plugin interface for org verification via external registries). Manifest supports `extraHeadHtml`/`extraBodyHtml` for injecting HTML into owner pages, and `verificationProviders` for org verification plugins.
+- `identity.ts` — Identity validation: `GovernmentId` (users), `CompanyId` (orgs), `ContactIdentity` (both), `Signatory`/`SignatoryRule` (orgs). Validation functions: `validateUserIdentity()`, `validateOrgIdentity()`, `computeUserAssuranceLevel()`, `computeOrgAssuranceLevel()`.
 
 ## Conventions
 

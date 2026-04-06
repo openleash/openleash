@@ -25,7 +25,9 @@ export function bootstrapState(rootDir: string, store?: DataStore): void {
 
   fs.mkdirSync(dataDir, { recursive: true });
   fs.mkdirSync(path.join(dataDir, 'keys'), { recursive: true });
-  fs.mkdirSync(path.join(dataDir, 'owners'), { recursive: true });
+  fs.mkdirSync(path.join(dataDir, 'users'), { recursive: true });
+  fs.mkdirSync(path.join(dataDir, 'organizations'), { recursive: true });
+  fs.mkdirSync(path.join(dataDir, 'memberships'), { recursive: true });
   fs.mkdirSync(path.join(dataDir, 'agents'), { recursive: true });
   fs.mkdirSync(path.join(dataDir, 'policies'), { recursive: true });
   fs.mkdirSync(path.join(dataDir, 'approval-requests'), { recursive: true });
@@ -42,13 +44,15 @@ export function bootstrapState(rootDir: string, store?: DataStore): void {
     writeKeyFile(dataDir, key);
 
     const state: StateData = {
-      version: 1,
+      version: 2,
       created_at: new Date().toISOString(),
       server_keys: {
         active_kid: key.kid,
         keys: [{ kid: key.kid, path: `./keys/${key.kid}.json` }],
       },
-      owners: [],
+      users: [],
+      organizations: [],
+      memberships: [],
       agents: [],
       policies: [],
       bindings: [],

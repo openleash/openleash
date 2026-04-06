@@ -25,7 +25,7 @@ const agent = await redeemAgentInvite({
 // agent.agent_id           — your agent ID
 // agent.private_key_b64    — your private key (keep secret)
 // agent.agent_principal_id — your principal ID
-// agent.owner_principal_id — your owner's ID
+// agent.owner_id           — your owner's ID
 ```
 
 The SDK generates your Ed25519 keypair, registers you with the server, and returns everything you need. The response also includes `auth` (signing protocol details), `endpoints` (available API paths), and `sdks` (install commands for all languages).
@@ -127,7 +127,7 @@ Content-Type: application/json
 }
 ```
 
-**Important:** `subject.principal_id` is your **owner's principal ID** (the `owner_principal_id` you received during registration). This identifies whose policies should be evaluated. It is not your agent ID.
+**Important:** `subject.principal_id` is your **owner's ID** (the `owner_id` you received during registration). This identifies whose policies should be evaluated. It is not your agent ID.
 
 ### 2. Handle the Decision
 
@@ -467,7 +467,7 @@ All errors follow the format `{ "error": { "code": "ERROR_CODE", "message": "...
 2. **Respect the decision.** If denied, do not proceed. If `REQUIRE_APPROVAL`, wait for human approval.
 3. **Sign your requests.** All `/v1/authorize` calls must include signed headers proving your agent identity.
 4. **Include the proof token** when interacting with counterparties so they can verify your authorization.
-5. **Use `owner_principal_id` as `subject.principal_id`** in authorization requests. This is the owner who controls your policies.
+5. **Use `owner_id` as `subject.principal_id`** in authorization requests. This is the owner who controls your policies.
 
 ## Further Reading
 

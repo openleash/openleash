@@ -19,7 +19,7 @@ Fastify HTTP server. Depends on `@openleash/core`.
 
 ## Patterns
 
-- Routes receive `store: DataStore` and access all data through repository interfaces (`store.state`, `store.owners`, `store.agents`, etc.).
+- Routes receive `store: DataStore` and access all data through repository interfaces (`store.state`, `store.users`, `store.organizations`, `store.memberships`, `store.agents`, etc.).
 - State mutations use `store.state.updateState(s => { ... })` for atomic read-modify-write.
 - Raw body is attached to the request object as `rawBody` for signature verification.
 - Error responses follow: `{ error: { code, message, details? } }`.

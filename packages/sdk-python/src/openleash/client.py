@@ -84,7 +84,8 @@ async def registration_challenge(
     openleash_url: str,
     agent_id: str,
     agent_pubkey_b64: str,
-    owner_principal_id: str | None = None,
+    owner_type: str | None = None,
+    owner_id: str | None = None,
 ) -> dict[str, str]:
     """Request a registration challenge from the OpenLeash server.
 
@@ -96,7 +97,8 @@ async def registration_challenge(
             json={
                 "agent_id": agent_id,
                 "agent_pubkey_b64": agent_pubkey_b64,
-                "owner_principal_id": owner_principal_id,
+                "owner_type": owner_type,
+                "owner_id": owner_id,
             },
         )
 
@@ -115,15 +117,16 @@ async def register_agent(
     agent_id: str,
     agent_pubkey_b64: str,
     signature_b64: str,
-    owner_principal_id: str,
+    owner_type: str,
+    owner_id: str,
     webhook_url: str,
     webhook_secret: str,
     webhook_auth_token: str,
 ) -> dict[str, Any]:
     """Register an agent with the OpenLeash server.
 
-    Returns dict with ``agent_principal_id``, ``agent_id``, ``owner_principal_id``,
-    ``status``, ``created_at``.
+    Returns dict with ``agent_principal_id``, ``agent_id``, ``owner_type``,
+    ``owner_id``, ``status``, ``created_at``.
     """
     async with httpx.AsyncClient() as client:
         res = await client.post(
@@ -133,7 +136,8 @@ async def register_agent(
                 "agent_id": agent_id,
                 "agent_pubkey_b64": agent_pubkey_b64,
                 "signature_b64": signature_b64,
-                "owner_principal_id": owner_principal_id,
+                "owner_type": owner_type,
+                "owner_id": owner_id,
                 "webhook_url": webhook_url,
                 "webhook_secret": webhook_secret,
                 "webhook_auth_token": webhook_auth_token,
@@ -274,8 +278,8 @@ async def redeem_agent_invite(
     """Register an agent using an invite URL.
 
     Generates a fresh Ed25519 keypair and registers via the invite token.
-    Returns dict with ``agent_principal_id``, ``agent_id``, ``owner_principal_id``,
-    ``openleash_url``, ``public_key_b64``, ``private_key_b64``, ``auth``, ``endpoints``, ``sdks``.
+    Returns dict with ``agent_principal_id``, ``agent_id``, ``owner_type``,
+    ``owner_id``, ``openleash_url``, ``public_key_b64``, ``private_key_b64``, ``auth``, ``endpoints``, ``sdks``.
     """
     from urllib.parse import urlparse, parse_qs
 
@@ -324,8 +328,8 @@ async def get_agent_self(
 ) -> dict[str, Any]:
     """Get the authenticated agent's own info.
 
-    Returns dict with ``agent_principal_id``, ``agent_id``, ``owner_principal_id``,
-    ``status``, ``attributes``, ``created_at``.
+    Returns dict with ``agent_principal_id``, ``agent_id``, ``owner_type``,
+    ``owner_id``, ``status``, ``attributes``, ``created_at``.
     """
     body_bytes = b"{}"
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"

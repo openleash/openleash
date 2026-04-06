@@ -23,11 +23,10 @@ export const totpCode = z
 export const InitialSetupFormSchema = z
     .object({
         display_name: displayName,
-        principal_type: z.enum(["HUMAN", "ORG"]),
         passphrase: passphrase,
         passphrase_confirm: z.string(),
     })
-    .refine((d) => d.passphrase === d.passphrase_confirm, {
+    .refine((d: { passphrase: string; passphrase_confirm: string }) => d.passphrase === d.passphrase_confirm, {
         message: "Passphrases do not match",
         path: ["passphrase_confirm"],
     });
@@ -35,34 +34,33 @@ export const InitialSetupFormSchema = z
 /** Server-side API validation (no confirmation field) */
 export const InitialSetupSchema = z.object({
     display_name: displayName,
-    principal_type: z.enum(["HUMAN", "ORG"]),
     passphrase: passphrase,
 });
 
 // ─── Owner Setup (passphrase only) ──────────────────────────────────
 
 /** Client-side form validation (includes passphrase confirmation) */
-export const OwnerSetupFormSchema = z
+export const UserSetupFormSchema = z
     .object({
         passphrase: passphrase,
         passphrase_confirm: z.string(),
     })
-    .refine((d) => d.passphrase === d.passphrase_confirm, {
+    .refine((d: { passphrase: string; passphrase_confirm: string }) => d.passphrase === d.passphrase_confirm, {
         message: "Passphrases do not match",
         path: ["passphrase_confirm"],
     });
 
 /** Server-side API validation (no confirmation field, includes invite fields) */
-export const OwnerSetupSchema = z.object({
+export const UserSetupSchema = z.object({
     invite_id: z.string().min(1, "invite_id is required"),
     invite_token: z.string().min(1, "invite_token is required"),
     passphrase: passphrase,
 });
 
-// ─── Owner Login ─────────────────────────────────────────────────────
+// ─── User Login ─────────────────────────────────────────────────────
 
-export const OwnerLoginSchema = z.object({
-    owner_principal_id: uuid,
+export const UserLoginSchema = z.object({
+    user_principal_id: uuid,
     passphrase: z.string().min(1, "Passphrase is required"),
 });
 
@@ -133,17 +131,24 @@ export const TotpVerifySchema = z.object({
     code: totpCode,
 });
 
-// ─── Admin: Create Owner ───────────────────────────────────────────
+// ─── Admin: Create User ─────────────────────────────────────────────
 
-export const CreateOwnerSchema = z.object({
+export const CreateUserSchema = z.object({
     display_name: displayName,
-    principal_type: z.enum(["HUMAN", "ORG"]),
+});
+
+// ─── Admin: Create Organization ─────────────────────────────────────
+
+export const CreateOrgSchema = z.object({
+    display_name: displayName,
+    created_by_user_id: uuid,
 });
 
 // ─── Admin: Agent Invite ───────────────────────────────────────────
 
 export const AgentInviteSchema = z.object({
-    owner_principal_id: uuid,
+    owner_type: z.enum(["user", "org"]),
+    owner_id: uuid,
 });
 
 // ─── Policy Editor ─────────────────────────────────────────────────

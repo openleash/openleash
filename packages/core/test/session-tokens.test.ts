@@ -8,20 +8,20 @@ describe('session tokens', () => {
 
     const { token, expiresAt, claims } = await issueSessionToken({
       key,
-      ownerPrincipalId: '00000000-0000-0000-0000-000000000001',
+      userPrincipalId: '00000000-0000-0000-0000-000000000001',
       ttlSeconds: 3600,
     });
 
     expect(token).toMatch(/^v4\.public\./);
     expect(claims.iss).toBe('openleash');
     expect(claims.sub).toBe('00000000-0000-0000-0000-000000000001');
-    expect(claims.purpose).toBe('owner_session');
+    expect(claims.purpose).toBe('user_session');
     expect(expiresAt).toBeDefined();
 
     const result = await verifySessionToken(token, [key]);
     expect(result.valid).toBe(true);
     expect(result.claims?.sub).toBe('00000000-0000-0000-0000-000000000001');
-    expect(result.claims?.purpose).toBe('owner_session');
+    expect(result.claims?.purpose).toBe('user_session');
   });
 
   it('rejects token with wrong key', async () => {
@@ -30,7 +30,7 @@ describe('session tokens', () => {
 
     const { token } = await issueSessionToken({
       key: key1,
-      ownerPrincipalId: '00000000-0000-0000-0000-000000000001',
+      userPrincipalId: '00000000-0000-0000-0000-000000000001',
       ttlSeconds: 3600,
     });
 
@@ -45,7 +45,8 @@ describe('session tokens', () => {
     const { token } = await issueProofToken({
       key,
       decisionId: '00000000-0000-0000-0000-000000000001',
-      ownerPrincipalId: '00000000-0000-0000-0000-000000000002',
+      ownerType: 'user',
+      ownerId: '00000000-0000-0000-0000-000000000002',
       agentId: 'test-agent',
       actionType: 'purchase',
       actionHash: 'abc123',

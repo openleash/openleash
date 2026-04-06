@@ -115,8 +115,7 @@ function countryFlag(code: string): string {
 // ─── Interfaces ───────────────────────────────────────────────────────
 
 export interface OwnerProfileData {
-    owner_principal_id: string;
-    principal_type: string;
+    user_principal_id: string;
     display_name: string;
     status: string;
     identity_assurance_level?: string;
@@ -138,14 +137,6 @@ export interface OwnerProfileData {
         verified_at: string | null;
         added_at: string;
     }>;
-    company_ids?: Array<{
-        id_type: string;
-        country?: string;
-        id_value: string;
-        verification_level: string;
-        verified_at: string | null;
-        added_at: string;
-    }>;
     created_at: string;
     totp_enabled?: boolean;
     totp_enabled_at?: string;
@@ -157,9 +148,6 @@ export interface OwnerProfileData {
 export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: RenderPageOptions): string {
     const contacts = data.contact_identities ?? [];
     const govIds = data.government_ids ?? [];
-    const companyIds = data.company_ids ?? [];
-    const isHuman = data.principal_type === "HUMAN";
-    const isOrg = data.principal_type === "ORG";
 
     const verificationProviders = renderPageOptions?.verificationProviders ?? [];
     const isHosted = renderPageOptions?.isHosted ?? false;
@@ -213,30 +201,6 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
         )
         .join("");
 
-    const companyIdRows = companyIds
-        .map(
-            (c, i) => {
-                let verifyCell = "";
-                if (c.verification_level !== "VERIFIED") {
-                    if (c.country === "SE" && c.id_type === "COMPANY_REG" && verificationProviders.includes("bolagsverket")) {
-                        verifyCell = `<a href="/gui/verification" class="btn btn-primary btn-sm">Verify</a>`;
-                    } else if (c.country === "SE" && c.id_type === "COMPANY_REG" && !isHosted) {
-                        verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
-                    }
-                }
-                return `
-    <tr>
-      <td>${escapeHtml(c.id_type)}</td>
-      <td>${c.country ? countryFlag(c.country) + " " + escapeHtml(c.country) : "-"}</td>
-      <td class="mono">${escapeHtml(c.id_value)}</td>
-      <td class="profile-status-cell">${verificationBadge(c.verification_level)}${verifyCell ? ` ${verifyCell}` : ""}</td>
-      <td><button class="btn btn-secondary profile-btn-remove" data-action="remove-company-id" data-index="${i}">Remove</button></td>
-    </tr>
-  `;
-            },
-        )
-        .join("");
-
     // Build country options for gov ID form
     const countryOptions = Object.entries(EU_COUNTRY_NAMES)
         .sort(([, a], [, b]) => a.localeCompare(b))
@@ -260,7 +224,7 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
       <table>
         <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
-          <tr><td class="text-muted">Principal ID</td><td>${copyableId(data.owner_principal_id, data.owner_principal_id.length)}</td></tr>
+          <tr><td class="text-muted">Principal ID</td><td>${copyableId(data.user_principal_id, data.user_principal_id.length)}</td></tr>
           <tr><td class="text-muted">Display Name</td><td>
             <span id="display-name-view" class="profile-name-view">
               <span>${escapeHtml(data.display_name)}</span>
@@ -273,7 +237,6 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
               <div class="field-error profile-field-error-full" id="err-new-display-name"></div>
             </span>
           </td></tr>
-          <tr><td class="text-muted">Type</td><td>${escapeHtml(data.principal_type)}</td></tr>
           <tr><td class="text-muted">Status</td><td><span class="badge ${data.status === "ACTIVE" ? "badge-green" : "badge-red"}">${escapeHtml(data.status)}</span>${infoIcon("owner-status", INFO_OWNER_STATUS)}</td></tr>
           <tr><td class="text-muted">Assurance Level</td><td>${assuranceLevelDisplay(data.identity_assurance_level)}${infoIcon("assurance-level", ASSURANCE_LEVEL_POPOVER)}</td></tr>
           <tr><td class="text-muted">Created</td><td class="mono">${formatTimestamp(data.created_at)}</td></tr>
@@ -386,9 +349,6 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
       </details>
     </div>
 
-    ${
-        isHuman
-            ? `
     <div class="card">
       <div class="profile-section-header">
         <div class="card-title">Government IDs (${govIds.length})${infoIcon("gov-id-verification", INFO_VERIFICATION_LEVEL)}</div>
@@ -433,64 +393,8 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
         </div>
       </details>
     </div>
-    `
-            : ""
-    }
 
-    ${
-        isOrg
-            ? `
-    <div class="card">
-      <div class="profile-section-header">
-        <div class="card-title">Company IDs (${companyIds.length})${infoIcon("company-id-verification", INFO_VERIFICATION_LEVEL)}</div>
-      </div>
-      ${
-          companyIds.length > 0
-              ? `
-      <table>
-        <colgroup><col style="width:180px"><col style="width:160px"><col><col style="width:130px"><col style="width:80px"></colgroup>
-        <thead><tr><th>Type</th><th>Country</th><th>Value</th><th>Status</th><th></th></tr></thead>
-        <tbody>${companyIdRows}</tbody>
-      </table>
-      `
-              : '<p class="profile-empty">No company IDs</p>'
-      }
-      <details class="profile-add-section">
-        <summary class="profile-summary">Add company ID</summary>
-        <div class="profile-form-grid-3">
-          <div>
-            <label class="detail-label">Type</label>
-            <select id="company-id-type" class="form-select">
-              <option value="COMPANY_REG">Company Registration</option>
-              <option value="VAT">VAT Number</option>
-              <option value="EORI">EORI</option>
-              <option value="LEI">LEI</option>
-              <option value="DUNS">DUNS</option>
-            </select>
-          </div>
-          <div>
-            <label class="detail-label">Country (optional)</label>
-            <select id="company-country" class="form-select">
-              <option value="">None</option>
-              ${countryOptions}
-            </select>
-          </div>
-          <div>
-            <label class="detail-label">ID Value</label>
-            <input type="text" id="company-id-value" class="form-input" placeholder="Enter ID number">
-            <div class="field-error" id="err-company-id-value"></div>
-          </div>
-          <div class="profile-form-full-row">
-            <button class="btn btn-primary btn-sm" id="btn-add-company-id">Add</button>
-          </div>
-        </div>
-      </details>
-    </div>
-    `
-            : ""
-    }
-
-    <script>window.__PAGE_DATA__ = { contacts: ${JSON.stringify(contacts)}, govIds: ${JSON.stringify(govIds)}, companyIds: ${JSON.stringify(companyIds)}, idTypesMap: ${idTypesJson}, idLabelsMap: ${idLabelsJson} };</script>
+    <script>window.__PAGE_DATA__ = { contacts: ${JSON.stringify(contacts)}, govIds: ${JSON.stringify(govIds)}, idTypesMap: ${idTypesJson}, idLabelsMap: ${idLabelsJson} };</script>
     ${assetTags("pages/owner-profile/client.ts")}
   `;
     return renderPage("Profile", content, "/gui/profile", "owner", renderPageOptions);

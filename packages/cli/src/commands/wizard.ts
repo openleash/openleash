@@ -27,21 +27,11 @@ export async function wizardCommand(store: DataStore) {
     message: 'Create new owner or use existing?',
     choices: [
       { title: 'Create new owner', value: 'new' },
-      ...state.owners.map((o) => ({ title: `Use existing: ${o.owner_principal_id}`, value: o.owner_principal_id })),
+      ...state.users.map((o: { user_principal_id: string }) => ({ title: `Use existing: ${o.user_principal_id}`, value: o.user_principal_id })),
     ],
   });
 
   if (ownerChoice === 'new') {
-    const { ownerType } = await prompts({
-      type: 'select',
-      name: 'ownerType',
-      message: 'Owner type:',
-      choices: [
-        { title: 'HUMAN', value: 'HUMAN' },
-        { title: 'ORG', value: 'ORG' },
-      ],
-    });
-
     const { displayName } = await prompts({
       type: 'text',
       name: 'displayName',
@@ -50,9 +40,8 @@ export async function wizardCommand(store: DataStore) {
     });
 
     ownerId = crypto.randomUUID();
-    store.owners.write({
-      owner_principal_id: ownerId,
-      principal_type: ownerType,
+    store.users.write({
+      user_principal_id: ownerId,
       display_name: displayName,
       status: 'ACTIVE',
       attributes: {},
@@ -60,12 +49,12 @@ export async function wizardCommand(store: DataStore) {
     });
 
     store.state.updateState((s) => {
-      s.owners.push({
-        owner_principal_id: ownerId,
+      s.users.push({
+        user_principal_id: ownerId,
         path: `./owners/${ownerId}.md`,
       });
     });
-    store.audit.append('OWNER_CREATED', { owner_principal_id: ownerId, display_name: displayName });
+    store.audit.append('USER_CREATED', { user_principal_id: ownerId, display_name: displayName });
     console.log(`  Owner created: ${ownerId}`);
   } else {
     ownerId = ownerChoice;
@@ -125,7 +114,8 @@ export async function wizardCommand(store: DataStore) {
   store.agents.write({
     agent_principal_id: agentPrincipalId,
     agent_id: agentId,
-    owner_principal_id: ownerId,
+    owner_type: 'user',
+    owner_id: ownerId,
     public_key_b64: agentPublicKeyB64,
     status: 'ACTIVE',
     attributes: {},
@@ -140,7 +130,8 @@ export async function wizardCommand(store: DataStore) {
     s.agents.push({
       agent_principal_id: agentPrincipalId,
       agent_id: agentId,
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       path: `./agents/${agentPrincipalId}.md`,
     });
   });
@@ -288,14 +279,16 @@ export async function wizardCommand(store: DataStore) {
   store.state.updateState((s) => {
     s.policies.push({
       policy_id: policyId,
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       applies_to_agent_principal_id: null,
       name: null,
       description: null,
       path: `./policies/${policyId}.yaml`,
     });
     s.bindings.push({
-      owner_principal_id: ownerId,
+      owner_type: 'user',
+      owner_id: ownerId,
       policy_id: policyId,
       applies_to_agent_principal_id: null,
     });

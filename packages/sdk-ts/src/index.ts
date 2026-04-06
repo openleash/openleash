@@ -59,7 +59,8 @@ export async function registrationChallenge(params: {
   openleashUrl: string;
   agentId: string;
   agentPubKeyB64: string;
-  ownerPrincipalId?: string;
+  ownerType?: string;
+  ownerId?: string;
 }): Promise<{
   challenge_id: string;
   challenge_b64: string;
@@ -71,7 +72,8 @@ export async function registrationChallenge(params: {
     body: JSON.stringify({
       agent_id: params.agentId,
       agent_pubkey_b64: params.agentPubKeyB64,
-      owner_principal_id: params.ownerPrincipalId,
+      owner_type: params.ownerType,
+      owner_id: params.ownerId,
     }),
   });
 
@@ -89,14 +91,16 @@ export async function registerAgent(params: {
   agentId: string;
   agentPubKeyB64: string;
   signatureB64: string;
-  ownerPrincipalId: string;
+  ownerType: string;
+  ownerId: string;
   webhookUrl: string;
   webhookSecret: string;
   webhookAuthToken: string;
 }): Promise<{
   agent_principal_id: string;
   agent_id: string;
-  owner_principal_id: string;
+  owner_type: string;
+  owner_id: string;
   status: string;
   created_at: string;
 }> {
@@ -108,7 +112,8 @@ export async function registerAgent(params: {
       agent_id: params.agentId,
       agent_pubkey_b64: params.agentPubKeyB64,
       signature_b64: params.signatureB64,
-      owner_principal_id: params.ownerPrincipalId,
+      owner_type: params.ownerType,
+      owner_id: params.ownerId,
       webhook_url: params.webhookUrl,
       webhook_secret: params.webhookSecret,
       webhook_auth_token: params.webhookAuthToken,
@@ -122,7 +127,8 @@ export async function registerAgent(params: {
   return res.json() as Promise<{
     agent_principal_id: string;
     agent_id: string;
-    owner_principal_id: string;
+    owner_type: string;
+    owner_id: string;
     status: string;
     created_at: string;
   }>;
@@ -132,7 +138,8 @@ export async function registerAgent(params: {
 export interface AgentInviteResult {
   agent_principal_id: string;
   agent_id: string;
-  owner_principal_id: string;
+  owner_type: string;
+  owner_id: string;
   openleash_url: string;
   webhook_url: string;
   public_key_b64: string;
@@ -188,7 +195,8 @@ export async function redeemAgentInvite(params: {
   return {
     agent_principal_id: result.agent_principal_id as string,
     agent_id: result.agent_id as string,
-    owner_principal_id: result.owner_principal_id as string,
+    owner_type: result.owner_type as string,
+    owner_id: result.owner_id as string,
     openleash_url: result.openleash_url as string,
     webhook_url: result.webhook_url as string,
     public_key_b64: publicKeyB64,
@@ -301,7 +309,8 @@ export async function getAgentSelf(params: {
 }): Promise<{
   agent_principal_id: string;
   agent_id: string;
-  owner_principal_id: string;
+  owner_type: string;
+  owner_id: string;
   status: string;
   attributes: Record<string, unknown>;
   created_at: string;
@@ -335,7 +344,8 @@ export async function getAgentSelf(params: {
   return res.json() as Promise<{
     agent_principal_id: string;
     agent_id: string;
-    owner_principal_id: string;
+    owner_type: string;
+    owner_id: string;
     status: string;
     attributes: Record<string, unknown>;
     created_at: string;

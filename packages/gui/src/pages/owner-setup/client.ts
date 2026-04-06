@@ -9,7 +9,7 @@ const inviteId = params.get("invite_id");
 const inviteToken = params.get("invite_token");
 const ownerIdParam = params.get("owner_id");
 let loggedIn = false;
-let ownerPrincipalId: string | null = null;
+let userPrincipalId: string | null = null;
 
 if (!inviteId || !inviteToken) {
     document.getElementById("missing-params")!.style.display = "block";
@@ -18,7 +18,7 @@ if (!inviteId || !inviteToken) {
 }
 
 function goToLogin() {
-    const id = ownerPrincipalId || ownerIdParam;
+    const id = userPrincipalId || ownerIdParam;
     window.location.href = id
         ? "/gui/login?owner_id=" + encodeURIComponent(id)
         : "/gui/login";
@@ -64,15 +64,15 @@ document.getElementById("setup-form")!.addEventListener("submit", async (e) => {
             return;
         }
 
-        ownerPrincipalId = data.owner_principal_id || ownerIdParam;
+        userPrincipalId = data.user_principal_id || ownerIdParam;
 
         // Auto-login to get session token for agent invite creation
-        if (ownerPrincipalId) {
+        if (userPrincipalId) {
             try {
                 const loginRes = await fetch("/v1/owner/login", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ owner_principal_id: ownerPrincipalId, passphrase }),
+                    body: JSON.stringify({ user_principal_id: userPrincipalId, passphrase }),
                 });
                 if (loginRes.ok) {
                     const loginData = await loginRes.json();

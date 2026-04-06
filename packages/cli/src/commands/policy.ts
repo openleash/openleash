@@ -16,7 +16,7 @@ export async function policyListCommand(store: DataStore) {
   console.log('Policies:\n');
   for (const p of state.policies) {
     console.log(`  ID:    ${p.policy_id}`);
-    console.log(`  Owner: ${p.owner_principal_id}`);
+    console.log(`  Owner: ${p.owner_type}:${p.owner_id}`);
     console.log(`  Path:  ${p.path}`);
     console.log(`  Agent: ${p.applies_to_agent_principal_id ?? '(all)'}`);
     console.log();
@@ -41,14 +41,17 @@ export async function policyShowCommand(store: DataStore, policyId: string) {
 }
 
 export async function policyUpsertCommand(store: DataStore, args: string[]) {
-  let ownerPrincipalId: string | undefined;
+  let ownerId: string | undefined;
+  let ownerType: 'user' | 'org' = 'user';
   let filePath: string | undefined;
   let appliesToAgent: string | null = null;
   let policyId: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--owner' && args[i + 1]) {
-      ownerPrincipalId = args[++i];
+      ownerId = args[++i];
+    } else if (args[i] === '--owner-type' && args[i + 1]) {
+      ownerType = args[++i] as 'user' | 'org';
     } else if (args[i] === '--file' && args[i + 1]) {
       filePath = args[++i];
     } else if (args[i] === '--applies-to-agent' && args[i + 1]) {
@@ -59,7 +62,7 @@ export async function policyUpsertCommand(store: DataStore, args: string[]) {
   }
 
   if (!filePath) {
-    console.log('Usage: openleash policy upsert --file <path> [--owner <ownerId>] [--applies-to-agent <agentId>] [--policy-id <id>]');
+    console.log('Usage: openleash policy upsert --file <path> [--owner <ownerId>] [--owner-type <user|org>] [--applies-to-agent <agentId>] [--policy-id <id>]');
     return;
   }
 
@@ -86,7 +89,7 @@ export async function policyUpsertCommand(store: DataStore, args: string[]) {
   }
 
   // Insert: create new policy
-  if (!ownerPrincipalId) {
+  if (!ownerId) {
     console.error('--owner is required when creating a new policy.');
     process.exit(1);
   }
@@ -97,19 +100,21 @@ export async function policyUpsertCommand(store: DataStore, args: string[]) {
   store.state.updateState((s) => {
     s.policies.push({
       policy_id: newId,
-      owner_principal_id: ownerPrincipalId!,
+      owner_type: ownerType,
+      owner_id: ownerId!,
       applies_to_agent_principal_id: appliesToAgent,
       name: null,
       description: null,
       path: `./policies/${newId}.yaml`,
     });
     s.bindings.push({
-      owner_principal_id: ownerPrincipalId!,
+      owner_type: ownerType,
+      owner_id: ownerId!,
       policy_id: newId,
       applies_to_agent_principal_id: appliesToAgent,
     });
   });
-  store.audit.append('POLICY_UPSERTED', { policy_id: newId, owner_principal_id: ownerPrincipalId });
+  store.audit.append('POLICY_UPSERTED', { policy_id: newId, owner_type: ownerType, owner_id: ownerId });
 
   console.log(`Policy created: ${newId}`);
   console.log(`  Path: ./data/policies/${newId}.yaml`);
@@ -176,7 +181,7 @@ export async function policyUnbindCommand(store: DataStore, args: string[]) {
     if (ownerId) {
       // Remove only bindings matching policy + owner
       s.bindings = s.bindings.filter(
-        (b) => !(b.policy_id === policyId && b.owner_principal_id === ownerId)
+        (b) => !(b.policy_id === policyId && b.owner_id === ownerId)
       );
     } else {
       // Remove all bindings for that policy
@@ -186,7 +191,7 @@ export async function policyUnbindCommand(store: DataStore, args: string[]) {
 
   const stateAfter = store.state.getState();
   const removed = before - stateAfter.bindings.length;
-  store.audit.append('POLICY_UNBOUND', { policy_id: policyId, owner_principal_id: ownerId ?? null, bindings_removed: removed });
+  store.audit.append('POLICY_UNBOUND', { policy_id: policyId, owner_id: ownerId ?? null, bindings_removed: removed });
 
   console.log(`Unbound policy ${policyId}: ${removed} binding(s) removed.`);
 }

@@ -36,5 +36,7 @@ export { renderAdminLogin } from "./pages/admin-login/render.js";
 export { renderAbout } from "./pages/about/render.js";
 export type { AboutData, PackageInfo } from "./pages/about/render.js";
 export { renderApiReference, renderApiReferenceUnavailable } from "./pages/api-reference/render.js";
+export { renderAdminOrganizations, renderAdminOrganizationDetail } from "./pages/admin-organizations/render.js";
+export type { OrgListData, OrgDetailData } from "./pages/admin-organizations/render.js";
 export * from "./shared/validation.js";
 export { initManifest, resolveAsset, resolveAssetCss, assetTags, getClientDir } from "./shared/manifest.js";

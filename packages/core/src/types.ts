@@ -31,14 +31,25 @@ export const ObligationStatus = z.enum(['PENDING', 'FULFILLED', 'WAIVED']);
 export type ObligationStatus = z.infer<typeof ObligationStatus>;
 
 // ─── Principal types ─────────────────────────────────────────────────
-export const PrincipalType = z.enum(['HUMAN', 'ORG']);
-export type PrincipalType = z.infer<typeof PrincipalType>;
+export const OwnerType = z.enum(['user', 'org']);
+export type OwnerType = z.infer<typeof OwnerType>;
 
 export const PrincipalStatus = z.enum(['ACTIVE', 'SUSPENDED', 'REVOKED']);
 export type PrincipalStatus = z.infer<typeof PrincipalStatus>;
 
 export const AgentStatus = z.enum(['ACTIVE', 'REVOKED']);
 export type AgentStatus = z.infer<typeof AgentStatus>;
+
+// ─── Organization roles ─────────────────────────────────────────────
+export const OrgRole = z.enum(['org_admin', 'org_member', 'org_viewer']);
+export type OrgRole = z.infer<typeof OrgRole>;
+
+export const OrgMembershipStatus = z.enum(['active', 'suspended', 'revoked']);
+export type OrgMembershipStatus = z.infer<typeof OrgMembershipStatus>;
+
+// ─── System roles (instance-level RBAC) ─────────────────────────────
+export const SystemRole = z.enum(['admin']);
+export type SystemRole = z.infer<typeof SystemRole>;
 
 // ─── Trust profiles ──────────────────────────────────────────────────
 export const TrustProfile = z.enum(['LOW', 'MEDIUM', 'HIGH', 'REGULATED']);
@@ -163,21 +174,36 @@ export interface StateKeyEntry {
   path: string;
 }
 
-export interface StateOwnerEntry {
-  owner_principal_id: string;
+export interface StateUserEntry {
+  user_principal_id: string;
+  path: string;
+}
+
+export interface StateOrgEntry {
+  org_id: string;
+  path: string;
+}
+
+export interface StateMembershipEntry {
+  membership_id: string;
+  org_id: string;
+  user_principal_id: string;
+  role: OrgRole;
   path: string;
 }
 
 export interface StateAgentEntry {
   agent_principal_id: string;
   agent_id: string;
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   path: string;
 }
 
 export interface StatePolicyEntry {
   policy_id: string;
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   applies_to_agent_principal_id: string | null;
   name: string | null;
   description: string | null;
@@ -185,19 +211,22 @@ export interface StatePolicyEntry {
 }
 
 export interface StateBinding {
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   policy_id: string;
   applies_to_agent_principal_id: string | null;
 }
 
 export interface StateData {
-  version: 1;
+  version: 2;
   created_at: string;
   server_keys: {
     active_kid: string;
     keys: StateKeyEntry[];
   };
-  owners: StateOwnerEntry[];
+  users: StateUserEntry[];
+  organizations: StateOrgEntry[];
+  memberships: StateMembershipEntry[];
   agents: StateAgentEntry[];
   policies: StatePolicyEntry[];
   bindings: StateBinding[];
@@ -214,38 +243,32 @@ export interface ServerKeyFile {
   revoked_at: string | null;
 }
 
-// ─── User roles (RBAC) ──────────────────────────────────────────────
-export const UserRole = z.enum(['owner', 'admin']);
-export type UserRole = z.infer<typeof UserRole>;
+// ─── System role helpers ─────────────────────────────────────────────
 
-export function resolveUserRoles(owner: OwnerFrontmatter): UserRole[] {
-  return owner.roles && owner.roles.length > 0 ? owner.roles : ['owner'];
+export function resolveSystemRoles(user: UserFrontmatter): SystemRole[] {
+  return user.system_roles && user.system_roles.length > 0 ? user.system_roles : [];
 }
 
-// ─── Owner file frontmatter ──────────────────────────────────────────
-export interface OwnerFrontmatter {
-  owner_principal_id: string;
-  principal_type: PrincipalType;
+// ─── User file frontmatter (human who authenticates) ────────────────
+export interface UserFrontmatter {
+  user_principal_id: string;
   display_name: string;
   status: PrincipalStatus;
   attributes: Record<string, unknown>;
   created_at: string;
-  // Identity fields (all optional for backward compatibility)
+  // Identity
   identity_assurance_level?: IdentityAssuranceLevel;
   contact_identities?: ContactIdentity[];
-  government_ids?: GovernmentId[];       // HUMAN only
-  company_ids?: CompanyId[];             // ORG only
-  signatories?: Signatory[];             // ORG only
-  signatory_rules?: SignatoryRule[];      // ORG only
-  // Owner authentication (set during setup)
+  government_ids?: GovernmentId[];
+  // Authentication
   passphrase_hash?: string;
   passphrase_salt?: string;
   passphrase_set_at?: string;
   // External auth provider link (e.g., Firebase)
   external_auth_provider?: string;
   external_auth_id?: string;
-  // User roles (RBAC)
-  roles?: UserRole[];
+  // System RBAC (instance-level)
+  system_roles?: SystemRole[];
   // Two-factor authentication
   totp_secret_b32?: string;
   totp_enabled?: boolean;
@@ -253,11 +276,43 @@ export interface OwnerFrontmatter {
   totp_backup_codes_hash?: string[];
 }
 
+// ─── Organization file frontmatter (legal entity, never authenticates) ──
+export interface OrganizationFrontmatter {
+  org_id: string;
+  display_name: string;
+  status: PrincipalStatus;
+  attributes: Record<string, unknown>;
+  created_at: string;
+  created_by_user_id: string;
+  // Identity
+  identity_assurance_level?: IdentityAssuranceLevel;
+  contact_identities?: ContactIdentity[];
+  company_ids?: CompanyId[];
+  signatories?: Signatory[];
+  signatory_rules?: SignatoryRule[];
+  // Verification
+  verification_status?: 'unverified' | 'pending' | 'verified' | 'failed';
+  verification_provider?: string;
+  verified_at?: string;
+}
+
+// ─── Organization membership ────────────────────────────────────────
+export interface OrgMembership {
+  membership_id: string;
+  org_id: string;
+  user_principal_id: string;
+  role: OrgRole;
+  status: OrgMembershipStatus;
+  invited_by_user_id: string | null;
+  created_at: string;
+}
+
 // ─── Agent file frontmatter ──────────────────────────────────────────
 export interface AgentFrontmatter {
   agent_principal_id: string;
   agent_id: string;
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   public_key_b64: string;
   status: AgentStatus;
   attributes: Record<string, unknown>;
@@ -282,7 +337,8 @@ export interface ApprovalRequestFrontmatter {
   decision_id: string;
   agent_principal_id: string;
   agent_id: string;
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   action_type: string;
   action_hash: string;
   action: ActionRequest;
@@ -301,7 +357,8 @@ export interface ApprovalRequestFrontmatter {
 
 export interface StateApprovalRequestEntry {
   approval_request_id: string;
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   agent_principal_id: string;
   status: ApprovalRequestStatus;
   path: string;
@@ -319,7 +376,8 @@ export interface PolicyDraftFrontmatter {
   policy_draft_id: string;
   agent_principal_id: string;
   agent_id: string;
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   applies_to_agent_principal_id: string | null;
   name: string | null;
   description: string | null;
@@ -335,7 +393,8 @@ export interface PolicyDraftFrontmatter {
 
 export interface StatePolicyDraftEntry {
   policy_draft_id: string;
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   agent_principal_id: string;
   status: PolicyDraftStatus;
   path: string;
@@ -343,7 +402,7 @@ export interface StatePolicyDraftEntry {
 
 export interface SetupInvite {
   invite_id: string;
-  owner_principal_id: string;
+  user_principal_id: string;
   token_hash: string;
   token_salt: string;
   expires_at: string;
@@ -354,7 +413,8 @@ export interface SetupInvite {
 
 export interface AgentInvite {
   invite_id: string;
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   token_hash: string;
   token_salt: string;
   expires_at: string;
@@ -363,14 +423,20 @@ export interface AgentInvite {
   created_at: string;
 }
 
+export interface OrgMembershipClaim {
+  org_id: string;
+  role: OrgRole;
+}
+
 export interface SessionClaims {
   iss: string;
   kid: string;
-  sub: string; // owner_principal_id
+  sub: string; // user_principal_id
   iat: string;
   exp: string;
-  purpose: 'owner_session';
-  roles?: string[];
+  purpose: 'user_session';
+  system_roles?: string[];
+  org_memberships?: OrgMembershipClaim[];
 }
 
 export interface ApprovalTokenClaims {
@@ -379,7 +445,8 @@ export interface ApprovalTokenClaims {
   iat: string;
   exp: string;
   approval_request_id: string;
-  owner_principal_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
   agent_id: string;
   action_type: string;
   action_hash: string;
@@ -388,45 +455,51 @@ export interface ApprovalTokenClaims {
 
 // ─── Audit event ─────────────────────────────────────────────────────
 export const AuditEventType = z.enum([
-  'OWNER_CREATED',
-  'OWNER_UPDATED',
-  'OWNER_IDENTITY_UPDATED',
-  'OWNER_SETUP_INVITE_CREATED',
-  'OWNER_SETUP_COMPLETED',
-  'OWNER_LOGIN',
-  'OWNER_LOGOUT',
+  'USER_CREATED',
+  'USER_UPDATED',
+  'USER_IDENTITY_UPDATED',
+  'USER_SETUP_INVITE_CREATED',
+  'USER_SETUP_COMPLETED',
+  'USER_LOGIN',
+  'USER_LOGOUT',
+  'USER_TOTP_ENABLED',
+  'USER_TOTP_DISABLED',
+  'USER_TOTP_BACKUP_USED',
+  'ORG_CREATED',
+  'ORG_UPDATED',
+  'ORG_DELETED',
+  'ORG_MEMBER_ADDED',
+  'ORG_MEMBER_UPDATED',
+  'ORG_MEMBER_REMOVED',
+  'ORG_VERIFICATION_INITIATED',
+  'ORG_VERIFICATION_COMPLETED',
+  'ORG_VERIFICATION_FAILED',
   'AGENT_CHALLENGE_ISSUED',
   'AGENT_REGISTERED',
+  'AGENT_INVITE_CREATED',
+  'AGENT_REGISTERED_VIA_INVITE',
   'POLICY_UPSERTED',
+  'POLICY_UPDATED',
+  'POLICY_DELETED',
+  'POLICY_UNBOUND',
+  'POLICY_DRAFT_CREATED',
+  'POLICY_DRAFT_APPROVED',
+  'POLICY_DRAFT_DENIED',
   'AUTHORIZE_CALLED',
   'DECISION_CREATED',
   'PROOF_ISSUED',
   'PROOF_VERIFIED',
-  'PLAYGROUND_RUN',
-  'KEY_ROTATED',
-  'SERVER_STARTED',
-  'POLICY_UPDATED',
-  'POLICY_DELETED',
-  'POLICY_UNBOUND',
   'APPROVAL_REQUEST_CREATED',
   'APPROVAL_REQUEST_APPROVED',
   'APPROVAL_REQUEST_DENIED',
   'APPROVAL_REQUEST_EXPIRED',
   'APPROVAL_TOKEN_USED',
+  'PLAYGROUND_RUN',
+  'KEY_ROTATED',
+  'SERVER_STARTED',
   'INITIAL_SETUP_COMPLETED',
-  'OWNER_TOTP_ENABLED',
-  'OWNER_TOTP_DISABLED',
-  'OWNER_TOTP_BACKUP_USED',
-  'AGENT_INVITE_CREATED',
-  'AGENT_REGISTERED_VIA_INVITE',
-  'POLICY_DRAFT_CREATED',
-  'POLICY_DRAFT_APPROVED',
-  'POLICY_DRAFT_DENIED',
   'WEBHOOK_DELIVERED',
   'WEBHOOK_DELIVERY_FAILED',
-  'IDENTITY_VERIFICATION_INITIATED',
-  'IDENTITY_VERIFICATION_COMPLETED',
-  'IDENTITY_VERIFICATION_FAILED',
 ]);
 export type AuditEventType = z.infer<typeof AuditEventType>;
 
@@ -489,7 +562,44 @@ export interface RegistrationChallenge {
   challenge_b64: string;
   agent_id: string;
   agent_pubkey_b64: string;
-  owner_principal_id?: string;
+  owner_type?: OwnerType;
+  owner_id?: string;
   agent_attributes_json?: Record<string, unknown>;
   expires_at: string;
+}
+
+// ─── Verification types (for org verification plugins) ──────────────
+
+export interface VerificationEvidence {
+  evidence_type: string;
+  description: string;
+  confidence: 'high' | 'medium' | 'low';
+  details: Record<string, unknown>;
+}
+
+export interface RegistryCompanyInfo {
+  company_name: string;
+  registration_number?: string;
+  country: string;
+  status?: string;
+  address?: string;
+  authorized_persons?: Array<{
+    name: string;
+    role?: string;
+    identifiers?: Record<string, string>;
+  }>;
+  raw_data?: Record<string, unknown>;
+}
+
+export interface OrgVerificationRecord {
+  verification_id: string;
+  provider_id: string;
+  country: string;
+  initiated_by_user_id: string;
+  initiated_at: string;
+  status: 'pending' | 'verified' | 'failed' | 'expired';
+  company_info?: RegistryCompanyInfo;
+  evidence: VerificationEvidence[];
+  verified_at?: string;
+  expires_at?: string;
 }

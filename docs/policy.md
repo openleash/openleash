@@ -23,7 +23,7 @@ Full JSON Schema: [docs/policy.schema.json](./policy.schema.json)
 Policies are connected to owners and agents through **bindings** stored in `state.md`. When the server receives an authorization request, it resolves the applicable policy as follows:
 
 1. The server iterates `state.bindings` **in array order** and finds the first binding where:
-   - `owner_principal_id` matches the request's `subject.principal_id`, AND
+   - `owner_id` matches the request's `subject.principal_id`, AND
    - `applies_to_agent_principal_id` matches the requesting agent, OR is `null` (meaning "all agents for this owner")
 2. **First match wins** — the policy referenced by that binding is used for evaluation. Later bindings are ignored.
 3. Agent-specific bindings (where `applies_to_agent_principal_id` is set) are more precise than owner-wide bindings (`null`), but **array order takes precedence**. If an owner-wide binding appears before an agent-specific one, the owner-wide binding wins.

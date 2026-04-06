@@ -9,7 +9,7 @@ import { bootstrapState } from '../src/bootstrap.js';
 import {
   readState,
   writeState,
-  writeOwnerFile,
+  writeUserFile,
   writeAgentFile,
   writePolicyFile,
   sha256Hex,
@@ -23,7 +23,7 @@ describe('server integration', () => {
   let rootDir: string;
   let dataDir: string;
   let agentId: string;
-  let ownerPrincipalId: string;
+  let userPrincipalId: string;
   let agentPrincipalId: string;
   let publicKeyB64: string;
   let privateKeyB64: string;
@@ -47,11 +47,10 @@ describe('server integration', () => {
     agentId = 'test-agent';
     agentPrincipalId = crypto.randomUUID();
 
-    // Create a test owner (bootstrap no longer creates one)
-    ownerPrincipalId = crypto.randomUUID();
-    writeOwnerFile(dataDir, {
-      owner_principal_id: ownerPrincipalId,
-      principal_type: 'HUMAN',
+    // Create a test user (bootstrap no longer creates one)
+    userPrincipalId = crypto.randomUUID();
+    writeUserFile(dataDir, {
+      user_principal_id: userPrincipalId,
       display_name: 'Test Owner',
       status: 'ACTIVE',
       attributes: {},
@@ -59,15 +58,16 @@ describe('server integration', () => {
     });
 
     const state = readState(dataDir);
-    state.owners.push({
-      owner_principal_id: ownerPrincipalId,
-      path: `./owners/${ownerPrincipalId}.md`,
+    state.users.push({
+      user_principal_id: userPrincipalId,
+      path: `./owners/${userPrincipalId}.md`,
     });
 
     writeAgentFile(dataDir, {
       agent_principal_id: agentPrincipalId,
       agent_id: agentId,
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: userPrincipalId,
       public_key_b64: publicKeyB64,
       status: 'ACTIVE',
       attributes: {},
@@ -81,7 +81,8 @@ describe('server integration', () => {
     state.agents.push({
       agent_principal_id: agentPrincipalId,
       agent_id: agentId,
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: userPrincipalId,
       path: `./agents/${agentPrincipalId}.md`,
     });
 
@@ -105,7 +106,8 @@ rules:
 
     state.policies.push({
       policy_id: policyId,
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: userPrincipalId,
       applies_to_agent_principal_id: null,
       name: null,
       description: null,
@@ -113,7 +115,8 @@ rules:
     });
     // Replace existing bindings so our test policy is used
     state.bindings = [{
-      owner_principal_id: ownerPrincipalId,
+      owner_type: 'user',
+      owner_id: userPrincipalId,
       policy_id: policyId,
       applies_to_agent_principal_id: null,
     }];
@@ -163,7 +166,8 @@ rules:
       payload: {
         agent_id: newAgentId,
         agent_pubkey_b64: newPubKeyB64,
-        owner_principal_id: ownerPrincipalId,
+        owner_type: 'user',
+        owner_id: userPrincipalId,
       },
     });
     expect(challengeRes.statusCode).toBe(200);
@@ -182,7 +186,8 @@ rules:
         agent_id: newAgentId,
         agent_pubkey_b64: newPubKeyB64,
         signature_b64: signature.toString('base64'),
-        owner_principal_id: ownerPrincipalId,
+        owner_type: 'user',
+        owner_id: userPrincipalId,
         webhook_url: 'https://new-agent.example.com/webhook',
         webhook_secret: 'new-agent-secret',
         webhook_auth_token: 'new-agent-auth-token',
@@ -205,7 +210,7 @@ rules:
       action_type: 'purchase',
       requested_at: new Date().toISOString(),
       principal: { agent_id: agentId },
-      subject: { principal_id: ownerPrincipalId },
+      subject: { principal_id: userPrincipalId },
       relying_party: { domain: 'example.com', trust_profile: 'LOW' },
       payload: { amount_minor: 5000, currency: 'USD', merchant_domain: 'example.com' },
     };
@@ -252,7 +257,7 @@ rules:
       action_type: 'purchase',
       requested_at: new Date().toISOString(),
       principal: { agent_id: agentId },
-      subject: { principal_id: ownerPrincipalId },
+      subject: { principal_id: userPrincipalId },
       relying_party: { domain: 'example.com', trust_profile: 'LOW' },
       payload: { amount_minor: 3000, currency: 'USD', merchant_domain: 'example.com' },
     };
@@ -312,7 +317,7 @@ rules:
         action_type: 'purchase',
         requested_at: new Date().toISOString(),
         principal: { agent_id: 'test' },
-        subject: { principal_id: ownerPrincipalId },
+        subject: { principal_id: userPrincipalId },
         payload: {},
       },
     });

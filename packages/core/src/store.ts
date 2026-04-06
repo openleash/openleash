@@ -2,7 +2,9 @@ import type {
   AgentFrontmatter,
   AgentInvite,
   ApprovalRequestFrontmatter,
-  OwnerFrontmatter,
+  UserFrontmatter,
+  OrganizationFrontmatter,
+  OrgMembership,
   PolicyDraftFrontmatter,
   ServerKeyFile,
   SetupInvite,
@@ -13,9 +15,22 @@ import type { AuditStore } from './audit.js';
 
 // ─── Repository interfaces ──────────────────────────────────────────
 
-export interface OwnerRepository {
-  read(ownerPrincipalId: string): OwnerFrontmatter;
-  write(owner: OwnerFrontmatter, body?: string): void;
+export interface UserRepository {
+  read(userPrincipalId: string): UserFrontmatter;
+  write(user: UserFrontmatter, body?: string): void;
+}
+
+export interface OrganizationRepository {
+  read(orgId: string): OrganizationFrontmatter;
+  write(org: OrganizationFrontmatter, body?: string): void;
+}
+
+export interface OrgMembershipRepository {
+  read(membershipId: string): OrgMembership;
+  write(membership: OrgMembership): void;
+  delete(membershipId: string): void;
+  listByOrg(orgId: string): OrgMembership[];
+  listByUser(userPrincipalId: string): OrgMembership[];
 }
 
 export interface AgentRepository {
@@ -60,6 +75,7 @@ export interface StateRepository {
   getState(): StateData;
   updateState(mutator: (state: StateData) => void): void;
   getResolvedApprovals(
+    ownerType: string,
     ownerId: string,
     limit: number,
     offset: number,
@@ -69,7 +85,9 @@ export interface StateRepository {
 // ─── Composite store ────────────────────────────────────────────────
 
 export interface DataStore {
-  owners: OwnerRepository;
+  users: UserRepository;
+  organizations: OrganizationRepository;
+  memberships: OrgMembershipRepository;
   agents: AgentRepository;
   policies: PolicyRepository;
   approvalRequests: ApprovalRequestRepository;
