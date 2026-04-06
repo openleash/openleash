@@ -58,7 +58,7 @@ const NAV_ITEMS = [
     { path: "/gui/admin/api-reference", label: "API Docs", icon: "api" },
 ];
 
-const OWNER_NAV_ITEMS = [
+const USER_NAV_ITEMS = [
     { path: "/gui/dashboard", label: "Dashboard", icon: "dashboard" },
     { path: "/gui/profile", label: "Profile", icon: "account_circle" },
     { path: "/gui/agents", label: "My Agents", icon: "smart_toy" },
@@ -120,7 +120,7 @@ export const INFO_OBLIGATIONS = `
   </dl>`;
 
 export const INFO_OWNER_STATUS = `
-  <div class="info-title">Owner Status</div>
+  <div class="info-title">User Status</div>
   <dl>
     <dt><span class="badge badge-green">ACTIVE</span></dt>
     <dd>Account is fully operational. Agents can request authorization and policies are evaluated.</dd>
@@ -194,8 +194,8 @@ export const INFO_AUDIT_EVENTS = `
   <dl>
     <dt><span class="badge badge-green">SERVER_STARTED</span></dt>
     <dd>The OpenLeash server was started.</dd>
-    <dt><span class="badge badge-green">OWNER_CREATED</span></dt>
-    <dd>A new owner principal was created.</dd>
+    <dt><span class="badge badge-green">USER_CREATED</span></dt>
+    <dd>A new user principal was created.</dd>
     <dt><span class="badge badge-green">AGENT_REGISTERED</span></dt>
     <dd>A new agent was registered under an owner.</dd>
     <dt><span class="badge badge-amber">POLICY_UPSERTED</span></dt>
@@ -264,7 +264,7 @@ export function renderPage(
     const extraItems = isOwner
         ? (options?.extraUserNavItems ?? [])
         : (options?.extraAdminNavItems ?? []);
-    const navItems = [...(isOwner ? OWNER_NAV_ITEMS : NAV_ITEMS), ...extraItems];
+    const navItems = [...(isOwner ? USER_NAV_ITEMS : NAV_ITEMS), ...extraItems];
     const subtitle = isOwner ? "Owner Portal" : "Authorization GUI";
     const dashboardPath = isOwner ? "/gui/dashboard" : "/gui/admin/dashboard";
 

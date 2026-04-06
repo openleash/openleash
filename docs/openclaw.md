@@ -28,7 +28,7 @@ This creates an owner, agent keypair, and policy in one step, and writes the cre
 | `OPENLEASH_URL` | Server URL (default: `http://127.0.0.1:8787`) |
 | `OPENLEASH_AGENT_ID` | The agent's string identifier |
 | `OPENLEASH_AGENT_PRIVATE_KEY_B64` | Base64-encoded Ed25519 private key (PKCS8 DER) |
-| `OWNER_PRINCIPAL_ID` | UUID of the owner principal the agent acts on behalf of |
+| `OWNER_PRINCIPAL_ID` | UUID of the owner (user) the agent acts on behalf of |
 
 Load these in your agent runtime before making authorization calls.
 

@@ -70,7 +70,8 @@ Proof tokens are PASETO v4.public tokens signed with Ed25519. They provide crypt
 | `iat` | Issued-at timestamp |
 | `exp` | Expiration timestamp |
 | `decision_id` | UUID of the authorization decision |
-| `owner_principal_id` | UUID of the owner |
+| `owner_type` | Owner type (`"user"` or `"org"`) |
+| `owner_id` | UUID of the owner |
 | `agent_id` | Agent ID string |
 | `action_type` | Type of action authorized |
 | `action_hash` | SHA256 hash of canonical action |
@@ -171,7 +172,7 @@ The `invite_id` and `invite_token` can also be passed as query parameters.
 
 The server verifies the hashed invite token, creates the agent, marks the invite as used, and returns:
 
-- Agent identity (`agent_principal_id`, `agent_id`, `owner_principal_id`)
+- Agent identity (`agent_principal_id`, `agent_id`, `owner_type`, `owner_id`)
 - Server URL (`openleash_url`)
 - Auth protocol details (`auth`) — signing method, required headers, signing input format
 - Available endpoints (`endpoints`) — method, path, and description for each
@@ -203,7 +204,8 @@ POST /v1/agents/registration-challenge
 {
   "agent_id": "my-agent",
   "agent_pubkey_b64": "<SPKI DER base64>",
-  "owner_principal_id": "<uuid>"
+  "owner_type": "user",
+  "owner_id": "<uuid>"
 }
 ```
 
@@ -218,7 +220,8 @@ POST /v1/agents/register
   "agent_id": "my-agent",
   "agent_pubkey_b64": "<SPKI DER base64>",
   "signature_b64": "<Ed25519 signature over challenge bytes>",
-  "owner_principal_id": "<uuid>"
+  "owner_type": "user",
+  "owner_id": "<uuid>"
 }
 ```
 
@@ -234,7 +237,7 @@ Owner sessions use PASETO v4.public tokens signed with the same Ed25519 key used
 |---|---|
 | `iss` | Always `"openleash"` |
 | `kid` | Signing key ID |
-| `sub` | Owner `owner_principal_id` |
+| `sub` | Owner `user_principal_id` |
 | `iat` | Issued-at timestamp |
 | `exp` | Expiration timestamp |
 | `purpose` | Always `"owner_session"` |
@@ -267,7 +270,8 @@ When an owner approves a `HUMAN_APPROVAL` request, the server issues an approval
 | `iat` | Issued-at timestamp |
 | `exp` | Expiration timestamp |
 | `approval_request_id` | UUID of the approval request |
-| `owner_principal_id` | UUID of the approving owner |
+| `owner_type` | Owner type (`"user"` or `"org"`) |
+| `owner_id` | UUID of the approving owner |
 | `agent_id` | Agent ID string |
 | `action_type` | Type of action approved |
 | `action_hash` | SHA256 hash of the canonical action |

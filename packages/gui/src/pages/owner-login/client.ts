@@ -22,7 +22,7 @@ document.getElementById("login-form")!.addEventListener("submit", async (e) => {
         const res = await fetch("/v1/owner/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ owner_principal_id: ownerId, passphrase }),
+            body: JSON.stringify({ user_principal_id: ownerId, passphrase }),
         });
 
         const data = await res.json();

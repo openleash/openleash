@@ -126,7 +126,7 @@ export async function initCommand(store: DataStore, args: string[]) {
     `OPENLEASH_URL=http://127.0.0.1:8787`,
     `OPENLEASH_AGENT_ID=${agentId}`,
     `OPENLEASH_AGENT_PRIVATE_KEY_B64=${agentPrivateKeyB64}`,
-    `OWNER_PRINCIPAL_ID=${ownerId}`,
+    `USER_PRINCIPAL_ID=${ownerId}`,
   ];
   const envContent = envLines.join('\n') + '\n';
 

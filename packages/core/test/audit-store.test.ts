@@ -97,25 +97,25 @@ describe('FileAuditStore', () => {
 
   // ─── readByPrincipal ───────────────────────────────────────────────
 
-  it('readByPrincipal filters by owner_principal_id in metadata', () => {
-    writeEvent(filePath, { metadata_json: { owner_principal_id: 'owner-a' } });
-    writeEvent(filePath, { metadata_json: { owner_principal_id: 'owner-b' } });
-    writeEvent(filePath, { metadata_json: { owner_principal_id: 'owner-a' } });
+  it('readByPrincipal filters by user_principal_id in metadata', () => {
+    writeEvent(filePath, { metadata_json: { user_principal_id: 'owner-a' } });
+    writeEvent(filePath, { metadata_json: { user_principal_id: 'owner-b' } });
+    writeEvent(filePath, { metadata_json: { user_principal_id: 'owner-a' } });
 
     const store = new FileAuditStore(tmpDir);
     const result = store.readByPrincipal('owner-a', new Set(), 25, 0);
     expect(result.total).toBe(2);
     expect(result.items).toHaveLength(2);
     expect(result.items.every(e =>
-      (e.metadata_json as Record<string, unknown>).owner_principal_id === 'owner-a'
+      (e.metadata_json as Record<string, unknown>).user_principal_id === 'owner-a'
     )).toBe(true);
   });
 
   it('readByPrincipal includes related agent principal IDs', () => {
-    writeEvent(filePath, { metadata_json: { owner_principal_id: 'owner-a' } });
+    writeEvent(filePath, { metadata_json: { user_principal_id: 'owner-a' } });
     writeEvent(filePath, { metadata_json: { agent_principal_id: 'agent-1' } });
     writeEvent(filePath, { principal_id: 'agent-2' });
-    writeEvent(filePath, { metadata_json: { owner_principal_id: 'owner-b' } });
+    writeEvent(filePath, { metadata_json: { user_principal_id: 'owner-b' } });
 
     const store = new FileAuditStore(tmpDir);
     const result = store.readByPrincipal('owner-a', new Set(['agent-1', 'agent-2']), 25, 0);
@@ -127,9 +127,9 @@ describe('FileAuditStore', () => {
     for (let i = 0; i < 10; i++) {
       writeEvent(filePath, {
         event_type: `EVT_${i}`,
-        metadata_json: { owner_principal_id: 'owner-a' },
+        metadata_json: { user_principal_id: 'owner-a' },
       });
-      writeEvent(filePath, { metadata_json: { owner_principal_id: 'other' } });
+      writeEvent(filePath, { metadata_json: { user_principal_id: 'other' } });
     }
 
     const store = new FileAuditStore(tmpDir);
@@ -156,10 +156,10 @@ describe('FileAuditStore', () => {
     expect(store.getTotal()).toBe(0);
 
     // Append events
-    const e1 = store.append('EVT_1', { owner_principal_id: 'owner-a' });
+    const e1 = store.append('EVT_1', { user_principal_id: 'owner-a' });
     expect(store.getTotal()).toBe(1);
 
-    const e2 = store.append('EVT_2', { owner_principal_id: 'owner-b' });
+    const e2 = store.append('EVT_2', { user_principal_id: 'owner-b' });
     expect(store.getTotal()).toBe(2);
 
     // Read back

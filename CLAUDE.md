@@ -47,13 +47,13 @@ npx openleash playground run <scenario>
 
 ### State storage (`./data/`)
 
-File-based with a `state.md` index (YAML frontmatter). Subdirectories: `owners/`, `agents/`, `policies/`, `keys/`, `approval-requests/`, `invites/`. Audit log: `audit.log.jsonl` (JSONL append-only).
+File-based with a `state.md` index (YAML frontmatter). Subdirectories: `users/`, `organizations/`, `memberships/`, `agents/`, `policies/`, `keys/`, `approval-requests/`, `invites/`. Audit log: `audit.log.jsonl` (JSONL append-only).
 
 ### Domain concepts
 
 - **Decision types**: `ALLOW`, `DENY`, `REQUIRE_APPROVAL`, `REQUIRE_STEP_UP`, `REQUIRE_DEPOSIT`
 - **Obligation types**: `HUMAN_APPROVAL`, `STEP_UP_AUTH`, `DEPOSIT`, `COUNTERPARTY_ATTESTATION`
-- **User roles (RBAC)**: `UserRole` = `'owner' | 'admin'`. Stored in `OwnerFrontmatter.roles` and embedded in PASETO session token claims. Admin auth middleware checks for `admin` role. Legacy admin token and localhost bypass kept as API-only fallbacks. Initial setup grants `['owner', 'admin']` to the first user. Role management via `GET/PUT /v1/admin/owners/:ownerId/roles`.
+- **System roles (RBAC)**: `SystemRole` = `'admin'`. Stored in `UserFrontmatter.system_roles` and embedded in PASETO session token claims. Admin auth middleware checks for `admin` role. Legacy admin token and localhost bypass kept as API-only fallbacks. Initial setup grants `['admin']` to the first user. Role management via `GET/PUT /v1/admin/owners/:ownerId/roles`.
 - IDs are UUIDs. JSON fields use snake_case.
 
 ## Code Conventions

@@ -206,10 +206,10 @@ paths:
                 agent_pubkey_b64:
                   type: string
                   description: Base64-encoded SPKI DER Ed25519 public key.
-                owner_principal_id:
+                user_principal_id:
                   type: string
                   format: uuid
-                  description: UUID of the owner to register under.
+                  description: UUID of the user to register under.
       responses:
         "200":
           description: Challenge issued.
@@ -245,7 +245,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [challenge_id, agent_id, agent_pubkey_b64, signature_b64, owner_principal_id]
+              required: [challenge_id, agent_id, agent_pubkey_b64, signature_b64, user_principal_id]
               properties:
                 challenge_id:
                   type: string
@@ -257,7 +257,7 @@ paths:
                 signature_b64:
                   type: string
                   description: Base64-encoded Ed25519 signature over the raw challenge bytes.
-                owner_principal_id:
+                user_principal_id:
                   type: string
                   format: uuid
       responses:
@@ -798,12 +798,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [status, owner_principal_id]
+                required: [status, user_principal_id]
                 properties:
                   status:
                     type: string
                     example: setup_complete
-                  owner_principal_id:
+                  user_principal_id:
                     type: string
                     format: uuid
         "400":
@@ -829,9 +829,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [owner_principal_id, passphrase]
+              required: [user_principal_id, passphrase]
               properties:
-                owner_principal_id:
+                user_principal_id:
                   type: string
                   format: uuid
                 passphrase:
@@ -843,7 +843,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [token, expires_at, owner_principal_id]
+                required: [token, expires_at, user_principal_id]
                 properties:
                   token:
                     type: string
@@ -851,7 +851,7 @@ paths:
                   expires_at:
                     type: string
                     format: date-time
-                  owner_principal_id:
+                  user_principal_id:
                     type: string
                     format: uuid
         "401":
@@ -1082,12 +1082,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [policy_id, owner_principal_id]
+                required: [policy_id, user_principal_id]
                 properties:
                   policy_id:
                     type: string
                     format: uuid
-                  owner_principal_id:
+                  user_principal_id:
                     type: string
                     format: uuid
                   applies_to_agent_principal_id:
@@ -1537,11 +1537,8 @@ paths:
           application/json:
             schema:
               type: object
-              required: [principal_type, display_name]
+              required: [display_name]
               properties:
-                principal_type:
-                  type: string
-                  enum: [HUMAN, ORG]
                 display_name:
                   type: string
                 contact_identities:
@@ -1624,9 +1621,9 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [owner_principal_id, status]
+                required: [user_principal_id, status]
                 properties:
-                  owner_principal_id:
+                  user_principal_id:
                     type: string
                     format: uuid
                   status:
@@ -1841,7 +1838,7 @@ components:
       scheme: bearer
       description: |
         PASETO v4.public session token issued by `POST /v1/owner/login`.
-        Contains `purpose: 'owner_session'` claim to distinguish from
+        Contains `purpose: 'user_session'` claim to distinguish from
         proof tokens. Default TTL is 8 hours (configurable via
         `sessions.ttl_seconds` in `config.yaml`).
 
@@ -2057,7 +2054,7 @@ components:
     AgentRegistration:
       type: object
       description: A registered AI agent.
-      required: [agent_principal_id, agent_id, owner_principal_id, status, created_at]
+      required: [agent_principal_id, agent_id, owner_type, owner_id, status, created_at]
       properties:
         agent_principal_id:
           type: string
@@ -2066,7 +2063,11 @@ components:
         agent_id:
           type: string
           description: The agent's self-chosen identifier.
-        owner_principal_id:
+        owner_type:
+          type: string
+          enum: [user, org]
+          description: Type of owner (user or organization).
+        owner_id:
           type: string
           format: uuid
           description: UUID of the owner this agent belongs to.
@@ -2079,15 +2080,12 @@ components:
 
     Owner:
       type: object
-      description: An owner principal (human or organization) that holds policies and owns agents.
-      required: [owner_principal_id, principal_type, display_name, status, created_at]
+      description: A user principal that holds policies and owns agents.
+      required: [user_principal_id, display_name, status, created_at]
       properties:
-        owner_principal_id:
+        user_principal_id:
           type: string
           format: uuid
-        principal_type:
-          type: string
-          enum: [HUMAN, ORG]
         display_name:
           type: string
         status:
@@ -2199,12 +2197,15 @@ components:
     PolicyEntry:
       type: object
       description: A stored authorization policy with its binding information.
-      required: [policy_id, owner_principal_id, path]
+      required: [policy_id, owner_type, owner_id, path]
       properties:
         policy_id:
           type: string
           format: uuid
-        owner_principal_id:
+        owner_type:
+          type: string
+          enum: [user, org]
+        owner_id:
           type: string
           format: uuid
         applies_to_agent_principal_id:
@@ -2277,7 +2278,7 @@ components:
           format: uuid
         agent_id:
           type: string
-        owner_principal_id:
+        user_principal_id:
           type: string
           format: uuid
         action_type:
@@ -2370,7 +2371,7 @@ components:
         agent_principal_id:
           type: string
           format: uuid
-        owner_principal_id:
+        user_principal_id:
           type: string
           format: uuid
         applies_to_agent_principal_id:
@@ -2421,8 +2422,8 @@ components:
           type: string
           description: |
             Event type, e.g. `AUTHORIZE_CALLED`, `PROOF_ISSUED`,
-            `DECISION_CREATED`, `AGENT_REGISTERED`, `OWNER_CREATED`,
-            `POLICY_UPSERTED`, `OWNER_LOGIN`, `OWNER_LOGOUT`,
+            `DECISION_CREATED`, `AGENT_REGISTERED`, `USER_CREATED`,
+            `POLICY_UPSERTED`, `USER_LOGIN`, `USER_LOGOUT`,
             `APPROVAL_REQUEST_CREATED`, `APPROVAL_REQUEST_APPROVED`,
             `APPROVAL_REQUEST_DENIED`, `APPROVAL_TOKEN_USED`,
             `SERVER_STARTED`.

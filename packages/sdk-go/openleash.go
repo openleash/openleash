@@ -45,7 +45,8 @@ type RegistrationChallengeResponse struct {
 type RegisterAgentResponse struct {
 	AgentPrincipalID string `json:"agent_principal_id"`
 	AgentID          string `json:"agent_id"`
-	OwnerPrincipalID string `json:"owner_principal_id"`
+	OwnerType        string `json:"owner_type"`
+	OwnerID          string `json:"owner_id"`
 	Status           string `json:"status"`
 	CreatedAt        string `json:"created_at"`
 }
@@ -54,7 +55,8 @@ type RegisterAgentResponse struct {
 type RedeemInviteResponse struct {
 	AgentPrincipalID string                 `json:"agent_principal_id"`
 	AgentID          string                 `json:"agent_id"`
-	OwnerPrincipalID string                 `json:"owner_principal_id"`
+	OwnerType        string                 `json:"owner_type"`
+	OwnerID          string                 `json:"owner_id"`
 	OpenleashURL     string                 `json:"openleash_url"`
 	PublicKeyB64     string                 `json:"public_key_b64"`
 	PrivateKeyB64    string                 `json:"private_key_b64"`
@@ -67,7 +69,8 @@ type RedeemInviteResponse struct {
 type AgentSelfResponse struct {
 	AgentPrincipalID string                 `json:"agent_principal_id"`
 	AgentID          string                 `json:"agent_id"`
-	OwnerPrincipalID string                 `json:"owner_principal_id"`
+	OwnerType        string                 `json:"owner_type"`
+	OwnerID          string                 `json:"owner_id"`
 	Status           string                 `json:"status"`
 	Attributes       map[string]interface{} `json:"attributes"`
 	CreatedAt        string                 `json:"created_at"`
@@ -165,13 +168,16 @@ func SignRequest(method, path, timestamp, nonce string, bodyBytes []byte, privat
 }
 
 // RegistrationChallenge requests a registration challenge from the OpenLeash server.
-func RegistrationChallenge(openleashURL, agentID, agentPubKeyB64 string, ownerPrincipalID *string) (RegistrationChallengeResponse, error) {
+func RegistrationChallenge(openleashURL, agentID, agentPubKeyB64 string, ownerType, ownerID *string) (RegistrationChallengeResponse, error) {
 	body := map[string]interface{}{
 		"agent_id":         agentID,
 		"agent_pubkey_b64": agentPubKeyB64,
 	}
-	if ownerPrincipalID != nil {
-		body["owner_principal_id"] = *ownerPrincipalID
+	if ownerType != nil {
+		body["owner_type"] = *ownerType
+	}
+	if ownerID != nil {
+		body["owner_id"] = *ownerID
 	}
 
 	var result RegistrationChallengeResponse
@@ -182,15 +188,16 @@ func RegistrationChallenge(openleashURL, agentID, agentPubKeyB64 string, ownerPr
 }
 
 // RegisterAgent registers an agent with the OpenLeash server.
-func RegisterAgent(openleashURL, challengeID, agentID, agentPubKeyB64, signatureB64, ownerPrincipalID, webhookURL, webhookSecret, webhookAuthToken string) (RegisterAgentResponse, error) {
+func RegisterAgent(openleashURL, challengeID, agentID, agentPubKeyB64, signatureB64, ownerType, ownerID, webhookURL, webhookSecret, webhookAuthToken string) (RegisterAgentResponse, error) {
 	body := map[string]interface{}{
-		"challenge_id":       challengeID,
-		"agent_id":           agentID,
-		"agent_pubkey_b64":   agentPubKeyB64,
-		"signature_b64":      signatureB64,
-		"owner_principal_id": ownerPrincipalID,
-		"webhook_url":        webhookURL,
-		"webhook_secret":     webhookSecret,
+		"challenge_id":     challengeID,
+		"agent_id":         agentID,
+		"agent_pubkey_b64": agentPubKeyB64,
+		"signature_b64":    signatureB64,
+		"owner_type":       ownerType,
+		"owner_id":         ownerID,
+		"webhook_url":      webhookURL,
+		"webhook_secret":   webhookSecret,
 		"webhook_auth_token": webhookAuthToken,
 	}
 

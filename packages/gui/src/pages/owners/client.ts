@@ -28,7 +28,6 @@ function toggleForm() {
 
 async function createOwner() {
     const displayName = (document.getElementById("display-name") as HTMLInputElement).value.trim();
-    const principalType = (document.getElementById("principal-type") as HTMLSelectElement).value;
     const btn = document.getElementById("create-btn") as HTMLButtonElement;
 
     olFieldError("display-name", "");
@@ -41,19 +40,19 @@ async function createOwner() {
     btn.textContent = "Creating...";
 
     try {
-        const res = await fetch("/v1/admin/owners", {
+        const res = await fetch("/v1/admin/users", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ principal_type: principalType, display_name: displayName }),
+            body: JSON.stringify({ display_name: displayName }),
         });
 
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(olApiError(err, "Failed to create owner"));
+            throw new Error(olApiError(err, "Failed to create user"));
         }
 
         const result = await res.json();
-        olToast("Owner created (ID: " + result.owner_principal_id.slice(0, 8) + "...)", "success");
+        olToast("User created (ID: " + result.user_principal_id.slice(0, 8) + "...)", "success");
         setTimeout(() => { window.location.reload(); }, 1000);
     } catch (err: unknown) {
         olToast(String((err as Error).message || err), "error");

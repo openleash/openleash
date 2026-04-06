@@ -13,7 +13,8 @@ describe('approval tokens', () => {
     const { token, expiresAt, claims } = await issueApprovalToken({
       key,
       approvalRequestId: '00000000-0000-0000-0000-000000000010',
-      ownerPrincipalId: '00000000-0000-0000-0000-000000000001',
+      ownerType: 'user' as const,
+      ownerId: '00000000-0000-0000-0000-000000000001',
       agentId: 'test-agent',
       actionType: 'purchase',
       actionHash: 'hash123',
@@ -40,7 +41,8 @@ describe('approval tokens', () => {
     const { token } = await issueApprovalToken({
       key: key1,
       approvalRequestId: '00000000-0000-0000-0000-000000000010',
-      ownerPrincipalId: '00000000-0000-0000-0000-000000000001',
+      ownerType: 'user' as const,
+      ownerId: '00000000-0000-0000-0000-000000000001',
       agentId: 'test-agent',
       actionType: 'purchase',
       actionHash: 'hash123',
@@ -57,7 +59,8 @@ describe('approval tokens', () => {
     const { token } = await issueApprovalToken({
       key,
       approvalRequestId: '00000000-0000-0000-0000-000000000010',
-      ownerPrincipalId: '00000000-0000-0000-0000-000000000001',
+      ownerType: 'user' as const,
+      ownerId: '00000000-0000-0000-0000-000000000001',
       agentId: 'test-agent',
       actionType: 'purchase',
       actionHash: 'hash123',

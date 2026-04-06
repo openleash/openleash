@@ -23,14 +23,15 @@ async function main() {
   console.log('Public key:', keypair.publicKeyB64);
 
   // Step 2: Get registration challenge
-  const ownerPrincipalId = process.env.OWNER_PRINCIPAL_ID!;
+  const ownerId = process.env.OWNER_PRINCIPAL_ID!;
   const agentId = 'example-agent';
 
   const challenge = await registrationChallenge({
     openleashUrl: OPENLEASH_URL,
     agentId,
     agentPubKeyB64: keypair.publicKeyB64,
-    ownerPrincipalId,
+    ownerType: 'user',
+    ownerId,
   });
   console.log('Got challenge:', challenge.challenge_id);
 
@@ -49,7 +50,8 @@ async function main() {
     agentId,
     agentPubKeyB64: keypair.publicKeyB64,
     signatureB64: signature.toString('base64'),
-    ownerPrincipalId,
+    ownerType: 'user',
+    ownerId,
   });
   console.log('Agent registered:', registration.agent_principal_id);
 
@@ -63,7 +65,7 @@ async function main() {
       action_type: 'purchase',
       requested_at: new Date().toISOString(),
       principal: { agent_id: agentId },
-      subject: { principal_id: ownerPrincipalId },
+      subject: { principal_id: ownerId },
       relying_party: { domain: 'example.com', trust_profile: 'LOW' },
       payload: {
         amount_minor: 5000,
