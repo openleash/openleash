@@ -12,7 +12,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@openleash/sdk-ts": "0.5.0",
     "json-canonicalize": "^2.0.0"
   },
