@@ -99,6 +99,62 @@ describe("Organization management", () => {
         fs.rmSync(rootDir, { recursive: true, force: true });
     });
 
+    // ─── Session refresh ─────────────────────────────────────────────
+
+    describe("Session refresh", () => {
+        it("refreshes token with current memberships", async () => {
+            const res = await app.inject({
+                method: "POST",
+                url: "/v1/owner/session/refresh",
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+            });
+            expect(res.statusCode).toBe(200);
+            const body = JSON.parse(res.payload);
+            expect(body.token).toMatch(/^v4\.public\./);
+            expect(body.user_principal_id).toBe(userAId);
+            expect(body.system_roles).toContain("admin");
+            // Update token for subsequent tests
+            sessionTokenA = body.token;
+        });
+    });
+
+    // ─── Self-service org creation ───────────────────────────────────
+
+    describe("Self-service org creation", () => {
+        it("user creates org and becomes admin", async () => {
+            const res = await app.inject({
+                method: "POST",
+                url: "/v1/owner/organizations",
+                headers: { authorization: `Bearer ${sessionTokenC}` },
+                payload: { display_name: "User C Corp" },
+            });
+            expect(res.statusCode).toBe(200);
+            const body = JSON.parse(res.payload);
+            expect(body.org_id).toBeDefined();
+            expect(body.your_role).toBe("org_admin");
+            expect(body.display_name).toBe("User C Corp");
+
+            // Verify user C can access it
+            const detailRes = await app.inject({
+                method: "GET",
+                url: `/v1/owner/organizations/${body.org_id}`,
+                headers: { authorization: `Bearer ${sessionTokenC}` },
+            });
+            expect(detailRes.statusCode).toBe(200);
+            expect(JSON.parse(detailRes.payload).your_role).toBe("org_admin");
+        });
+
+        it("rejects missing display_name", async () => {
+            const res = await app.inject({
+                method: "POST",
+                url: "/v1/owner/organizations",
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+                payload: {},
+            });
+            expect(res.statusCode).toBe(400);
+        });
+    });
+
     // ─── Admin org CRUD ──────────────────────────────────────────────
 
     describe("Admin org CRUD", () => {
@@ -244,7 +300,7 @@ describe("Organization management", () => {
             expect(body.organizations.find((o: { org_id: string }) => o.org_id === orgId)).toBeDefined();
         });
 
-        it("user C sees no orgs", async () => {
+        it("user C sees only their self-created org", async () => {
             const res = await app.inject({
                 method: "GET",
                 url: "/v1/owner/organizations",
@@ -252,7 +308,9 @@ describe("Organization management", () => {
             });
             expect(res.statusCode).toBe(200);
             const body = JSON.parse(res.payload);
-            expect(body.organizations.length).toBe(0);
+            // C created "User C Corp" in self-service test, not a member of the admin-created org
+            const orgNames = body.organizations.map((o: { display_name?: string }) => o.display_name);
+            expect(orgNames).not.toContain("Acme Corporation");
         });
 
         it("reads org detail", async () => {

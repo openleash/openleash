@@ -266,6 +266,38 @@ export function registerOwnerRoutes(
         return { status: "logged_out" };
     });
 
+    // POST /v1/owner/session/refresh — re-issue token with current memberships
+    app.post("/v1/owner/session/refresh", { preHandler: ownerAuth }, async (request) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+
+        const state = store.state.getState();
+        const activeKey = store.keys.read(state.server_keys.active_kid);
+        const ttl = config.sessions?.ttl_seconds ?? 28800;
+        const user = store.users.read(session.sub);
+        const systemRoles = resolveSystemRoles(user);
+        const memberships = store.memberships.listByUser(session.sub);
+        const orgMemberships = memberships
+            .filter((m) => m.status === "active")
+            .map((m) => ({ org_id: m.org_id, role: m.role }));
+
+        const newSession = await issueSessionToken({
+            key: activeKey,
+            userPrincipalId: session.sub,
+            ttlSeconds: ttl,
+            systemRoles,
+            orgMemberships: orgMemberships.length > 0 ? orgMemberships : undefined,
+        });
+
+        return {
+            token: newSession.token,
+            expires_at: newSession.expiresAt,
+            user_principal_id: session.sub,
+            system_roles: systemRoles,
+            org_memberships: orgMemberships,
+        };
+    });
+
     // ─── Owner-authed routes ──────────────────────────────────────────
 
     // GET /v1/owner/profile
@@ -452,6 +484,81 @@ export function registerOwnerRoutes(
         }
         return membership;
     }
+
+    // POST /v1/owner/organizations — create a new organization (self-service)
+    app.post("/v1/owner/organizations", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const body = request.body as {
+            display_name: string;
+            contact_identities?: ContactIdentity[];
+        };
+
+        if (!body.display_name?.trim()) {
+            reply.code(400).send({
+                error: { code: "INVALID_BODY", message: "display_name is required" },
+            });
+            return;
+        }
+
+        const orgId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        const contacts = (body.contact_identities ?? []).map((c) => ({
+            ...c,
+            contact_id: c.contact_id || crypto.randomUUID(),
+            verified: c.verified ?? false,
+            verified_at: c.verified_at ?? null,
+            added_at: c.added_at || now,
+        }));
+
+        store.organizations.write({
+            org_id: orgId,
+            display_name: body.display_name.trim(),
+            status: "ACTIVE",
+            attributes: {},
+            created_at: now,
+            created_by_user_id: session.sub,
+            verification_status: "unverified",
+            ...(contacts.length > 0 && { contact_identities: contacts }),
+        });
+
+        // Creator becomes org_admin
+        const membershipId = crypto.randomUUID();
+        store.memberships.write({
+            membership_id: membershipId,
+            org_id: orgId,
+            user_principal_id: session.sub,
+            role: "org_admin",
+            status: "active",
+            invited_by_user_id: null,
+            created_at: now,
+        });
+
+        store.state.updateState((s) => {
+            s.organizations.push({ org_id: orgId, path: `./organizations/${orgId}.md` });
+            s.memberships.push({
+                membership_id: membershipId,
+                org_id: orgId,
+                user_principal_id: session.sub,
+                role: "org_admin",
+                path: `./memberships/${membershipId}.json`,
+            });
+        });
+
+        store.audit.append("ORG_CREATED", {
+            org_id: orgId,
+            display_name: body.display_name.trim(),
+            created_by_user_id: session.sub,
+        }, { principal_id: session.sub });
+
+        return {
+            org_id: orgId,
+            display_name: body.display_name.trim(),
+            status: "ACTIVE",
+            created_at: now,
+            your_role: "org_admin",
+        };
+    });
 
     // GET /v1/owner/organizations
     app.get("/v1/owner/organizations", { preHandler: ownerAuth }, async (request) => {
@@ -1154,6 +1261,214 @@ export function registerOwnerRoutes(
         });
 
         return { approval_request_id: id, status: "DENIED" };
+    });
+
+    // GET /v1/owner/organizations/:orgId/policy-drafts
+    app.get("/v1/owner/organizations/:orgId/policy-drafts", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+        const query = request.query as { status?: string };
+
+        if (!requireOrgRole(session, orgId, "org_member", reply)) return;
+
+        const state = store.state.getState();
+        let drafts = (state.policy_drafts ?? []).filter(
+            (d) => d.owner_type === "org" && d.owner_id === orgId,
+        );
+        if (query.status) {
+            drafts = drafts.filter((d) => d.status === query.status);
+        }
+
+        const details = drafts.map((entry) => {
+            try {
+                return store.policyDrafts.read(entry.policy_draft_id);
+            } catch {
+                return { policy_draft_id: entry.policy_draft_id, error: "file_not_found" };
+            }
+        });
+        return { policy_drafts: details };
+    });
+
+    // GET /v1/owner/organizations/:orgId/policy-drafts/:id
+    app.get("/v1/owner/organizations/:orgId/policy-drafts/:id", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, id } = request.params as { orgId: string; id: string };
+
+        if (!requireOrgRole(session, orgId, "org_member", reply)) return;
+
+        const state = store.state.getState();
+        const entry = (state.policy_drafts ?? []).find(
+            (d) => d.policy_draft_id === id && d.owner_type === "org" && d.owner_id === orgId,
+        );
+        if (!entry) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy draft not found" } });
+            return;
+        }
+
+        try {
+            return store.policyDrafts.read(id);
+        } catch {
+            reply.code(404).send({ error: { code: "FILE_NOT_FOUND", message: "Policy draft file not found" } });
+        }
+    });
+
+    // POST /v1/owner/organizations/:orgId/policy-drafts/:id/approve
+    app.post("/v1/owner/organizations/:orgId/policy-drafts/:id/approve", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, id } = request.params as { orgId: string; id: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const approveOwner = store.users.read(session.sub);
+        if (!(await verifyTotpForApproval(request, reply, approveOwner, session))) return;
+
+        const state = store.state.getState();
+        const entry = (state.policy_drafts ?? []).find(
+            (d) => d.policy_draft_id === id && d.owner_type === "org" && d.owner_id === orgId,
+        );
+        if (!entry) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy draft not found" } });
+            return;
+        }
+
+        const draft = store.policyDrafts.read(id);
+        if (draft.status !== "PENDING") {
+            reply.code(400).send({
+                error: { code: "INVALID_STATUS", message: `Cannot approve draft with status ${draft.status}` },
+            });
+            return;
+        }
+
+        try {
+            parsePolicyYaml(draft.policy_yaml);
+        } catch (e: unknown) {
+            reply.code(400).send({ error: { code: "INVALID_POLICY", message: (e as Error).message } });
+            return;
+        }
+
+        const policyId = crypto.randomUUID();
+        store.policies.write(policyId, draft.policy_yaml);
+        const appliesToAgent = draft.applies_to_agent_principal_id;
+
+        draft.status = "APPROVED";
+        draft.resulting_policy_id = policyId;
+        draft.resolved_at = new Date().toISOString();
+        draft.resolved_by = session.sub;
+        store.policyDrafts.write(draft);
+
+        store.state.updateState(s => {
+            s.policies.push({
+                policy_id: policyId,
+                owner_type: "org",
+                owner_id: orgId,
+                applies_to_agent_principal_id: appliesToAgent,
+                name: draft.name ?? null,
+                description: draft.description ?? null,
+                path: `./policies/${policyId}.yaml`,
+            });
+            s.bindings.push({
+                owner_type: "org",
+                owner_id: orgId,
+                policy_id: policyId,
+                applies_to_agent_principal_id: appliesToAgent,
+            });
+            const draftEntry = (s.policy_drafts ?? []).find(d => d.policy_draft_id === id);
+            if (draftEntry) draftEntry.status = "APPROVED";
+        });
+
+        store.audit.append("POLICY_DRAFT_APPROVED", {
+            policy_draft_id: id,
+            policy_id: policyId,
+            org_id: orgId,
+            approved_by: session.sub,
+            agent_id: draft.agent_id,
+            agent_principal_id: draft.agent_principal_id,
+        }, { principal_id: session.sub });
+
+        const policyApproveAgent = store.agents.read(draft.agent_principal_id);
+        deliverWebhook({
+            webhookUrl: policyApproveAgent.webhook_url,
+            webhookSecret: policyApproveAgent.webhook_secret,
+            webhookAuthToken: policyApproveAgent.webhook_auth_token,
+            payload: {
+                event_type: 'policy_draft.approved',
+                timestamp: new Date().toISOString(),
+                agent_principal_id: draft.agent_principal_id,
+                data: { policy_draft_id: id, status: 'APPROVED', policy_id: policyId, applies_to_agent_principal_id: appliesToAgent },
+            },
+            auditStore: store.audit,
+        });
+
+        return { policy_draft_id: id, status: "APPROVED", policy_id: policyId, applies_to_agent_principal_id: appliesToAgent };
+    });
+
+    // POST /v1/owner/organizations/:orgId/policy-drafts/:id/deny
+    app.post("/v1/owner/organizations/:orgId/policy-drafts/:id/deny", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, id } = request.params as { orgId: string; id: string };
+        const body = request.body as { reason?: string; totp_code?: string } | null;
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const denyOwner = store.users.read(session.sub);
+        if (!(await verifyTotpForApproval(request, reply, denyOwner, session))) return;
+
+        const state = store.state.getState();
+        const entry = (state.policy_drafts ?? []).find(
+            (d) => d.policy_draft_id === id && d.owner_type === "org" && d.owner_id === orgId,
+        );
+        if (!entry) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy draft not found" } });
+            return;
+        }
+
+        const draft = store.policyDrafts.read(id);
+        if (draft.status !== "PENDING") {
+            reply.code(400).send({
+                error: { code: "INVALID_STATUS", message: `Cannot deny draft with status ${draft.status}` },
+            });
+            return;
+        }
+
+        draft.status = "DENIED";
+        draft.denial_reason = body?.reason ?? null;
+        draft.resolved_at = new Date().toISOString();
+        draft.resolved_by = session.sub;
+        store.policyDrafts.write(draft);
+
+        store.state.updateState(s => {
+            const draftEntry = (s.policy_drafts ?? []).find(d => d.policy_draft_id === id);
+            if (draftEntry) draftEntry.status = "DENIED";
+        });
+
+        store.audit.append("POLICY_DRAFT_DENIED", {
+            policy_draft_id: id,
+            org_id: orgId,
+            denied_by: session.sub,
+            agent_id: draft.agent_id,
+            agent_principal_id: draft.agent_principal_id,
+            reason: body?.reason ?? null,
+        }, { principal_id: session.sub });
+
+        const policyDenyAgent = store.agents.read(draft.agent_principal_id);
+        deliverWebhook({
+            webhookUrl: policyDenyAgent.webhook_url,
+            webhookSecret: policyDenyAgent.webhook_secret,
+            webhookAuthToken: policyDenyAgent.webhook_auth_token,
+            payload: {
+                event_type: 'policy_draft.denied',
+                timestamp: new Date().toISOString(),
+                agent_principal_id: draft.agent_principal_id,
+                data: { policy_draft_id: id, status: 'DENIED', denial_reason: body?.reason ?? null },
+            },
+            auditStore: store.audit,
+        });
+
+        return { policy_draft_id: id, status: "DENIED" };
     });
 
     // ─── Policies (scoped to owner) ──────────────────────────────────
