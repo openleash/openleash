@@ -10,7 +10,8 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "composite": true
+    "composite": true,
+    "types": ["node"]
   },
   "include": [],
   "references": [
