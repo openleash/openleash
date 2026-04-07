@@ -7,7 +7,7 @@ export default defineConfig({
         outDir: resolve(__dirname, "dist/client"),
         emptyOutDir: true,
         manifest: true,
-        rollupOptions: {
+        rolldownOptions: {
             input: {
                 "shared/common": resolve(__dirname, "src/shared/common.ts"),
                 "pages/audit/client": resolve(__dirname, "src/pages/audit/client.ts"),
