@@ -879,9 +879,24 @@ export function registerGuiRoutes(
                 }
             });
         const agentOwner = store.users.read(session.sub);
+
+        // Build owner options (self + orgs where user is admin)
+        const ownerOptions: { id: string; display_name: string; type: "user" | "org" }[] = [
+            { id: session.sub, display_name: agentOwner.display_name, type: "user" },
+        ];
+        const userMemberships = store.memberships.listByUser(session.sub);
+        for (const m of userMemberships) {
+            if (m.status !== "active") continue;
+            try {
+                const org = store.organizations.read(m.org_id);
+                ownerOptions.push({ id: org.org_id, display_name: org.display_name, type: "org" });
+            } catch { /* skip */ }
+        }
+
         const html = renderOwnerAgents(agents, {
             totp_enabled: !!agentOwner.totp_enabled,
             require_totp: !!config.security.require_totp,
+            ownerOptions: ownerOptions.length > 1 ? ownerOptions : undefined,
         }, ownerRenderOptionsFor(session));
         reply.type("text/html").send(html);
     });

@@ -42,21 +42,42 @@ async function revokeAgent(principalId: string) {
     }
 }
 
-async function createAgentInvite() {
+async function doCreateInvite(ownerType: string, ownerId: string) {
+    const url = ownerType === "org"
+        ? `/v1/owner/organizations/${encodeURIComponent(ownerId)}/agent-invites`
+        : "/v1/owner/agent-invites";
     try {
-        const res = await fetch("/v1/owner/agent-invites", {
+        const res = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: "{}",
         });
-        if (!res.ok) throw new Error("Failed to create invite");
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(olApiError(err, "Failed to create invite"));
+        }
         const data = await res.json();
         const baseUrl = window.location.origin;
         const inviteUrl = baseUrl + "/v1/agents/register-with-invite?invite_id=" + encodeURIComponent(data.invite_id) + "&invite_token=" + encodeURIComponent(data.invite_token);
         document.getElementById("invite-url")!.textContent = inviteUrl;
         document.getElementById("invite-result")!.style.display = "block";
-    } catch {
-        olToast("Failed to create agent invite", "error");
+        document.getElementById("invite-owner-select")?.classList.add("hidden");
+    } catch (err: unknown) {
+        olToast(String((err as Error).message || err), "error");
+    }
+}
+
+const ownerSelect = document.getElementById("agent-owner") as HTMLSelectElement | null;
+const ownerSelectPanel = document.getElementById("invite-owner-select");
+
+function createAgentInvite() {
+    // If there's an owner selector (user has orgs), show it
+    if (ownerSelect && ownerSelectPanel) {
+        ownerSelectPanel.classList.remove("hidden");
+        document.getElementById("btn-create-invite")!.classList.add("hidden");
+    } else {
+        // No orgs — create invite directly for the user
+        doCreateInvite("user", "");
     }
 }
 
@@ -72,9 +93,21 @@ async function copyInviteUrl(e: Event) {
 // ─── Event bindings ─────────────────────────────────────────────────
 
 document.getElementById("btn-create-invite")?.addEventListener("click", createAgentInvite);
+document.getElementById("btn-confirm-invite")?.addEventListener("click", () => {
+    if (!ownerSelect) return;
+    const selectedOption = ownerSelect.options[ownerSelect.selectedIndex];
+    const ownerType = selectedOption?.dataset.type || "user";
+    const ownerId = ownerSelect.value;
+    doCreateInvite(ownerType, ownerId);
+});
+document.getElementById("btn-cancel-invite-select")?.addEventListener("click", () => {
+    ownerSelectPanel?.classList.add("hidden");
+    document.getElementById("btn-create-invite")?.classList.remove("hidden");
+});
 document.getElementById("btn-copy-invite")?.addEventListener("click", copyInviteUrl);
 document.getElementById("btn-dismiss-invite")?.addEventListener("click", () => {
     document.getElementById("invite-result")!.style.display = "none";
+    document.getElementById("btn-create-invite")?.classList.remove("hidden");
 });
 
 document.addEventListener("click", (e) => {
