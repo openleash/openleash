@@ -128,6 +128,49 @@ export function renderOwnerOrganizations(orgs: OwnerOrgEntry[], renderPageOption
     return renderPage("Organizations", content, "/gui/organizations", "owner", renderPageOptions);
 }
 
+const EU_COUNTRY_NAMES: Record<string, string> = {
+    AT: "Austria", BE: "Belgium", BG: "Bulgaria", HR: "Croatia", CY: "Cyprus",
+    CZ: "Czech Republic", DK: "Denmark", EE: "Estonia", FI: "Finland", FR: "France",
+    DE: "Germany", GR: "Greece", HU: "Hungary", IE: "Ireland", IT: "Italy",
+    LV: "Latvia", LT: "Lithuania", LU: "Luxembourg", MT: "Malta", NL: "Netherlands",
+    PL: "Poland", PT: "Portugal", RO: "Romania", SK: "Slovakia", SI: "Slovenia",
+    ES: "Spain", SE: "Sweden",
+};
+
+function countryFlag(code: string): string {
+    return String.fromCodePoint(
+        ...code.toUpperCase().split("").map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
+    );
+}
+
+const COMPANY_ID_PLACEHOLDERS: Record<string, string> = {
+    COMPANY_REG: "e.g. 5560360793 (SE org.nr)",
+    VAT: "e.g. SE556036079301 (with country prefix)",
+    EORI: "e.g. SE5560360793 (country prefix + number)",
+    LEI: "e.g. 5493006MHB84DD3ZDB09 (20 chars)",
+    DUNS: "e.g. 123456789 (9 digits)",
+    GLN: "e.g. 7350053850019 (13 digits)",
+    ISIN: "e.g. US0378331005 (country + 10 chars)",
+    TAX_ID: "e.g. EIN 12-3456789",
+    CHAMBER_OF_COMMERCE: "e.g. KVK12345678",
+    NAICS: "e.g. 541511 (2-6 digits)",
+    SIC: "e.g. 7372 (4 digits)",
+};
+
+const COMPANY_ID_HELP: Record<string, string> = {
+    COMPANY_REG: "Issued by the national company registry (e.g. Bolagsverket in Sweden, Companies House in UK)",
+    VAT: "EU Value Added Tax number — includes country prefix. Issued by national tax authority.",
+    EORI: "Required for EU customs. Issued by national customs authority.",
+    LEI: "Global legal entity identifier (ISO 17442). Obtain from any GLEIF-accredited issuer.",
+    DUNS: "Dun & Bradstreet number. Apply at dnb.com.",
+    GLN: "GS1 Global Location Number. Obtain from your national GS1 organization.",
+    ISIN: "Securities identifier. Assigned by national numbering agencies.",
+    TAX_ID: "General tax ID for non-EU countries. Issued by national tax authority.",
+    CHAMBER_OF_COMMERCE: "Registration at your national or regional Chamber of Commerce.",
+    NAICS: "North American industry code. Look up at census.gov/naics.",
+    SIC: "Standard industry code. Look up at sec.gov/divisions/corpfin/sic.",
+};
+
 const COMPANY_ID_LABELS: Record<string, string> = {
     COMPANY_REG: "Company Registration",
     VAT: "VAT Number",
@@ -163,19 +206,15 @@ function renderCompanyIdsCard(
 ): string {
     const rows = companyIds.map((c, i) => `<tr>
       <td>${escapeHtml(COMPANY_ID_LABELS[c.id_type] ?? c.id_type)}</td>
-      <td>${c.country ? escapeHtml(c.country) : "—"}</td>
+      <td>${c.country ? `${countryFlag(c.country)} ${escapeHtml(c.country)} ${escapeHtml(EU_COUNTRY_NAMES[c.country] ?? "")}` : "—"}</td>
       <td class="mono">${escapeHtml(c.id_value)}</td>
       <td>${companyIdVerificationBadge(c.verification_level)}</td>
       ${isAdmin ? `<td><button class="btn btn-secondary profile-btn-remove oorg-btn-remove-cid" data-index="${i}">Remove</button></td>` : ""}
     </tr>`).join("\n");
 
-    const countryOptions = [
-        "AT:Austria", "BE:Belgium", "BG:Bulgaria", "HR:Croatia", "CY:Cyprus", "CZ:Czech Republic",
-        "DK:Denmark", "EE:Estonia", "FI:Finland", "FR:France", "DE:Germany", "GR:Greece",
-        "HU:Hungary", "IE:Ireland", "IT:Italy", "LV:Latvia", "LT:Lithuania", "LU:Luxembourg",
-        "MT:Malta", "NL:Netherlands", "PL:Poland", "PT:Portugal", "RO:Romania", "SK:Slovakia",
-        "SI:Slovenia", "ES:Spain", "SE:Sweden",
-    ].map((s) => { const [v, l] = s.split(":"); return `<option value="${v}">${l}</option>`; }).join("");
+    const countryOptions = Object.entries(EU_COUNTRY_NAMES)
+        .map(([code, name]) => `<option value="${code}">${countryFlag(code)} ${name}</option>`)
+        .join("");
 
     const idTypeOptions = Object.entries(COMPANY_ID_LABELS)
         .map(([k, v]) => `<option value="${escapeHtml(k)}">${escapeHtml(v)}</option>`)
@@ -193,7 +232,8 @@ function renderCompanyIdsCard(
         </div>
         <div class="form-group">
           <label class="form-label" for="cid-value">ID Value</label>
-          <input type="text" id="cid-value" class="form-input" placeholder="e.g. SE5561234567">
+          <input type="text" id="cid-value" class="form-input" placeholder="${escapeHtml(COMPANY_ID_PLACEHOLDERS.COMPANY_REG)}">
+          <div class="form-help" id="cid-help">${escapeHtml(COMPANY_ID_HELP.COMPANY_REG)}</div>
           <div class="field-error" id="err-cid-value"></div>
         </div>
         <div class="oorg-add-member-actions">

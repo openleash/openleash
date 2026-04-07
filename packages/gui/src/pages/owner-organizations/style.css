@@ -77,10 +77,13 @@
 }
 
 .oorg-rename-form {
-    display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
+}
+
+.oorg-rename-form:not(.hidden) {
+    display: flex;
 }
 
 .oorg-rename-form .form-input {

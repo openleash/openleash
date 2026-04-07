@@ -162,15 +162,51 @@ const cidTypeSelect = document.getElementById("cid-type") as HTMLSelectElement |
 const cidCountryGroup = document.getElementById("cid-country-group");
 const cidCountrySelect = document.getElementById("cid-country") as HTMLSelectElement | null;
 const cidValueInput = document.getElementById("cid-value") as HTMLInputElement | null;
+const cidHelp = document.getElementById("cid-help");
 
-cidTypeSelect?.addEventListener("change", () => {
+const CID_PLACEHOLDERS: Record<string, string> = {
+    COMPANY_REG: "e.g. 5560360793 (SE org.nr)",
+    VAT: "e.g. SE556036079301 (with country prefix)",
+    EORI: "e.g. SE5560360793 (country prefix + number)",
+    LEI: "e.g. 5493006MHB84DD3ZDB09 (20 chars)",
+    DUNS: "e.g. 123456789 (9 digits)",
+    GLN: "e.g. 7350053850019 (13 digits)",
+    ISIN: "e.g. US0378331005 (country + 10 chars)",
+    TAX_ID: "e.g. EIN 12-3456789",
+    CHAMBER_OF_COMMERCE: "e.g. KVK12345678",
+    NAICS: "e.g. 541511 (2-6 digits)",
+    SIC: "e.g. 7372 (4 digits)",
+};
+
+const CID_HELP: Record<string, string> = {
+    COMPANY_REG: "Issued by the national company registry (e.g. Bolagsverket in Sweden, Companies House in UK)",
+    VAT: "EU Value Added Tax number \u2014 includes country prefix. Issued by national tax authority.",
+    EORI: "Required for EU customs. Issued by national customs authority.",
+    LEI: "Global legal entity identifier (ISO 17442). Obtain from any GLEIF-accredited issuer.",
+    DUNS: "Dun & Bradstreet number. Apply at dnb.com.",
+    GLN: "GS1 Global Location Number. Obtain from your national GS1 organization.",
+    ISIN: "Securities identifier. Assigned by national numbering agencies.",
+    TAX_ID: "General tax ID for non-EU countries. Issued by national tax authority.",
+    CHAMBER_OF_COMMERCE: "Registration at your national or regional Chamber of Commerce.",
+    NAICS: "North American industry code. Look up at census.gov/naics.",
+    SIC: "Standard industry code. Look up at sec.gov/divisions/corpfin/sic.",
+};
+
+function updateCidFormHints() {
+    const idType = cidTypeSelect?.value || "COMPANY_REG";
     if (cidCountryGroup) {
-        cidCountryGroup.style.display = cidTypeSelect.value === "COMPANY_REG" ? "" : "none";
+        cidCountryGroup.style.display = idType === "COMPANY_REG" ? "" : "none";
     }
-});
-if (cidCountryGroup && cidTypeSelect) {
-    cidCountryGroup.style.display = cidTypeSelect.value === "COMPANY_REG" ? "" : "none";
+    if (cidValueInput) {
+        cidValueInput.placeholder = CID_PLACEHOLDERS[idType] || "";
+    }
+    if (cidHelp) {
+        cidHelp.textContent = CID_HELP[idType] || "";
+    }
 }
+
+cidTypeSelect?.addEventListener("change", updateCidFormHints);
+updateCidFormHints();
 
 btnAddCid?.addEventListener("click", () => {
     cidForm?.classList.remove("hidden");
