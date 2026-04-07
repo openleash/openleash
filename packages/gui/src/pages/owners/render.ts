@@ -200,13 +200,14 @@ function contactTypeLabel(type: string): string {
 }
 
 function rolesBadges(roles?: string[]): string {
-    if (!roles || roles.length === 0) return '<span class="badge badge-muted">owner</span>';
+    if (!roles || roles.length === 0) return '<span class="badge badge-muted">Owner</span>';
     return roles
-        .map((r) =>
-            r === "admin"
-                ? `<span class="badge badge-amber">${escapeHtml(r)}</span>`
-                : `<span class="badge badge-muted">${escapeHtml(r)}</span>`,
-        )
+        .map((r) => {
+            const label = r.charAt(0).toUpperCase() + r.slice(1);
+            return r === "admin"
+                ? `<span class="badge badge-amber">${escapeHtml(label)}</span>`
+                : `<span class="badge badge-muted">${escapeHtml(label)}</span>`;
+        })
         .join(" ");
 }
 

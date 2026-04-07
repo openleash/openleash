@@ -252,11 +252,11 @@ export const INFO_ORG_VERIFICATION = `
 export const INFO_ORG_ROLE = `
   <div class="info-title">Organization Roles</div>
   <dl>
-    <dt><span class="badge badge-amber">admin</span></dt>
+    <dt><span class="badge badge-amber">Admin</span></dt>
     <dd>Full control over the organization — can manage members, agents, and policies.</dd>
-    <dt><span class="badge badge-green">member</span></dt>
+    <dt><span class="badge badge-green">Member</span></dt>
     <dd>Can view organization details and manage agents and policies assigned to them.</dd>
-    <dt><span class="badge badge-muted">viewer</span></dt>
+    <dt><span class="badge badge-muted">Viewer</span></dt>
     <dd>Read-only access to organization details. Cannot manage agents or policies.</dd>
   </dl>`;
 

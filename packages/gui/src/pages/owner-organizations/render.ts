@@ -41,11 +41,11 @@ function statusBadge(status?: string): string {
 function roleBadge(role: string): string {
     switch (role) {
         case "org_admin":
-            return '<span class="badge badge-amber">admin</span>';
+            return '<span class="badge badge-amber">Admin</span>';
         case "org_member":
-            return '<span class="badge badge-green">member</span>';
+            return '<span class="badge badge-green">Member</span>';
         case "org_viewer":
-            return '<span class="badge badge-muted">viewer</span>';
+            return '<span class="badge badge-muted">Viewer</span>';
         default:
             return `<span class="badge badge-muted">${escapeHtml(role)}</span>`;
     }
