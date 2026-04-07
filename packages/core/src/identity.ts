@@ -120,6 +120,18 @@ export const CompanyIdSchema = z.object({
 });
 export type CompanyId = z.infer<typeof CompanyIdSchema>;
 
+// ─── Organization domains ──────────────────────────────────────────
+
+export const OrgDomainSchema = z.object({
+  domain_id: z.string().uuid(),
+  domain: z.string().min(1),
+  verification_level: VerificationLevel.default('UNVERIFIED'),
+  verified_at: z.string().nullable().default(null),
+  added_at: z.string(),
+  verification_proof: VerificationProofSchema.optional(),
+});
+export type OrgDomain = z.infer<typeof OrgDomainSchema>;
+
 // ─── Signatory roles ────────────────────────────────────────────────
 
 export const SignatoryRole = z.enum([
@@ -261,6 +273,44 @@ export function validateContactIdentities(contacts: ContactIdentity[]): Validati
   });
 }
 
+/** Validate a domain name format. */
+export function validateDomainName(value: string): ValidationResult {
+  const cleaned = value.trim().toLowerCase();
+  // Must be a valid domain: labels separated by dots, each 1-63 chars, total <= 253
+  if (cleaned.length === 0 || cleaned.length > 253) {
+    return { valid: false, error: 'Domain name must be 1-253 characters' };
+  }
+  const labels = cleaned.split('.');
+  if (labels.length < 2) {
+    return { valid: false, error: 'Domain must have at least two labels (e.g. example.com)' };
+  }
+  for (const label of labels) {
+    if (label.length === 0 || label.length > 63) {
+      return { valid: false, error: 'Each domain label must be 1-63 characters' };
+    }
+    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)) {
+      return { valid: false, error: 'Domain labels must contain only letters, digits, and hyphens, and cannot start or end with a hyphen' };
+    }
+  }
+  return { valid: true };
+}
+
+/** Validate organization domains (uniqueness + format). */
+export function validateOrgDomains(domains: OrgDomain[]): ValidationResult[] {
+  const results: ValidationResult[] = [];
+  const seen = new Set<string>();
+  for (const d of domains) {
+    const normalized = d.domain.trim().toLowerCase();
+    if (seen.has(normalized)) {
+      results.push({ valid: false, error: `Duplicate domain: ${normalized}` });
+    } else {
+      seen.add(normalized);
+      results.push(validateDomainName(normalized));
+    }
+  }
+  return results;
+}
+
 /** Validate signatory references point to existing users. */
 export function validateSignatories(
   signatories: Signatory[],
@@ -297,12 +347,14 @@ export function validateOrgIdentity(
 ): {
   contacts: ValidationResult[];
   company_ids: ValidationResult[];
+  domains: ValidationResult[];
   signatories: ValidationResult[];
   type_errors: string[];
 } {
   return {
     contacts: org.contact_identities ? validateContactIdentities(org.contact_identities) : [],
     company_ids: org.company_ids ? validateCompanyIds(org.company_ids) : [],
+    domains: org.domains ? validateOrgDomains(org.domains) : [],
     signatories: org.signatories && resolveUser ? validateSignatories(org.signatories, resolveUser) : [],
     type_errors: [],
   };

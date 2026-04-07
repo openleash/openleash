@@ -17,11 +17,28 @@ interface ContactIdentityEntry {
     verified: boolean;
 }
 
+interface DomainEntry {
+    domain_id: string;
+    domain: string;
+    verification_level: string;
+    verified_at: string | null;
+    added_at: string;
+}
+
+interface CompanyRegInfoEntry {
+    name: string;
+    placeholder: string;
+    help: string;
+    errorHint: string;
+}
+
 interface OrgPageData {
     orgId?: string;
     role?: string;
     companyIds?: CompanyIdEntry[];
     contactIdentities?: ContactIdentityEntry[];
+    domains?: DomainEntry[];
+    companyRegInfo?: Record<string, CompanyRegInfoEntry>;
 }
 
 declare global {
@@ -351,7 +368,7 @@ const cidValueInput = document.getElementById("cid-value") as HTMLInputElement |
 const cidHelp = document.getElementById("cid-help");
 
 const CID_PLACEHOLDERS: Record<string, string> = {
-    COMPANY_REG: "e.g. 5560360793 (SE org.nr)",
+    COMPANY_REG: "Select a country to see format",
     VAT: "e.g. SE556036079301 (with country prefix)",
     EORI: "e.g. SE5560360793 (country prefix + number)",
     LEI: "e.g. 5493006MHB84DD3ZDB09 (20 chars)",
@@ -365,7 +382,7 @@ const CID_PLACEHOLDERS: Record<string, string> = {
 };
 
 const CID_HELP: Record<string, string> = {
-    COMPANY_REG: "Issued by the national company registry (e.g. Bolagsverket in Sweden, Companies House in UK)",
+    COMPANY_REG: "Select a country to see issuing authority",
     VAT: "EU Value Added Tax number \u2014 includes country prefix. Issued by national tax authority.",
     EORI: "Required for EU customs. Issued by national customs authority.",
     LEI: "Global legal entity identifier (ISO 17442). Obtain from any GLEIF-accredited issuer.",
@@ -383,15 +400,27 @@ function updateCidFormHints() {
     if (cidCountryGroup) {
         cidCountryGroup.style.display = idType === "COMPANY_REG" ? "" : "none";
     }
-    if (cidValueInput) {
-        cidValueInput.placeholder = CID_PLACEHOLDERS[idType] || "";
-    }
-    if (cidHelp) {
-        cidHelp.textContent = CID_HELP[idType] || "";
+    if (idType === "COMPANY_REG") {
+        const country = cidCountrySelect?.value || "";
+        const info = country ? pageData.companyRegInfo?.[country] : null;
+        if (cidValueInput) {
+            cidValueInput.placeholder = info?.placeholder ?? "Select a country to see format";
+        }
+        if (cidHelp) {
+            cidHelp.textContent = info ? `${info.name} \u2014 ${info.help}` : "Select a country to see issuing authority";
+        }
+    } else {
+        if (cidValueInput) {
+            cidValueInput.placeholder = CID_PLACEHOLDERS[idType] || "";
+        }
+        if (cidHelp) {
+            cidHelp.textContent = CID_HELP[idType] || "";
+        }
     }
 }
 
 cidTypeSelect?.addEventListener("change", updateCidFormHints);
+cidCountrySelect?.addEventListener("change", updateCidFormHints);
 updateCidFormHints();
 
 btnAddCid?.addEventListener("click", () => {
@@ -637,6 +666,89 @@ document.querySelectorAll<HTMLButtonElement>(".oorg-btn-remove-contact").forEach
             existing.splice(idx, 1);
             await saveContactIdentities(existing);
             olToast("Contact removed", "success");
+            setTimeout(() => { window.location.reload(); }, 800);
+        } catch (err: unknown) {
+            olToast(String((err as Error).message || err), "error");
+            btn.disabled = false;
+        }
+    });
+});
+
+// ─── Domains management ─────────────────────────────────────────────
+
+const btnAddDomain = document.getElementById("btn-add-domain");
+const domainForm = document.getElementById("add-domain-form");
+const btnSubmitDomain = document.getElementById("btn-submit-domain") as HTMLButtonElement | null;
+const btnCancelDomain = document.getElementById("btn-cancel-domain");
+const domainValueInput = document.getElementById("domain-value") as HTMLInputElement | null;
+
+btnAddDomain?.addEventListener("click", () => {
+    domainForm?.classList.remove("hidden");
+    btnAddDomain.classList.add("hidden");
+    domainValueInput?.focus();
+});
+
+btnCancelDomain?.addEventListener("click", () => {
+    domainForm?.classList.add("hidden");
+    btnAddDomain?.classList.remove("hidden");
+    olClearFieldErrors("add-domain-form");
+    if (domainValueInput) domainValueInput.value = "";
+});
+
+async function saveDomains(domains: DomainEntry[]) {
+    const res = await fetch(`/v1/owner/organizations/${pageData.orgId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domains }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(olApiError(err, "Failed to update domains"));
+    }
+}
+
+btnSubmitDomain?.addEventListener("click", async () => {
+    olClearFieldErrors("add-domain-form");
+    const domainValue = domainValueInput?.value.trim().toLowerCase();
+    if (!domainValue) {
+        olFieldError("domain-value", "Domain name is required");
+        return;
+    }
+
+    btnSubmitDomain.disabled = true;
+    btnSubmitDomain.textContent = "Adding\u2026";
+
+    try {
+        const existing = [...(pageData.domains ?? [])];
+        existing.push({
+            domain_id: crypto.randomUUID(),
+            domain: domainValue,
+            verification_level: "UNVERIFIED",
+            verified_at: null,
+            added_at: new Date().toISOString(),
+        });
+        await saveDomains(existing);
+        olToast("Domain added", "success");
+        setTimeout(() => { window.location.reload(); }, 800);
+    } catch (err: unknown) {
+        olToast(String((err as Error).message || err), "error");
+    } finally {
+        btnSubmitDomain.disabled = false;
+        btnSubmitDomain.textContent = "Add";
+    }
+});
+
+document.querySelectorAll<HTMLButtonElement>(".oorg-btn-remove-domain").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        const idx = parseInt(btn.dataset.index!, 10);
+        if (!(await olConfirm("Remove this domain?", "Remove"))) return;
+
+        btn.disabled = true;
+        try {
+            const existing = [...(pageData.domains ?? [])];
+            existing.splice(idx, 1);
+            await saveDomains(existing);
+            olToast("Domain removed", "success");
             setTimeout(() => { window.location.reload(); }, 800);
         } catch (err: unknown) {
             olToast(String((err as Error).message || err), "error");

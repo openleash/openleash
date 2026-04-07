@@ -13,6 +13,7 @@ import {
     type RenderPageOptions,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
+import { COMPANY_REG_INFO } from "@openleash/core";
 
 export interface OwnerOrgEntry {
     org_id: string;
@@ -58,6 +59,7 @@ export interface OwnerOrgDetailData {
         identity_assurance_level?: string;
         company_ids?: { id_type: string; id_value: string; country?: string; verification_level: string }[];
         contact_identities?: { contact_id: string; type: string; value: string; verified: boolean }[];
+        domains?: { domain_id: string; domain: string; verification_level: string }[];
     };
     members: {
         display_name: string | null;
@@ -171,7 +173,7 @@ function countryFlag(code: string): string {
 }
 
 const COMPANY_ID_PLACEHOLDERS: Record<string, string> = {
-    COMPANY_REG: "e.g. 5560360793 (SE org.nr)",
+    COMPANY_REG: "Select a country to see format",
     VAT: "e.g. SE556036079301 (with country prefix)",
     EORI: "e.g. SE5560360793 (country prefix + number)",
     LEI: "e.g. 5493006MHB84DD3ZDB09 (20 chars)",
@@ -185,7 +187,7 @@ const COMPANY_ID_PLACEHOLDERS: Record<string, string> = {
 };
 
 const COMPANY_ID_HELP: Record<string, string> = {
-    COMPANY_REG: "Issued by the national company registry (e.g. Bolagsverket in Sweden, Companies House in UK)",
+    COMPANY_REG: "Select a country to see issuing authority",
     VAT: "EU Value Added Tax number — includes country prefix. Issued by national tax authority.",
     EORI: "Required for EU customs. Issued by national customs authority.",
     LEI: "Global legal entity identifier (ISO 17442). Obtain from any GLEIF-accredited issuer.",
@@ -231,13 +233,18 @@ function renderCompanyIdsCard(
     companyIds: { id_type: string; id_value: string; country?: string; verification_level: string }[],
     isAdmin: boolean,
 ): string {
-    const rows = companyIds.map((c, i) => `<tr>
-      <td>${escapeHtml(COMPANY_ID_LABELS[c.id_type] ?? c.id_type)}</td>
+    const rows = companyIds.map((c, i) => {
+        const typeLabel = c.id_type === "COMPANY_REG" && c.country && COMPANY_REG_INFO[c.country]
+            ? COMPANY_REG_INFO[c.country].name
+            : (COMPANY_ID_LABELS[c.id_type] ?? c.id_type);
+        return `<tr>
+      <td>${escapeHtml(typeLabel)}</td>
       <td>${c.country ? `${countryFlag(c.country)} ${escapeHtml(c.country)} ${escapeHtml(EU_COUNTRY_NAMES[c.country] ?? "")}` : "—"}</td>
       <td class="mono">${escapeHtml(c.id_value)}</td>
       <td>${companyIdVerificationBadge(c.verification_level)}</td>
       ${isAdmin ? `<td><button class="btn btn-secondary profile-btn-remove oorg-btn-remove-cid" data-index="${i}">Remove</button></td>` : ""}
-    </tr>`).join("\n");
+    </tr>`;
+    }).join("\n");
 
     const countryOptions = Object.entries(EU_COUNTRY_NAMES)
         .map(([code, name]) => `<option value="${code}">${countryFlag(code)} ${name}</option>`)
@@ -329,6 +336,54 @@ function renderContactIdentitiesCard(
         ? '<p class="oorg-empty-section">No contact identities</p>'
         : `<table>
           <thead><tr><th>Type</th><th>Value</th><th>Status</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`}
+    </div>`;
+}
+
+function domainVerificationBadge(level?: string): string {
+    if (!level || level === "UNVERIFIED")
+        return '<span class="badge badge-muted">UNVERIFIED</span>';
+    if (level === "FORMAT_VALID") return '<span class="badge badge-amber">FORMAT VALID</span>';
+    if (level === "VERIFIED") return '<span class="badge badge-green">VERIFIED</span>';
+    return `<span class="badge badge-muted">${escapeHtml(level)}</span>`;
+}
+
+function renderDomainsCard(
+    domains: { domain_id: string; domain: string; verification_level: string }[],
+    isAdmin: boolean,
+): string {
+    const rows = domains.map((d, i) => `<tr>
+      <td class="mono">${escapeHtml(d.domain)}</td>
+      <td>${domainVerificationBadge(d.verification_level)}</td>
+      ${isAdmin ? `<td><button class="btn btn-secondary profile-btn-remove oorg-btn-remove-domain" data-index="${i}">Remove</button></td>` : ""}
+    </tr>`).join("\n");
+
+    const addForm = isAdmin ? `
+      <div id="add-domain-form" class="hidden oorg-add-member-form">
+        <div class="form-group">
+          <label class="form-label" for="domain-value">Domain Name</label>
+          <input type="text" id="domain-value" class="form-input" placeholder="e.g. example.com">
+          <div class="form-help">The domain name owned by this organization. Verification can be done later.</div>
+          <div class="field-error" id="err-domain-value"></div>
+        </div>
+        <div class="oorg-add-member-actions">
+          <button class="btn btn-primary btn-sm" id="btn-submit-domain">Add</button>
+          <button class="btn btn-secondary btn-sm" id="btn-cancel-domain">Cancel</button>
+        </div>
+      </div>` : "";
+
+    return `
+    <div class="card">
+      <div class="oorg-members-header">
+        <div class="card-title">Domains (${domains.length})</div>
+        ${isAdmin ? '<button class="btn btn-primary btn-sm" id="btn-add-domain">+ Add Domain</button>' : ""}
+      </div>
+      ${addForm}
+      ${domains.length === 0
+        ? '<p class="oorg-empty-section">No domains registered</p>'
+        : `<table>
+          <thead><tr><th>Domain</th><th>Status</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
           <tbody>${rows}</tbody>
         </table>`}
     </div>`;
@@ -465,6 +520,8 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
 
     ${renderContactIdentitiesCard(org.contact_identities ?? [], isAdmin)}
 
+    ${renderDomainsCard(org.domains ?? [], isAdmin)}
+
     ${renderCompanyIdsCard(org.company_ids ?? [], isAdmin)}
 
     <div class="card">
@@ -503,7 +560,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
       })()}
     </div>
 
-    <script>window.__PAGE_DATA__ = { orgId: '${escapeHtml(org.org_id)}', role: '${escapeHtml(org.role)}', companyIds: ${JSON.stringify(org.company_ids ?? [])}, contactIdentities: ${JSON.stringify(org.contact_identities ?? [])} };</script>
+    <script>window.__PAGE_DATA__ = { orgId: '${escapeHtml(org.org_id)}', role: '${escapeHtml(org.role)}', companyIds: ${JSON.stringify(org.company_ids ?? [])}, contactIdentities: ${JSON.stringify(org.contact_identities ?? [])}, domains: ${JSON.stringify(org.domains ?? [])}, companyRegInfo: ${JSON.stringify(COMPANY_REG_INFO)} };</script>
     ${assetTags("pages/owner-organizations/client.ts")}`;
 
     return renderPage(org.display_name || "Organization", content, "/gui/organizations", "owner", renderPageOptions);

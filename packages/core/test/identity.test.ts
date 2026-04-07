@@ -3,12 +3,15 @@ import {
   ContactIdentitySchema,
   GovernmentIdSchema,
   CompanyIdSchema,
+  OrgDomainSchema,
   SignatorySchema,
   SignatoryRuleSchema,
   validateGovernmentIdValue,
   validateGovernmentIds,
   validateCompanyIdValue,
   validateContactIdentities,
+  validateDomainName,
+  validateOrgDomains,
   validateSignatories,
   validateUserIdentity,
   validateOrgIdentity,
@@ -425,5 +428,71 @@ describe('computeOrgAssuranceLevel', () => {
       ],
     };
     expect(computeOrgAssuranceLevel(org)).toBe('ID_VERIFIED');
+  });
+});
+
+// ─── OrgDomain schema & validation ─────────────────────────────────
+
+describe('OrgDomainSchema', () => {
+  it('parses a valid domain entry', () => {
+    const result = OrgDomainSchema.safeParse({
+      domain_id: 'a0000000-0000-4000-8000-000000000001',
+      domain: 'example.com',
+      added_at: '2026-01-01T00:00:00Z',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.verification_level).toBe('UNVERIFIED');
+      expect(result.data.verified_at).toBeNull();
+    }
+  });
+});
+
+describe('validateDomainName', () => {
+  it('accepts valid domain', () => {
+    expect(validateDomainName('example.com').valid).toBe(true);
+  });
+  it('accepts subdomain', () => {
+    expect(validateDomainName('sub.example.com').valid).toBe(true);
+  });
+  it('accepts hyphenated labels', () => {
+    expect(validateDomainName('my-company.co.uk').valid).toBe(true);
+  });
+  it('rejects single label (no TLD)', () => {
+    expect(validateDomainName('localhost').valid).toBe(false);
+  });
+  it('rejects empty string', () => {
+    expect(validateDomainName('').valid).toBe(false);
+  });
+  it('rejects label starting with hyphen', () => {
+    expect(validateDomainName('-example.com').valid).toBe(false);
+  });
+  it('rejects label ending with hyphen', () => {
+    expect(validateDomainName('example-.com').valid).toBe(false);
+  });
+  it('rejects spaces', () => {
+    expect(validateDomainName('example .com').valid).toBe(false);
+  });
+  it('rejects underscores', () => {
+    expect(validateDomainName('my_domain.com').valid).toBe(false);
+  });
+});
+
+describe('validateOrgDomains', () => {
+  it('validates multiple valid domains', () => {
+    const results = validateOrgDomains([
+      { domain_id: 'a0000000-0000-4000-8000-000000000001', domain: 'example.com', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+      { domain_id: 'a0000000-0000-4000-8000-000000000002', domain: 'other.org', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+    ]);
+    expect(results.every((r) => r.valid)).toBe(true);
+  });
+  it('rejects duplicate domains', () => {
+    const results = validateOrgDomains([
+      { domain_id: 'a0000000-0000-4000-8000-000000000001', domain: 'example.com', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+      { domain_id: 'a0000000-0000-4000-8000-000000000002', domain: 'example.com', verification_level: 'UNVERIFIED', verified_at: null, added_at: '2026-01-01T00:00:00Z' },
+    ]);
+    expect(results[0].valid).toBe(true);
+    expect(results[1].valid).toBe(false);
+    expect(results[1].error).toContain('Duplicate');
   });
 });

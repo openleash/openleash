@@ -11,6 +11,7 @@ import {
   validateDUNS,
   validateEORI,
   validateCompanyReg,
+  COMPANY_REG_INFO,
   validateGLN,
   validateISIN,
   validateTaxId,
@@ -587,6 +588,55 @@ describe('validateCompanyReg', () => {
   });
   it('rejects unknown country', () => {
     expect(validateCompanyReg('12345', 'XX').valid).toBe(false);
+  });
+  it('accepts valid Austrian Firmenbuchnummer', () => {
+    expect(validateCompanyReg('FN 123456a', 'AT').valid).toBe(true);
+  });
+  it('returns country-specific error for invalid Austrian Firmenbuchnummer', () => {
+    const result = validateCompanyReg('12345', 'AT');
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Firmenbuchnummer');
+  });
+  it('accepts valid German Handelsregisternummer', () => {
+    expect(validateCompanyReg('HRB 12345', 'DE').valid).toBe(true);
+  });
+  it('returns country-specific error for invalid German HRN', () => {
+    const result = validateCompanyReg('12345', 'DE');
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Handelsregisternummer');
+  });
+  it('accepts valid French SIREN', () => {
+    expect(validateCompanyReg('123456789', 'FR').valid).toBe(true);
+  });
+  it('accepts valid Spanish CIF', () => {
+    expect(validateCompanyReg('A1234567B', 'ES').valid).toBe(true);
+  });
+  it('accepts valid Romanian registration', () => {
+    expect(validateCompanyReg('J40/123456/2020', 'RO').valid).toBe(true);
+  });
+  it('accepts valid Hungarian Cégjegyzékszám', () => {
+    expect(validateCompanyReg('01-09-123456', 'HU').valid).toBe(true);
+  });
+  it('accepts valid Cypriot registration', () => {
+    expect(validateCompanyReg('HE123456', 'CY').valid).toBe(true);
+  });
+  it('returns Organisationsnummer in Luhn error for SE', () => {
+    const result = validateCompanyReg('5561234560', 'SE');
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Organisationsnummer');
+  });
+});
+
+describe('COMPANY_REG_INFO', () => {
+  const EU_COUNTRIES = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE'];
+  it('has entries for all 27 EU countries', () => {
+    for (const code of EU_COUNTRIES) {
+      expect(COMPANY_REG_INFO[code], `Missing COMPANY_REG_INFO for ${code}`).toBeDefined();
+      expect(COMPANY_REG_INFO[code].name).toBeTruthy();
+      expect(COMPANY_REG_INFO[code].placeholder).toBeTruthy();
+      expect(COMPANY_REG_INFO[code].help).toBeTruthy();
+      expect(COMPANY_REG_INFO[code].errorHint).toBeTruthy();
+    }
   });
 });
 

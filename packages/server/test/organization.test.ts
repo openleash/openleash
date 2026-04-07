@@ -257,6 +257,99 @@ describe("Organization management", () => {
         });
     });
 
+    // ─── Organization domains ──────────────────────────────────────
+
+    describe("Organization domains", () => {
+        it("adds domains via owner API", async () => {
+            const res = await app.inject({
+                method: "PUT",
+                url: `/v1/owner/organizations/${orgId}`,
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+                payload: {
+                    domains: [
+                        { domain_id: crypto.randomUUID(), domain: "acme.com", verification_level: "UNVERIFIED", verified_at: null, added_at: new Date().toISOString() },
+                        { domain_id: crypto.randomUUID(), domain: "acme.io", verification_level: "UNVERIFIED", verified_at: null, added_at: new Date().toISOString() },
+                    ],
+                },
+            });
+            expect(res.statusCode).toBe(200);
+        });
+
+        it("domains are persisted and returned", async () => {
+            const res = await app.inject({
+                method: "GET",
+                url: `/v1/admin/organizations/${orgId}`,
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+            });
+            expect(res.statusCode).toBe(200);
+            const body = JSON.parse(res.payload);
+            expect(body.domains).toHaveLength(2);
+            expect(body.domains[0].domain).toBe("acme.com");
+            expect(body.domains[0].verification_level).toBe("FORMAT_VALID");
+            expect(body.domains[1].domain).toBe("acme.io");
+        });
+
+        it("adds domains via admin API", async () => {
+            const res = await app.inject({
+                method: "PUT",
+                url: `/v1/admin/organizations/${orgId}`,
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+                payload: {
+                    domains: [
+                        { domain_id: crypto.randomUUID(), domain: "admin-added.com", verification_level: "UNVERIFIED", verified_at: null, added_at: new Date().toISOString() },
+                    ],
+                },
+            });
+            expect(res.statusCode).toBe(200);
+
+            const getRes = await app.inject({
+                method: "GET",
+                url: `/v1/admin/organizations/${orgId}`,
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+            });
+            const body = JSON.parse(getRes.payload);
+            expect(body.domains).toHaveLength(1);
+            expect(body.domains[0].domain).toBe("admin-added.com");
+            expect(body.domains[0].verification_level).toBe("FORMAT_VALID");
+        });
+
+        it("validates domain format", async () => {
+            const res = await app.inject({
+                method: "PUT",
+                url: `/v1/owner/organizations/${orgId}`,
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+                payload: {
+                    domains: [
+                        { domain_id: crypto.randomUUID(), domain: "not a domain", verification_level: "UNVERIFIED", verified_at: null, added_at: new Date().toISOString() },
+                    ],
+                },
+            });
+            expect(res.statusCode).toBe(200);
+
+            const getRes = await app.inject({
+                method: "GET",
+                url: `/v1/admin/organizations/${orgId}`,
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+            });
+            const body = JSON.parse(getRes.payload);
+            expect(body.domains[0].verification_level).toBe("UNVERIFIED");
+        });
+
+        it("viewer cannot update domains", async () => {
+            const res = await app.inject({
+                method: "PUT",
+                url: `/v1/owner/organizations/${orgId}`,
+                headers: { authorization: `Bearer ${sessionTokenB}` },
+                payload: {
+                    domains: [
+                        { domain_id: crypto.randomUUID(), domain: "hacked.com", verification_level: "UNVERIFIED", verified_at: null, added_at: new Date().toISOString() },
+                    ],
+                },
+            });
+            expect(res.statusCode).toBe(403);
+        });
+    });
+
     // ─── Owner org listing ──────────────────────────────────────────
 
     describe("Owner org listing", () => {

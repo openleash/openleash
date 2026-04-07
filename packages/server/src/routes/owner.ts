@@ -17,6 +17,7 @@ import {
     verifyBackupCode,
     resolveSystemRoles,
     validateCompanyIdValue,
+    validateDomainName,
     computeOrgAssuranceLevel,
 } from "@openleash/core";
 import {
@@ -28,6 +29,7 @@ import type {
     ContactIdentity,
     GovernmentId,
     CompanyId,
+    OrgDomain,
     DataStore,
     OrgMembership,
     OrgInvite,
@@ -627,6 +629,7 @@ export function registerOwnerRoutes(
             display_name?: string;
             contact_identities?: ContactIdentity[];
             company_ids?: CompanyId[];
+            domains?: OrgDomain[];
         };
 
         const org = store.organizations.read(orgId);
@@ -636,6 +639,16 @@ export function registerOwnerRoutes(
             org.company_ids = body.company_ids.map((cid) => {
                 const result = validateCompanyIdValue(cid.id_type, cid.id_value, cid.country);
                 return { ...cid, verification_level: result.valid ? "FORMAT_VALID" as const : "UNVERIFIED" as const };
+            });
+        }
+        if (body.domains !== undefined) {
+            org.domains = body.domains.map((d) => {
+                const result = validateDomainName(d.domain);
+                return {
+                    ...d,
+                    domain: d.domain.trim().toLowerCase(),
+                    verification_level: result.valid ? "FORMAT_VALID" as const : "UNVERIFIED" as const,
+                };
             });
         }
         org.identity_assurance_level = computeOrgAssuranceLevel(org);

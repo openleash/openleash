@@ -627,6 +627,44 @@ const COMPANY_REG_PATTERNS: Record<string, RegExp> = {
   SE: /^\d{10}$/,                         // Organisationsnummer
 };
 
+/** Country-specific metadata for company registration numbers. */
+export interface CompanyRegInfo {
+  name: string;
+  placeholder: string;
+  help: string;
+  errorHint: string;
+}
+
+export const COMPANY_REG_INFO: Record<string, CompanyRegInfo> = {
+  AT: { name: 'Firmenbuchnummer', placeholder: 'e.g. FN 123456a', help: 'Issued by the Firmenbuch', errorHint: 'FN + 5-6 digits + letter' },
+  BE: { name: 'KBO/BCE-nummer', placeholder: 'e.g. 0123456789', help: 'Issued by Kruispuntbank van Ondernemingen', errorHint: '10 digits' },
+  BG: { name: 'EIK/BULSTAT', placeholder: 'e.g. 123456789', help: 'Issued by the Commercial Register', errorHint: '9-13 digits' },
+  HR: { name: 'OIB', placeholder: 'e.g. 12345678901', help: 'Issued by Fina (Tax Authority)', errorHint: '11 digits' },
+  CY: { name: 'Registration Number', placeholder: 'e.g. HE123456', help: 'Issued by the Department of Registrar of Companies', errorHint: 'HE + 5-6 digits' },
+  CZ: { name: 'IČO', placeholder: 'e.g. 12345678', help: 'Issued by the Commercial Register', errorHint: '8 digits' },
+  DK: { name: 'CVR-nummer', placeholder: 'e.g. 12345678', help: 'Issued by Erhvervsstyrelsen (Danish Business Authority)', errorHint: '8 digits' },
+  EE: { name: 'Registrikood', placeholder: 'e.g. 12345678', help: 'Issued by the Centre of Registers (RIK)', errorHint: '8 digits' },
+  FI: { name: 'Y-tunnus', placeholder: 'e.g. 1234567-8', help: 'Issued by Finnish Patent and Registration Office (PRH)', errorHint: '7 digits + check digit' },
+  FR: { name: 'SIREN', placeholder: 'e.g. 123456789', help: 'Issued by INSEE', errorHint: '9 digits' },
+  DE: { name: 'Handelsregisternummer', placeholder: 'e.g. HRB 12345', help: 'Issued by Amtsgericht (Local Court)', errorHint: 'HRA/HRB + 4-6 digits' },
+  GR: { name: 'Αρ. ΓΕΜΗ', placeholder: 'e.g. 123456789012', help: 'Issued by General Commercial Registry (ΓΕΜΗ)', errorHint: '12 digits' },
+  HU: { name: 'Cégjegyzékszám', placeholder: 'e.g. 01-09-123456', help: 'Issued by Company Court (Cégbíróság)', errorHint: 'XX-XX-XXXXXX format' },
+  IE: { name: 'CRO Number', placeholder: 'e.g. 123456', help: 'Issued by Companies Registration Office (CRO)', errorHint: '5-6 digits' },
+  IT: { name: 'Codice Fiscale / REA', placeholder: 'e.g. 12345678901', help: 'Issued by Camera di Commercio', errorHint: '11 digits' },
+  LV: { name: 'Reģistrācijas numurs', placeholder: 'e.g. 40003012345', help: 'Issued by the Register of Enterprises', errorHint: '11 digits' },
+  LT: { name: 'Juridinio asmens kodas', placeholder: 'e.g. 1234567', help: 'Issued by Register of Legal Entities (JAR)', errorHint: '7-9 digits' },
+  LU: { name: 'RCS Number', placeholder: 'e.g. B123456', help: 'Issued by Registre de Commerce et des Sociétés', errorHint: 'letter + 5-6 digits' },
+  MT: { name: 'Company Number', placeholder: 'e.g. C 12345', help: 'Issued by Registry of Companies (MBR)', errorHint: 'C + 4-5 digits' },
+  NL: { name: 'KVK-nummer', placeholder: 'e.g. 12345678', help: 'Issued by Kamer van Koophandel (KVK)', errorHint: '8 digits' },
+  PL: { name: 'KRS / NIP', placeholder: 'e.g. 1234567890', help: 'Issued by National Court Register (KRS)', errorHint: '9-10 digits' },
+  PT: { name: 'NIPC', placeholder: 'e.g. 123456789', help: 'Issued by Registo Nacional de Pessoas Coletivas', errorHint: '9 digits' },
+  RO: { name: 'Nr. Registrul Comerțului', placeholder: 'e.g. J40/123456/2020', help: 'Issued by Oficiul Registrului Comerțului', errorHint: 'JXX/NNNNNN/YYYY format' },
+  SK: { name: 'IČO', placeholder: 'e.g. 12345678', help: 'Issued by the Commercial Register', errorHint: '8 digits' },
+  SI: { name: 'Matična številka', placeholder: 'e.g. 1234567', help: 'Issued by AJPES', errorHint: '7-10 digits' },
+  ES: { name: 'CIF', placeholder: 'e.g. A1234567B', help: 'Issued by Registro Mercantil', errorHint: 'letter + 7 digits + check' },
+  SE: { name: 'Organisationsnummer', placeholder: 'e.g. 5560360793', help: 'Issued by Bolagsverket', errorHint: '10 digits (Luhn validated)' },
+};
+
 /** Validate a company registration number for a given country. */
 export function validateCompanyReg(value: string, country: string): ValidationResult {
   const cleaned = value.replace(/\s/g, '');
@@ -635,12 +673,15 @@ export function validateCompanyReg(value: string, country: string): ValidationRe
     return fail(`No company registration format known for country ${country}`);
   }
   if (!pattern.test(cleaned)) {
-    return fail(`Invalid company registration format for ${country}`);
+    const info = COMPANY_REG_INFO[country];
+    const name = info?.name ?? 'company registration number';
+    const hint = info?.errorHint ? ` (expected ${info.errorHint})` : '';
+    return fail(`Invalid ${name} format${hint}`);
   }
   // Additional checksum for Swedish organisationsnummer (Luhn on digit 1-9, similar to personnummer)
   if (country === 'SE' && /^\d{10}$/.test(cleaned)) {
     if (!luhn(cleaned)) {
-      return fail('Invalid Swedish organisationsnummer (Luhn check failed)');
+      return fail('Invalid Organisationsnummer (Luhn check failed)');
     }
   }
   return ok;

@@ -4,6 +4,7 @@ import {
   validateUserIdentity,
   validateGovernmentIdValue,
   validateCompanyIdValue,
+  validateDomainName,
   computeUserAssuranceLevel,
   computeOrgAssuranceLevel,
   hashPassphrase,
@@ -18,6 +19,7 @@ import type {
   ContactIdentity,
   GovernmentId,
   CompanyId,
+  OrgDomain,
   Signatory,
   SignatoryRule,
   SystemRole,
@@ -139,6 +141,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       created_by_user_id: string;
       contact_identities?: ContactIdentity[];
       company_ids?: CompanyId[];
+      domains?: OrgDomain[];
       signatories?: Signatory[];
       signatory_rules?: SignatoryRule[];
     };
@@ -168,6 +171,18 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       }
     }
 
+    const domains = (body.domains ?? []).map((d) => {
+      const result = validateDomainName(d.domain);
+      return {
+        ...d,
+        domain_id: d.domain_id || crypto.randomUUID(),
+        domain: d.domain.trim().toLowerCase(),
+        verification_level: result.valid ? 'FORMAT_VALID' as const : 'UNVERIFIED' as const,
+        verified_at: d.verified_at ?? null,
+        added_at: d.added_at || now,
+      };
+    });
+
     const signatories = (body.signatories ?? []).map((s) => ({
       ...s,
       signatory_id: s.signatory_id || crypto.randomUUID(),
@@ -190,6 +205,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       verification_status: 'unverified',
       ...(contacts.length > 0 && { contact_identities: contacts }),
       ...(companyIds.length > 0 && { company_ids: companyIds }),
+      ...(domains.length > 0 && { domains }),
       ...(signatories.length > 0 && { signatories }),
       ...(signatoryRules.length > 0 && { signatory_rules: signatoryRules }),
     };
@@ -563,6 +579,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       display_name?: string;
       contact_identities?: ContactIdentity[];
       company_ids?: CompanyId[];
+      domains?: OrgDomain[];
     };
 
     const org = store.organizations.read(orgId);
@@ -572,6 +589,16 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       org.company_ids = body.company_ids.map((cid) => {
         const result = validateCompanyIdValue(cid.id_type, cid.id_value, cid.country);
         return { ...cid, verification_level: result.valid ? 'FORMAT_VALID' as const : 'UNVERIFIED' as const };
+      });
+    }
+    if (body.domains !== undefined) {
+      org.domains = body.domains.map((d) => {
+        const result = validateDomainName(d.domain);
+        return {
+          ...d,
+          domain: d.domain.trim().toLowerCase(),
+          verification_level: result.valid ? 'FORMAT_VALID' as const : 'UNVERIFIED' as const,
+        };
       });
     }
     org.identity_assurance_level = computeOrgAssuranceLevel(org);

@@ -4,6 +4,7 @@ import type {
   ContactIdentity,
   GovernmentId,
   CompanyId,
+  OrgDomain,
   Signatory,
   SignatoryRule,
 } from './identity.js';
@@ -288,6 +289,7 @@ export interface OrganizationFrontmatter {
   identity_assurance_level?: IdentityAssuranceLevel;
   contact_identities?: ContactIdentity[];
   company_ids?: CompanyId[];
+  domains?: OrgDomain[];
   signatories?: Signatory[];
   signatory_rules?: SignatoryRule[];
   // Verification
