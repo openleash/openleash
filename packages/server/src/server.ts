@@ -116,7 +116,8 @@ export async function createServer(options: CreateServerOptions) {
   }
 
   if (openapiSpec) {
-    registerReferenceRoutes(app, openapiSpec);
+    const baseUrl = process.env.BASE_URL || `http://${config.server.bind_address}`;
+    registerReferenceRoutes(app, openapiSpec, baseUrl);
   }
 
   return { app, nonceCache };

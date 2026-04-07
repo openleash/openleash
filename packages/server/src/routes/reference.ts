@@ -49,8 +49,13 @@ const CUSTOM_CSS = `
 
 export function registerReferenceRoutes(
   app: FastifyInstance,
-  spec: Record<string, unknown>
+  spec: Record<string, unknown>,
+  baseUrl?: string,
 ) {
+  // Override servers in the spec if a base URL is provided
+  if (baseUrl) {
+    spec = { ...spec, servers: [{ url: baseUrl, description: 'Server' }] };
+  }
   // Interactive API reference (Scalar UI)
   // Scalar also serves /reference/openapi.json and /reference/openapi.yaml automatically
   app.register(
