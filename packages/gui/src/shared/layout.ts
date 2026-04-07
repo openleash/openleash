@@ -276,6 +276,33 @@ export const INFO_ORG_ASSURANCE = `
     <dd>A company ID has been fully verified against an authoritative source.</dd>
   </dl>`;
 
+export const INFO_COMPANY_ID_TYPES = `
+  <div class="info-title">Company ID Types</div>
+  <dl>
+    <dt>Company Registration</dt>
+    <dd>Country-specific company registration number (e.g. Swedish org.nr, Danish CVR, French SIREN).</dd>
+    <dt>VAT</dt>
+    <dd>EU Value Added Tax identification number. Includes country prefix (e.g. SE556123456701).</dd>
+    <dt>EORI</dt>
+    <dd>Economic Operator Registration and Identification — required for EU customs declarations.</dd>
+    <dt>LEI</dt>
+    <dd>Legal Entity Identifier (ISO 17442) — 20-character global identifier for financial transactions.</dd>
+    <dt>D-U-N-S</dt>
+    <dd>Dun &amp; Bradstreet Universal Numbering System — 9-digit global business identifier.</dd>
+    <dt>GLN</dt>
+    <dd>Global Location Number — 13-digit GS1 identifier for locations and legal entities.</dd>
+    <dt>ISIN</dt>
+    <dd>International Securities Identification Number — 12-character identifier for securities.</dd>
+    <dt>Tax ID</dt>
+    <dd>General tax identification number for countries outside the EU VAT system.</dd>
+    <dt>Chamber of Commerce</dt>
+    <dd>Registration number issued by a national or regional Chamber of Commerce.</dd>
+    <dt>NAICS</dt>
+    <dd>North American Industry Classification System code (2-6 digits).</dd>
+    <dt>SIC</dt>
+    <dd>Standard Industrial Classification code (4 digits).</dd>
+  </dl>`;
+
 export function copyableId(fullId: string, _truncateLength?: number): string {
     const escaped = escapeHtml(fullId);
     return `<span class="mono copyable" title="Click to copy" data-copy-id="${escaped}">${escaped}</span>`;

@@ -9,6 +9,7 @@ import {
     INFO_ORG_ROLE,
     INFO_ORG_ASSURANCE,
     INFO_VERIFICATION_LEVEL,
+    INFO_COMPANY_ID_TYPES,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 
@@ -79,6 +80,50 @@ function roleBadge(role: string): string {
         default:
             return `<span class="badge badge-muted">${escapeHtml(role)}</span>`;
     }
+}
+
+const COMPANY_ID_LABELS: Record<string, string> = {
+    COMPANY_REG: "Company Registration",
+    VAT: "VAT Number",
+    EORI: "EORI",
+    LEI: "LEI",
+    DUNS: "D-U-N-S",
+    GLN: "GLN",
+    ISIN: "ISIN",
+    TAX_ID: "Tax ID",
+    CHAMBER_OF_COMMERCE: "Chamber of Commerce",
+    NAICS: "NAICS",
+    SIC: "SIC",
+};
+
+function companyIdVerificationBadge(level?: string): string {
+    if (!level || level === "UNVERIFIED")
+        return '<span class="badge badge-muted">UNVERIFIED</span>';
+    if (level === "FORMAT_VALID") return '<span class="badge badge-amber">FORMAT VALID</span>';
+    if (level === "VERIFIED") return '<span class="badge badge-green">VERIFIED</span>';
+    return `<span class="badge badge-muted">${escapeHtml(level)}</span>`;
+}
+
+function renderAdminCompanyIdsCard(
+    companyIds: { id_type: string; id_value: string; country?: string; verification_level: string }[],
+): string {
+    const rows = companyIds.map((c) => `<tr>
+      <td>${escapeHtml(COMPANY_ID_LABELS[c.id_type] ?? c.id_type)}</td>
+      <td>${c.country ? escapeHtml(c.country) : "—"}</td>
+      <td class="mono">${escapeHtml(c.id_value)}</td>
+      <td>${companyIdVerificationBadge(c.verification_level)}</td>
+    </tr>`).join("\n");
+
+    return `
+    <div class="card">
+      <div class="card-title">Company IDs (${companyIds.length})${infoIcon("aorg-cid-types", INFO_COMPANY_ID_TYPES)}</div>
+      ${companyIds.length === 0
+        ? '<p class="aorg-empty-section">No company IDs registered</p>'
+        : `<table>
+          <thead><tr><th>Type</th><th>Country</th><th>Value</th><th>Status${infoIcon("aorg-cid-verif", INFO_VERIFICATION_LEVEL)}</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`}
+    </div>`;
 }
 
 // ─── List page ────────────────────────────────────────────────────────
@@ -209,6 +254,8 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
         ? '<p class="aorg-empty-section">No members</p>'
         : `<table><thead><tr><th>Name</th><th>User ID</th><th>Role${infoIcon("detail-org-role", INFO_ORG_ROLE)}</th><th>Added</th><th>Actions</th></tr></thead><tbody>${memberRows}</tbody></table>`}
     </div>
+
+    ${renderAdminCompanyIdsCard(org.company_ids ?? [])}
 
     <div class="card">
       <div class="card-title">Agents (${agents.length})</div>

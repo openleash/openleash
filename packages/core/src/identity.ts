@@ -6,6 +6,12 @@ import {
   validateLEI,
   validateDUNS,
   validateEORI,
+  validateGLN,
+  validateISIN,
+  validateTaxId,
+  validateChamberOfCommerce,
+  validateNAICS,
+  validateSIC,
   validateCompanyReg,
   type ValidationResult,
 } from './identity-validators.js';
@@ -94,6 +100,12 @@ export const CompanyIdType = z.enum([
   'EORI',
   'LEI',
   'DUNS',
+  'GLN',
+  'ISIN',
+  'TAX_ID',
+  'CHAMBER_OF_COMMERCE',
+  'NAICS',
+  'SIC',
 ]);
 export type CompanyIdType = z.infer<typeof CompanyIdType>;
 
@@ -203,6 +215,18 @@ export function validateCompanyIdValue(
       return validateDUNS(value);
     case 'EORI':
       return validateEORI(value);
+    case 'GLN':
+      return validateGLN(value);
+    case 'ISIN':
+      return validateISIN(value);
+    case 'TAX_ID':
+      return validateTaxId(value);
+    case 'CHAMBER_OF_COMMERCE':
+      return validateChamberOfCommerce(value);
+    case 'NAICS':
+      return validateNAICS(value);
+    case 'SIC':
+      return validateSIC(value);
     case 'COMPANY_REG':
       if (!country) return { valid: false, error: 'Country is required for company registration numbers' };
       return validateCompanyReg(value, country);

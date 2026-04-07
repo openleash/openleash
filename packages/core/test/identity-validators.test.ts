@@ -11,6 +11,12 @@ import {
   validateDUNS,
   validateEORI,
   validateCompanyReg,
+  validateGLN,
+  validateISIN,
+  validateTaxId,
+  validateChamberOfCommerce,
+  validateNAICS,
+  validateSIC,
 } from '../src/identity-validators.js';
 
 // ─── Shared algorithms ──────────────────────────────────────────────
@@ -581,5 +587,93 @@ describe('validateCompanyReg', () => {
   });
   it('rejects unknown country', () => {
     expect(validateCompanyReg('12345', 'XX').valid).toBe(false);
+  });
+});
+
+// ─── GLN ───────────────────────────────────────────────────────────────
+
+describe('validateGLN', () => {
+  it('accepts valid GLN with correct check digit', () => {
+    // 7350053850019 is a valid GLN (GS1 check digit)
+    expect(validateGLN('7350053850019').valid).toBe(true);
+  });
+  it('rejects GLN with wrong length', () => {
+    expect(validateGLN('123456789').valid).toBe(false);
+  });
+  it('rejects GLN with invalid check digit', () => {
+    expect(validateGLN('7350053850010').valid).toBe(false);
+  });
+});
+
+// ─── ISIN ──────────────────────────────────────────────────────────────
+
+describe('validateISIN', () => {
+  it('accepts valid ISIN (US Apple)', () => {
+    expect(validateISIN('US0378331005').valid).toBe(true);
+  });
+  it('accepts valid ISIN (GB)', () => {
+    expect(validateISIN('GB0002634946').valid).toBe(true);
+  });
+  it('rejects invalid ISIN check digit', () => {
+    expect(validateISIN('US0378331009').valid).toBe(false);
+  });
+  it('rejects wrong format', () => {
+    expect(validateISIN('1234567890AB').valid).toBe(false);
+  });
+});
+
+// ─── Tax ID ────────────────────────────────────────────────────────────
+
+describe('validateTaxId', () => {
+  it('accepts alphanumeric 4-20 chars', () => {
+    expect(validateTaxId('ABC123456').valid).toBe(true);
+  });
+  it('rejects too short', () => {
+    expect(validateTaxId('AB1').valid).toBe(false);
+  });
+  it('rejects too long', () => {
+    expect(validateTaxId('A'.repeat(21)).valid).toBe(false);
+  });
+});
+
+// ─── Chamber of Commerce ──────────────────────────────────────────────
+
+describe('validateChamberOfCommerce', () => {
+  it('accepts valid format', () => {
+    expect(validateChamberOfCommerce('KVK12345678').valid).toBe(true);
+  });
+  it('rejects too short', () => {
+    expect(validateChamberOfCommerce('AB').valid).toBe(false);
+  });
+});
+
+// ─── NAICS ─────────────────────────────────────────────────────────────
+
+describe('validateNAICS', () => {
+  it('accepts 6-digit NAICS code', () => {
+    expect(validateNAICS('541511').valid).toBe(true);
+  });
+  it('accepts 2-digit sector code', () => {
+    expect(validateNAICS('54').valid).toBe(true);
+  });
+  it('rejects single digit', () => {
+    expect(validateNAICS('5').valid).toBe(false);
+  });
+  it('rejects 7 digits', () => {
+    expect(validateNAICS('5415111').valid).toBe(false);
+  });
+});
+
+// ─── SIC ───────────────────────────────────────────────────────────────
+
+describe('validateSIC', () => {
+  it('accepts 4-digit SIC code', () => {
+    expect(validateSIC('7372').valid).toBe(true);
+  });
+  it('rejects 3 digits', () => {
+    expect(validateSIC('737').valid).toBe(false);
+  });
+  it('rejects 5 digits', () => {
+    expect(validateSIC('73721').valid).toBe(false);
   });
 });

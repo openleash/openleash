@@ -8,6 +8,8 @@ import {
     INFO_ORG_VERIFICATION,
     INFO_ORG_ROLE,
     INFO_ORG_ASSURANCE,
+    INFO_COMPANY_ID_TYPES,
+    INFO_VERIFICATION_LEVEL,
     type RenderPageOptions,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
@@ -54,6 +56,7 @@ export interface OwnerOrgDetailData {
         member_count: number;
         agent_count: number;
         identity_assurance_level?: string;
+        company_ids?: { id_type: string; id_value: string; country?: string; verification_level: string }[];
     };
     members: {
         display_name: string | null;
@@ -124,11 +127,96 @@ export function renderOwnerOrganizations(orgs: OwnerOrgEntry[], renderPageOption
     return renderPage("Organizations", content, "/gui/organizations", "owner", renderPageOptions);
 }
 
+const COMPANY_ID_LABELS: Record<string, string> = {
+    COMPANY_REG: "Company Registration",
+    VAT: "VAT Number",
+    EORI: "EORI",
+    LEI: "LEI",
+    DUNS: "D-U-N-S",
+    GLN: "GLN",
+    ISIN: "ISIN",
+    TAX_ID: "Tax ID",
+    CHAMBER_OF_COMMERCE: "Chamber of Commerce",
+    NAICS: "NAICS",
+    SIC: "SIC",
+};
+
+function companyIdVerificationBadge(level?: string): string {
+    if (!level || level === "UNVERIFIED")
+        return '<span class="badge badge-muted">UNVERIFIED</span>';
+    if (level === "FORMAT_VALID") return '<span class="badge badge-amber">FORMAT VALID</span>';
+    if (level === "VERIFIED") return '<span class="badge badge-green">VERIFIED</span>';
+    return `<span class="badge badge-muted">${escapeHtml(level)}</span>`;
+}
+
 function verificationBadge(status?: string): string {
     if (!status || status === "unverified") return '<span class="badge badge-muted">UNVERIFIED</span>';
     if (status === "pending") return '<span class="badge badge-amber">PENDING</span>';
     if (status === "verified") return '<span class="badge badge-green">VERIFIED</span>';
     return `<span class="badge badge-muted">${escapeHtml(status)}</span>`;
+}
+
+function renderCompanyIdsCard(
+    companyIds: { id_type: string; id_value: string; country?: string; verification_level: string }[],
+    isAdmin: boolean,
+): string {
+    const rows = companyIds.map((c, i) => `<tr>
+      <td>${escapeHtml(COMPANY_ID_LABELS[c.id_type] ?? c.id_type)}</td>
+      <td>${c.country ? escapeHtml(c.country) : "—"}</td>
+      <td class="mono">${escapeHtml(c.id_value)}</td>
+      <td>${companyIdVerificationBadge(c.verification_level)}</td>
+      ${isAdmin ? `<td><button class="btn btn-secondary profile-btn-remove oorg-btn-remove-cid" data-index="${i}">Remove</button></td>` : ""}
+    </tr>`).join("\n");
+
+    const countryOptions = [
+        "AT:Austria", "BE:Belgium", "BG:Bulgaria", "HR:Croatia", "CY:Cyprus", "CZ:Czech Republic",
+        "DK:Denmark", "EE:Estonia", "FI:Finland", "FR:France", "DE:Germany", "GR:Greece",
+        "HU:Hungary", "IE:Ireland", "IT:Italy", "LV:Latvia", "LT:Lithuania", "LU:Luxembourg",
+        "MT:Malta", "NL:Netherlands", "PL:Poland", "PT:Portugal", "RO:Romania", "SK:Slovakia",
+        "SI:Slovenia", "ES:Spain", "SE:Sweden",
+    ].map((s) => { const [v, l] = s.split(":"); return `<option value="${v}">${l}</option>`; }).join("");
+
+    const idTypeOptions = Object.entries(COMPANY_ID_LABELS)
+        .map(([k, v]) => `<option value="${escapeHtml(k)}">${escapeHtml(v)}</option>`)
+        .join("");
+
+    const addForm = isAdmin ? `
+      <div id="add-cid-form" class="hidden oorg-add-member-form">
+        <div class="form-group">
+          <label class="form-label" for="cid-type">ID Type</label>
+          <select id="cid-type" class="form-select">${idTypeOptions}</select>
+        </div>
+        <div class="form-group" id="cid-country-group">
+          <label class="form-label" for="cid-country">Country (for Company Reg)</label>
+          <select id="cid-country" class="form-select"><option value="">— not applicable —</option>${countryOptions}</select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cid-value">ID Value</label>
+          <input type="text" id="cid-value" class="form-input" placeholder="e.g. SE5561234567">
+          <div class="field-error" id="err-cid-value"></div>
+        </div>
+        <div class="oorg-add-member-actions">
+          <button class="btn btn-primary btn-sm" id="btn-submit-cid">Add</button>
+          <button class="btn btn-secondary btn-sm" id="btn-cancel-cid">Cancel</button>
+        </div>
+      </div>` : "";
+
+    const table = companyIds.length === 0
+        ? '<p class="oorg-empty-section">No company IDs registered</p>'
+        : `<table>
+          <thead><tr><th>Type</th><th>Country</th><th>Value</th><th>Status${infoIcon("oorgd-cid-verif", INFO_VERIFICATION_LEVEL)}</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+
+    return `
+    <div class="card">
+      <div class="oorg-members-header">
+        <div class="card-title">Company IDs (${companyIds.length})${infoIcon("oorgd-cid-types", INFO_COMPANY_ID_TYPES)}</div>
+        ${isAdmin ? '<button class="btn btn-primary btn-sm" id="btn-add-cid">+ Add ID</button>' : ""}
+      </div>
+      ${addForm}
+      ${table}
+    </div>`;
 }
 
 export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPageOptions?: RenderPageOptions): string {
@@ -230,6 +318,8 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
         </table>`}
     </div>
 
+    ${renderCompanyIdsCard(org.company_ids ?? [], isAdmin)}
+
     <div class="card">
       <div class="card-title">Agents (${agents.length})</div>
       ${agents.length === 0
@@ -266,7 +356,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
       })()}
     </div>
 
-    <script>window.__PAGE_DATA__ = { orgId: '${escapeHtml(org.org_id)}', role: '${escapeHtml(org.role)}' };</script>
+    <script>window.__PAGE_DATA__ = { orgId: '${escapeHtml(org.org_id)}', role: '${escapeHtml(org.role)}', companyIds: ${JSON.stringify(org.company_ids ?? [])} };</script>
     ${assetTags("pages/owner-organizations/client.ts")}`;
 
     return renderPage(org.display_name || "Organization", content, "/gui/organizations", "owner", renderPageOptions);

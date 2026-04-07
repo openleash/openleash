@@ -675,3 +675,75 @@ export function validateEORI(value: string): ValidationResult {
   }
   return ok;
 }
+
+/** Validate a Global Location Number (GLN). 13 digits with check digit. */
+export function validateGLN(value: string): ValidationResult {
+  const cleaned = value.replace(/[\s-]/g, '');
+  if (!/^\d{13}$/.test(cleaned)) {
+    return fail('GLN must be exactly 13 digits');
+  }
+  // GS1 check digit (mod 10, alternating weights 1 and 3)
+  const digits = cleaned.split('').map(Number);
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += digits[i] * (i % 2 === 0 ? 1 : 3);
+  }
+  const checkDigit = (10 - (sum % 10)) % 10;
+  if (digits[12] !== checkDigit) {
+    return fail('Invalid GLN check digit');
+  }
+  return ok;
+}
+
+/** Validate an ISIN (International Securities Identification Number). 12 chars, Luhn on numeric conversion. */
+export function validateISIN(value: string): ValidationResult {
+  const cleaned = value.replace(/\s/g, '').toUpperCase();
+  if (!/^[A-Z]{2}[A-Z0-9]{9}\d$/.test(cleaned)) {
+    return fail('ISIN must be 2-letter country code + 9 alphanumeric chars + 1 check digit');
+  }
+  // Convert letters to numbers (A=10..Z=35) then Luhn
+  const numericStr = cleaned.split('').map((c) => {
+    const code = c.charCodeAt(0);
+    return code >= 65 ? String(code - 55) : c;
+  }).join('');
+  if (!luhn(numericStr)) {
+    return fail('Invalid ISIN check digit (Luhn)');
+  }
+  return ok;
+}
+
+/** Validate a tax identification number. Accepts alphanumeric, 4-20 chars. */
+export function validateTaxId(value: string): ValidationResult {
+  const cleaned = value.replace(/[\s.-]/g, '');
+  if (!/^[A-Z0-9]{4,20}$/i.test(cleaned)) {
+    return fail('Tax ID must be 4-20 alphanumeric characters');
+  }
+  return ok;
+}
+
+/** Validate a Chamber of Commerce registration number. Alphanumeric, 3-20 chars. */
+export function validateChamberOfCommerce(value: string): ValidationResult {
+  const cleaned = value.replace(/[\s.-]/g, '');
+  if (!/^[A-Z0-9]{3,20}$/i.test(cleaned)) {
+    return fail('Chamber of Commerce number must be 3-20 alphanumeric characters');
+  }
+  return ok;
+}
+
+/** Validate a NAICS code. 2-6 digits. */
+export function validateNAICS(value: string): ValidationResult {
+  const cleaned = value.replace(/[\s.-]/g, '');
+  if (!/^\d{2,6}$/.test(cleaned)) {
+    return fail('NAICS code must be 2-6 digits');
+  }
+  return ok;
+}
+
+/** Validate a SIC code. 4 digits. */
+export function validateSIC(value: string): ValidationResult {
+  const cleaned = value.replace(/[\s.-]/g, '');
+  if (!/^\d{4}$/.test(cleaned)) {
+    return fail('SIC code must be exactly 4 digits');
+  }
+  return ok;
+}

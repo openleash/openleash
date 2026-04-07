@@ -828,6 +828,7 @@ export function registerGuiRoutes(
                     created_at: org.created_at,
                     verification_status: org.verification_status,
                     identity_assurance_level: org.identity_assurance_level,
+                    company_ids: org.company_ids as { id_type: string; id_value: string; country?: string; verification_level: string }[] | undefined,
                     member_count: allMembers.length,
                     agent_count: orgAgents.length,
                 },
