@@ -13,7 +13,6 @@ export default defineConfig({
                 "pages/audit/client": resolve(__dirname, "src/pages/audit/client.ts"),
                 "pages/owners/client": resolve(__dirname, "src/pages/owners/client.ts"),
                 "pages/agents/client": resolve(__dirname, "src/pages/agents/client.ts"),
-                "pages/mcp-glove/client": resolve(__dirname, "src/pages/mcp-glove/client.ts"),
                 "pages/api-reference/client": resolve(
                     __dirname,
                     "src/pages/api-reference/client.ts",

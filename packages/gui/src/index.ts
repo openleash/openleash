@@ -10,8 +10,6 @@ export { renderPolicies, renderPolicyViewer } from "./pages/policies/render.js";
 export type { PolicyListEntry, PolicyDetail, BindingEntry } from "./pages/policies/render.js";
 export { renderConfig } from "./pages/config/render.js";
 export type { ConfigData } from "./pages/config/render.js";
-export { renderMcpGlove } from "./pages/mcp-glove/render.js";
-export type { McpGlovePageData } from "./pages/mcp-glove/render.js";
 export { renderAudit } from "./pages/audit/render.js";
 export type { AuditData, AuditEntry, AuditNameMap, AuditScopeOption } from "./pages/audit/render.js";
 export { renderOwnerLogin } from "./pages/owner-login/render.js";

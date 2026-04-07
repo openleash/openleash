@@ -170,10 +170,6 @@ export function renderDashboard(data: DashboardData): string {
             <span class="material-symbols-outlined">api</span>
             <span>API Reference</span>
           </a>
-          <a href="/gui/admin/mcp-glove" class="quick-link">
-            <span class="material-symbols-outlined">handshake</span>
-            <span>MCP Glove</span>
-          </a>
           <a href="https://github.com/openleash/openleash/issues" target="_blank" rel="noopener" class="quick-link">
             <span class="material-symbols-outlined">bug_report</span>
             <span>Report an Issue</span>

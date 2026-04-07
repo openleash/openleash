@@ -7,8 +7,7 @@
     "packages/*"
   ],
   "bin": {
-    "openleash": "./packages/cli/dist/index.js",
-    "mcp-glove": "./packages/mcp-glove/dist/cli.js"
+    "openleash": "./packages/cli/dist/index.js"
   },
   "scripts": {
     "build": "tsc -b",

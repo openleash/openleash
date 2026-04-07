@@ -19,7 +19,6 @@
     { "path": "packages/gui" },
     { "path": "packages/server" },
     { "path": "packages/sdk-ts" },
-    { "path": "packages/cli" },
-    { "path": "packages/mcp-glove" }
+    { "path": "packages/cli" }
   ]
 }
