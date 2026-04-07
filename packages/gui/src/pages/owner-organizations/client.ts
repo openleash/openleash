@@ -10,10 +10,18 @@ interface CompanyIdEntry {
     added_at: string;
 }
 
+interface ContactIdentityEntry {
+    contact_id: string;
+    type: string;
+    value: string;
+    verified: boolean;
+}
+
 interface OrgPageData {
     orgId?: string;
     role?: string;
     companyIds?: CompanyIdEntry[];
+    contactIdentities?: ContactIdentityEntry[];
 }
 
 declare global {
@@ -375,6 +383,138 @@ document.querySelectorAll<HTMLButtonElement>(".oorg-btn-remove-cid").forEach((bt
             existing.splice(idx, 1);
             await saveCompanyIds(existing);
             olToast("Company ID removed", "success");
+            setTimeout(() => { window.location.reload(); }, 800);
+        } catch (err: unknown) {
+            olToast(String((err as Error).message || err), "error");
+            btn.disabled = false;
+        }
+    });
+});
+
+// ─── Rename organization ──────────────────────────────────────────────
+
+const btnRename = document.getElementById("btn-rename-org");
+const renameForm = document.getElementById("rename-form");
+const renameInput = document.getElementById("rename-input") as HTMLInputElement | null;
+const btnSaveRename = document.getElementById("btn-save-rename") as HTMLButtonElement | null;
+const btnCancelRename = document.getElementById("btn-cancel-rename");
+const orgDisplayName = document.getElementById("org-display-name");
+
+btnRename?.addEventListener("click", () => {
+    renameForm?.classList.remove("hidden");
+    btnRename.classList.add("hidden");
+    renameInput?.focus();
+    renameInput?.select();
+});
+
+btnCancelRename?.addEventListener("click", () => {
+    renameForm?.classList.add("hidden");
+    btnRename?.classList.remove("hidden");
+});
+
+btnSaveRename?.addEventListener("click", async () => {
+    const newName = renameInput?.value.trim();
+    if (!newName) return;
+
+    btnSaveRename.disabled = true;
+    try {
+        const res = await fetch(`/v1/owner/organizations/${pageData.orgId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ display_name: newName }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            olToast(olApiError(err, "Failed to rename"), "error");
+            return;
+        }
+        if (orgDisplayName) orgDisplayName.textContent = newName;
+        renameForm?.classList.add("hidden");
+        btnRename?.classList.remove("hidden");
+        olToast("Organization renamed", "success");
+    } catch {
+        olToast("Network error", "error");
+    } finally {
+        btnSaveRename.disabled = false;
+    }
+});
+
+// ─── Contact identities management ───────────────────────────────────
+
+const btnAddContact = document.getElementById("btn-add-contact");
+const contactForm = document.getElementById("add-contact-form");
+const btnSubmitContact = document.getElementById("btn-submit-contact") as HTMLButtonElement | null;
+const btnCancelContact = document.getElementById("btn-cancel-contact");
+const contactTypeSelect = document.getElementById("contact-type") as HTMLSelectElement | null;
+const contactValueInput = document.getElementById("contact-value") as HTMLInputElement | null;
+
+btnAddContact?.addEventListener("click", () => {
+    contactForm?.classList.remove("hidden");
+    btnAddContact.classList.add("hidden");
+    contactValueInput?.focus();
+});
+
+btnCancelContact?.addEventListener("click", () => {
+    contactForm?.classList.add("hidden");
+    btnAddContact?.classList.remove("hidden");
+    olClearFieldErrors("add-contact-form");
+    if (contactValueInput) contactValueInput.value = "";
+});
+
+async function saveContactIdentities(contacts: ContactIdentityEntry[]) {
+    const res = await fetch(`/v1/owner/organizations/${pageData.orgId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_identities: contacts }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(olApiError(err, "Failed to update contacts"));
+    }
+}
+
+btnSubmitContact?.addEventListener("click", async () => {
+    olClearFieldErrors("add-contact-form");
+    const contactType = contactTypeSelect?.value || "EMAIL";
+    const contactValue = contactValueInput?.value.trim();
+    if (!contactValue) {
+        olFieldError("contact-value", "Value is required");
+        return;
+    }
+
+    btnSubmitContact.disabled = true;
+    btnSubmitContact.textContent = "Adding\u2026";
+
+    try {
+        const existing = [...(pageData.contactIdentities ?? [])];
+        existing.push({
+            contact_id: crypto.randomUUID(),
+            type: contactType,
+            value: contactValue,
+            verified: false,
+        });
+        await saveContactIdentities(existing);
+        olToast("Contact added", "success");
+        setTimeout(() => { window.location.reload(); }, 800);
+    } catch (err: unknown) {
+        olToast(String((err as Error).message || err), "error");
+    } finally {
+        btnSubmitContact.disabled = false;
+        btnSubmitContact.textContent = "Add";
+    }
+});
+
+document.querySelectorAll<HTMLButtonElement>(".oorg-btn-remove-contact").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        const idx = parseInt(btn.dataset.index!, 10);
+        if (!(await olConfirm("Remove this contact?", "Remove"))) return;
+
+        btn.disabled = true;
+        try {
+            const existing = [...(pageData.contactIdentities ?? [])];
+            existing.splice(idx, 1);
+            await saveContactIdentities(existing);
+            olToast("Contact removed", "success");
             setTimeout(() => { window.location.reload(); }, 800);
         } catch (err: unknown) {
             olToast(String((err as Error).message || err), "error");

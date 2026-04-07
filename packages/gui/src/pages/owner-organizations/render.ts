@@ -57,6 +57,7 @@ export interface OwnerOrgDetailData {
         agent_count: number;
         identity_assurance_level?: string;
         company_ids?: { id_type: string; id_value: string; country?: string; verification_level: string }[];
+        contact_identities?: { contact_id: string; type: string; value: string; verified: boolean }[];
     };
     members: {
         display_name: string | null;
@@ -219,6 +220,53 @@ function renderCompanyIdsCard(
     </div>`;
 }
 
+function renderContactIdentitiesCard(
+    contacts: { contact_id: string; type: string; value: string; verified: boolean }[],
+    isAdmin: boolean,
+): string {
+    const rows = contacts.map((c, i) => `<tr>
+      <td>${escapeHtml(c.type === "EMAIL" ? "Email" : c.type === "PHONE" ? "Phone" : c.type)}</td>
+      <td class="mono">${escapeHtml(c.value)}</td>
+      <td>${c.verified ? '<span class="badge badge-green">VERIFIED</span>' : '<span class="badge badge-muted">UNVERIFIED</span>'}</td>
+      ${isAdmin ? `<td><button class="btn btn-secondary profile-btn-remove oorg-btn-remove-contact" data-index="${i}">Remove</button></td>` : ""}
+    </tr>`).join("\n");
+
+    const addForm = isAdmin ? `
+      <div id="add-contact-form" class="hidden oorg-add-member-form">
+        <div class="form-group">
+          <label class="form-label" for="contact-type">Type</label>
+          <select id="contact-type" class="form-select">
+            <option value="EMAIL">Email</option>
+            <option value="PHONE">Phone</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="contact-value">Value</label>
+          <input type="text" id="contact-value" class="form-input" placeholder="e.g. org@example.com">
+          <div class="field-error" id="err-contact-value"></div>
+        </div>
+        <div class="oorg-add-member-actions">
+          <button class="btn btn-primary btn-sm" id="btn-submit-contact">Add</button>
+          <button class="btn btn-secondary btn-sm" id="btn-cancel-contact">Cancel</button>
+        </div>
+      </div>` : "";
+
+    return `
+    <div class="card">
+      <div class="oorg-members-header">
+        <div class="card-title">Contact Identities (${contacts.length})</div>
+        ${isAdmin ? '<button class="btn btn-primary btn-sm" id="btn-add-contact">+ Add Contact</button>' : ""}
+      </div>
+      ${addForm}
+      ${contacts.length === 0
+        ? '<p class="oorg-empty-section">No contact identities</p>'
+        : `<table>
+          <thead><tr><th>Type</th><th>Value</th><th>Status</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`}
+    </div>`;
+}
+
 export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPageOptions?: RenderPageOptions): string {
     const { org, members, agents, policies, currentUserId } = data;
     const isAdmin = org.role === "org_admin";
@@ -263,10 +311,17 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
     const content = `
     <div class="page-header">
       <div class="oorg-detail-heading">
-        <h2>${escapeHtml(org.display_name || "Organization")}</h2>
+        <h2 id="org-display-name">${escapeHtml(org.display_name || "Organization")}</h2>
+        ${isAdmin ? '<button class="btn btn-secondary btn-sm" id="btn-rename-org" title="Rename"><span class="material-symbols-outlined" style="font-size:16px">edit</span></button>' : ""}
         ${statusBadge(org.status)}${infoIcon("oorgd-status", INFO_ORG_STATUS)}
         ${verificationBadge(org.verification_status)}${infoIcon("oorgd-verif", INFO_ORG_VERIFICATION)}
       </div>
+      ${isAdmin ? `
+      <div id="rename-form" class="hidden oorg-rename-form">
+        <input type="text" id="rename-input" class="form-input" value="${escapeHtml(org.display_name || "")}">
+        <button class="btn btn-primary btn-sm" id="btn-save-rename">Save</button>
+        <button class="btn btn-secondary btn-sm" id="btn-cancel-rename">Cancel</button>
+      </div>` : ""}
       <p>${copyableId(org.org_id, org.org_id.length)}</p>
     </div>
 
@@ -318,6 +373,8 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
         </table>`}
     </div>
 
+    ${renderContactIdentitiesCard(org.contact_identities ?? [], isAdmin)}
+
     ${renderCompanyIdsCard(org.company_ids ?? [], isAdmin)}
 
     <div class="card">
@@ -356,7 +413,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
       })()}
     </div>
 
-    <script>window.__PAGE_DATA__ = { orgId: '${escapeHtml(org.org_id)}', role: '${escapeHtml(org.role)}', companyIds: ${JSON.stringify(org.company_ids ?? [])} };</script>
+    <script>window.__PAGE_DATA__ = { orgId: '${escapeHtml(org.org_id)}', role: '${escapeHtml(org.role)}', companyIds: ${JSON.stringify(org.company_ids ?? [])}, contactIdentities: ${JSON.stringify(org.contact_identities ?? [])} };</script>
     ${assetTags("pages/owner-organizations/client.ts")}`;
 
     return renderPage(org.display_name || "Organization", content, "/gui/organizations", "owner", renderPageOptions);

@@ -829,6 +829,7 @@ export function registerGuiRoutes(
                     verification_status: org.verification_status,
                     identity_assurance_level: org.identity_assurance_level,
                     company_ids: org.company_ids as { id_type: string; id_value: string; country?: string; verification_level: string }[] | undefined,
+                    contact_identities: org.contact_identities as { contact_id: string; type: string; value: string; verified: boolean }[] | undefined,
                     member_count: allMembers.length,
                     agent_count: orgAgents.length,
                 },

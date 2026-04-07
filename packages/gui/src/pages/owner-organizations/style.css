@@ -75,3 +75,14 @@
     padding: 2px 8px;
     font-size: 12px;
 }
+
+.oorg-rename-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.oorg-rename-form .form-input {
+    max-width: 300px;
+}

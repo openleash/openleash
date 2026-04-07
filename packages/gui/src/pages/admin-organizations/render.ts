@@ -104,23 +104,79 @@ function companyIdVerificationBadge(level?: string): string {
     return `<span class="badge badge-muted">${escapeHtml(level)}</span>`;
 }
 
-function renderAdminCompanyIdsCard(
-    companyIds: { id_type: string; id_value: string; country?: string; verification_level: string }[],
+function renderAdminContactIdentitiesCard(
+    contacts: { contact_id: string; type: string; value: string; verified: boolean }[],
 ): string {
-    const rows = companyIds.map((c) => `<tr>
-      <td>${escapeHtml(COMPANY_ID_LABELS[c.id_type] ?? c.id_type)}</td>
-      <td>${c.country ? escapeHtml(c.country) : "—"}</td>
-      <td class="mono">${escapeHtml(c.id_value)}</td>
-      <td>${companyIdVerificationBadge(c.verification_level)}</td>
+    const rows = contacts.map((c) => `<tr>
+      <td>${escapeHtml(c.type === "EMAIL" ? "Email" : c.type === "PHONE" ? "Phone" : c.type)}</td>
+      <td class="mono">${escapeHtml(c.value)}</td>
+      <td>${c.verified ? '<span class="badge badge-green">VERIFIED</span>' : '<span class="badge badge-muted">UNVERIFIED</span>'}</td>
     </tr>`).join("\n");
 
     return `
     <div class="card">
-      <div class="card-title">Company IDs (${companyIds.length})${infoIcon("aorg-cid-types", INFO_COMPANY_ID_TYPES)}</div>
+      <div class="card-title">Contact Identities (${contacts.length})</div>
+      ${contacts.length === 0
+        ? '<p class="aorg-empty-section">No contact identities</p>'
+        : `<table>
+          <thead><tr><th>Type</th><th>Value</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`}
+    </div>`;
+}
+
+function renderAdminCompanyIdsCard(
+    companyIds: { id_type: string; id_value: string; country?: string; verification_level: string }[],
+): string {
+    const rows = companyIds.map((c, i) => `<tr>
+      <td>${escapeHtml(COMPANY_ID_LABELS[c.id_type] ?? c.id_type)}</td>
+      <td>${c.country ? escapeHtml(c.country) : "—"}</td>
+      <td class="mono">${escapeHtml(c.id_value)}</td>
+      <td>${companyIdVerificationBadge(c.verification_level)}</td>
+      <td><button class="btn btn-secondary btn-sm aorg-btn-remove-cid" data-index="${i}">Remove</button></td>
+    </tr>`).join("\n");
+
+    const countryOptions = [
+        "AT:Austria", "BE:Belgium", "BG:Bulgaria", "HR:Croatia", "CY:Cyprus", "CZ:Czech Republic",
+        "DK:Denmark", "EE:Estonia", "FI:Finland", "FR:France", "DE:Germany", "GR:Greece",
+        "HU:Hungary", "IE:Ireland", "IT:Italy", "LV:Latvia", "LT:Lithuania", "LU:Luxembourg",
+        "MT:Malta", "NL:Netherlands", "PL:Poland", "PT:Portugal", "RO:Romania", "SK:Slovakia",
+        "SI:Slovenia", "ES:Spain", "SE:Sweden",
+    ].map((s) => { const [v, l] = s.split(":"); return `<option value="${v}">${l}</option>`; }).join("");
+
+    const idTypeOptions = Object.entries(COMPANY_ID_LABELS)
+        .map(([k, v]) => `<option value="${escapeHtml(k)}">${escapeHtml(v)}</option>`)
+        .join("");
+
+    return `
+    <div class="card">
+      <div class="aorg-members-header">
+        <div class="card-title">Company IDs (${companyIds.length})${infoIcon("aorg-cid-types", INFO_COMPANY_ID_TYPES)}</div>
+        <button class="btn btn-primary btn-sm" id="btn-add-cid">+ Add ID</button>
+      </div>
+      <div id="add-cid-form" class="hidden aorg-add-member-form">
+        <div class="form-group">
+          <label class="form-label" for="cid-type">ID Type</label>
+          <select id="cid-type" class="form-select">${idTypeOptions}</select>
+        </div>
+        <div class="form-group" id="cid-country-group">
+          <label class="form-label" for="cid-country">Country (for Company Reg)</label>
+          <select id="cid-country" class="form-select"><option value="">— not applicable —</option>${countryOptions}</select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cid-value">ID Value</label>
+          <input type="text" id="cid-value" class="form-input" placeholder="e.g. SE5561234567">
+          <div class="field-error" id="err-cid-value"></div>
+        </div>
+        <div class="aorg-add-member-actions">
+          <button class="btn btn-primary btn-sm" id="btn-submit-cid">Add</button>
+          <button class="btn btn-secondary btn-sm" id="btn-cancel-cid">Cancel</button>
+        </div>
+      </div>
       ${companyIds.length === 0
         ? '<p class="aorg-empty-section">No company IDs registered</p>'
         : `<table>
-          <thead><tr><th>Type</th><th>Country</th><th>Value</th><th>Status${infoIcon("aorg-cid-verif", INFO_VERIFICATION_LEVEL)}</th></tr></thead>
+          <thead><tr><th>Type</th><th>Country</th><th>Value</th><th>Status${infoIcon("aorg-cid-verif", INFO_VERIFICATION_LEVEL)}</th><th>Actions</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>`}
     </div>`;
@@ -255,6 +311,8 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
         : `<table><thead><tr><th>Name</th><th>User ID</th><th>Role${infoIcon("detail-org-role", INFO_ORG_ROLE)}</th><th>Added</th><th>Actions</th></tr></thead><tbody>${memberRows}</tbody></table>`}
     </div>
 
+    ${renderAdminContactIdentitiesCard(org.contact_identities ?? [])}
+
     ${renderAdminCompanyIdsCard(org.company_ids ?? [])}
 
     <div class="card">
@@ -275,7 +333,7 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
       <a href="/gui/admin/organizations" class="btn btn-secondary">Back to Organizations</a>
     </div>
 
-    <script>window.__PAGE_DATA__ = { orgId: '${escapeHtml(org.org_id)}' };</script>
+    <script>window.__PAGE_DATA__ = { orgId: '${escapeHtml(org.org_id)}', companyIds: ${JSON.stringify(org.company_ids ?? [])} };</script>
     ${assetTags("pages/admin-organizations/client.ts")}`;
 
     return renderPage(org.display_name || "Organization", content, "/gui/admin/organizations");
