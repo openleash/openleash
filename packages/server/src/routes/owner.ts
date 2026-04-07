@@ -30,6 +30,7 @@ import type {
     CompanyId,
     DataStore,
     OrgMembership,
+    OrgInvite,
     OpenleashEvents,
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
@@ -682,7 +683,7 @@ export function registerOwnerRoutes(
         return { members };
     });
 
-    // POST /v1/owner/organizations/:orgId/members
+    // POST /v1/owner/organizations/:orgId/members — invite a user to the org
     app.post("/v1/owner/organizations/:orgId/members", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
@@ -758,15 +759,116 @@ export function registerOwnerRoutes(
             return;
         }
 
+        // Check for existing pending invite
+        const existingInvites = store.orgInvites.listByOrg(orgId);
+        if (existingInvites.find((i) => i.user_principal_id === targetUserId && i.status === "pending")) {
+            reply.code(409).send({
+                error: { code: "ALREADY_INVITED", message: "User already has a pending invitation" },
+            });
+            return;
+        }
+
+        const inviteId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+
+        const invite: OrgInvite = {
+            invite_id: inviteId,
+            org_id: orgId,
+            user_principal_id: targetUserId!,
+            role: parsed.data,
+            status: "pending",
+            invited_by_user_id: session.sub,
+            expires_at: expiresAt,
+            responded_at: null,
+            created_at: now,
+        };
+
+        store.orgInvites.write(invite);
+
+        store.audit.append("ORG_INVITE_CREATED", {
+            org_id: orgId,
+            user_principal_id: targetUserId!,
+            role: parsed.data,
+            invited_by: session.sub,
+            invite_id: inviteId,
+        }, { principal_id: session.sub });
+
+        const inviteOrg = store.organizations.read(orgId);
+        events.emit("org_invite.created", {
+            invite_id: inviteId,
+            org_id: orgId,
+            org_display_name: inviteOrg.display_name,
+            user_principal_id: targetUserId!,
+            role: parsed.data,
+            invited_by_user_id: session.sub,
+            expires_at: expiresAt,
+        });
+
+        return { invite_id: inviteId, org_id: orgId, user_principal_id: targetUserId!, role: parsed.data, status: "pending" };
+    });
+
+    // GET /v1/owner/organization-invites — list pending invites for current user
+    app.get("/v1/owner/organization-invites", { preHandler: ownerAuth }, async (request) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const invites = store.orgInvites.listByUser(session.sub)
+            .filter((i) => i.status === "pending" && new Date(i.expires_at) > new Date());
+        const enriched = invites.map((i) => {
+            try {
+                const org = store.organizations.read(i.org_id);
+                const inviter = store.users.read(i.invited_by_user_id);
+                return { ...i, org_display_name: org.display_name, invited_by_name: inviter.display_name };
+            } catch {
+                return { ...i, org_display_name: null, invited_by_name: null };
+            }
+        });
+        return { invites: enriched };
+    });
+
+    // POST /v1/owner/organization-invites/:inviteId/accept
+    app.post("/v1/owner/organization-invites/:inviteId/accept", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { inviteId } = request.params as { inviteId: string };
+
+        let invite: OrgInvite;
+        try {
+            invite = store.orgInvites.read(inviteId);
+        } catch {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Invite not found" } });
+            return;
+        }
+
+        if (invite.user_principal_id !== session.sub) {
+            reply.code(403).send({ error: { code: "FORBIDDEN", message: "This invite is not for you" } });
+            return;
+        }
+        if (invite.status !== "pending") {
+            reply.code(400).send({ error: { code: "INVITE_NOT_PENDING", message: `Invite is already ${invite.status}` } });
+            return;
+        }
+        if (new Date(invite.expires_at) < new Date()) {
+            invite.status = "expired";
+            store.orgInvites.write(invite);
+            reply.code(400).send({ error: { code: "INVITE_EXPIRED", message: "Invite has expired" } });
+            return;
+        }
+
+        // Accept: create membership
+        invite.status = "accepted";
+        invite.responded_at = new Date().toISOString();
+        store.orgInvites.write(invite);
+
         const membershipId = crypto.randomUUID();
         const now = new Date().toISOString();
         const membership: OrgMembership = {
             membership_id: membershipId,
-            org_id: orgId,
-            user_principal_id: targetUserId!,
-            role: parsed.data,
+            org_id: invite.org_id,
+            user_principal_id: session.sub,
+            role: invite.role,
             status: "active",
-            invited_by_user_id: session.sub,
+            invited_by_user_id: invite.invited_by_user_id,
             created_at: now,
         };
 
@@ -774,30 +876,63 @@ export function registerOwnerRoutes(
         store.state.updateState((s) => {
             s.memberships.push({
                 membership_id: membershipId,
-                org_id: orgId,
-                user_principal_id: targetUserId!,
-                role: parsed.data,
+                org_id: invite.org_id,
+                user_principal_id: session.sub,
+                role: invite.role,
                 path: `./memberships/${membershipId}.json`,
             });
         });
 
-        store.audit.append("ORG_MEMBER_ADDED", {
-            org_id: orgId,
-            user_principal_id: targetUserId!,
-            role: parsed.data,
-            invited_by: session.sub,
+        store.audit.append("ORG_INVITE_ACCEPTED", {
+            org_id: invite.org_id,
+            invite_id: inviteId,
         }, { principal_id: session.sub });
 
-        const addedOrg = store.organizations.read(orgId);
+        const acceptedOrg = store.organizations.read(invite.org_id);
         events.emit("org_member.added", {
-            org_id: orgId,
-            org_display_name: addedOrg.display_name,
-            user_principal_id: targetUserId!,
-            role: parsed.data,
-            invited_by_user_id: session.sub,
+            org_id: invite.org_id,
+            org_display_name: acceptedOrg.display_name,
+            user_principal_id: session.sub,
+            role: invite.role,
+            invited_by_user_id: invite.invited_by_user_id,
         });
 
-        return { membership_id: membershipId, org_id: orgId, user_principal_id: targetUserId!, role: parsed.data };
+        return { status: "accepted", membership_id: membershipId, org_id: invite.org_id };
+    });
+
+    // POST /v1/owner/organization-invites/:inviteId/decline
+    app.post("/v1/owner/organization-invites/:inviteId/decline", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { inviteId } = request.params as { inviteId: string };
+
+        let invite: OrgInvite;
+        try {
+            invite = store.orgInvites.read(inviteId);
+        } catch {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Invite not found" } });
+            return;
+        }
+
+        if (invite.user_principal_id !== session.sub) {
+            reply.code(403).send({ error: { code: "FORBIDDEN", message: "This invite is not for you" } });
+            return;
+        }
+        if (invite.status !== "pending") {
+            reply.code(400).send({ error: { code: "INVITE_NOT_PENDING", message: `Invite is already ${invite.status}` } });
+            return;
+        }
+
+        invite.status = "declined";
+        invite.responded_at = new Date().toISOString();
+        store.orgInvites.write(invite);
+
+        store.audit.append("ORG_INVITE_DECLINED", {
+            org_id: invite.org_id,
+            invite_id: inviteId,
+        }, { principal_id: session.sub });
+
+        return { status: "declined", org_id: invite.org_id };
     });
 
     // PUT /v1/owner/organizations/:orgId/members/:userId

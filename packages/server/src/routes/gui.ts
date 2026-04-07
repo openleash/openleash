@@ -761,7 +761,33 @@ export function registerGuiRoutes(
                     return { org_id: m.org_id, role: m.role, error: "file_not_found" };
                 }
             });
-        const html = renderOwnerOrganizations(orgs, ownerRenderOptionsFor(session));
+        // Get pending org invites for the user
+        const pendingInvites = store.orgInvites.listByUser(session.sub)
+            .filter((i) => i.status === "pending" && new Date(i.expires_at) > new Date())
+            .map((i) => {
+                try {
+                    const org = store.organizations.read(i.org_id);
+                    const inviter = store.users.read(i.invited_by_user_id);
+                    return {
+                        invite_id: i.invite_id,
+                        org_id: i.org_id,
+                        org_display_name: org.display_name,
+                        role: i.role,
+                        invited_by_name: inviter.display_name,
+                        expires_at: i.expires_at,
+                    };
+                } catch {
+                    return {
+                        invite_id: i.invite_id,
+                        org_id: i.org_id,
+                        org_display_name: null as string | null,
+                        role: i.role,
+                        invited_by_name: null as string | null,
+                        expires_at: i.expires_at,
+                    };
+                }
+            });
+        const html = renderOwnerOrganizations(orgs, ownerRenderOptionsFor(session), pendingInvites);
         reply.type("text/html").send(html);
     });
 

@@ -423,6 +423,18 @@ export interface AgentInvite {
   created_at: string;
 }
 
+export interface OrgInvite {
+  invite_id: string;
+  org_id: string;
+  user_principal_id: string;
+  role: OrgRole;
+  status: 'pending' | 'accepted' | 'declined' | 'expired';
+  invited_by_user_id: string;
+  expires_at: string;
+  responded_at: string | null;
+  created_at: string;
+}
+
 export interface OrgMembershipClaim {
   org_id: string;
   role: OrgRole;
@@ -472,6 +484,9 @@ export const AuditEventType = z.enum([
   'ORG_MEMBER_UPDATED',
   'ORG_MEMBER_REMOVED',
   'ORG_MEMBER_LEFT',
+  'ORG_INVITE_CREATED',
+  'ORG_INVITE_ACCEPTED',
+  'ORG_INVITE_DECLINED',
   'ORG_VERIFICATION_INITIATED',
   'ORG_VERIFICATION_COMPLETED',
   'ORG_VERIFICATION_FAILED',

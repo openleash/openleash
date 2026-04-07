@@ -32,6 +32,62 @@ declare global {
 
 const pageData = window.__PAGE_DATA__ || {};
 
+// ─── Accept/decline org invites (list page) ──────────────────────────
+
+document.querySelectorAll<HTMLButtonElement>(".oorg-btn-accept").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        const inviteId = btn.dataset.inviteId!;
+        btn.disabled = true;
+        btn.textContent = "Accepting\u2026";
+        try {
+            const res = await fetch(`/v1/owner/organization-invites/${inviteId}/accept`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                olToast(olApiError(err, "Failed to accept invite"), "error");
+                btn.disabled = false;
+                btn.textContent = "Accept";
+                return;
+            }
+            olToast("Invitation accepted", "success");
+            setTimeout(() => { window.location.reload(); }, 800);
+        } catch {
+            olToast("Network error", "error");
+            btn.disabled = false;
+            btn.textContent = "Accept";
+        }
+    });
+});
+
+document.querySelectorAll<HTMLButtonElement>(".oorg-btn-decline").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        const inviteId = btn.dataset.inviteId!;
+        if (!(await olConfirm("Decline this invitation?", "Decline"))) return;
+        btn.disabled = true;
+        try {
+            const res = await fetch(`/v1/owner/organization-invites/${inviteId}/decline`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                olToast(olApiError(err, "Failed to decline invite"), "error");
+                btn.disabled = false;
+                return;
+            }
+            olToast("Invitation declined", "success");
+            setTimeout(() => { window.location.reload(); }, 800);
+        } catch {
+            olToast("Network error", "error");
+            btn.disabled = false;
+        }
+    });
+});
+
 // ─── Create organization (list page) ──────────────────────────────────
 
 const btnCreate = document.getElementById("btn-create-org");
@@ -140,7 +196,7 @@ btnSubmitMember?.addEventListener("click", async () => {
             return;
         }
 
-        olToast("Member added", "success");
+        olToast("Invitation sent", "success");
         setTimeout(() => { window.location.reload(); }, 800);
     } catch {
         olToast("Network error", "error");

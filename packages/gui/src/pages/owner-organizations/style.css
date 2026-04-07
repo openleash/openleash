@@ -89,3 +89,25 @@
 .oorg-rename-form .form-input {
     max-width: 300px;
 }
+
+.oorg-invites-card {
+    border-left: 3px solid var(--color-warning);
+}
+
+.oorg-invite-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.oorg-invite-row:last-child {
+    border-bottom: none;
+}
+
+.oorg-invite-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}

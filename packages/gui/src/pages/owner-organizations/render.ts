@@ -70,7 +70,17 @@ export interface OwnerOrgDetailData {
     currentUserId: string;
 }
 
-export function renderOwnerOrganizations(orgs: OwnerOrgEntry[], renderPageOptions?: RenderPageOptions): string {
+export interface PendingOrgInvite {
+    invite_id: string;
+    org_id: string;
+    org_display_name: string | null;
+    role: string;
+    invited_by_name: string | null;
+    expires_at: string;
+}
+
+export function renderOwnerOrganizations(orgs: OwnerOrgEntry[], renderPageOptions?: RenderPageOptions, pendingInvites?: PendingOrgInvite[]): string {
+    const invites = pendingInvites ?? [];
     const rows = orgs.map((o) => {
         if (o.error) {
             return `<tr><td>${copyableId(o.org_id)}</td><td colspan="4" class="text-muted">Not found</td></tr>`;
@@ -103,9 +113,25 @@ export function renderOwnerOrganizations(orgs: OwnerOrgEntry[], renderPageOption
       </div>
     </div>
 
-    ${orgs.length === 0
+    ${invites.length > 0 ? `
+    <div class="card oorg-invites-card">
+      <div class="card-title">Pending Invitations (${invites.length})</div>
+      ${invites.map((inv) => `
+      <div class="oorg-invite-row">
+        <div class="oorg-invite-info">
+          <strong>${escapeHtml(inv.org_display_name || inv.org_id.slice(0, 8))}</strong>
+          <span class="text-muted"> — invited as ${escapeHtml(inv.role.replace("org_", ""))}${inv.invited_by_name ? ` by ${escapeHtml(inv.invited_by_name)}` : ""}</span>
+        </div>
+        <div class="oorg-invite-actions">
+          <button class="btn btn-primary btn-sm oorg-btn-accept" data-invite-id="${escapeHtml(inv.invite_id)}">Accept</button>
+          <button class="btn btn-secondary btn-sm oorg-btn-decline" data-invite-id="${escapeHtml(inv.invite_id)}">Decline</button>
+        </div>
+      </div>`).join("")}
+    </div>` : ""}
+
+    ${orgs.length === 0 && invites.length === 0
         ? '<div class="empty-state"><span class="material-symbols-outlined">corporate_fare</span><p>You are not a member of any organizations yet.</p></div>'
-        : `<div class="card">
+        : orgs.length === 0 ? "" : `<div class="card">
         <div class="table-wrapper">
           <table>
             <thead>
@@ -383,7 +409,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
     <div class="card">
       <div class="oorg-members-header">
         <div class="card-title">Members (${members.length})</div>
-        ${isAdmin ? '<button class="btn btn-primary btn-sm" id="btn-add-member">+ Add Member</button>' : ""}
+        ${isAdmin ? '<button class="btn btn-primary btn-sm" id="btn-add-member">+ Invite Member</button>' : ""}
       </div>
       ${isAdmin ? `
       <div id="add-member-form" class="hidden oorg-add-member-form">

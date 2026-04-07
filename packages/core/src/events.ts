@@ -32,6 +32,16 @@ export interface OrgMemberAddedEvent {
   invited_by_user_id: string | null;
 }
 
+export interface OrgInviteCreatedEvent {
+  invite_id: string;
+  org_id: string;
+  org_display_name: string;
+  user_principal_id: string;
+  role: string;
+  invited_by_user_id: string;
+  expires_at: string;
+}
+
 export interface OrgMemberRemovedEvent {
   org_id: string;
   org_display_name: string;
@@ -42,6 +52,7 @@ export interface OrgMemberRemovedEvent {
 export interface OpenleashEventMap {
   'approval_request.created': ApprovalRequestCreatedEvent;
   'policy_draft.created': PolicyDraftCreatedEvent;
+  'org_invite.created': OrgInviteCreatedEvent;
   'org_member.added': OrgMemberAddedEvent;
   'org_member.removed': OrgMemberRemovedEvent;
 }

@@ -389,7 +389,7 @@ describe("Organization management", () => {
     // ─── Member management via owner API ──────────────────────────────
 
     describe("Member management via owner API", () => {
-        it("admin adds member C", async () => {
+        it("admin invites member C", async () => {
             const res = await app.inject({
                 method: "POST",
                 url: `/v1/owner/organizations/${orgId}/members`,
@@ -397,7 +397,19 @@ describe("Organization management", () => {
                 payload: { user_principal_id: userCId, role: "org_member" },
             });
             expect(res.statusCode).toBe(200);
-            expect(JSON.parse(res.payload).role).toBe("org_member");
+            const body = JSON.parse(res.payload);
+            expect(body.status).toBe("pending");
+            expect(body.invite_id).toBeDefined();
+
+            // User C accepts the invite
+            const acceptRes = await app.inject({
+                method: "POST",
+                url: `/v1/owner/organization-invites/${body.invite_id}/accept`,
+                headers: { authorization: `Bearer ${sessionTokenC}` },
+                payload: {},
+            });
+            expect(acceptRes.statusCode).toBe(200);
+            expect(JSON.parse(acceptRes.payload).status).toBe("accepted");
         });
 
         it("admin updates member C role", async () => {

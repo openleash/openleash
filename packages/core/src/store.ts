@@ -7,6 +7,7 @@ import type {
   OrgMembership,
   PolicyDraftFrontmatter,
   ServerKeyFile,
+  OrgInvite,
   SetupInvite,
   StateApprovalRequestEntry,
   StateData,
@@ -65,6 +66,14 @@ export interface AgentInviteRepository {
   write(invite: AgentInvite): void;
 }
 
+export interface OrgInviteRepository {
+  read(inviteId: string): OrgInvite;
+  write(invite: OrgInvite): void;
+  delete(inviteId: string): void;
+  listByUser(userPrincipalId: string): OrgInvite[];
+  listByOrg(orgId: string): OrgInvite[];
+}
+
 export interface KeyRepository {
   read(kid: string): ServerKeyFile;
   write(key: ServerKeyFile): void;
@@ -94,6 +103,7 @@ export interface DataStore {
   policyDrafts: PolicyDraftRepository;
   setupInvites: SetupInviteRepository;
   agentInvites: AgentInviteRepository;
+  orgInvites: OrgInviteRepository;
   keys: KeyRepository;
   state: StateRepository;
   audit: AuditStore;

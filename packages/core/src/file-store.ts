@@ -42,6 +42,7 @@ import type {
   OrgMembership,
   PolicyDraftFrontmatter,
   ServerKeyFile,
+  OrgInvite,
   SetupInvite,
   StateApprovalRequestEntry,
   StateData,
@@ -57,6 +58,7 @@ import type {
   PolicyDraftRepository,
   SetupInviteRepository,
   AgentInviteRepository,
+  OrgInviteRepository,
   KeyRepository,
   StateRepository,
 } from './store.js';
@@ -207,6 +209,49 @@ class FileAgentInviteRepository implements AgentInviteRepository {
   }
 }
 
+class FileOrgInviteRepository implements OrgInviteRepository {
+  private cache: OrgInvite[] | null = null;
+
+  constructor(private readonly dataDir: string) {}
+
+  private get dir() { return path.join(this.dataDir, 'org-invites'); }
+
+  private loadAll(): OrgInvite[] {
+    if (this.cache) return this.cache;
+    const dir = this.dir;
+    if (!fs.existsSync(dir)) { this.cache = []; return this.cache; }
+    this.cache = fs.readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as OrgInvite);
+    return this.cache;
+  }
+
+  read(inviteId: string): OrgInvite {
+    const filePath = path.join(this.dir, `${inviteId}.json`);
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+  }
+
+  write(invite: OrgInvite): void {
+    fs.mkdirSync(this.dir, { recursive: true });
+    fs.writeFileSync(path.join(this.dir, `${invite.invite_id}.json`), JSON.stringify(invite, null, 2), 'utf-8');
+    this.cache = null; // invalidate
+  }
+
+  delete(inviteId: string): void {
+    const filePath = path.join(this.dir, `${inviteId}.json`);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    this.cache = null;
+  }
+
+  listByUser(userPrincipalId: string): OrgInvite[] {
+    return this.loadAll().filter((i) => i.user_principal_id === userPrincipalId);
+  }
+
+  listByOrg(orgId: string): OrgInvite[] {
+    return this.loadAll().filter((i) => i.org_id === orgId);
+  }
+}
+
 class FileKeyRepository implements KeyRepository {
   constructor(private readonly dataDir: string) {}
 
@@ -264,6 +309,7 @@ export class FileDataStore implements DataStore {
   readonly policyDrafts: PolicyDraftRepository;
   readonly setupInvites: SetupInviteRepository;
   readonly agentInvites: AgentInviteRepository;
+  readonly orgInvites: OrgInviteRepository;
   readonly keys: KeyRepository;
   readonly state: StateRepository;
   readonly audit: AuditStore;
@@ -281,6 +327,7 @@ export class FileDataStore implements DataStore {
     this.policyDrafts = new FilePolicyDraftRepository(dataDir);
     this.setupInvites = new FileSetupInviteRepository(dataDir);
     this.agentInvites = new FileAgentInviteRepository(dataDir);
+    this.orgInvites = new FileOrgInviteRepository(dataDir);
     this.keys = new FileKeyRepository(dataDir);
     this.state = new FileStateRepository(dataDir);
     this.audit = new FileAuditStore(dataDir);
