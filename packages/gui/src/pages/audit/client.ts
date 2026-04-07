@@ -4,7 +4,7 @@
 import "./style.css";
 
 const pageData = (window as unknown as Record<string, unknown>).__PAGE_DATA__ as
-    { page: number; pageSize: number; total: number; basePath: string } | undefined;
+    { page: number; pageSize: number; total: number; basePath: string; scope?: string } | undefined;
 
 function filterEvents() {
     const val = (document.getElementById("event-filter") as HTMLSelectElement).value;
@@ -44,9 +44,18 @@ document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
 
 document.getElementById("event-filter")?.addEventListener("change", filterEvents);
 
+// Scope filter navigates to page 1 with the selected scope (server-side filtering)
+document.getElementById("scope-filter")?.addEventListener("change", (e) => {
+    if (!pageData) return;
+    const scope = (e.target as HTMLSelectElement).value;
+    const scopeParam = scope ? `&scope=${encodeURIComponent(scope)}` : "";
+    window.location.href = `${pageData.basePath}?page=1&page_size=${pageData.pageSize}${scopeParam}`;
+});
+
 // Page size change navigates to page 1 with the new size
 document.getElementById("page-size")?.addEventListener("change", (e) => {
     if (!pageData) return;
     const newSize = (e.target as HTMLSelectElement).value;
-    window.location.href = `${pageData.basePath}?page=1&page_size=${newSize}`;
+    const scopeParam = pageData.scope ? `&scope=${encodeURIComponent(pageData.scope)}` : "";
+    window.location.href = `${pageData.basePath}?page=1&page_size=${newSize}${scopeParam}`;
 });

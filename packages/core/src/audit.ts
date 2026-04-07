@@ -288,6 +288,9 @@ export class FileAuditStore implements AuditStore {
     addPrincipal(meta.user_principal_id as string | undefined);
     addPrincipal(meta.owner_principal_id as string | undefined); // backward compat with old audit logs
     addPrincipal(meta.agent_principal_id as string | undefined);
+    addPrincipal(meta.org_id as string | undefined);
+    // Index owner_id for org-owned agent/policy events
+    if (meta.owner_type === 'org') addPrincipal(meta.owner_id as string | undefined);
   }
 
   private readLines(start: number, end: number): AuditEvent[] {

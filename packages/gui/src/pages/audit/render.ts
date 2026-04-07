@@ -596,6 +596,11 @@ function formatMetadata(
         .join("");
 }
 
+export interface AuditScopeOption {
+    value: string;
+    label: string;
+}
+
 export function renderAudit(
     data: AuditData,
     page: number,
@@ -603,6 +608,8 @@ export function renderAudit(
     nameMap?: AuditNameMap,
     context?: "admin" | "owner",
     renderPageOptions?: RenderPageOptions,
+    scopeOptions?: AuditScopeOption[],
+    activeScope?: string,
 ): string {
     const isOwner = context === "owner";
     const policyBasePath = isOwner ? "/gui/policies" : "/gui/admin/policies";
@@ -665,12 +672,13 @@ export function renderAudit(
     const pageStart = total === 0 ? 0 : offset + 1;
     const pageEnd = Math.min(offset + pageSize, total);
 
+    const scopeParam = activeScope ? `&scope=${encodeURIComponent(activeScope)}` : "";
     const prevDisabled = page <= 1 ? " disabled" : "";
     const nextDisabled = page >= totalPages ? " disabled" : "";
-    const prevHref = page > 1 ? `${auditBasePath}?page=${page - 1}&page_size=${pageSize}` : "#";
-    const nextHref = page < totalPages ? `${auditBasePath}?page=${page + 1}&page_size=${pageSize}` : "#";
-    const firstHref = `${auditBasePath}?page=1&page_size=${pageSize}`;
-    const lastHref = `${auditBasePath}?page=${totalPages}&page_size=${pageSize}`;
+    const prevHref = page > 1 ? `${auditBasePath}?page=${page - 1}&page_size=${pageSize}${scopeParam}` : "#";
+    const nextHref = page < totalPages ? `${auditBasePath}?page=${page + 1}&page_size=${pageSize}${scopeParam}` : "#";
+    const firstHref = `${auditBasePath}?page=1&page_size=${pageSize}${scopeParam}`;
+    const lastHref = `${auditBasePath}?page=${totalPages}&page_size=${pageSize}${scopeParam}`;
 
     const pageSizeOptions = [25, 50, 100]
         .map((s) => `<option value="${s}"${s === pageSize ? " selected" : ""}>${s}</option>`)
@@ -702,9 +710,16 @@ export function renderAudit(
         .map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`)
         .join("");
 
+    const scopeFilterHtml = scopeOptions && scopeOptions.length > 1
+        ? `<select id="scope-filter" class="form-select audit-filter-select">
+          ${scopeOptions.map((o) => `<option value="${escapeHtml(o.value)}"${o.value === (activeScope || "") ? " selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
+        </select>`
+        : "";
+
     const filterHtml =
-        eventTypes.length > 0
+        (eventTypes.length > 0 || scopeFilterHtml)
             ? `<div class="toolbar">
+        ${scopeFilterHtml}
         <select id="event-filter" class="form-select audit-filter-select">
           <option value="">All event types</option>
           ${filterOptions}
@@ -741,7 +756,7 @@ export function renderAudit(
       ${paginationHtml}
     </div>
 
-    <script>window.__PAGE_DATA__ = { page: ${page}, pageSize: ${pageSize}, total: ${total}, basePath: "${auditBasePath}" };</script>
+    <script>window.__PAGE_DATA__ = { page: ${page}, pageSize: ${pageSize}, total: ${total}, basePath: "${auditBasePath}", scope: "${escapeHtml(activeScope || "")}" };</script>
     ${assetTags("pages/audit/client.ts")}
   `;
 

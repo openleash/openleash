@@ -1093,24 +1093,90 @@ export function registerGuiRoutes(
         const page = Math.max(parseInt(query.page || "1", 10) || 1, 1);
         const state = store.state.getState();
 
-        const ownerAgentIds = new Set(
+        // Collect all related principal IDs: user's agents + org IDs + org agents
+        const relatedIds = new Set<string>();
+
+        // User's own agents
+        state.agents
+            .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
+            .forEach((a) => relatedIds.add(a.agent_principal_id));
+
+        // User's org memberships
+        const userMemberships = store.memberships.listByUser(session.sub);
+        const userOrgIds = userMemberships.filter((m) => m.status === "active").map((m) => m.org_id);
+
+        for (const orgId of userOrgIds) {
+            relatedIds.add(orgId); // Include org events
+            // Include agents owned by the org
             state.agents
-                .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
-                .map((a) => a.agent_principal_id),
-        );
+                .filter((a) => a.owner_type === "org" && a.owner_id === orgId)
+                .forEach((a) => relatedIds.add(a.agent_principal_id));
+        }
+
+        // Apply filter from query string
+        const filterScope = (request.query as Record<string, string>).scope;
+        let filteredRelatedIds = relatedIds;
+        let filterPrincipalId = session.sub;
+
+        if (filterScope === "user") {
+            // Only user's own events + user's own agents
+            filteredRelatedIds = new Set(
+                state.agents
+                    .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
+                    .map((a) => a.agent_principal_id),
+            );
+        } else if (filterScope && filterScope.startsWith("org:")) {
+            const orgId = filterScope.slice(4);
+            if (userOrgIds.includes(orgId)) {
+                filterPrincipalId = orgId;
+                filteredRelatedIds = new Set<string>();
+                state.agents
+                    .filter((a) => a.owner_type === "org" && a.owner_id === orgId)
+                    .forEach((a) => filteredRelatedIds.add(a.agent_principal_id));
+                filteredRelatedIds.add(session.sub); // include own actions on this org
+            }
+        } else if (filterScope && filterScope.startsWith("agent:")) {
+            const agentPid = filterScope.slice(6);
+            if (relatedIds.has(agentPid)) {
+                filterPrincipalId = agentPid;
+                filteredRelatedIds = new Set<string>();
+            }
+        }
 
         const offset = (page - 1) * pageSize;
-        const data = store.audit.readByPrincipal(session.sub, ownerAgentIds, pageSize, offset);
+        const data = store.audit.readByPrincipal(filterPrincipalId, filteredRelatedIds, pageSize, offset);
 
-        const ownerNames = new Map([
-            [session.sub, store.users.read(session.sub).display_name],
-        ]);
-        const agentNames = new Map(
-            state.agents
-                .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
-                .map((a) => [a.agent_principal_id, a.agent_id]),
-        );
+        const ownerNames = new Map<string, string>();
+        ownerNames.set(session.sub, store.users.read(session.sub).display_name);
+        for (const orgId of userOrgIds) {
+            try {
+                const org = store.organizations.read(orgId);
+                ownerNames.set(orgId, org.display_name);
+            } catch { /* skip */ }
+        }
+
+        const agentNames = new Map<string, string>();
+        state.agents
+            .filter((a) =>
+                (a.owner_type === "user" && a.owner_id === session.sub) ||
+                (a.owner_type === "org" && userOrgIds.includes(a.owner_id)),
+            )
+            .forEach((a) => agentNames.set(a.agent_principal_id, a.agent_id));
+
         const eventTypes = [...new Set(data.items.map((e) => e.event_type))].sort();
+
+        // Build scope options for filter dropdown
+        const scopeOptions: { value: string; label: string }[] = [
+            { value: "", label: "All" },
+            { value: "user", label: "My events" },
+        ];
+        for (const orgId of userOrgIds) {
+            const orgName = ownerNames.get(orgId) || orgId.slice(0, 8);
+            scopeOptions.push({ value: `org:${orgId}`, label: `Org: ${orgName}` });
+        }
+        for (const [agentPid, agentId] of agentNames) {
+            scopeOptions.push({ value: `agent:${agentPid}`, label: `Agent: ${agentId}` });
+        }
 
         const nextCursor = offset + pageSize < data.total ? String(offset + pageSize) : null;
         const html = renderAudit(
@@ -1120,6 +1186,8 @@ export function registerGuiRoutes(
             { owners: ownerNames, agents: agentNames, eventTypes },
             "owner",
             ownerRenderOptionsFor(session),
+            scopeOptions,
+            filterScope || "",
         );
         reply.type("text/html").send(html);
     });

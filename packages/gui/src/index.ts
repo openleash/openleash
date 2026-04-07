@@ -13,7 +13,7 @@ export type { ConfigData } from "./pages/config/render.js";
 export { renderMcpGlove } from "./pages/mcp-glove/render.js";
 export type { McpGlovePageData } from "./pages/mcp-glove/render.js";
 export { renderAudit } from "./pages/audit/render.js";
-export type { AuditData, AuditEntry, AuditNameMap } from "./pages/audit/render.js";
+export type { AuditData, AuditEntry, AuditNameMap, AuditScopeOption } from "./pages/audit/render.js";
 export { renderOwnerLogin } from "./pages/owner-login/render.js";
 export { renderOwnerSetup } from "./pages/owner-setup/render.js";
 export { renderOwnerDashboard } from "./pages/owner-dashboard/render.js";
