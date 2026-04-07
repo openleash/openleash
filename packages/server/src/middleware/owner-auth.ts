@@ -65,10 +65,9 @@ export function createOwnerAuth(config: OpenleashConfig, store: DataStore) {
       return;
     }
 
-    // Enrich session claims with system_roles from store (authoritative source)
-    if (!result.claims.system_roles) {
-      result.claims.system_roles = resolveSystemRoles(user);
-    }
+    // Always resolve system_roles from store (authoritative source)
+    // The token may contain stale roles if they were changed after login
+    result.claims.system_roles = resolveSystemRoles(user);
 
     // Attach session info to request
     (request as unknown as Record<string, unknown>).ownerSession = result.claims;

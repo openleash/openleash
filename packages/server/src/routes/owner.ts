@@ -27,6 +27,7 @@ import type {
     GovernmentId,
     DataStore,
     OrgMembership,
+    OpenleashEvents,
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
 import { validateBody } from "../validate.js";
@@ -42,6 +43,7 @@ export function registerOwnerRoutes(
     app: FastifyInstance,
     store: DataStore,
     config: OpenleashConfig,
+    events: OpenleashEvents,
 ) {
     const ownerAuth = createOwnerAuth(config, store);
 
@@ -742,6 +744,15 @@ export function registerOwnerRoutes(
             invited_by: session.sub,
         }, { principal_id: session.sub });
 
+        const addedOrg = store.organizations.read(orgId);
+        events.emit("org_member.added", {
+            org_id: orgId,
+            org_display_name: addedOrg.display_name,
+            user_principal_id: body.user_principal_id,
+            role: parsed.data,
+            invited_by_user_id: session.sub,
+        });
+
         return { membership_id: membershipId, org_id: orgId, user_principal_id: body.user_principal_id, role: parsed.data };
     });
 
@@ -839,7 +850,63 @@ export function registerOwnerRoutes(
             user_principal_id: userId,
         }, { principal_id: session.sub });
 
+        const removedOrg = store.organizations.read(orgId);
+        events.emit("org_member.removed", {
+            org_id: orgId,
+            org_display_name: removedOrg.display_name,
+            user_principal_id: userId,
+            removed_by_user_id: session.sub,
+        });
+
         return { membership_id: target.membership_id, status: "removed" };
+    });
+
+    // POST /v1/owner/organizations/:orgId/leave — any member can leave
+    app.post("/v1/owner/organizations/:orgId/leave", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        const members = store.memberships.listByOrg(orgId);
+        const target = members.find((m) => m.user_principal_id === session.sub && m.status === "active");
+        if (!target) {
+            reply.code(404).send({
+                error: { code: "NOT_FOUND", message: "You are not a member of this organization" },
+            });
+            return;
+        }
+
+        // Last-admin protection
+        if (target.role === "org_admin") {
+            const adminCount = members.filter((m) => m.role === "org_admin" && m.status === "active").length;
+            if (adminCount <= 1) {
+                reply.code(400).send({
+                    error: { code: "LAST_ADMIN", message: "Cannot leave — you are the last admin. Transfer admin role to another member first, or delete the organization." },
+                });
+                return;
+            }
+        }
+
+        store.memberships.delete(target.membership_id);
+        store.state.updateState((s) => {
+            const idx = s.memberships.findIndex((m) => m.membership_id === target.membership_id);
+            if (idx !== -1) s.memberships.splice(idx, 1);
+        });
+
+        store.audit.append("ORG_MEMBER_LEFT", {
+            org_id: orgId,
+            user_principal_id: session.sub,
+        }, { principal_id: session.sub });
+
+        const leftOrg = store.organizations.read(orgId);
+        events.emit("org_member.removed", {
+            org_id: orgId,
+            org_display_name: leftOrg.display_name,
+            user_principal_id: session.sub,
+            removed_by_user_id: null,
+        });
+
+        return { status: "left", org_id: orgId };
     });
 
     // GET /v1/owner/organizations/:orgId/agents

@@ -635,7 +635,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
       <a href="/gui/admin/users" class="btn btn-secondary">Back to Owners</a>
     </div>
 
-    <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.user_principal_id)}', roles: ${JSON.stringify(owner.system_roles ?? ["owner"])}, activityPage: ${activity_log.page}, activityPageSize: ${activity_log.pageSize}, activityTotal: ${activity_log.total} };</script>
+    <script>window.__PAGE_DATA__ = { ownerId: '${escapeHtml(owner.user_principal_id)}', roles: ${JSON.stringify(owner.system_roles ?? [])}, activityPage: ${activity_log.page}, activityPageSize: ${activity_log.pageSize}, activityTotal: ${activity_log.total} };</script>
     ${assetTags("pages/owners/client.ts")}
   `;
 

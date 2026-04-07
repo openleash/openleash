@@ -24,9 +24,26 @@ export interface PolicyDraftCreatedEvent {
   justification: string | null;
 }
 
+export interface OrgMemberAddedEvent {
+  org_id: string;
+  org_display_name: string;
+  user_principal_id: string;
+  role: string;
+  invited_by_user_id: string | null;
+}
+
+export interface OrgMemberRemovedEvent {
+  org_id: string;
+  org_display_name: string;
+  user_principal_id: string;
+  removed_by_user_id: string | null;
+}
+
 export interface OpenleashEventMap {
   'approval_request.created': ApprovalRequestCreatedEvent;
   'policy_draft.created': PolicyDraftCreatedEvent;
+  'org_member.added': OrgMemberAddedEvent;
+  'org_member.removed': OrgMemberRemovedEvent;
 }
 
 // ─── Typed event emitter ────────────────────────────────────────────

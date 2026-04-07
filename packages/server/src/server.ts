@@ -66,9 +66,9 @@ export async function createServer(options: CreateServerOptions) {
   registerVerifyProofRoutes(app, store);
   registerAgentRoutes(app, store);
   registerAuthorizeRoutes(app, store, config, nonceCache);
-  registerOwnerRoutes(app, store, config);
+  registerOwnerRoutes(app, store, config, events);
   registerAgentSelfRoutes(app, store, config, nonceCache, events);
-  registerAdminRoutes(app, store, config);
+  registerAdminRoutes(app, store, config, events);
   if (config.instance?.mode !== 'hosted') {
     registerPlaygroundRoutes(app, config);
   }

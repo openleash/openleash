@@ -27,6 +27,8 @@ import {
     renderAbout,
     renderAdminOrganizations,
     renderAdminOrganizationDetail,
+    renderOwnerOrganizations,
+    renderOwnerOrganizationDetail,
     setVersion,
 } from "@openleash/gui";
 import type { PackageInfo } from "@openleash/gui";
@@ -730,6 +732,93 @@ export function registerGuiRoutes(
             pending_policy_drafts: pendingPolicyDrafts,
         }, ownerRenderOptionsFor(session));
         reply.type("text/html").send(html);
+    });
+
+    // Owner organizations
+    app.get("/gui/organizations", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const memberships = store.memberships.listByUser(session.sub);
+        const orgs = memberships
+            .filter((m) => m.status === "active")
+            .map((m) => {
+                try {
+                    const org = store.organizations.read(m.org_id);
+                    return {
+                        org_id: org.org_id,
+                        display_name: org.display_name,
+                        status: org.status,
+                        role: m.role,
+                        created_at: org.created_at,
+                        verification_status: org.verification_status,
+                    };
+                } catch {
+                    return { org_id: m.org_id, role: m.role, error: "file_not_found" };
+                }
+            });
+        const html = renderOwnerOrganizations(orgs, ownerRenderOptionsFor(session));
+        reply.type("text/html").send(html);
+    });
+
+    // Owner organization detail
+    app.get("/gui/organizations/:orgId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        // Verify user is a member of this org
+        const memberships = store.memberships.listByUser(session.sub);
+        const membership = memberships.find((m) => m.org_id === orgId && m.status === "active");
+        if (!membership) {
+            reply.code(404).type("text/html").send("<h1>Organization not found</h1>");
+            return;
+        }
+
+        try {
+            const org = store.organizations.read(orgId);
+            const allMembers = store.memberships.listByOrg(orgId).map((m) => {
+                try {
+                    const user = store.users.read(m.user_principal_id);
+                    return {
+                        display_name: user.display_name,
+                        user_principal_id: m.user_principal_id,
+                        role: m.role,
+                        created_at: m.created_at,
+                    };
+                } catch {
+                    return {
+                        display_name: null as string | null,
+                        user_principal_id: m.user_principal_id,
+                        role: m.role,
+                        created_at: m.created_at,
+                    };
+                }
+            });
+
+            const state = store.state.getState();
+            const agentCount = state.agents.filter(
+                (a) => a.owner_type === "org" && a.owner_id === orgId,
+            ).length;
+
+            const html = renderOwnerOrganizationDetail({
+                org: {
+                    org_id: org.org_id,
+                    display_name: org.display_name,
+                    status: org.status,
+                    role: membership.role,
+                    created_at: org.created_at,
+                    verification_status: org.verification_status,
+                    identity_assurance_level: org.identity_assurance_level,
+                    member_count: allMembers.length,
+                    agent_count: agentCount,
+                },
+                members: allMembers,
+                currentUserId: session.sub,
+            }, ownerRenderOptionsFor(session));
+            reply.type("text/html").send(html);
+        } catch {
+            reply.code(404).type("text/html").send("<h1>Organization file not found</h1>");
+        }
     });
 
     // Owner agents

@@ -74,6 +74,10 @@ export default defineConfig({
                     __dirname,
                     "src/pages/admin-organizations/client.ts",
                 ),
+                "pages/owner-organizations/client": resolve(
+                    __dirname,
+                    "src/pages/owner-organizations/client.ts",
+                ),
                 "pages/owner-dashboard/client": resolve(
                     __dirname,
                     "src/pages/owner-dashboard/client.ts",

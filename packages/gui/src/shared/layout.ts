@@ -62,6 +62,7 @@ const NAV_ITEMS = [
 const USER_NAV_ITEMS = [
     { path: "/gui/dashboard", label: "Dashboard", icon: "dashboard" },
     { path: "/gui/profile", label: "Profile", icon: "account_circle" },
+    { path: "/gui/organizations", label: "Organizations", icon: "corporate_fare" },
     { path: "/gui/agents", label: "My Agents", icon: "smart_toy" },
     { path: "/gui/policies", label: "My Policies", icon: "policy" },
     { path: "/gui/approvals", label: "Approvals", icon: "task_alt" },
@@ -223,6 +224,58 @@ export const INFO_MCP_GLOVE = `
     <dd>Profiles define how MCP tools map to OpenLeash action types. Each profile covers a specific upstream server (e.g. office365-outlook).</dd>
   </dl>`;
 
+export const INFO_ORG_STATUS = `
+  <div class="info-title">Organization Status</div>
+  <dl>
+    <dt><span class="badge badge-green">ACTIVE</span></dt>
+    <dd>Organization is fully operational. Members can manage agents and policies.</dd>
+    <dt><span class="badge badge-amber">SUSPENDED</span></dt>
+    <dd>Organization is temporarily disabled. Agents under this org cannot authorize new actions.</dd>
+    <dt><span class="badge badge-red">REVOKED</span></dt>
+    <dd>Organization is permanently deactivated. All associated agents are also revoked.</dd>
+  </dl>`;
+
+export const INFO_ORG_VERIFICATION = `
+  <div class="info-title">Organization Verification</div>
+  <p style="margin-bottom:8px">Verification status reflects whether the organization's identity has been confirmed:</p>
+  <dl>
+    <dt><span class="badge badge-muted">UNVERIFIED</span></dt>
+    <dd>No verification has been performed. The organization is self-declared.</dd>
+    <dt><span class="badge badge-amber">PENDING</span></dt>
+    <dd>Verification is in progress — documents or IDs have been submitted and are being reviewed.</dd>
+    <dt><span class="badge badge-green">VERIFIED</span></dt>
+    <dd>The organization's identity has been confirmed against authoritative sources.</dd>
+    <dt><span class="badge badge-red">FAILED</span></dt>
+    <dd>Verification was attempted but could not be completed.</dd>
+  </dl>`;
+
+export const INFO_ORG_ROLE = `
+  <div class="info-title">Organization Roles</div>
+  <dl>
+    <dt><span class="badge badge-amber">admin</span></dt>
+    <dd>Full control over the organization — can manage members, agents, and policies.</dd>
+    <dt><span class="badge badge-green">member</span></dt>
+    <dd>Can view organization details and manage agents and policies assigned to them.</dd>
+    <dt><span class="badge badge-muted">viewer</span></dt>
+    <dd>Read-only access to organization details. Cannot manage agents or policies.</dd>
+  </dl>`;
+
+export const INFO_ORG_ASSURANCE = `
+  <div class="info-title">Identity Assurance Level</div>
+  <p style="margin-bottom:8px">Indicates the confidence level in the organization's verified identity:</p>
+  <dl>
+    <dt><span class="badge badge-muted">NONE</span></dt>
+    <dd>No identity information provided.</dd>
+    <dt><span class="badge badge-muted">SELF_DECLARED</span></dt>
+    <dd>Organization has provided identity information but nothing has been verified.</dd>
+    <dt><span class="badge badge-amber">CONTACT_VERIFIED</span></dt>
+    <dd>At least one contact identity (email, phone) has been verified.</dd>
+    <dt><span class="badge badge-amber">ID_FORMAT_VALID</span></dt>
+    <dd>A company ID passes format validation (e.g. correct structure, check digit).</dd>
+    <dt><span class="badge badge-green">ID_VERIFIED</span></dt>
+    <dd>A company ID has been fully verified against an authoritative source.</dd>
+  </dl>`;
+
 export function copyableId(fullId: string, _truncateLength?: number): string {
     const escaped = escapeHtml(fullId);
     return `<span class="mono copyable" title="Click to copy" data-copy-id="${escaped}">${escaped}</span>`;
@@ -283,13 +336,11 @@ export function renderPage(
 
     const showSwitcher = options?.isAdmin === true || (!isOwner && options?.showContextSwitcher !== false);
 
-    const logoutHtml = isOwner
-        ? `
-    <a href="#" class="nav-item" id="nav-logout" style="color:var(--color-danger)">
+    const logoutHtml = `
+    <a href="#" class="nav-item" id="${isOwner ? "nav-logout" : "nav-admin-logout"}" style="color:var(--color-danger)">
       <span class="nav-icon material-symbols-outlined">logout</span>
       <span class="nav-label">Logout</span>
-    </a>`
-        : "";
+    </a>`;
 
     return `<!DOCTYPE html>
 <html lang="en">

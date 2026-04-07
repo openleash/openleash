@@ -126,17 +126,16 @@ async function generateInvite() {
 
 async function toggleAdminRole() {
     const ownerId = pageData.ownerId!;
-    const currentRoles = pageData.roles ?? ["owner"];
+    const currentRoles = pageData.roles ?? [];
     const hasAdmin = currentRoles.includes("admin");
     const action = hasAdmin ? "revoke admin role from" : "grant admin role to";
 
     if (!(await olConfirm(`Are you sure you want to ${action} this user?`, hasAdmin ? "Revoke Admin" : "Grant Admin"))) return;
 
+    // Only send valid system roles (not "owner" which is implicit)
     const newRoles = hasAdmin
-        ? currentRoles.filter((r) => r !== "admin")
-        : [...currentRoles, "admin"];
-    // Ensure 'owner' is always present
-    if (!newRoles.includes("owner")) newRoles.unshift("owner");
+        ? currentRoles.filter((r) => r !== "admin" && r !== "owner")
+        : [...currentRoles.filter((r) => r !== "owner"), "admin"];
 
     try {
         const res = await fetch("/v1/admin/users/" + ownerId + "/roles", {

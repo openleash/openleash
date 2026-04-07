@@ -3,6 +3,12 @@ import {
     escapeHtml,
     copyableId,
     formatTimestamp,
+    infoIcon,
+    INFO_ORG_STATUS,
+    INFO_ORG_VERIFICATION,
+    INFO_ORG_ROLE,
+    INFO_ORG_ASSURANCE,
+    INFO_VERIFICATION_LEVEL,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 
@@ -83,7 +89,7 @@ export function renderAdminOrganizations(orgs: OrgListData[]): string {
             return `<tr><td>${copyableId(o.org_id)}</td><td colspan="5" class="text-muted">File not found</td></tr>`;
         }
         return `<tr>
-      <td><a href="/gui/admin/organizations/${escapeHtml(o.org_id)}">${escapeHtml(o.display_name || "—")}</a></td>
+      <td><a href="/gui/admin/organizations/${escapeHtml(o.org_id)}" class="table-link">${escapeHtml(o.display_name || "—")}</a></td>
       <td>${copyableId(o.org_id)}</td>
       <td>${statusBadge(o.status)}</td>
       <td>${verificationBadge(o.verification_status)}</td>
@@ -105,8 +111,8 @@ export function renderAdminOrganizations(orgs: OrgListData[]): string {
             <tr>
               <th>Name</th>
               <th>Org ID</th>
-              <th>Status</th>
-              <th>Verification</th>
+              <th>Status${infoIcon("org-list-status", INFO_ORG_STATUS)}</th>
+              <th>Verification${infoIcon("org-list-verif", INFO_ORG_VERIFICATION)}</th>
               <th>Members</th>
               <th>Agents</th>
               <th>Created</th>
@@ -149,41 +155,50 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
 
     const content = `
     <div class="page-header">
-      <h2><span class="material-symbols-outlined">corporate_fare</span> ${escapeHtml(org.display_name || "Organization")}</h2>
-      <div class="header-badges">${statusBadge(org.status)} ${verificationBadge(org.verification_status)}</div>
+      <div class="aorg-detail-heading">
+        <h2>${escapeHtml(org.display_name || "Organization")}</h2>
+        ${statusBadge(org.status)}${infoIcon("detail-org-status", INFO_ORG_STATUS)}
+        ${verificationBadge(org.verification_status)}${infoIcon("detail-org-verif", INFO_ORG_VERIFICATION)}
+      </div>
+      <p>${copyableId(org.org_id, org.org_id.length)}</p>
     </div>
 
-    <div class="detail-grid">
-      <div class="card">
-        <h3>Details</h3>
-        <dl class="detail-list">
-          <dt>Org ID</dt><dd>${copyableId(org.org_id)}</dd>
-          <dt>Created</dt><dd>${formatTimestamp(org.created_at || "")}</dd>
-          <dt>Created by</dt><dd>${org.created_by_user_id ? copyableId(org.created_by_user_id) : "—"}</dd>
-          <dt>Assurance</dt><dd>${org.identity_assurance_level || "NONE"}</dd>
-        </dl>
-      </div>
+    <div class="card">
+      <div class="card-title">Details</div>
+      <table>
+        <colgroup><col style="width:160px"><col></colgroup>
+        <tbody>
+          <tr><td class="aorg-detail-label">Org ID</td><td>${copyableId(org.org_id, org.org_id.length)}</td></tr>
+          <tr><td class="aorg-detail-label">Created</td><td class="mono">${formatTimestamp(org.created_at || "")}</td></tr>
+          <tr><td class="aorg-detail-label">Created by</td><td>${org.created_by_user_id ? copyableId(org.created_by_user_id) : "—"}</td></tr>
+          <tr><td class="aorg-detail-label">Assurance${infoIcon("detail-org-assurance", INFO_ORG_ASSURANCE)}</td><td>${org.identity_assurance_level || '<span class="badge badge-muted">NONE</span>'}</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-      <div class="card">
-        <h3>Members (${members.length})</h3>
-        ${members.length === 0
-        ? '<p class="text-muted">No members</p>'
-        : `<table><thead><tr><th>Name</th><th>User ID</th><th>Role</th><th>Added</th></tr></thead><tbody>${memberRows}</tbody></table>`}
-      </div>
+    <div class="card">
+      <div class="card-title">Members (${members.length})</div>
+      ${members.length === 0
+        ? '<p class="aorg-empty-section">No members</p>'
+        : `<table><thead><tr><th>Name</th><th>User ID</th><th>Role${infoIcon("detail-org-role", INFO_ORG_ROLE)}</th><th>Added</th></tr></thead><tbody>${memberRows}</tbody></table>`}
+    </div>
 
-      <div class="card">
-        <h3>Agents (${agents.length})</h3>
-        ${agents.length === 0
-        ? '<p class="text-muted">No agents</p>'
+    <div class="card">
+      <div class="card-title">Agents (${agents.length})</div>
+      ${agents.length === 0
+        ? '<p class="aorg-empty-section">No agents</p>'
         : `<table><thead><tr><th>Agent ID</th><th>Principal ID</th><th>Status</th><th>Created</th></tr></thead><tbody>${agentRows}</tbody></table>`}
-      </div>
+    </div>
 
-      <div class="card">
-        <h3>Policies (${policies.length})</h3>
-        ${policies.length === 0
-        ? '<p class="text-muted">No policies</p>'
+    <div class="card">
+      <div class="card-title">Policies (${policies.length})</div>
+      ${policies.length === 0
+        ? '<p class="aorg-empty-section">No policies</p>'
         : `<table><thead><tr><th>Name</th><th>Policy ID</th><th>Applies to</th></tr></thead><tbody>${policyRows}</tbody></table>`}
-      </div>
+    </div>
+
+    <div class="toolbar">
+      <a href="/gui/admin/organizations" class="btn btn-secondary">Back to Organizations</a>
     </div>
 
     ${assetTags("pages/admin-organizations/client.ts")}`;

@@ -1,11 +1,18 @@
-.detail-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
+/* ─── Admin organizations page styles ──────────────────────────────── */
+
+.aorg-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
 }
 
-.header-badges {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
+.aorg-detail-label {
+  color: var(--text-muted);
+}
+
+.aorg-empty-section {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 8px 0;
 }

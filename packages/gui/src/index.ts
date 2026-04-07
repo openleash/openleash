@@ -38,5 +38,7 @@ export type { AboutData, PackageInfo } from "./pages/about/render.js";
 export { renderApiReference, renderApiReferenceUnavailable } from "./pages/api-reference/render.js";
 export { renderAdminOrganizations, renderAdminOrganizationDetail } from "./pages/admin-organizations/render.js";
 export type { OrgListData, OrgDetailData } from "./pages/admin-organizations/render.js";
+export { renderOwnerOrganizations, renderOwnerOrganizationDetail } from "./pages/owner-organizations/render.js";
+export type { OwnerOrgEntry, OwnerOrgDetailData } from "./pages/owner-organizations/render.js";
 export * from "./shared/validation.js";
 export { initManifest, resolveAsset, resolveAssetCss, assetTags, getClientDir } from "./shared/manifest.js";

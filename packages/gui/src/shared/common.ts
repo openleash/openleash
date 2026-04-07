@@ -402,3 +402,9 @@ document.getElementById("nav-logout")?.addEventListener("click", (e) => {
     document.cookie = "openleash_session=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT";
     window.location.href = "/gui/login";
 });
+
+document.getElementById("nav-admin-logout")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    document.cookie = "openleash_admin=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    window.location.href = "/gui/admin/login";
+});

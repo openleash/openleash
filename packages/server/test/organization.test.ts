@@ -607,6 +607,84 @@ describe("Organization management", () => {
         });
     });
 
+    // ─── Leave organization ─────────────────────────────────────────
+
+    describe("Leave organization", () => {
+        let leaveOrgId: string;
+
+        beforeAll(async () => {
+            // Create a fresh org for leave tests with user A as admin
+            const res = await app.inject({
+                method: "POST",
+                url: "/v1/admin/organizations",
+                payload: { display_name: "Leave Test Corp", created_by_user_id: userAId },
+            });
+            leaveOrgId = JSON.parse(res.payload).org_id;
+
+            // Add user B as member
+            await app.inject({
+                method: "POST",
+                url: `/v1/admin/organizations/${leaveOrgId}/members`,
+                payload: { user_principal_id: userBId, role: "org_member" },
+            });
+
+            // Refresh tokens to pick up new memberships
+            const refreshA = await app.inject({
+                method: "POST",
+                url: "/v1/owner/session/refresh",
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+            });
+            sessionTokenA = JSON.parse(refreshA.payload).token;
+
+            const refreshB = await app.inject({
+                method: "POST",
+                url: "/v1/owner/session/refresh",
+                headers: { authorization: `Bearer ${sessionTokenB}` },
+            });
+            sessionTokenB = JSON.parse(refreshB.payload).token;
+        });
+
+        it("member can leave organization", async () => {
+            const res = await app.inject({
+                method: "POST",
+                url: `/v1/owner/organizations/${leaveOrgId}/leave`,
+                headers: { authorization: `Bearer ${sessionTokenB}` },
+                payload: {},
+            });
+            expect(res.statusCode).toBe(200);
+            expect(JSON.parse(res.payload).status).toBe("left");
+
+            // Verify B can no longer access the org
+            const getRes = await app.inject({
+                method: "GET",
+                url: `/v1/owner/organizations/${leaveOrgId}`,
+                headers: { authorization: `Bearer ${sessionTokenB}` },
+            });
+            expect(getRes.statusCode).toBe(403);
+        });
+
+        it("last admin cannot leave", async () => {
+            const res = await app.inject({
+                method: "POST",
+                url: `/v1/owner/organizations/${leaveOrgId}/leave`,
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+                payload: {},
+            });
+            expect(res.statusCode).toBe(400);
+            expect(JSON.parse(res.payload).error.code).toBe("LAST_ADMIN");
+        });
+
+        it("non-member cannot leave", async () => {
+            const res = await app.inject({
+                method: "POST",
+                url: `/v1/owner/organizations/${leaveOrgId}/leave`,
+                headers: { authorization: `Bearer ${sessionTokenC}` },
+                payload: {},
+            });
+            expect(res.statusCode).toBe(404);
+        });
+    });
+
     // ─── Admin org deletion ──────────────────────────────────────────
 
     describe("Admin org deletion", () => {

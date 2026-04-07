@@ -12,6 +12,7 @@ import {
 import type {
   DataStore,
   OpenleashConfig,
+  OpenleashEvents,
   UserFrontmatter,
   OrganizationFrontmatter,
   ContactIdentity,
@@ -27,7 +28,7 @@ import type { AdminSession } from '../middleware/admin-auth.js';
 import { validateBody } from '../validate.js';
 import { CreateUserSchema, CreateOrgSchema } from '@openleash/gui';
 
-export function registerAdminRoutes(app: FastifyInstance, store: DataStore, config: OpenleashConfig) {
+export function registerAdminRoutes(app: FastifyInstance, store: DataStore, config: OpenleashConfig, events: OpenleashEvents) {
   const adminAuth = createAdminAuth(config, store);
 
   function getAdminSession(request: unknown): AdminSession | undefined {
@@ -696,6 +697,15 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       role: parsed.data,
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
+    const addedOrg = store.organizations.read(orgId);
+    events.emit('org_member.added', {
+      org_id: orgId,
+      org_display_name: addedOrg.display_name,
+      user_principal_id: body.user_principal_id,
+      role: parsed.data,
+      invited_by_user_id: getAdminSession(request)?.principal_id ?? null,
+    });
+
     return { membership_id: membershipId, org_id: orgId, user_principal_id: body.user_principal_id, role: parsed.data };
   });
 
@@ -757,6 +767,14 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       org_id: orgId,
       user_principal_id: userId,
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    const removedOrg = store.organizations.read(orgId);
+    events.emit('org_member.removed', {
+      org_id: orgId,
+      org_display_name: removedOrg.display_name,
+      user_principal_id: userId,
+      removed_by_user_id: getAdminSession(request)?.principal_id ?? null,
+    });
 
     return { membership_id: target.membership_id, status: 'removed' };
   });
