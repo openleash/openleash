@@ -935,6 +935,43 @@ export function registerOwnerRoutes(
         return { status: "declined", org_id: invite.org_id };
     });
 
+    // DELETE /v1/owner/organizations/:orgId/invites/:inviteId — org admin cancels a pending invite
+    app.delete("/v1/owner/organizations/:orgId/invites/:inviteId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, inviteId } = request.params as { orgId: string; inviteId: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        let invite: OrgInvite;
+        try {
+            invite = store.orgInvites.read(inviteId);
+        } catch {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Invite not found" } });
+            return;
+        }
+
+        if (invite.org_id !== orgId) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Invite not found" } });
+            return;
+        }
+
+        if (invite.status !== "pending") {
+            reply.code(400).send({ error: { code: "INVITE_NOT_PENDING", message: `Invite is already ${invite.status}` } });
+            return;
+        }
+
+        store.orgInvites.delete(inviteId);
+
+        store.audit.append("ORG_INVITE_CANCELLED", {
+            org_id: orgId,
+            invite_id: inviteId,
+            user_principal_id: invite.user_principal_id,
+        }, { principal_id: session.sub });
+
+        return { status: "cancelled", invite_id: inviteId };
+    });
+
     // PUT /v1/owner/organizations/:orgId/members/:userId
     app.put("/v1/owner/organizations/:orgId/members/:userId", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)

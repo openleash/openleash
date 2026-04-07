@@ -867,6 +867,16 @@ export function registerGuiRoutes(
                 members: allMembers,
                 agents: orgAgents,
                 policies: orgPolicies,
+                pendingInvites: store.orgInvites.listByOrg(orgId)
+                    .filter((i) => i.status === "pending" && new Date(i.expires_at) > new Date())
+                    .map((i) => {
+                        try {
+                            const u = store.users.read(i.user_principal_id);
+                            return { invite_id: i.invite_id, user_principal_id: i.user_principal_id, display_name: u.display_name, role: i.role, expires_at: i.expires_at, created_at: i.created_at };
+                        } catch {
+                            return { invite_id: i.invite_id, user_principal_id: i.user_principal_id, display_name: null as string | null, role: i.role, expires_at: i.expires_at, created_at: i.created_at };
+                        }
+                    }),
                 currentUserId: session.sub,
             }, ownerRenderOptionsFor(session));
             reply.type("text/html").send(html);

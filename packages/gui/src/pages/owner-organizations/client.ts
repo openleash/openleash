@@ -481,6 +481,38 @@ document.querySelectorAll<HTMLButtonElement>(".oorg-btn-remove-cid").forEach((bt
     });
 });
 
+// ─── Cancel pending invite ────────────────────────────────────────────
+
+document.querySelectorAll<HTMLButtonElement>(".oorg-btn-cancel-invite").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        const inviteId = btn.dataset.inviteId!;
+        const userName = btn.dataset.userName!;
+        if (!(await olConfirm(`Cancel the invitation for ${userName}?`, "Cancel Invite"))) return;
+
+        btn.disabled = true;
+        btn.textContent = "Cancelling\u2026";
+
+        try {
+            const res = await fetch(`/v1/owner/organizations/${pageData.orgId}/invites/${inviteId}`, {
+                method: "DELETE",
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                olToast(olApiError(err, "Failed to cancel invite"), "error");
+                btn.disabled = false;
+                btn.textContent = "Cancel";
+                return;
+            }
+            olToast("Invitation cancelled", "success");
+            setTimeout(() => { window.location.reload(); }, 800);
+        } catch {
+            olToast("Network error", "error");
+            btn.disabled = false;
+            btn.textContent = "Cancel";
+        }
+    });
+});
+
 // ─── Rename organization ──────────────────────────────────────────────
 
 const btnRename = document.getElementById("btn-rename-org");

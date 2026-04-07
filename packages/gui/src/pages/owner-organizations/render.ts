@@ -67,6 +67,7 @@ export interface OwnerOrgDetailData {
     }[];
     agents: { agent_id: string; agent_principal_id: string; status: string; created_at: string }[];
     policies: { policy_id: string; applies_to_agent_principal_id: string | null; name: string | null }[];
+    pendingInvites?: { invite_id: string; user_principal_id: string; display_name: string | null; role: string; expires_at: string; created_at: string }[];
     currentUserId: string;
 }
 
@@ -438,6 +439,29 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
           <tbody>${memberRows}</tbody>
         </table>`}
     </div>
+
+    ${(() => {
+        const invites = data.pendingInvites ?? [];
+        if (!isAdmin || invites.length === 0) return "";
+        const inviteRows = invites.map((inv) => `<tr>
+          <td>${escapeHtml(inv.display_name || "—")}</td>
+          <td>${copyableId(inv.user_principal_id)}</td>
+          <td>${roleBadge(inv.role)}</td>
+          <td class="mono">${formatTimestamp(inv.created_at)}</td>
+          <td class="mono">${formatTimestamp(inv.expires_at)}</td>
+          <td>
+            <button class="btn btn-secondary btn-sm oorg-btn-cancel-invite" data-invite-id="${escapeHtml(inv.invite_id)}" data-user-name="${escapeHtml(inv.display_name || inv.user_principal_id.slice(0, 8))}">Cancel</button>
+          </td>
+        </tr>`).join("");
+        return `
+    <div class="card oorg-invites-card">
+      <div class="card-title">Pending Invitations (${invites.length})</div>
+      <table>
+        <thead><tr><th>Name</th><th>User ID</th><th>Role</th><th>Sent</th><th>Expires</th><th>Actions</th></tr></thead>
+        <tbody>${inviteRows}</tbody>
+      </table>
+    </div>`;
+    })()}
 
     ${renderContactIdentitiesCard(org.contact_identities ?? [], isAdmin)}
 
