@@ -352,57 +352,5 @@ export async function wizardCommand(store: DataStore) {
     console.log(`OPENLEASH_ADMIN_TOKEN=${adminToken}`);
   }
 
-  // Step 8: Optional MCP Glove setup
-  const { enableGlove } = await prompts({
-    type: 'confirm',
-    name: 'enableGlove',
-    message: 'Enable MCP Glove for office365-outlook (transparent policy enforcement proxy)?',
-    initial: false,
-  });
-
-  if (enableGlove) {
-    const { upstreamCmd } = await prompts({
-      type: 'text',
-      name: 'upstreamCmd',
-      message: 'Upstream office365-outlook MCP server command:',
-      initial: 'npx -y @jbctechsolutions/mcp-outlook-mac',
-    });
-
-    console.log('\n=== MCP Glove config ===\n');
-    console.log(
-      'Add the following to your MCP client config (e.g. claude_desktop_config.json):\n',
-    );
-    console.log(
-      JSON.stringify(
-        {
-          mcpServers: {
-            'office365-outlook': {
-              command: 'npx',
-              args: ['mcp-glove', 'start'],
-              env: {
-                OPENLEASH_SERVER_NAME: 'office365-outlook',
-                OPENLEASH_UPSTREAM_CMD: upstreamCmd as string,
-                OPENLEASH_GLOVE_PROFILE: 'office365-outlook',
-                OPENLEASH_URL: 'http://127.0.0.1:8787',
-                OPENLEASH_AGENT_ID: agentId,
-                OPENLEASH_AGENT_PRIVATE_KEY_B64: agentPrivateKeyB64 ?? '<PASTE_PRIVATE_KEY>',
-                OPENLEASH_SUBJECT_ID: ownerId,
-                OPENLEASH_APPROVAL_TIMEOUT_MS: '120000',
-              },
-            },
-          },
-        },
-        null,
-        2,
-      ),
-    );
-    console.log(
-      '\nNote: the original upstream command (' +
-        (upstreamCmd as string) +
-        ') is stored in OPENLEASH_UPSTREAM_CMD.\n' +
-        'The glove wraps it transparently — agents still call office365-outlook tools.\n',
-    );
-  }
-
   console.log('\n=== Wizard complete! ===\n');
 }

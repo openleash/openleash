@@ -23,7 +23,6 @@ import {
     renderInitialSetup,
     renderApiReference,
     renderApiReferenceUnavailable,
-    renderMcpGlove,
     renderAbout,
     renderAdminOrganizations,
     renderAdminOrganizationDetail,
@@ -580,65 +579,6 @@ export function registerGuiRoutes(
             gui: config.gui,
         };
         const html = renderConfig(configData);
-        reply.type("text/html").send(html);
-    });
-
-    // MCP Glove
-    app.get("/gui/admin/mcp-glove", { preHandler: adminAuth }, async (_request, reply) => {
-        const state = store.state.getState();
-
-        const agents = state.agents.map((entry) => {
-            try {
-                const agent = store.agents.read(entry.agent_principal_id);
-                return {
-                    agent_id: agent.agent_id,
-                    display_name: agent.agent_id,
-                    owner_type: entry.owner_type,
-                    owner_id: entry.owner_id,
-                };
-            } catch {
-                return {
-                    agent_id: entry.agent_id,
-                    display_name: entry.agent_id,
-                    owner_type: entry.owner_type,
-                    owner_id: entry.owner_id,
-                };
-            }
-        });
-
-        const owners = state.users.map((entry) => {
-            try {
-                const u = store.users.read(entry.user_principal_id);
-                return { id: u.user_principal_id, display_name: u.display_name };
-            } catch {
-                return {
-                    id: entry.user_principal_id,
-                    display_name: entry.user_principal_id.slice(0, 8),
-                };
-            }
-        });
-
-        const auditData = store.audit.readPage(10000, 0);
-        const gloveActivity = { total: 0, allow: 0, deny: 0, require_approval: 0 };
-        for (const event of auditData.items) {
-            const meta = event.metadata_json as Record<string, unknown>;
-            const actionType = meta.action_type as string | undefined;
-            if (!actionType || !actionType.startsWith("communication.")) continue;
-            gloveActivity.total++;
-            const result = meta.result as string | undefined;
-            if (result === "ALLOW") gloveActivity.allow++;
-            else if (result === "DENY") gloveActivity.deny++;
-            else if (result === "REQUIRE_APPROVAL") gloveActivity.require_approval++;
-        }
-
-        const serverUrl = `http://${config.server.bind_address}`;
-
-        const html = renderMcpGlove({
-            agents,
-            owners,
-            server_url: serverUrl,
-            glove_activity: gloveActivity,
-        });
         reply.type("text/html").send(html);
     });
 

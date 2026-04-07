@@ -54,7 +54,6 @@ const NAV_ITEMS = [
     { path: "/gui/admin/agents", label: "Agents", icon: "smart_toy" },
     { path: "/gui/admin/policies", label: "Policies", icon: "policy" },
     { path: "/gui/admin/config", label: "Config", icon: "settings" },
-    { path: "/gui/admin/mcp-glove", label: "MCP Glove", icon: "handshake" },
     { path: "/gui/admin/audit", label: "Audit Log", icon: "receipt_long" },
     { path: "/gui/admin/api-reference", label: "API Docs", icon: "api" },
 ];
@@ -212,17 +211,6 @@ export const INFO_AUDIT_EVENTS = `
     <dd>The server's signing key was rotated. New tokens use the new key; old tokens remain verifiable.</dd>
   </dl>`;
 
-export const INFO_MCP_GLOVE = `
-  <div class="info-title">MCP Glove</div>
-  <p style="margin-bottom:8px">MCP Glove is a transparent governance proxy that sits between an MCP client (e.g. Claude Desktop) and an upstream MCP server.</p>
-  <dl>
-    <dt>What it does</dt>
-    <dd>Intercepts every MCP tool call, maps it to an OpenLeash action type, and enforces your authorization policies before forwarding to the upstream server.</dd>
-    <dt>How it decides</dt>
-    <dd>ALLOW lets the call through, DENY blocks it, and REQUIRE_APPROVAL pauses execution until you approve or deny in the Owner Portal.</dd>
-    <dt>Profiles</dt>
-    <dd>Profiles define how MCP tools map to OpenLeash action types. Each profile covers a specific upstream server (e.g. office365-outlook).</dd>
-  </dl>`;
 
 export const INFO_ORG_STATUS = `
   <div class="info-title">Organization Status</div>
