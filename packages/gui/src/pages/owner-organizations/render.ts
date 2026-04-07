@@ -150,6 +150,13 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
 
     const memberRows = members.map((m) => {
         const isSelf = m.user_principal_id === currentUserId;
+        const roleCell = isAdmin && !isSelf
+            ? `<td><select class="form-select oorg-role-select" data-user-id="${escapeHtml(m.user_principal_id)}" data-current-role="${escapeHtml(m.role)}">
+                <option value="org_admin"${m.role === "org_admin" ? " selected" : ""}>Admin</option>
+                <option value="org_member"${m.role === "org_member" ? " selected" : ""}>Member</option>
+                <option value="org_viewer"${m.role === "org_viewer" ? " selected" : ""}>Viewer</option>
+              </select></td>`
+            : `<td>${roleBadge(m.role)}</td>`;
         const actionCell = isAdmin
             ? `<td>${isSelf
                 ? '<span class="badge badge-muted">you</span>'
@@ -159,7 +166,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
         return `<tr>
       <td>${escapeHtml(m.display_name || "—")}${isSelf ? ' <span class="badge badge-muted">you</span>' : ""}</td>
       <td>${copyableId(m.user_principal_id)}</td>
-      <td>${roleBadge(m.role)}</td>
+      ${roleCell}
       <td class="mono">${formatTimestamp(m.created_at)}</td>
       ${actionCell}
     </tr>`;
@@ -248,9 +255,14 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
       ${(() => {
         const adminCount = members.filter((m) => m.role === "org_admin").length;
         const isLastAdmin = org.role === "org_admin" && adminCount <= 1;
-        return isLastAdmin
-            ? ""
-            : '<button class="btn btn-secondary oorg-btn-leave" id="btn-leave-org">Leave Organization</button>';
+        const buttons: string[] = [];
+        if (!isLastAdmin) {
+            buttons.push('<button class="btn btn-secondary oorg-btn-leave" id="btn-leave-org">Leave Organization</button>');
+        }
+        if (isAdmin) {
+            buttons.push('<button class="btn btn-secondary oorg-btn-danger" id="btn-delete-org">Delete Organization</button>');
+        }
+        return buttons.join("\n      ");
       })()}
     </div>
 

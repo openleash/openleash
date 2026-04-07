@@ -47,3 +47,10 @@
   color: var(--color-danger);
   border-color: var(--color-danger);
 }
+
+.aorg-role-select {
+  width: auto;
+  min-width: 100px;
+  padding: 2px 8px;
+  font-size: 12px;
+}

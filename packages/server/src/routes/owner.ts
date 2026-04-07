@@ -942,6 +942,35 @@ export function registerOwnerRoutes(
         return { status: "left", org_id: orgId };
     });
 
+    // DELETE /v1/owner/organizations/:orgId — org_admin can delete the org
+    app.delete("/v1/owner/organizations/:orgId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        // Remove all memberships
+        const memberships = store.memberships.listByOrg(orgId);
+        for (const m of memberships) {
+            store.memberships.delete(m.membership_id);
+        }
+
+        store.state.updateState((s) => {
+            const idx = s.organizations.findIndex((o) => o.org_id === orgId);
+            if (idx !== -1) s.organizations.splice(idx, 1);
+            s.memberships = s.memberships.filter((m) => m.org_id !== orgId);
+        });
+
+        store.audit.append("ORG_DELETED", {
+            org_id: orgId,
+            memberships_removed: memberships.length,
+            deleted_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return { org_id: orgId, status: "deleted" };
+    });
+
     // GET /v1/owner/organizations/:orgId/agents
     app.get("/v1/owner/organizations/:orgId/agents", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)

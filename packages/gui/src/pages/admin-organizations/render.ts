@@ -136,7 +136,11 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
     const memberRows = members.map((m) => `<tr>
       <td>${escapeHtml(m.display_name || "—")}</td>
       <td>${copyableId(m.user_principal_id)}</td>
-      <td>${roleBadge(m.role)}</td>
+      <td><select class="form-select aorg-role-select" data-user-id="${escapeHtml(m.user_principal_id)}" data-current-role="${escapeHtml(m.role)}">
+        <option value="org_admin"${m.role === "org_admin" ? " selected" : ""}>Admin</option>
+        <option value="org_member"${m.role === "org_member" ? " selected" : ""}>Member</option>
+        <option value="org_viewer"${m.role === "org_viewer" ? " selected" : ""}>Viewer</option>
+      </select></td>
       <td>${formatTimestamp(m.created_at)}</td>
       <td><button class="btn btn-secondary btn-sm aorg-btn-remove" data-user-id="${escapeHtml(m.user_principal_id)}" data-user-name="${escapeHtml(m.display_name || m.user_principal_id.slice(0, 8))}">Remove</button></td>
     </tr>`).join("\n");

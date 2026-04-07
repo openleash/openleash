@@ -110,3 +110,34 @@ document.querySelectorAll<HTMLButtonElement>(".aorg-btn-remove").forEach((btn) =
         }
     });
 });
+
+// ─── Change member role ───────────────────────────────────────────────
+
+document.querySelectorAll<HTMLSelectElement>(".aorg-role-select").forEach((select) => {
+    select.addEventListener("change", async () => {
+        const userId = select.dataset.userId!;
+        const currentRole = select.dataset.currentRole!;
+        const newRole = select.value;
+
+        try {
+            const res = await fetch(`/v1/admin/organizations/${pageData.orgId}/members/${userId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ role: newRole }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                olToast(olApiError(err, "Failed to update role"), "error");
+                select.value = currentRole;
+                return;
+            }
+
+            select.dataset.currentRole = newRole;
+            olToast("Role updated", "success");
+        } catch {
+            olToast("Network error", "error");
+            select.value = currentRole;
+        }
+    });
+});

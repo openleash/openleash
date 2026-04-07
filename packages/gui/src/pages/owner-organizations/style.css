@@ -63,7 +63,15 @@
     border-color: var(--color-danger);
 }
 
-.oorg-btn-leave {
+.oorg-btn-leave,
+.oorg-btn-danger {
     color: var(--color-danger);
     border-color: var(--color-danger);
+}
+
+.oorg-role-select {
+    width: auto;
+    min-width: 100px;
+    padding: 2px 8px;
+    font-size: 12px;
 }

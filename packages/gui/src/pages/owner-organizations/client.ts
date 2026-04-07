@@ -200,3 +200,66 @@ btnLeave?.addEventListener("click", async () => {
         btnLeave.textContent = "Leave Organization";
     }
 });
+
+// ─── Change member role ───────────────────────────────────────────────
+
+document.querySelectorAll<HTMLSelectElement>(".oorg-role-select").forEach((select) => {
+    select.addEventListener("change", async () => {
+        const userId = select.dataset.userId!;
+        const currentRole = select.dataset.currentRole!;
+        const newRole = select.value;
+
+        try {
+            const res = await fetch(`/v1/owner/organizations/${pageData.orgId}/members/${userId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ role: newRole }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                olToast(olApiError(err, "Failed to update role"), "error");
+                select.value = currentRole;
+                return;
+            }
+
+            select.dataset.currentRole = newRole;
+            olToast("Role updated", "success");
+        } catch {
+            olToast("Network error", "error");
+            select.value = currentRole;
+        }
+    });
+});
+
+// ─── Delete organization ──────────────────────────────────────────────
+
+const btnDelete = document.getElementById("btn-delete-org") as HTMLButtonElement | null;
+
+btnDelete?.addEventListener("click", async () => {
+    if (!(await olConfirm("Are you sure you want to permanently delete this organization? All memberships, agents, and policies will be removed. This cannot be undone.", "Delete Organization"))) return;
+
+    btnDelete.disabled = true;
+    btnDelete.textContent = "Deleting\u2026";
+
+    try {
+        const res = await fetch(`/v1/owner/organizations/${pageData.orgId}`, {
+            method: "DELETE",
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            olToast(olApiError(err, "Failed to delete organization"), "error");
+            btnDelete.disabled = false;
+            btnDelete.textContent = "Delete Organization";
+            return;
+        }
+
+        olToast("Organization deleted", "success");
+        setTimeout(() => { window.location.href = "/gui/organizations"; }, 800);
+    } catch {
+        olToast("Network error", "error");
+        btnDelete.disabled = false;
+        btnDelete.textContent = "Delete Organization";
+    }
+});
