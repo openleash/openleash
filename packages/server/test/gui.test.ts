@@ -290,6 +290,201 @@ describe('admin API - new endpoints', () => {
   });
 });
 
+describe('admin API - user write endpoints', () => {
+  let app: FastifyInstance;
+  let rootDir: string;
+  let dataDir: string;
+  let existingUserId: string;
+
+  beforeAll(async () => {
+    rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openleash-admin-write-test-'));
+    dataDir = path.join(rootDir, 'data');
+
+    bootstrapState(rootDir);
+    const config = loadConfig(rootDir);
+
+    existingUserId = crypto.randomUUID();
+    writeUserFile(dataDir, {
+      user_principal_id: existingUserId,
+      display_name: 'Existing Owner',
+      status: 'ACTIVE',
+      attributes: {},
+      created_at: new Date().toISOString(),
+    });
+
+    const state = readState(dataDir);
+    state.users.push({
+      user_principal_id: existingUserId,
+      path: `./users/${existingUserId}.md`,
+    });
+    writeState(dataDir, state);
+
+    const store = createFileDataStore(dataDir);
+    const { app: server } = await createServer({ config, dataDir, store });
+    app = server;
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  });
+
+  it('POST /v1/admin/users creates a new user', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/users',
+      payload: { display_name: 'New User' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.user_principal_id).toBeDefined();
+    expect(body.display_name).toBe('New User');
+    expect(body.status).toBe('ACTIVE');
+  });
+
+  it('POST /v1/admin/users/:userId/setup-invite creates invite', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/v1/admin/users/${existingUserId}/setup-invite`,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.invite_id).toBeDefined();
+    expect(body.invite_token).toBeDefined();
+    expect(body.expires_at).toBeDefined();
+  });
+
+  it('POST /v1/admin/users/:userId/setup-invite returns 404 for unknown user', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/v1/admin/users/${crypto.randomUUID()}/setup-invite`,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('POST /v1/admin/users/:userId/disable-totp returns 400 when not enabled', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/v1/admin/users/${existingUserId}/disable-totp`,
+      payload: {},
+    });
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.payload);
+    expect(body.error.code).toBe('TOTP_NOT_ENABLED');
+  });
+
+  it('POST /v1/admin/users/:userId/disable-totp returns 404 for unknown user', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/v1/admin/users/${crypto.randomUUID()}/disable-totp`,
+      payload: {},
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('GET /v1/admin/users/:userId/roles returns roles', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/v1/admin/users/${existingUserId}/roles`,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.user_principal_id).toBe(existingUserId);
+    expect(body.system_roles).toBeInstanceOf(Array);
+  });
+
+  it('PUT /v1/admin/users/:userId/roles grants admin role', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/v1/admin/users/${existingUserId}/roles`,
+      payload: { system_roles: ['admin'] },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.system_roles).toContain('admin');
+
+    // Verify the role persisted
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/v1/admin/users/${existingUserId}/roles`,
+    });
+    const getRoles = JSON.parse(getRes.payload);
+    expect(getRoles.system_roles).toContain('admin');
+  });
+
+  it('PUT /v1/admin/users/:userId/roles rejects invalid role', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/v1/admin/users/${existingUserId}/roles`,
+      payload: { system_roles: ['superuser'] },
+    });
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.payload);
+    expect(body.error.code).toBe('INVALID_ROLE');
+  });
+
+  it('PUT /v1/admin/users/:userId/roles returns 404 for unknown user', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/v1/admin/users/${crypto.randomUUID()}/roles`,
+      payload: { system_roles: ['admin'] },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('DELETE /v1/admin/users/:userId deletes user', async () => {
+    // Create a user to delete
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/users',
+      payload: { display_name: 'To Delete' },
+    });
+    const { user_principal_id: deleteId } = JSON.parse(createRes.payload);
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/v1/admin/users/${deleteId}`,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.status).toBe('deleted');
+
+    // Verify user is gone from state
+    const listRes = await app.inject({ method: 'GET', url: '/v1/admin/users' });
+    const list = JSON.parse(listRes.payload);
+    expect(list.users.find((u: { user_principal_id: string }) => u.user_principal_id === deleteId)).toBeUndefined();
+  });
+
+  it('DELETE /v1/admin/users/:userId returns 404 for unknown user', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/v1/admin/users/${crypto.randomUUID()}`,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('POST /v1/admin/users/:userId/agent-invite creates agent invite', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/v1/admin/users/${existingUserId}/agent-invite`,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.invite_id).toBeDefined();
+    expect(body.invite_token).toBeDefined();
+    expect(body.expires_at).toBeDefined();
+  });
+
+  it('POST /v1/admin/users/:userId/agent-invite returns 404 for unknown user', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/v1/admin/users/${crypto.randomUUID()}/agent-invite`,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
 describe('initial setup flow', () => {
   let app: FastifyInstance;
   let rootDir: string;

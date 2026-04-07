@@ -77,7 +77,7 @@ async function adminDisableTotp() {
     if (!(await olConfirm("Are you sure you want to disable 2FA for this owner? They will need to set it up again.", "Disable 2FA"))) return;
     const ownerId = pageData.ownerId!;
     try {
-        const res = await fetch("/v1/admin/owners/" + ownerId + "/disable-totp", {
+        const res = await fetch("/v1/admin/users/" + ownerId + "/disable-totp", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: "{}",
@@ -100,7 +100,7 @@ async function generateInvite() {
     btn.textContent = "Generating...";
 
     try {
-        const res = await fetch("/v1/admin/owners/" + ownerId + "/setup-invite", {
+        const res = await fetch("/v1/admin/users/" + ownerId + "/setup-invite", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({}),
@@ -139,10 +139,10 @@ async function toggleAdminRole() {
     if (!newRoles.includes("owner")) newRoles.unshift("owner");
 
     try {
-        const res = await fetch("/v1/admin/owners/" + ownerId + "/roles", {
+        const res = await fetch("/v1/admin/users/" + ownerId + "/roles", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ roles: newRoles }),
+            body: JSON.stringify({ system_roles: newRoles }),
         });
         if (res.ok) {
             olToast(hasAdmin ? "Admin role revoked" : "Admin role granted", "success");
