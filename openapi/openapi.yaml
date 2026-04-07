@@ -1606,6 +1606,10 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/CompanyId"
+                      domains:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/OrgDomain"
         "404":
           description: Organization not found or user is not a member.
           content:
@@ -1636,6 +1640,14 @@ paths:
                   type: array
                   items:
                     $ref: "#/components/schemas/ContactIdentity"
+                company_ids:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CompanyId"
+                domains:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/OrgDomain"
       responses:
         "200":
           description: Organization updated.
@@ -2455,6 +2467,10 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/CompanyId"
+                      domains:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/OrgDomain"
         "404":
           description: Organization not found.
           content:
@@ -2484,6 +2500,14 @@ paths:
                   type: array
                   items:
                     $ref: "#/components/schemas/ContactIdentity"
+                company_ids:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CompanyId"
+                domains:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/OrgDomain"
       responses:
         "200":
           description: Organization updated.
@@ -3091,6 +3115,27 @@ components:
         verification_status:
           type: string
           enum: [UNVERIFIED, FORMAT_VALID, VERIFIED]
+        added_at:
+          type: string
+          format: date-time
+
+    OrgDomain:
+      type: object
+      description: A domain name associated with an organization.
+      properties:
+        domain_id:
+          type: string
+          format: uuid
+        domain:
+          type: string
+          description: The domain name (e.g. `example.com`).
+        verification_level:
+          type: string
+          enum: [UNVERIFIED, FORMAT_VALID, VERIFIED]
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
         added_at:
           type: string
           format: date-time
