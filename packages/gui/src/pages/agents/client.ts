@@ -9,11 +9,14 @@ function toggleInviteForm() {
 }
 
 async function createAgentInvite() {
-    const userPrincipalId = (document.getElementById("owner-select") as HTMLSelectElement).value;
+    const select = document.getElementById("owner-select") as HTMLSelectElement;
+    const ownerId = select.value;
+    const selectedOption = select.options[select.selectedIndex];
+    const ownerType = selectedOption?.dataset.type || "user";
     const btn = document.getElementById("invite-btn") as HTMLButtonElement;
 
     olFieldError("owner-select", "");
-    if (!userPrincipalId) {
+    if (!ownerId) {
         olFieldError("owner-select", "Please select an owner");
         return;
     }
@@ -21,8 +24,12 @@ async function createAgentInvite() {
     btn.disabled = true;
     btn.textContent = "Creating invite...";
 
+    const url = ownerType === "org"
+        ? "/v1/admin/organizations/" + encodeURIComponent(ownerId) + "/agent-invite"
+        : "/v1/admin/users/" + encodeURIComponent(ownerId) + "/agent-invite";
+
     try {
-        const res = await fetch("/v1/admin/owners/" + encodeURIComponent(userPrincipalId) + "/agent-invite", {
+        const res = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: "{}",

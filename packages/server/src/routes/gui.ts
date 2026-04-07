@@ -471,18 +471,23 @@ export function registerGuiRoutes(
                 };
             }
         });
-        const owners = state.users.map((entry) => {
+        const userOwners = state.users.map((entry) => {
             try {
                 const u = store.users.read(entry.user_principal_id);
-                return { id: u.user_principal_id, display_name: u.display_name };
+                return { id: u.user_principal_id, display_name: u.display_name, type: "user" as const };
             } catch {
-                return {
-                    id: entry.user_principal_id,
-                    display_name: entry.user_principal_id.slice(0, 8),
-                };
+                return { id: entry.user_principal_id, display_name: entry.user_principal_id.slice(0, 8), type: "user" as const };
             }
         });
-        const html = renderAgents(agents, owners);
+        const orgOwners = state.organizations.map((entry) => {
+            try {
+                const o = store.organizations.read(entry.org_id);
+                return { id: o.org_id, display_name: o.display_name, type: "org" as const };
+            } catch {
+                return { id: entry.org_id, display_name: entry.org_id.slice(0, 8), type: "org" as const };
+            }
+        });
+        const html = renderAgents(agents, [...userOwners, ...orgOwners]);
         reply.type("text/html").send(html);
     });
 

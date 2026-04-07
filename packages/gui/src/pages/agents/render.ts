@@ -24,6 +24,7 @@ export interface AgentData {
 export interface OwnerOption {
     id: string;
     display_name: string;
+    type: "user" | "org";
 }
 
 function statusBadge(status: string): string {
@@ -59,7 +60,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
     const ownerOptions = owners
         .map(
             (o) =>
-                `<option value="${escapeHtml(o.id)}">${escapeHtml(o.display_name)} (${escapeHtml(o.id.slice(0, 8))}...)</option>`,
+                `<option value="${escapeHtml(o.id)}" data-type="${escapeHtml(o.type)}">${o.type === "org" ? "🏢 " : ""}${escapeHtml(o.display_name)} (${escapeHtml(o.id.slice(0, 8))}...)</option>`,
         )
         .join("");
 
