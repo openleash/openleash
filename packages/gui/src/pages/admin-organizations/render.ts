@@ -138,6 +138,7 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
       <td>${copyableId(m.user_principal_id)}</td>
       <td>${roleBadge(m.role)}</td>
       <td>${formatTimestamp(m.created_at)}</td>
+      <td><button class="btn btn-secondary btn-sm aorg-btn-remove" data-user-id="${escapeHtml(m.user_principal_id)}" data-user-name="${escapeHtml(m.display_name || m.user_principal_id.slice(0, 8))}">Remove</button></td>
     </tr>`).join("\n");
 
     const agentRows = agents.map((a) => `<tr>
@@ -177,10 +178,32 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
     </div>
 
     <div class="card">
-      <div class="card-title">Members (${members.length})</div>
+      <div class="aorg-members-header">
+        <div class="card-title">Members (${members.length})</div>
+        <button class="btn btn-primary btn-sm" id="btn-add-member">+ Add Member</button>
+      </div>
+      <div id="add-member-form" class="hidden aorg-add-member-form">
+        <div class="form-group">
+          <label class="form-label" for="member-user-id">Email or User Principal ID</label>
+          <input type="text" id="member-user-id" class="form-input" placeholder="e.g. alice@example.com or 03aa9088-0239-...">
+          <div class="field-error" id="err-member-user-id"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="member-role">Role${infoIcon("add-member-role", INFO_ORG_ROLE)}</label>
+          <select id="member-role" class="form-select">
+            <option value="org_member">Member</option>
+            <option value="org_viewer">Viewer</option>
+            <option value="org_admin">Admin</option>
+          </select>
+        </div>
+        <div class="aorg-add-member-actions">
+          <button class="btn btn-primary btn-sm" id="btn-submit-member">Add</button>
+          <button class="btn btn-secondary btn-sm" id="btn-cancel-member">Cancel</button>
+        </div>
+      </div>
       ${members.length === 0
         ? '<p class="aorg-empty-section">No members</p>'
-        : `<table><thead><tr><th>Name</th><th>User ID</th><th>Role${infoIcon("detail-org-role", INFO_ORG_ROLE)}</th><th>Added</th></tr></thead><tbody>${memberRows}</tbody></table>`}
+        : `<table><thead><tr><th>Name</th><th>User ID</th><th>Role${infoIcon("detail-org-role", INFO_ORG_ROLE)}</th><th>Added</th><th>Actions</th></tr></thead><tbody>${memberRows}</tbody></table>`}
     </div>
 
     <div class="card">
@@ -201,6 +224,7 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
       <a href="/gui/admin/organizations" class="btn btn-secondary">Back to Organizations</a>
     </div>
 
+    <script>window.__PAGE_DATA__ = { orgId: '${escapeHtml(org.org_id)}' };</script>
     ${assetTags("pages/admin-organizations/client.ts")}`;
 
     return renderPage(org.display_name || "Organization", content, "/gui/admin/organizations");

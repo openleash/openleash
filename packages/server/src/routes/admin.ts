@@ -638,7 +638,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
   // POST /v1/admin/organizations/:orgId/members
   app.post('/v1/admin/organizations/:orgId/members', { preHandler: adminAuth }, async (request, reply) => {
     const { orgId } = request.params as { orgId: string };
-    const body = request.body as { user_principal_id: string; role: string };
+    const body = request.body as { user_principal_id?: string; email?: string; role: string };
 
     const state = store.state.getState();
     if (!state.organizations.find((o) => o.org_id === orgId)) {
@@ -646,8 +646,13 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       return;
     }
 
-    if (!body.user_principal_id || !body.role) {
-      reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'user_principal_id and role are required' } });
+    if (!body.role) {
+      reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'role is required' } });
+      return;
+    }
+
+    if (!body.user_principal_id && !body.email) {
+      reply.code(400).send({ error: { code: 'INVALID_BODY', message: 'user_principal_id or email is required' } });
       return;
     }
 
@@ -658,13 +663,37 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       return;
     }
 
-    if (!state.users.find((u) => u.user_principal_id === body.user_principal_id)) {
+    // Resolve user — by ID or by email lookup
+    let targetUserId = body.user_principal_id;
+    if (!targetUserId && body.email) {
+      const emailLower = body.email.toLowerCase();
+      for (const entry of state.users) {
+        try {
+          const user = store.users.read(entry.user_principal_id);
+          const match = (user.contact_identities ?? []).find(
+            (c) => c.type === 'EMAIL' && c.value.toLowerCase() === emailLower,
+          );
+          if (match) {
+            targetUserId = entry.user_principal_id;
+            break;
+          }
+        } catch {
+          // skip
+        }
+      }
+      if (!targetUserId) {
+        reply.code(404).send({ error: { code: 'USER_NOT_FOUND', message: 'No user found with that email address' } });
+        return;
+      }
+    }
+
+    if (!state.users.find((u) => u.user_principal_id === targetUserId)) {
       reply.code(404).send({ error: { code: 'USER_NOT_FOUND', message: 'Target user not found' } });
       return;
     }
 
     const existing = store.memberships.listByOrg(orgId);
-    if (existing.find((m) => m.user_principal_id === body.user_principal_id)) {
+    if (existing.find((m) => m.user_principal_id === targetUserId)) {
       reply.code(409).send({ error: { code: 'ALREADY_MEMBER', message: 'User is already a member' } });
       return;
     }
@@ -674,7 +703,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     store.memberships.write({
       membership_id: membershipId,
       org_id: orgId,
-      user_principal_id: body.user_principal_id,
+      user_principal_id: targetUserId!,
       role: parsed.data,
       status: 'active',
       invited_by_user_id: null,
@@ -685,7 +714,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       s.memberships.push({
         membership_id: membershipId,
         org_id: orgId,
-        user_principal_id: body.user_principal_id,
+        user_principal_id: targetUserId!,
         role: parsed.data,
         path: `./memberships/${membershipId}.json`,
       });
@@ -693,7 +722,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
 
     store.audit.append('ORG_MEMBER_ADDED', {
       org_id: orgId,
-      user_principal_id: body.user_principal_id,
+      user_principal_id: targetUserId!,
       role: parsed.data,
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
@@ -701,12 +730,12 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     events.emit('org_member.added', {
       org_id: orgId,
       org_display_name: addedOrg.display_name,
-      user_principal_id: body.user_principal_id,
+      user_principal_id: targetUserId!,
       role: parsed.data,
       invited_by_user_id: getAdminSession(request)?.principal_id ?? null,
     });
 
-    return { membership_id: membershipId, org_id: orgId, user_principal_id: body.user_principal_id, role: parsed.data };
+    return { membership_id: membershipId, org_id: orgId, user_principal_id: targetUserId!, role: parsed.data };
   });
 
   // PUT /v1/admin/organizations/:orgId/members/:userId

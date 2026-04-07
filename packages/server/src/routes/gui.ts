@@ -796,9 +796,28 @@ export function registerGuiRoutes(
             });
 
             const state = store.state.getState();
-            const agentCount = state.agents.filter(
-                (a) => a.owner_type === "org" && a.owner_id === orgId,
-            ).length;
+            const orgAgents = state.agents
+                .filter((a) => a.owner_type === "org" && a.owner_id === orgId)
+                .map((a) => {
+                    try {
+                        const agent = store.agents.read(a.agent_principal_id);
+                        return {
+                            agent_id: agent.agent_id,
+                            agent_principal_id: agent.agent_principal_id,
+                            status: agent.status,
+                            created_at: agent.created_at,
+                        };
+                    } catch {
+                        return { agent_id: a.agent_id, agent_principal_id: a.agent_principal_id, status: "UNKNOWN", created_at: "" };
+                    }
+                });
+            const orgPolicies = state.policies
+                .filter((p) => p.owner_type === "org" && p.owner_id === orgId)
+                .map((p) => ({
+                    policy_id: p.policy_id,
+                    applies_to_agent_principal_id: p.applies_to_agent_principal_id,
+                    name: p.name,
+                }));
 
             const html = renderOwnerOrganizationDetail({
                 org: {
@@ -810,9 +829,11 @@ export function registerGuiRoutes(
                     verification_status: org.verification_status,
                     identity_assurance_level: org.identity_assurance_level,
                     member_count: allMembers.length,
-                    agent_count: agentCount,
+                    agent_count: orgAgents.length,
                 },
                 members: allMembers,
+                agents: orgAgents,
+                policies: orgPolicies,
                 currentUserId: session.sub,
             }, ownerRenderOptionsFor(session));
             reply.type("text/html").send(html);

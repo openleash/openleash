@@ -679,11 +679,18 @@ export function registerOwnerRoutes(
 
         if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
 
-        const body = request.body as { user_principal_id: string; role: string };
+        const body = request.body as { user_principal_id?: string; email?: string; role: string };
 
-        if (!body.user_principal_id || !body.role) {
+        if (!body.role) {
             reply.code(400).send({
-                error: { code: "INVALID_BODY", message: "user_principal_id and role are required" },
+                error: { code: "INVALID_BODY", message: "role is required" },
+            });
+            return;
+        }
+
+        if (!body.user_principal_id && !body.email) {
+            reply.code(400).send({
+                error: { code: "INVALID_BODY", message: "user_principal_id or email is required" },
             });
             return;
         }
@@ -696,9 +703,35 @@ export function registerOwnerRoutes(
             return;
         }
 
-        // Verify user exists
+        // Resolve user — by ID or by email lookup
         const state = store.state.getState();
-        if (!state.users.find((u) => u.user_principal_id === body.user_principal_id)) {
+        let targetUserId = body.user_principal_id;
+
+        if (!targetUserId && body.email) {
+            const emailLower = body.email.toLowerCase();
+            for (const entry of state.users) {
+                try {
+                    const user = store.users.read(entry.user_principal_id);
+                    const match = (user.contact_identities ?? []).find(
+                        (c) => c.type === "EMAIL" && c.value.toLowerCase() === emailLower,
+                    );
+                    if (match) {
+                        targetUserId = entry.user_principal_id;
+                        break;
+                    }
+                } catch {
+                    // skip unreadable users
+                }
+            }
+            if (!targetUserId) {
+                reply.code(404).send({
+                    error: { code: "USER_NOT_FOUND", message: "No user found with that email address" },
+                });
+                return;
+            }
+        }
+
+        if (!state.users.find((u) => u.user_principal_id === targetUserId)) {
             reply.code(404).send({
                 error: { code: "USER_NOT_FOUND", message: "Target user not found" },
             });
@@ -707,7 +740,7 @@ export function registerOwnerRoutes(
 
         // Check for existing membership
         const existing = store.memberships.listByOrg(orgId);
-        if (existing.find((m) => m.user_principal_id === body.user_principal_id)) {
+        if (existing.find((m) => m.user_principal_id === targetUserId)) {
             reply.code(409).send({
                 error: { code: "ALREADY_MEMBER", message: "User is already a member of this organization" },
             });
@@ -719,7 +752,7 @@ export function registerOwnerRoutes(
         const membership: OrgMembership = {
             membership_id: membershipId,
             org_id: orgId,
-            user_principal_id: body.user_principal_id,
+            user_principal_id: targetUserId!,
             role: parsed.data,
             status: "active",
             invited_by_user_id: session.sub,
@@ -731,7 +764,7 @@ export function registerOwnerRoutes(
             s.memberships.push({
                 membership_id: membershipId,
                 org_id: orgId,
-                user_principal_id: body.user_principal_id,
+                user_principal_id: targetUserId!,
                 role: parsed.data,
                 path: `./memberships/${membershipId}.json`,
             });
@@ -739,7 +772,7 @@ export function registerOwnerRoutes(
 
         store.audit.append("ORG_MEMBER_ADDED", {
             org_id: orgId,
-            user_principal_id: body.user_principal_id,
+            user_principal_id: targetUserId!,
             role: parsed.data,
             invited_by: session.sub,
         }, { principal_id: session.sub });
@@ -748,12 +781,12 @@ export function registerOwnerRoutes(
         events.emit("org_member.added", {
             org_id: orgId,
             org_display_name: addedOrg.display_name,
-            user_principal_id: body.user_principal_id,
+            user_principal_id: targetUserId!,
             role: parsed.data,
             invited_by_user_id: session.sub,
         });
 
-        return { membership_id: membershipId, org_id: orgId, user_principal_id: body.user_principal_id, role: parsed.data };
+        return { membership_id: membershipId, org_id: orgId, user_principal_id: targetUserId!, role: parsed.data };
     });
 
     // PUT /v1/owner/organizations/:orgId/members/:userId

@@ -101,6 +101,10 @@ btnSubmitMember?.addEventListener("click", async () => {
     }
 
     const role = memberRoleSelect?.value || "org_member";
+    const isEmail = userId.includes("@");
+    const payload = isEmail
+        ? { email: userId, role }
+        : { user_principal_id: userId, role };
 
     btnSubmitMember.disabled = true;
     btnSubmitMember.textContent = "Adding\u2026";
@@ -109,7 +113,7 @@ btnSubmitMember?.addEventListener("click", async () => {
         const res = await fetch(`/v1/owner/organizations/${pageData.orgId}/members`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user_principal_id: userId, role }),
+            body: JSON.stringify(payload),
         });
 
         if (!res.ok) {

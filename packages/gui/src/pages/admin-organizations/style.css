@@ -16,3 +16,34 @@
   font-size: 13px;
   padding: 8px 0;
 }
+
+.aorg-members-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.aorg-members-header .card-title {
+  margin-bottom: 0;
+}
+
+.aorg-add-member-form {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.aorg-add-member-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.aorg-btn-remove {
+  font-size: 11px;
+  padding: 2px 10px;
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}

@@ -61,6 +61,8 @@ export interface OwnerOrgDetailData {
         role: string;
         created_at: string;
     }[];
+    agents: { agent_id: string; agent_principal_id: string; status: string; created_at: string }[];
+    policies: { policy_id: string; applies_to_agent_principal_id: string | null; name: string | null }[];
     currentUserId: string;
 }
 
@@ -130,8 +132,21 @@ function verificationBadge(status?: string): string {
 }
 
 export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPageOptions?: RenderPageOptions): string {
-    const { org, members, currentUserId } = data;
+    const { org, members, agents, policies, currentUserId } = data;
     const isAdmin = org.role === "org_admin";
+
+    const agentRows = agents.map((a) => `<tr>
+      <td>${escapeHtml(a.agent_id)}</td>
+      <td>${copyableId(a.agent_principal_id)}</td>
+      <td>${statusBadge(a.status)}</td>
+      <td class="mono">${formatTimestamp(a.created_at)}</td>
+    </tr>`).join("\n");
+
+    const policyRows = policies.map((p) => `<tr>
+      <td>${escapeHtml(p.name || "—")}</td>
+      <td>${copyableId(p.policy_id)}</td>
+      <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
+    </tr>`).join("\n");
 
     const memberRows = members.map((m) => {
         const isSelf = m.user_principal_id === currentUserId;
@@ -183,8 +198,8 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
       ${isAdmin ? `
       <div id="add-member-form" class="hidden oorg-add-member-form">
         <div class="form-group">
-          <label class="form-label" for="member-user-id">User Principal ID</label>
-          <input type="text" id="member-user-id" class="form-input" placeholder="e.g. 03aa9088-0239-4239-...">
+          <label class="form-label" for="member-user-id">Email or User Principal ID</label>
+          <input type="text" id="member-user-id" class="form-input" placeholder="e.g. alice@example.com or 03aa9088-0239-...">
           <div class="field-error" id="err-member-user-id"></div>
         </div>
         <div class="form-group">
@@ -205,6 +220,26 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
         : `<table>
           <thead><tr><th>Name</th><th>User ID</th><th>Role${infoIcon("oorgd-mem-role", INFO_ORG_ROLE)}</th><th>Added</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
           <tbody>${memberRows}</tbody>
+        </table>`}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Agents (${agents.length})</div>
+      ${agents.length === 0
+        ? '<p class="oorg-empty-section">No agents registered under this organization</p>'
+        : `<table>
+          <thead><tr><th>Agent ID</th><th>Principal ID</th><th>Status</th><th>Created</th></tr></thead>
+          <tbody>${agentRows}</tbody>
+        </table>`}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Policies (${policies.length})</div>
+      ${policies.length === 0
+        ? '<p class="oorg-empty-section">No policies for this organization</p>'
+        : `<table>
+          <thead><tr><th>Name</th><th>Policy ID</th><th>Applies to</th></tr></thead>
+          <tbody>${policyRows}</tbody>
         </table>`}
     </div>
 
