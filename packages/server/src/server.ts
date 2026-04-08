@@ -60,20 +60,8 @@ export async function createServer(options: CreateServerOptions) {
   const nonceCache = new NonceCache(config.security.nonce_ttl_seconds);
   const events = new OpenleashEvents();
 
-  // Register routes
-  registerHealthRoutes(app, { hasApiReference: !!openapiSpec });
-  registerPublicKeysRoutes(app, store);
-  registerVerifyProofRoutes(app, store);
-  registerAgentRoutes(app, store);
-  registerAuthorizeRoutes(app, store, config, nonceCache);
-  registerOwnerRoutes(app, store, config, events);
-  registerAgentSelfRoutes(app, store, config, nonceCache, events);
-  registerAdminRoutes(app, store, config, events);
-  if (config.instance?.mode !== 'hosted') {
-    registerPlaygroundRoutes(app, config);
-  }
-
-  // Load server plugin if configured
+  // Load server plugin before routes so the manifest is available
+  // for owner-auth and admin-auth middlewares (plugin token verification)
   let pluginManifest: ServerPluginManifest | undefined;
   if (config.plugin) {
     pluginManifest = await loadServerPlugin(config.plugin, {
@@ -95,6 +83,19 @@ export async function createServer(options: CreateServerOptions) {
         immutable: true,
       });
     }
+  }
+
+  // Register routes
+  registerHealthRoutes(app, { hasApiReference: !!openapiSpec });
+  registerPublicKeysRoutes(app, store);
+  registerVerifyProofRoutes(app, store);
+  registerAgentRoutes(app, store);
+  registerAuthorizeRoutes(app, store, config, nonceCache);
+  registerOwnerRoutes(app, store, config, events, pluginManifest);
+  registerAgentSelfRoutes(app, store, config, nonceCache, events);
+  registerAdminRoutes(app, store, config, events, pluginManifest);
+  if (config.instance?.mode !== 'hosted') {
+    registerPlaygroundRoutes(app, config);
   }
 
   if (config.gui?.enabled !== false) {

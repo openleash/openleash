@@ -1,14 +1,14 @@
 import crypto from 'crypto';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { verifySessionToken, resolveSystemRoles } from '@openleash/core';
-import type { OpenleashConfig, DataStore } from '@openleash/core';
+import type { OpenleashConfig, DataStore, ServerPluginManifest } from '@openleash/core';
 
 export interface AdminSession {
   principal_id: string | null;
   auth_method: 'session' | 'token' | 'localhost';
 }
 
-export function createAdminAuth(config: OpenleashConfig, store: DataStore) {
+export function createAdminAuth(config: OpenleashConfig, store: DataStore, pluginManifest?: ServerPluginManifest) {
   return async function adminAuth(request: FastifyRequest, reply: FastifyReply) {
     const isHosted = config.instance?.mode === 'hosted';
     const isGuiRequest = request.url.startsWith('/gui/');
@@ -23,6 +23,28 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore) {
 
     function attachSession(session: AdminSession) {
       (request as unknown as Record<string, unknown>).adminSession = session;
+    }
+
+    // ── Path 0: Plugin token verification (hosted mode) ───────────────
+    if (pluginManifest?.verifyToken) {
+      const bearerToken = extractBearerToken(request);
+      if (bearerToken) {
+        const result = await pluginManifest.verifyToken(bearerToken);
+        if (result) {
+          const state = store.state.getState();
+          const userEntry = state.users.find((u) => u.user_principal_id === result.user_principal_id);
+          if (userEntry) {
+            const user = store.users.read(result.user_principal_id);
+            if (user.status === 'ACTIVE') {
+              const systemRoles = resolveSystemRoles(user);
+              if (systemRoles.includes('admin')) {
+                attachSession({ principal_id: result.user_principal_id, auth_method: 'session' });
+                return;
+              }
+            }
+          }
+        }
+      }
     }
 
     // ── Path 1: PASETO session token with admin role ──────────────────
@@ -71,6 +93,23 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore) {
 
     deny('ADMIN_UNAUTHORIZED', 'Admin access requires an account with admin role');
   };
+}
+
+function extractBearerToken(request: FastifyRequest): string | undefined {
+  const authHeader = request.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice(7);
+  }
+
+  const cookieHeader = request.headers.cookie;
+  if (cookieHeader) {
+    const match = cookieHeader.match(/(?:^|;\s*)openleash_session=([^\s;]+)/);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  return undefined;
 }
 
 function extractSessionToken(request: FastifyRequest): string | undefined {

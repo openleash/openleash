@@ -34,6 +34,7 @@ import type {
     OrgMembership,
     OrgInvite,
     OpenleashEvents,
+    ServerPluginManifest,
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
 import { validateBody } from "../validate.js";
@@ -50,8 +51,9 @@ export function registerOwnerRoutes(
     store: DataStore,
     config: OpenleashConfig,
     events: OpenleashEvents,
+    pluginManifest?: ServerPluginManifest,
 ) {
-    const ownerAuth = createOwnerAuth(config, store);
+    const ownerAuth = createOwnerAuth(config, store, pluginManifest);
 
     // ─── No-auth routes ───────────────────────────────────────────────
 
@@ -279,15 +281,27 @@ export function registerOwnerRoutes(
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
 
-        const state = store.state.getState();
-        const activeKey = store.keys.read(state.server_keys.active_kid);
-        const ttl = config.sessions?.ttl_seconds ?? 28800;
         const user = store.users.read(session.sub);
         const systemRoles = resolveSystemRoles(user);
         const memberships = store.memberships.listByUser(session.sub);
         const orgMemberships = memberships
             .filter((m) => m.status === "active")
             .map((m) => ({ org_id: m.org_id, role: m.role }));
+
+        // Plugin-authenticated sessions (e.g. Firebase) — the external
+        // auth provider handles token refresh, so return current info
+        // without issuing a new PASETO.
+        if (session.iss === "openleash:plugin") {
+            return {
+                user_principal_id: session.sub,
+                system_roles: systemRoles,
+                org_memberships: orgMemberships,
+            };
+        }
+
+        const state = store.state.getState();
+        const activeKey = store.keys.read(state.server_keys.active_kid);
+        const ttl = config.sessions?.ttl_seconds ?? 28800;
 
         const newSession = await issueSessionToken({
             key: activeKey,

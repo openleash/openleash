@@ -53,6 +53,13 @@ export interface OrgVerificationProvider {
   }>;
 }
 
+// ─── Plugin token verification ──────────────────────────────────────
+
+export interface PluginTokenVerifyResult {
+  /** The user_principal_id from the OpenLeash user store. */
+  user_principal_id: string;
+}
+
 // ─── Plugin manifest ────────────────────────────────────────────────
 
 export interface ServerPluginManifest {
@@ -64,6 +71,14 @@ export interface ServerPluginManifest {
   verificationProviders?: OrgVerificationProvider[];
   extraHeadHtml?: string;
   extraBodyHtml?: string;
+
+  /**
+   * Verify an external auth token (e.g. Firebase ID token) and resolve
+   * the corresponding OpenLeash user.  Return `null` for invalid tokens.
+   * When provided, the owner-auth and admin-auth middlewares call this
+   * instead of verifying PASETO session tokens.
+   */
+  verifyToken?(token: string): Promise<PluginTokenVerifyResult | null>;
 }
 
 // ─── Plugin factory ─────────────────────────────────────────────────

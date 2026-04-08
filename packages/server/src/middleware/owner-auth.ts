@@ -3,9 +3,9 @@ import {
   verifySessionToken,
   resolveSystemRoles,
 } from '@openleash/core';
-import type { OpenleashConfig, DataStore } from '@openleash/core';
+import type { OpenleashConfig, DataStore, ServerPluginManifest, SessionClaims } from '@openleash/core';
 
-export function createOwnerAuth(config: OpenleashConfig, store: DataStore) {
+export function createOwnerAuth(config: OpenleashConfig, store: DataStore, pluginManifest?: ServerPluginManifest) {
   return async function ownerAuth(request: FastifyRequest, reply: FastifyReply) {
     const isGuiRequest = request.url.startsWith('/gui/');
 
@@ -41,11 +41,47 @@ export function createOwnerAuth(config: OpenleashConfig, store: DataStore) {
       return;
     }
 
-    // Load server keys
+    // ── Plugin token verification (hosted mode) ──────────────────────
+    // When the plugin provides verifyToken, use it exclusively —
+    // no PASETO fallback for user sessions.
+    if (pluginManifest?.verifyToken) {
+      const result = await pluginManifest.verifyToken(token);
+      if (!result) {
+        deny('INVALID_SESSION', 'Invalid session token');
+        return;
+      }
+
+      const state = store.state.getState();
+      const userEntry = state.users.find((u) => u.user_principal_id === result.user_principal_id);
+      if (!userEntry) {
+        deny('USER_NOT_FOUND', 'User not found');
+        return;
+      }
+
+      const user = store.users.read(result.user_principal_id);
+      if (user.status !== 'ACTIVE') {
+        deny('USER_INACTIVE', 'User account is not active');
+        return;
+      }
+
+      const claims: SessionClaims = {
+        iss: 'openleash:plugin',
+        kid: '',
+        sub: result.user_principal_id,
+        iat: new Date().toISOString(),
+        exp: '',
+        purpose: 'user_session',
+        system_roles: resolveSystemRoles(user),
+      };
+
+      (request as unknown as Record<string, unknown>).ownerSession = claims;
+      return;
+    }
+
+    // ── PASETO session token verification (self-hosted) ──────────────
     const state = store.state.getState();
     const keys = state.server_keys.keys.map((k) => store.keys.read(k.kid));
 
-    // Verify session token
     const result = await verifySessionToken(token, keys);
     if (!result.valid || !result.claims) {
       deny('INVALID_SESSION', result.reason ?? 'Invalid session token');

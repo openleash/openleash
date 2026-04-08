@@ -89,7 +89,7 @@ export function registerGuiRoutes(
 ) {
     const vinfo = getVersionInfo();
     setVersion(vinfo.version, vinfo.commitHash ?? undefined);
-    const adminAuth = createAdminAuth(config, store);
+    const adminAuth = createAdminAuth(config, store, options?.pluginManifest);
     const rootDir = path.dirname(dataDir);
     const statePath = path.join(dataDir, "state.md");
     const isHosted = config.instance?.mode === "hosted";
@@ -636,7 +636,7 @@ export function registerGuiRoutes(
 
     // ─── Owner GUI routes ─────────────────────────────────────────────
 
-    const ownerAuth = createOwnerAuth(config, store);
+    const ownerAuth = createOwnerAuth(config, store, pluginManifest);
 
     // Login page (no auth) — skipped if plugin replaces it
     if (!pluginManifest?.replacesUserLogin) {

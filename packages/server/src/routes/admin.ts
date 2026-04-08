@@ -23,6 +23,7 @@ import type {
   Signatory,
   SignatoryRule,
   SystemRole,
+  ServerPluginManifest,
 } from '@openleash/core';
 import { SystemRole as SystemRoleEnum } from '@openleash/core';
 import { createAdminAuth } from '../middleware/admin-auth.js';
@@ -30,8 +31,8 @@ import type { AdminSession } from '../middleware/admin-auth.js';
 import { validateBody } from '../validate.js';
 import { CreateUserSchema, CreateOrgSchema } from '@openleash/gui';
 
-export function registerAdminRoutes(app: FastifyInstance, store: DataStore, config: OpenleashConfig, events: OpenleashEvents) {
-  const adminAuth = createAdminAuth(config, store);
+export function registerAdminRoutes(app: FastifyInstance, store: DataStore, config: OpenleashConfig, events: OpenleashEvents, pluginManifest?: ServerPluginManifest) {
+  const adminAuth = createAdminAuth(config, store, pluginManifest);
 
   function getAdminSession(request: unknown): AdminSession | undefined {
     return (request as Record<string, unknown>).adminSession as AdminSession | undefined;
