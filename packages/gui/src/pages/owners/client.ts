@@ -177,6 +177,37 @@ document.getElementById("copy-btn")?.addEventListener("click", copyLink);
 document.getElementById("btn-admin-disable-totp")?.addEventListener("click", adminDisableTotp);
 document.getElementById("btn-toggle-admin")?.addEventListener("click", toggleAdminRole);
 
+// Delete user
+document.getElementById("btn-delete-user")?.addEventListener("click", async () => {
+    if (!(await olConfirm(
+        "Are you sure you want to permanently delete this user? This will also remove all their agents, policies, memberships, and invites. This action cannot be undone.",
+        "Delete User",
+    ))) return;
+
+    const btn = document.getElementById("btn-delete-user") as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = "Deleting\u2026";
+
+    try {
+        const res = await fetch(`/v1/admin/users/${encodeURIComponent(pageData.ownerId!)}`, {
+            method: "DELETE",
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            olToast(olApiError(err, "Failed to delete user"), "error");
+            btn.disabled = false;
+            btn.textContent = "Delete User";
+            return;
+        }
+        olToast("User deleted", "success");
+        setTimeout(() => { window.location.href = "/gui/admin/users"; }, 800);
+    } catch {
+        olToast("Network error", "error");
+        btn.disabled = false;
+        btn.textContent = "Delete User";
+    }
+});
+
 // Activity log page size change
 document.getElementById("activity-page-size")?.addEventListener("change", (e) => {
     if (!pageData.ownerId) return;

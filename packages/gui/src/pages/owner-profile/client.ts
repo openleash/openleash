@@ -41,6 +41,7 @@ interface OwnerProfilePageData {
     companyIds: CompanyId[];
     idTypesMap: Record<string, string[]>;
     idLabelsMap: Record<string, string>;
+    totpEnabled: boolean;
 }
 
 declare global {
@@ -316,6 +317,53 @@ document.getElementById("btn-update-name")?.addEventListener("click", updateName
 document.getElementById("btn-add-contact")?.addEventListener("click", addContact);
 document.getElementById("btn-add-gov-id")?.addEventListener("click", addGovId);
 document.getElementById("btn-add-company-id")?.addEventListener("click", addCompanyId);
+document.getElementById("btn-delete-account")?.addEventListener("click", () => {
+    const codeInput = document.getElementById("delete-account-code") as HTMLInputElement | null;
+    if (codeInput) codeInput.value = "";
+    document.getElementById("delete-account-error")!.textContent = "";
+    openModal("delete-account-modal");
+});
+document.getElementById("btn-confirm-delete-account")?.addEventListener("click", async () => {
+    const errEl = document.getElementById("delete-account-error")!;
+    const pageData = window.__PAGE_DATA__;
+
+    if (pageData.totpEnabled) {
+        const code = (document.getElementById("delete-account-code") as HTMLInputElement).value.trim();
+        if (!code) {
+            errEl.textContent = "Enter your 2FA code to confirm";
+            return;
+        }
+    }
+
+    const btn = document.getElementById("btn-confirm-delete-account") as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = "Deleting\u2026";
+
+    try {
+        const body: Record<string, string> = {};
+        if (pageData.totpEnabled) {
+            body.totp_code = (document.getElementById("delete-account-code") as HTMLInputElement).value.trim();
+        }
+        const res = await fetch("/v1/owner/account", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            errEl.textContent = olApiError(data, "Failed to delete account");
+            btn.disabled = false;
+            btn.textContent = "Delete Account";
+            return;
+        }
+        olToast("Account deleted", "success");
+        setTimeout(() => { window.location.href = "/gui/login"; }, 1000);
+    } catch {
+        errEl.textContent = "Network error";
+        btn.disabled = false;
+        btn.textContent = "Delete Account";
+    }
+});
 document.getElementById("btn-setup-totp")?.addEventListener("click", setupTotp);
 document.getElementById("btn-download-codes")?.addEventListener("click", downloadBackupCodes);
 document.getElementById("btn-confirm-totp")?.addEventListener("click", confirmTotp);

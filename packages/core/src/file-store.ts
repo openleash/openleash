@@ -5,25 +5,31 @@ import {
   writeState,
   writeUserFile,
   readUserFile,
+  deleteUserFile,
   writeOrgFile,
   readOrgFile,
+  deleteOrgFile,
   writeMembershipFile,
   readMembershipFile,
   deleteMembershipFile,
   writeAgentFile,
   readAgentFile,
+  deleteAgentFile,
   writePolicyFile,
   readPolicyFile,
   deletePolicyFile,
   writeApprovalRequestFile,
   readApprovalRequestFile,
+  deleteApprovalRequestFile,
   writePolicyDraftFile,
   readPolicyDraftFile,
+  deletePolicyDraftFile,
   writeSetupInviteFile,
   readSetupInviteFile,
   deleteSetupInviteFile,
   writeAgentInviteFile,
   readAgentInviteFile,
+  deleteAgentInviteFile,
   StateIndex,
 } from './state.js';
 import {
@@ -75,6 +81,10 @@ class FileUserRepository implements UserRepository {
   write(user: UserFrontmatter, body?: string): void {
     writeUserFile(this.dataDir, user, body);
   }
+
+  delete(userPrincipalId: string): void {
+    deleteUserFile(this.dataDir, userPrincipalId);
+  }
 }
 
 class FileOrganizationRepository implements OrganizationRepository {
@@ -86,6 +96,10 @@ class FileOrganizationRepository implements OrganizationRepository {
 
   write(org: OrganizationFrontmatter, body?: string): void {
     writeOrgFile(this.dataDir, org, body);
+  }
+
+  delete(orgId: string): void {
+    deleteOrgFile(this.dataDir, orgId);
   }
 }
 
@@ -139,6 +153,10 @@ class FileAgentRepository implements AgentRepository {
   write(agent: AgentFrontmatter, body?: string): void {
     writeAgentFile(this.dataDir, agent, body);
   }
+
+  delete(agentPrincipalId: string): void {
+    deleteAgentFile(this.dataDir, agentPrincipalId);
+  }
 }
 
 class FilePolicyRepository implements PolicyRepository {
@@ -167,6 +185,10 @@ class FileApprovalRequestRepository implements ApprovalRequestRepository {
   write(req: ApprovalRequestFrontmatter): void {
     writeApprovalRequestFile(this.dataDir, req);
   }
+
+  delete(approvalRequestId: string): void {
+    deleteApprovalRequestFile(this.dataDir, approvalRequestId);
+  }
 }
 
 class FilePolicyDraftRepository implements PolicyDraftRepository {
@@ -178,6 +200,10 @@ class FilePolicyDraftRepository implements PolicyDraftRepository {
 
   write(draft: PolicyDraftFrontmatter): void {
     writePolicyDraftFile(this.dataDir, draft);
+  }
+
+  delete(policyDraftId: string): void {
+    deletePolicyDraftFile(this.dataDir, policyDraftId);
   }
 }
 
@@ -206,6 +232,10 @@ class FileAgentInviteRepository implements AgentInviteRepository {
 
   write(invite: AgentInvite): void {
     writeAgentInviteFile(this.dataDir, invite);
+  }
+
+  delete(inviteId: string): void {
+    deleteAgentInviteFile(this.dataDir, inviteId);
   }
 }
 

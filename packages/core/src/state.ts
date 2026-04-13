@@ -72,6 +72,11 @@ export function readUserFile(dataDir: string, userPrincipalId: string): UserFron
   return readFrontmatterFile<UserFrontmatter>(path.join(dataDir, 'users', `${userPrincipalId}.md`));
 }
 
+export function deleteUserFile(dataDir: string, userPrincipalId: string): void {
+  const filePath = path.join(dataDir, 'users', `${userPrincipalId}.md`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
 // ─── Organization files ─────────────────────────────────────────────
 
 export function writeOrgFile(dataDir: string, org: OrganizationFrontmatter, body?: string): void {
@@ -81,6 +86,11 @@ export function writeOrgFile(dataDir: string, org: OrganizationFrontmatter, body
 
 export function readOrgFile(dataDir: string, orgId: string): OrganizationFrontmatter {
   return readFrontmatterFile<OrganizationFrontmatter>(path.join(dataDir, 'organizations', `${orgId}.md`));
+}
+
+export function deleteOrgFile(dataDir: string, orgId: string): void {
+  const filePath = path.join(dataDir, 'organizations', `${orgId}.md`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
 // ─── Membership files ───────────────────────────────────────────────
@@ -113,6 +123,11 @@ export function writeAgentFile(dataDir: string, agent: AgentFrontmatter, body?: 
 
 export function readAgentFile(dataDir: string, agentPrincipalId: string): AgentFrontmatter {
   return readFrontmatterFile<AgentFrontmatter>(path.join(dataDir, 'agents', `${agentPrincipalId}.md`));
+}
+
+export function deleteAgentFile(dataDir: string, agentPrincipalId: string): void {
+  const filePath = path.join(dataDir, 'agents', `${agentPrincipalId}.md`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
 // ─── Policy files ───────────────────────────────────────────────────
@@ -153,6 +168,11 @@ export function readApprovalRequestFile(dataDir: string, approvalRequestId: stri
   );
 }
 
+export function deleteApprovalRequestFile(dataDir: string, approvalRequestId: string): void {
+  const filePath = path.join(dataDir, 'approval-requests', `${approvalRequestId}.md`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
 // ─── Policy draft files ─────────────────────────────────────────────
 
 export function writePolicyDraftFile(dataDir: string, draft: PolicyDraftFrontmatter): void {
@@ -168,6 +188,11 @@ export function readPolicyDraftFile(dataDir: string, policyDraftId: string): Pol
   return readFrontmatterFile<PolicyDraftFrontmatter>(
     path.join(dataDir, 'policy-drafts', `${policyDraftId}.md`),
   );
+}
+
+export function deletePolicyDraftFile(dataDir: string, policyDraftId: string): void {
+  const filePath = path.join(dataDir, 'policy-drafts', `${policyDraftId}.md`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
 // ─── Setup invite files ─────────────────────────────────────────────
@@ -203,6 +228,11 @@ export function writeAgentInviteFile(dataDir: string, invite: AgentInvite): void
 export function readAgentInviteFile(dataDir: string, inviteId: string): AgentInvite {
   const filePath = path.join(dataDir, 'agent-invites', `${inviteId}.json`);
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+export function deleteAgentInviteFile(dataDir: string, inviteId: string): void {
+  const filePath = path.join(dataDir, 'agent-invites', `${inviteId}.json`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
 // ─── StateIndex ─────────────────────────────────────────────────────

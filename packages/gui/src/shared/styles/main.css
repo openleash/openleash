@@ -284,6 +284,8 @@ tbody tr:hover td { color: var(--text-primary); background: rgba(52, 211, 153, 0
 .btn-primary:hover { background: rgba(16, 185, 129, 0.2); }
 .btn-secondary { background: transparent; color: var(--text-secondary); border-color: var(--border-subtle); }
 .btn-secondary:hover { color: var(--text-primary); border-color: var(--text-muted); }
+.btn-danger { background: transparent; color: var(--color-danger); border-color: var(--color-danger); }
+.btn-danger:hover { background: rgba(239, 68, 68, 0.15); }
 
 /* ─── Links in tables ───────────────────────────────────────────────── */
 a.table-link { color: var(--green-bright); text-decoration: none; }

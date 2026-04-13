@@ -394,7 +394,27 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
       </details>
     </div>
 
-    <script>window.__PAGE_DATA__ = { contacts: ${JSON.stringify(contacts)}, govIds: ${JSON.stringify(govIds)}, idTypesMap: ${idTypesJson}, idLabelsMap: ${idLabelsJson} };</script>
+    <div class="card">
+      <div class="card-title">Danger Zone</div>
+      <p class="profile-hint">Permanently delete your account and all associated data. This action cannot be undone.</p>
+      <button class="btn btn-secondary btn-danger-outline" id="btn-delete-account">Delete My Account</button>
+    </div>
+
+    <!-- Delete Account Confirmation Modal -->
+    <div id="delete-account-modal" class="modal-overlay" data-close-modal="delete-account-modal">
+      <div class="modal">
+        <div class="modal-title">Delete Account</div>
+        <p class="profile-modal-subtitle">This will permanently delete your account, all your agents, policies, and organization memberships. This action cannot be undone.</p>
+        ${data.totp_enabled ? '<input type="text" id="delete-account-code" class="form-input profile-input-full" placeholder="Enter 2FA code to confirm">' : ""}
+        <div id="delete-account-error" class="modal-error"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-close-modal="delete-account-modal">Cancel</button>
+          <button class="btn btn-secondary btn-danger-outline" id="btn-confirm-delete-account">Delete Account</button>
+        </div>
+      </div>
+    </div>
+
+    <script>window.__PAGE_DATA__ = { contacts: ${JSON.stringify(contacts)}, govIds: ${JSON.stringify(govIds)}, idTypesMap: ${idTypesJson}, idLabelsMap: ${idLabelsJson}, totpEnabled: ${data.totp_enabled ? "true" : "false"} };</script>
     ${assetTags("pages/owner-profile/client.ts")}
   `;
     return renderPage("Profile", content, "/gui/profile", "owner", renderPageOptions);

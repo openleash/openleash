@@ -19,11 +19,13 @@ import type { AuditStore } from './audit.js';
 export interface UserRepository {
   read(userPrincipalId: string): UserFrontmatter;
   write(user: UserFrontmatter, body?: string): void;
+  delete(userPrincipalId: string): void;
 }
 
 export interface OrganizationRepository {
   read(orgId: string): OrganizationFrontmatter;
   write(org: OrganizationFrontmatter, body?: string): void;
+  delete(orgId: string): void;
 }
 
 export interface OrgMembershipRepository {
@@ -37,6 +39,7 @@ export interface OrgMembershipRepository {
 export interface AgentRepository {
   read(agentPrincipalId: string): AgentFrontmatter;
   write(agent: AgentFrontmatter, body?: string): void;
+  delete(agentPrincipalId: string): void;
 }
 
 export interface PolicyRepository {
@@ -48,11 +51,13 @@ export interface PolicyRepository {
 export interface ApprovalRequestRepository {
   read(approvalRequestId: string): ApprovalRequestFrontmatter;
   write(req: ApprovalRequestFrontmatter): void;
+  delete(approvalRequestId: string): void;
 }
 
 export interface PolicyDraftRepository {
   read(policyDraftId: string): PolicyDraftFrontmatter;
   write(draft: PolicyDraftFrontmatter): void;
+  delete(policyDraftId: string): void;
 }
 
 export interface SetupInviteRepository {
@@ -64,6 +69,7 @@ export interface SetupInviteRepository {
 export interface AgentInviteRepository {
   read(inviteId: string): AgentInvite;
   write(invite: AgentInvite): void;
+  delete(inviteId: string): void;
 }
 
 export interface OrgInviteRepository {

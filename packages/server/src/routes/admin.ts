@@ -30,6 +30,7 @@ import { createAdminAuth } from '../middleware/admin-auth.js';
 import type { AdminSession } from '../middleware/admin-auth.js';
 import { validateBody } from '../validate.js';
 import { CreateUserSchema, CreateOrgSchema } from '@openleash/gui';
+import { cascadeDeleteAgent, cascadeDeleteOrg, cascadeDeleteUser } from '../cascade.js';
 
 export function registerAdminRoutes(app: FastifyInstance, store: DataStore, config: OpenleashConfig, events: OpenleashEvents, pluginManifest?: ServerPluginManifest) {
   const adminAuth = createAdminAuth(config, store, pluginManifest);
@@ -390,21 +391,22 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
   app.delete('/v1/admin/users/:userId', { preHandler: adminAuth }, async (request, reply) => {
     const { userId } = request.params as { userId: string };
     const state = store.state.getState();
-    const idx = state.users.findIndex((u) => u.user_principal_id === userId);
 
-    if (idx === -1) {
+    if (!state.users.find((u) => u.user_principal_id === userId)) {
       reply.code(404).send({
         error: { code: 'NOT_FOUND', message: 'User not found' },
       });
       return;
     }
 
-    store.state.updateState((s) => {
-      const i = s.users.findIndex((u) => u.user_principal_id === userId);
-      if (i !== -1) s.users.splice(i, 1);
-    });
+    const summary = cascadeDeleteUser(store, userId);
 
-    return { user_principal_id: userId, status: 'deleted' };
+    store.audit.append('USER_DELETED', {
+      user_principal_id: userId,
+      ...summary,
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    return { user_principal_id: userId, status: 'deleted', ...summary };
   });
 
   // POST /v1/admin/users/:userId/disable-totp
@@ -510,6 +512,28 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     const data = store.audit.readPage(limit, cursor);
     const nextCursor = cursor + limit < data.total ? String(cursor + limit) : null;
     return { ...data, next_cursor: nextCursor };
+  });
+
+  // DELETE /v1/admin/agents/:agentPrincipalId
+  app.delete('/v1/admin/agents/:agentPrincipalId', { preHandler: adminAuth }, async (request, reply) => {
+    const { agentPrincipalId } = request.params as { agentPrincipalId: string };
+    const state = store.state.getState();
+
+    if (!state.agents.find((a) => a.agent_principal_id === agentPrincipalId)) {
+      reply.code(404).send({
+        error: { code: 'NOT_FOUND', message: 'Agent not found' },
+      });
+      return;
+    }
+
+    const summary = cascadeDeleteAgent(store, agentPrincipalId);
+
+    store.audit.append('AGENT_DELETED', {
+      agent_principal_id: agentPrincipalId,
+      ...summary,
+    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    return { agent_principal_id: agentPrincipalId, status: 'deleted', ...summary };
   });
 
   // GET /v1/admin/users — list all users
@@ -622,24 +646,14 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       return;
     }
 
-    // Remove all memberships for this org
-    const memberships = store.memberships.listByOrg(orgId);
-    for (const m of memberships) {
-      store.memberships.delete(m.membership_id);
-    }
-
-    store.state.updateState((s) => {
-      const idx = s.organizations.findIndex((o) => o.org_id === orgId);
-      if (idx !== -1) s.organizations.splice(idx, 1);
-      s.memberships = s.memberships.filter((m) => m.org_id !== orgId);
-    });
+    const summary = cascadeDeleteOrg(store, orgId);
 
     store.audit.append('ORG_DELETED', {
       org_id: orgId,
-      memberships_removed: memberships.length,
+      ...summary,
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
-    return { org_id: orgId, status: 'deleted' };
+    return { org_id: orgId, status: 'deleted', ...summary };
   });
 
   // GET /v1/admin/organizations/:orgId/members

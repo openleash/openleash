@@ -37,6 +37,7 @@ import type {
     ServerPluginManifest,
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
+import { cascadeDeleteOrg, cascadeDeleteUser } from "../cascade.js";
 import { validateBody } from "../validate.js";
 import {
     InitialSetupSchema,
@@ -1160,25 +1161,15 @@ export function registerOwnerRoutes(
 
         if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
 
-        // Remove all memberships
-        const memberships = store.memberships.listByOrg(orgId);
-        for (const m of memberships) {
-            store.memberships.delete(m.membership_id);
-        }
-
-        store.state.updateState((s) => {
-            const idx = s.organizations.findIndex((o) => o.org_id === orgId);
-            if (idx !== -1) s.organizations.splice(idx, 1);
-            s.memberships = s.memberships.filter((m) => m.org_id !== orgId);
-        });
+        const summary = cascadeDeleteOrg(store, orgId);
 
         store.audit.append("ORG_DELETED", {
             org_id: orgId,
-            memberships_removed: memberships.length,
             deleted_by: session.sub,
+            ...summary,
         }, { principal_id: session.sub });
 
-        return { org_id: orgId, status: "deleted" };
+        return { org_id: orgId, status: "deleted", ...summary };
     });
 
     // GET /v1/owner/organizations/:orgId/agents
@@ -2112,6 +2103,46 @@ export function registerOwnerRoutes(
         });
 
         return { status: "totp_disabled" };
+    });
+
+    // DELETE /v1/owner/account — self-delete (GDPR right to erasure)
+    app.delete("/v1/owner/account", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+
+        const owner = store.users.read(session.sub);
+
+        // Require TOTP verification if enabled
+        if (owner.totp_enabled) {
+            const body = request.body as { totp_code?: string } | null;
+            const code = body?.totp_code;
+            if (!code) {
+                reply.code(403).send({
+                    error: { code: "TOTP_REQUIRED", message: "Two-factor authentication code is required" },
+                });
+                return;
+            }
+            const valid = verifyTotp(code, owner.totp_secret_b32!);
+            const backupValid = !valid && owner.totp_backup_codes_hash
+                ? verifyBackupCode(code, owner.totp_backup_codes_hash)
+                : null;
+            if (!valid && !backupValid) {
+                reply.code(403).send({
+                    error: { code: "INVALID_TOTP", message: "Invalid 2FA code" },
+                });
+                return;
+            }
+        }
+
+        const summary = cascadeDeleteUser(store, session.sub);
+
+        store.audit.append("USER_DELETED", {
+            user_principal_id: session.sub,
+            self_delete: true,
+            ...summary,
+        });
+
+        return { status: "deleted", ...summary };
     });
 
     // ─── TOTP verification helper ──────────────────────────────────────

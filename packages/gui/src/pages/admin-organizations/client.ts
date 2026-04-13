@@ -402,3 +402,35 @@ document.querySelectorAll<HTMLButtonElement>(".aorg-btn-remove-domain").forEach(
         }
     });
 });
+
+// ─── Delete organization ─────────────────────────────────────────────
+
+document.getElementById("btn-delete-org")?.addEventListener("click", async () => {
+    if (!(await olConfirm(
+        "Are you sure you want to permanently delete this organization? This will also remove all members, agents, policies, and invites. This action cannot be undone.",
+        "Delete Organization",
+    ))) return;
+
+    const btn = document.getElementById("btn-delete-org") as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = "Deleting\u2026";
+
+    try {
+        const res = await fetch(`/v1/admin/organizations/${pageData.orgId}`, {
+            method: "DELETE",
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            olToast(olApiError(err, "Failed to delete organization"), "error");
+            btn.disabled = false;
+            btn.textContent = "Delete Organization";
+            return;
+        }
+        olToast("Organization deleted", "success");
+        setTimeout(() => { window.location.href = "/gui/admin/organizations"; }, 800);
+    } catch {
+        olToast("Network error", "error");
+        btn.disabled = false;
+        btn.textContent = "Delete Organization";
+    }
+});
