@@ -34,6 +34,8 @@ export { renderAdminLogin } from "./pages/admin-login/render.js";
 export { renderAbout } from "./pages/about/render.js";
 export type { AboutData, PackageInfo } from "./pages/about/render.js";
 export { renderApiReference, renderApiReferenceUnavailable } from "./pages/api-reference/render.js";
+export { renderAdminAgentDetail } from "./pages/admin-agents/render.js";
+export type { AdminAgentDetailData } from "./pages/admin-agents/render.js";
 export { renderAdminOrganizations, renderAdminOrganizationDetail } from "./pages/admin-organizations/render.js";
 export type { OrgListData, OrgDetailData } from "./pages/admin-organizations/render.js";
 export { renderOwnerOrganizations, renderOwnerOrganizationDetail } from "./pages/owner-organizations/render.js";

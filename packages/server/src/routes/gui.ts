@@ -24,6 +24,7 @@ import {
     renderApiReference,
     renderApiReferenceUnavailable,
     renderAbout,
+    renderAdminAgentDetail,
     renderAdminOrganizations,
     renderAdminOrganizationDetail,
     renderOwnerOrganizations,
@@ -489,6 +490,73 @@ export function registerGuiRoutes(
         });
         const html = renderAgents(agents, [...userOwners, ...orgOwners]);
         reply.type("text/html").send(html);
+    });
+
+    // Agent detail
+    app.get("/gui/admin/agents/:agentPrincipalId", { preHandler: adminAuth }, async (request, reply) => {
+        const { agentPrincipalId } = request.params as { agentPrincipalId: string };
+        const query = request.query as { audit_page?: string; audit_page_size?: string };
+        const auditPageSize = Math.min(Math.max(parseInt(query.audit_page_size || "25", 10) || 25, 1), 100);
+        const auditPage = Math.max(parseInt(query.audit_page || "1", 10) || 1, 1);
+        const auditOffset = (auditPage - 1) * auditPageSize;
+        const state = store.state.getState();
+        const entry = state.agents.find((a) => a.agent_principal_id === agentPrincipalId);
+
+        if (!entry) {
+            reply.code(404).type("text/html").send("<h1>Agent not found</h1>");
+            return;
+        }
+
+        try {
+            const agent = store.agents.read(agentPrincipalId);
+
+            // Resolve owner name
+            let ownerName: string | null = null;
+            try {
+                if (entry.owner_type === "org") {
+                    ownerName = store.organizations.read(entry.owner_id).display_name;
+                } else {
+                    ownerName = store.users.read(entry.owner_id).display_name;
+                }
+            } catch { /* skip */ }
+
+            // Policies that apply to this agent (bound to it specifically or to all agents under the same owner)
+            const policies = state.policies
+                .filter((p) => p.owner_type === entry.owner_type && p.owner_id === entry.owner_id &&
+                    (!p.applies_to_agent_principal_id || p.applies_to_agent_principal_id === agentPrincipalId))
+                .map((p) => ({
+                    policy_id: p.policy_id,
+                    name: p.name ?? null,
+                    applies_to_agent_principal_id: p.applies_to_agent_principal_id,
+                }));
+
+            // Audit log filtered to this agent
+            const auditData = store.audit.readByPrincipal(agentPrincipalId, new Set(), auditPageSize, auditOffset);
+            const nextCursor = auditOffset + auditPageSize < auditData.total ? String(auditOffset + auditPageSize) : null;
+
+            // Build name maps for audit display
+            const html = renderAdminAgentDetail({
+                agent: {
+                    agent_principal_id: agent.agent_principal_id,
+                    agent_id: agent.agent_id,
+                    owner_type: entry.owner_type,
+                    owner_id: entry.owner_id,
+                    owner_name: ownerName,
+                    status: agent.status,
+                    created_at: agent.created_at,
+                    revoked_at: agent.revoked_at,
+                    webhook_url: agent.webhook_url,
+                    attributes: agent.attributes ?? {},
+                },
+                policies,
+                audit: { items: auditData.items, next_cursor: nextCursor, total: auditData.total },
+                auditPage,
+                auditPageSize,
+            });
+            reply.type("text/html").send(html);
+        } catch {
+            reply.code(404).type("text/html").send("<h1>Agent file not found</h1>");
+        }
     });
 
     // Policies list

@@ -45,7 +45,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
         .map(
             (a) => `
     <tr>
-      <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
+      <td><a href="/gui/admin/agents/${escapeHtml(a.agent_principal_id)}" class="table-link">${escapeHtml(a.agent_id)}</a></td>
       <td>${copyableId(a.agent_principal_id)}</td>
       <td>${formatNameWithId(ownerMap.get(a.owner_id), a.owner_id)}</td>
       <td>${statusBadge(a.status)}</td>

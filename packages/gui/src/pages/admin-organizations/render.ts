@@ -310,7 +310,7 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
     </tr>`).join("\n");
 
     const agentRows = agents.map((a) => `<tr>
-      <td><a href="/gui/admin/agents">${escapeHtml(a.agent_id)}</a></td>
+      <td><a href="/gui/admin/agents/${escapeHtml(a.agent_principal_id)}" class="table-link">${escapeHtml(a.agent_id)}</a></td>
       <td>${copyableId(a.agent_principal_id)}</td>
       <td>${statusBadge(a.status)}</td>
       <td>${formatTimestamp(a.created_at)}</td>
@@ -396,6 +396,7 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
 
     <div class="toolbar">
       <a href="/gui/admin/organizations" class="btn btn-secondary">Back to Organizations</a>
+      <button id="btn-delete-org" class="btn btn-danger">Delete Organization</button>
     </div>
 
     <script>window.__PAGE_DATA__ = { orgId: '${escapeHtml(org.org_id)}', companyIds: ${JSON.stringify(org.company_ids ?? [])}, domains: ${JSON.stringify(org.domains ?? [])}, companyRegInfo: ${JSON.stringify(COMPANY_REG_INFO)} };</script>
