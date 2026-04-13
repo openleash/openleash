@@ -1692,9 +1692,21 @@ export function registerOwnerRoutes(
             return;
         }
 
+        // Re-validate target agent ownership before creating binding
+        const appliesToAgent = draft.applies_to_agent_principal_id;
+        if (appliesToAgent) {
+            const freshState = store.state.getState();
+            const targetAgent = freshState.agents.find((a) => a.agent_principal_id === appliesToAgent);
+            if (!targetAgent || targetAgent.owner_type !== "org" || targetAgent.owner_id !== orgId) {
+                reply.code(400).send({
+                    error: { code: "INVALID_AGENT", message: "Target agent does not belong to this organization" },
+                });
+                return;
+            }
+        }
+
         const policyId = crypto.randomUUID();
         store.policies.write(policyId, draft.policy_yaml);
-        const appliesToAgent = draft.applies_to_agent_principal_id;
 
         draft.status = "APPROVED";
         draft.resulting_policy_id = policyId;
@@ -2603,11 +2615,22 @@ export function registerOwnerRoutes(
                 return;
             }
 
+            // Re-validate target agent ownership before creating binding
+            const appliesToAgent = draft.applies_to_agent_principal_id;
+            if (appliesToAgent) {
+                const freshState = store.state.getState();
+                const targetAgent = freshState.agents.find((a) => a.agent_principal_id === appliesToAgent);
+                if (!targetAgent || targetAgent.owner_type !== "user" || targetAgent.owner_id !== session.sub) {
+                    reply.code(400).send({
+                        error: { code: "INVALID_AGENT", message: "Target agent does not belong to you" },
+                    });
+                    return;
+                }
+            }
+
             // Create the real policy
             const policyId = crypto.randomUUID();
             store.policies.write(policyId, draft.policy_yaml);
-
-            const appliesToAgent = draft.applies_to_agent_principal_id;
 
             // Update the draft
             draft.status = "APPROVED";

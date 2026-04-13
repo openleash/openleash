@@ -226,6 +226,22 @@ export function registerAgentSelfRoutes(
       return;
     }
 
+    // Validate target agent belongs to the same owner
+    const appliesToAgent = body.applies_to_agent_principal_id !== undefined
+      ? body.applies_to_agent_principal_id
+      : agentEntry.agent_principal_id;
+
+    if (appliesToAgent) {
+      const state = store.state.getState();
+      const targetAgent = state.agents.find((a: { agent_principal_id: string }) => a.agent_principal_id === appliesToAgent);
+      if (!targetAgent || targetAgent.owner_type !== agentEntry.owner_type || targetAgent.owner_id !== agentEntry.owner_id) {
+        reply.code(400).send({
+          error: { code: 'INVALID_AGENT', message: 'Target agent does not belong to your owner' },
+        });
+        return;
+      }
+    }
+
     const policyDraftId = crypto.randomUUID();
     const now = new Date();
 
@@ -235,9 +251,7 @@ export function registerAgentSelfRoutes(
       agent_id: agent.agent_id,
       owner_type: agentEntry.owner_type,
       owner_id: agentEntry.owner_id,
-      applies_to_agent_principal_id: body.applies_to_agent_principal_id !== undefined
-        ? body.applies_to_agent_principal_id
-        : agentEntry.agent_principal_id,
+      applies_to_agent_principal_id: appliesToAgent,
       name: body.name?.trim() || null,
       description: body.description?.trim() || null,
       policy_yaml: body.policy_yaml,
