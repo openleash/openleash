@@ -1273,10 +1273,23 @@ export function registerOwnerRoutes(
             return;
         }
 
+        const appliesToAgent = body.applies_to_agent_principal_id ?? null;
+
+        // Validate that the target agent belongs to this org
+        if (appliesToAgent) {
+            const state = store.state.getState();
+            const targetAgent = state.agents.find((a) => a.agent_principal_id === appliesToAgent);
+            if (!targetAgent || targetAgent.owner_type !== "org" || targetAgent.owner_id !== orgId) {
+                reply.code(400).send({
+                    error: { code: "INVALID_AGENT", message: "Target agent does not belong to this organization" },
+                });
+                return;
+            }
+        }
+
         const policyId = crypto.randomUUID();
         store.policies.write(policyId, body.policy_yaml);
 
-        const appliesToAgent = body.applies_to_agent_principal_id ?? null;
         const policyName = body.name?.trim() || null;
         const policyDescription = body.description?.trim() || null;
 
@@ -1841,10 +1854,23 @@ export function registerOwnerRoutes(
             return;
         }
 
+        const appliesToAgent = body.applies_to_agent_principal_id ?? null;
+
+        // Validate that the target agent belongs to this user
+        if (appliesToAgent) {
+            const state = store.state.getState();
+            const targetAgent = state.agents.find((a) => a.agent_principal_id === appliesToAgent);
+            if (!targetAgent || targetAgent.owner_type !== "user" || targetAgent.owner_id !== session.sub) {
+                reply.code(400).send({
+                    error: { code: "INVALID_AGENT", message: "Target agent does not belong to you" },
+                });
+                return;
+            }
+        }
+
         const policyId = crypto.randomUUID();
         store.policies.write(policyId, body.policy_yaml);
 
-        const appliesToAgent = body.applies_to_agent_principal_id ?? null;
         const policyName = body.name?.trim() || null;
         const policyDescription = body.description?.trim() || null;
 

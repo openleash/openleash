@@ -179,9 +179,11 @@ export function registerAuthorizeRoutes(
     // Find applicable policy
     const state = store.state.getState();
     const binding = state.bindings.find((b) => {
-      // Match by agent or owner
+      // Binding must belong to the agent's owner (prevents cross-owner policy leakage)
+      if (b.owner_type !== agentEntry.owner_type || b.owner_id !== agentEntry.owner_id) return false;
+      // Match by specific agent or all agents under this owner
       if (b.applies_to_agent_principal_id === agentEntry.agent_principal_id) return true;
-      if (b.applies_to_agent_principal_id === null && b.owner_type === agentEntry.owner_type && b.owner_id === agentEntry.owner_id) return true;
+      if (b.applies_to_agent_principal_id === null) return true;
       return false;
     });
 
