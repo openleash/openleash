@@ -29,6 +29,7 @@ export function renderOwnerLogin(options?: OwnerLoginOptions): string {
         <label>Passphrase</label>
         <input type="password" id="passphrase" placeholder="Enter your passphrase" required>
       </div>
+      <label class="remember-me"><input type="checkbox" id="login-remember" checked> Remember me</label>
       <button type="submit" class="btn-login">Sign In</button>
       <div class="error-msg" id="error-msg"></div>
     </form>
