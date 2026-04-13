@@ -2,7 +2,7 @@ import {
     renderPage,
     escapeHtml,
     formatNameWithId,
-    copyableId,
+    idBadge,
     formatTimestamp,
     infoIcon,
     INFO_AGENT_STATUS,
@@ -45,8 +45,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
         .map(
             (a) => `
     <tr>
-      <td><a href="/gui/admin/agents/${escapeHtml(a.agent_principal_id)}" class="table-link">${escapeHtml(a.agent_id)}</a></td>
-      <td>${copyableId(a.agent_principal_id)}</td>
+      <td><a href="/gui/admin/agents/${escapeHtml(a.agent_principal_id)}" class="table-link">${escapeHtml(a.agent_id)}</a>${idBadge(a.agent_principal_id)}</td>
       <td>${formatNameWithId(ownerMap.get(a.owner_id), a.owner_id)}</td>
       <td>${statusBadge(a.status)}</td>
       <td class="mono text-ellipsis" title="${a.webhook_url ? escapeHtml(a.webhook_url) : ""}">${a.webhook_url ? escapeHtml(a.webhook_url) : "-"}</td>
@@ -103,11 +102,9 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
 
     <div class="card">
       <table>
-        <colgroup><col style="width:130px"><col style="width:290px"><col style="width:290px"><col style="width:130px"><col style="width:250px"><col style="width:130px"><col style="width:100px"></colgroup>
         <thead>
           <tr>
-            <th>Agent ID</th>
-            <th>Principal ID</th>
+            <th>Agent</th>
             <th>Owner</th>
             <th>Status${infoIcon("agents-status", INFO_AGENT_STATUS)}</th>
             <th>Webhook</th>
@@ -116,7 +113,7 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="7" class="agents-table-empty">No agents registered</td></tr>'}
+          ${rows || '<tr><td colspan="6" class="agents-table-empty">No agents registered</td></tr>'}
         </tbody>
       </table>
     </div>

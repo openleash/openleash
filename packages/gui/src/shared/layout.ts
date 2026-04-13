@@ -296,6 +296,12 @@ export function copyableId(fullId: string, _truncateLength?: number): string {
     return `<span class="mono copyable" title="Click to copy" data-copy-id="${escaped}">${escaped}</span>`;
 }
 
+/** Compact copy-to-clipboard icon with UUID in tooltip. Use when you want to show a name instead of a raw UUID. */
+export function idBadge(uuid: string): string {
+    const escaped = escapeHtml(uuid);
+    return `<span class="id-badge copyable" title="${escaped} — click to copy" data-copy-id="${escaped}"><span class="material-symbols-outlined">content_copy</span></span>`;
+}
+
 export function formatTimestamp(iso: string, dateOnly = false): string {
     const escaped = escapeHtml(iso);
     const d = dayjs(iso);
@@ -306,9 +312,9 @@ export function formatTimestamp(iso: string, dateOnly = false): string {
 export function formatNameWithId(name: string | undefined, uuid: string): string {
     const escaped = escapeHtml(uuid);
     if (name) {
-        return `${escapeHtml(name)} <span class="mono muted copyable" title="Click to copy" data-copy-id="${escaped}" style="color:var(--text-muted);font-size:11px">(${escapeHtml(uuid)})</span>`;
+        return `${escapeHtml(name)} <span class="id-badge copyable" title="${escaped} — click to copy" data-copy-id="${escaped}"><span class="material-symbols-outlined">content_copy</span></span>`;
     }
-    return `<span class="mono truncate copyable" title="Click to copy" data-copy-id="${escaped}">${escapeHtml(uuid)}</span>`;
+    return `<span class="mono id-truncated copyable" title="${escaped} — click to copy" data-copy-id="${escaped}">${escapeHtml(uuid.slice(0, 8))}\u2026</span>`;
 }
 
 export interface RenderPageOptions {

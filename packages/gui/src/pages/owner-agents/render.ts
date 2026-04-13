@@ -1,7 +1,7 @@
 import {
     renderPage,
     escapeHtml,
-    copyableId,
+    idBadge,
     formatTimestamp,
     infoIcon,
     INFO_AGENT_STATUS,
@@ -36,14 +36,13 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
     const disableActions = requireTotp && !totpEnabled;
     const rows =
         agents.length === 0
-            ? '<tr><td colspan="6" class="agents-empty-row">No agents registered</td></tr>'
+            ? '<tr><td colspan="5" class="agents-empty-row">No agents registered</td></tr>'
             : agents
                   .map((a) => {
                       const badge = a.status === "ACTIVE" ? "badge-green" : "badge-red";
                       return `
       <tr>
-        <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
-        <td>${copyableId(a.agent_principal_id)}</td>
+        <td>${escapeHtml(a.agent_id)}${idBadge(a.agent_principal_id)}</td>
         <td><span class="badge ${badge}">${escapeHtml(a.status)}</span></td>
         <td class="mono text-ellipsis" title="${a.webhook_url ? escapeHtml(a.webhook_url) : ''}">${a.webhook_url ? escapeHtml(a.webhook_url) : "-"}</td>
         <td>${formatTimestamp(a.created_at)}</td>
@@ -104,7 +103,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
       <table>
         <colgroup><col><col style="width:290px"><col style="width:130px"><col style="width:250px"><col style="width:170px"><col style="width:140px"></colgroup>
         <thead>
-          <tr><th>Agent ID</th><th>Principal ID</th><th>Status${infoIcon("owner-agent-status", INFO_AGENT_STATUS)}</th><th>Webhook</th><th>Created</th><th>Actions</th></tr>
+          <tr><th>Agent</th><th>Status${infoIcon("owner-agent-status", INFO_AGENT_STATUS)}</th><th>Webhook</th><th>Created</th><th>Actions</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>

@@ -1,4 +1,4 @@
-export { renderPage, setVersion, escapeHtml, formatNameWithId, copyableId, authBrandHtml } from "./shared/layout.js";
+export { renderPage, setVersion, escapeHtml, formatNameWithId, copyableId, idBadge, authBrandHtml } from "./shared/layout.js";
 export type { RenderPageOptions } from "./shared/layout.js";
 export { renderDashboard } from "./pages/dashboard/render.js";
 export type { DashboardData } from "./pages/dashboard/render.js";
@@ -7,7 +7,7 @@ export type { OwnerData, OwnerDetailData } from "./pages/owners/render.js";
 export { renderAgents } from "./pages/agents/render.js";
 export type { AgentData, OwnerOption as AgentOwnerOption } from "./pages/agents/render.js";
 export { renderPolicies, renderPolicyViewer } from "./pages/policies/render.js";
-export type { PolicyListEntry, PolicyDetail, BindingEntry } from "./pages/policies/render.js";
+export type { PolicyListEntry, PolicyDetail, BindingEntry, PolicyNameMaps } from "./pages/policies/render.js";
 export { renderConfig } from "./pages/config/render.js";
 export type { ConfigData } from "./pages/config/render.js";
 export { renderAudit } from "./pages/audit/render.js";

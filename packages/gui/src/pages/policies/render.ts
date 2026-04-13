@@ -3,6 +3,7 @@ import {
     escapeHtml,
     formatNameWithId,
     copyableId,
+    idBadge,
     infoIcon,
     INFO_DECISIONS,
     INFO_OBLIGATIONS,
@@ -27,20 +28,21 @@ export interface BindingEntry {
     applies_to_agent_principal_id: string | null;
 }
 
-export function renderPolicies(policies: PolicyListEntry[]): string {
+export interface PolicyNameMaps {
+    owners: Map<string, string>;
+    agents: Map<string, string>;
+}
+
+export function renderPolicies(policies: PolicyListEntry[], nameMaps?: PolicyNameMaps): string {
     const rows = policies
         .map((p) => {
+            const ownerName = nameMaps?.owners.get(p.owner_id);
+            const agentName = p.applies_to_agent_principal_id ? nameMaps?.agents.get(p.applies_to_agent_principal_id) : undefined;
             return `
     <tr>
-      <td>
-        ${p.name ? `<a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)}</a>` : ""}
-        <div class="policies-copyable-wrap"><a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a></div>
-      </td>
-      <td>${copyableId(p.owner_id)}</td>
-      <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
-      <td>
-        <a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="btn btn-secondary btn-sm">View</a>
-      </td>
+      <td><a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name || "Unnamed")}</a>${idBadge(p.policy_id)}</td>
+      <td>${formatNameWithId(ownerName, p.owner_id)}</td>
+      <td>${p.applies_to_agent_principal_id ? formatNameWithId(agentName, p.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
     </tr>`;
         })
         .join("");
@@ -117,13 +119,11 @@ rules:
             : `
     <div class="card">
       <table>
-        <colgroup><col><col style="width:290px"><col style="width:290px"><col style="width:100px"></colgroup>
         <thead>
           <tr>
             <th>Policy</th>
             <th>Owner</th>
             <th>Applies To</th>
-            <th>Actions</th>
           </tr>
         </thead>
         <tbody>

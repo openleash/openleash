@@ -2,6 +2,7 @@ import {
     renderPage,
     escapeHtml,
     copyableId,
+    idBadge,
     formatTimestamp,
     formatNameWithId,
     infoIcon,
@@ -54,9 +55,8 @@ export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
         : `/gui/admin/users/${escapeHtml(agent.owner_id)}`;
 
     const policyRows = policies.map((p) => `<tr>
-      <td><a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name || "Unnamed")}</a></td>
-      <td>${copyableId(p.policy_id)}</td>
-      <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
+      <td><a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name || "Unnamed")}</a>${idBadge(p.policy_id)}</td>
+      <td>${p.applies_to_agent_principal_id ? `${escapeHtml(agent.agent_id)}${idBadge(p.applies_to_agent_principal_id)}` : '<span class="text-muted">all agents</span>'}</td>
     </tr>`).join("\n");
 
     const attrEntries = Object.entries(agent.attributes);
@@ -137,7 +137,7 @@ export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
       ${policies.length === 0
         ? '<p class="aagt-empty-section">No policies target this agent</p>'
         : `<table>
-          <thead><tr><th>Name</th><th>Policy ID</th><th>Applies to</th></tr></thead>
+          <thead><tr><th>Name</th><th>Applies to</th></tr></thead>
           <tbody>${policyRows}</tbody>
         </table>`}
     </div>

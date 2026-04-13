@@ -284,6 +284,7 @@ export function registerGuiRoutes(
                 .filter((p) => p.owner_type === "user" && p.owner_id === ownerId)
                 .map((p) => ({
                     policy_id: p.policy_id,
+                    name: p.name ?? null,
                     applies_to_agent_principal_id: p.applies_to_agent_principal_id,
                 }));
 
@@ -579,7 +580,17 @@ export function registerGuiRoutes(
             }
         });
 
-        const html = renderPolicies(policies);
+        // Build name maps for human-readable display
+        const ownerNames = new Map<string, string>();
+        for (const u of state.users) {
+            try { ownerNames.set(u.user_principal_id, store.users.read(u.user_principal_id).display_name); } catch { /* skip */ }
+        }
+        for (const o of state.organizations) {
+            try { ownerNames.set(o.org_id, store.organizations.read(o.org_id).display_name); } catch { /* skip */ }
+        }
+        const agentNames = new Map(state.agents.map((a) => [a.agent_principal_id, a.agent_id]));
+
+        const html = renderPolicies(policies, { owners: ownerNames, agents: agentNames });
         reply.type("text/html").send(html);
     });
 

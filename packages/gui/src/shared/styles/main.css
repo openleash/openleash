@@ -559,6 +559,14 @@ body.theme-light .form-select {
 }
 .copy-tooltip.show { opacity: 1; }
 
+/* Compact copy icon badge — shows UUID in tooltip, copies on click */
+.id-badge { display: inline-flex; align-items: center; vertical-align: middle; margin-left: 4px; }
+.id-badge .material-symbols-outlined { font-size: 14px; color: var(--text-muted); }
+.id-badge:hover .material-symbols-outlined { color: var(--green-bright); }
+
+/* Truncated ID (fallback when no name available) */
+.id-truncated { font-size: 12px; color: var(--text-muted); }
+
 /* ─── Info popover ──────────────────────────────────────────────────── */
 .info-popover-wrap { display: inline-flex; align-items: center; vertical-align: middle; }
 .info-trigger { font-size: 16px; color: var(--text-muted); cursor: pointer; margin-left: 6px; transition: color 0.15s var(--ease-out); user-select: none; line-height: 1; }

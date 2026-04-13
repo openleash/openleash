@@ -3,6 +3,7 @@ import {
     escapeHtml,
     formatNameWithId,
     copyableId,
+    idBadge,
     formatTimestamp,
     infoIcon,
     INFO_OWNER_STATUS,
@@ -121,7 +122,7 @@ export interface OwnerData {
 export interface OwnerDetailData {
     owner: OwnerData;
     agents: { agent_id: string; agent_principal_id: string; status: string; created_at: string }[];
-    policies: { policy_id: string; applies_to_agent_principal_id: string | null }[];
+    policies: { policy_id: string; name: string | null; applies_to_agent_principal_id: string | null }[];
     activity_log: {
         items: {
             event_id: string;
@@ -218,16 +219,10 @@ export function renderOwners(owners: OwnerData[]): string {
         .map(
             (o) => `
     <tr>
-      <td class="mono">
-        <a href="/gui/admin/users/${escapeHtml(o.user_principal_id)}" class="table-link">${escapeHtml(o.user_principal_id)}</a>
-      </td>
-      <td>${escapeHtml(o.display_name ?? "-")}</td>
+      <td><a href="/gui/admin/users/${escapeHtml(o.user_principal_id)}" class="table-link">${escapeHtml(o.display_name ?? "Unnamed")}</a>${idBadge(o.user_principal_id)}</td>
       <td>${statusBadge(o.status)}</td>
       <td>${rolesBadges(o.system_roles)}</td>
       <td class="mono">${o.created_at ? formatTimestamp(o.created_at, true) : "-"}</td>
-      <td>
-        <a href="/gui/admin/users/${escapeHtml(o.user_principal_id)}" class="btn btn-secondary btn-sm">View</a>
-      </td>
     </tr>
   `,
         )
@@ -259,19 +254,16 @@ export function renderOwners(owners: OwnerData[]): string {
 
     <div class="card">
       <table>
-        <colgroup><col style="width:320px"><col><col style="width:130px"><col style="width:130px"><col style="width:170px"><col style="width:100px"></colgroup>
         <thead>
           <tr>
-            <th>Principal ID</th>
-            <th>Display Name</th>
+            <th>Name</th>
             <th>Status${infoIcon("owners-status", INFO_OWNER_STATUS)}</th>
             <th>Roles</th>
             <th>Created</th>
-            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="6" class="owners-table-empty">No owners registered</td></tr>'}
+          ${rows || '<tr><td colspan="4" class="owners-table-empty">No owners registered</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -367,8 +359,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         .map(
             (a) => `
     <tr>
-      <td>${copyableId(a.agent_id, a.agent_id.length)}</td>
-      <td>${copyableId(a.agent_principal_id)}</td>
+      <td><a href="/gui/admin/agents/${escapeHtml(a.agent_principal_id)}" class="table-link">${escapeHtml(a.agent_id)}</a>${idBadge(a.agent_principal_id)}</td>
       <td>${statusBadge(a.status)}</td>
       <td class="mono">${formatTimestamp(a.created_at, true)}</td>
     </tr>
@@ -382,9 +373,7 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
         .map(
             (p) => `
     <tr>
-      <td class="mono">
-        <a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.policy_id)}</a>
-      </td>
+      <td><a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name || "Unnamed")}</a>${idBadge(p.policy_id)}</td>
       <td>${p.applies_to_agent_principal_id ? formatNameWithId(agentMap.get(p.applies_to_agent_principal_id), p.applies_to_agent_principal_id) : '<span class="owners-all-agents">all agents</span>'}</td>
     </tr>
   `,
@@ -543,17 +532,15 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     <div class="card">
       <div class="card-title">Agents (${agents.length})</div>
       <table>
-        <colgroup><col><col style="width:290px"><col style="width:130px"><col style="width:170px"></colgroup>
         <thead>
           <tr>
-            <th>Agent ID</th>
-            <th>Principal ID</th>
+            <th>Agent</th>
             <th>Status${infoIcon("detail-agent-status", INFO_AGENT_STATUS)}</th>
             <th>Created</th>
           </tr>
         </thead>
         <tbody>
-          ${agentRows || '<tr><td colspan="4" class="owners-table-empty-sm">No agents registered under this owner</td></tr>'}
+          ${agentRows || '<tr><td colspan="3" class="owners-table-empty-sm">No agents registered under this owner</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -561,10 +548,9 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
     <div class="card">
       <div class="card-title">Policies (${policies.length})</div>
       <table>
-        <colgroup><col style="width:320px"><col></colgroup>
         <thead>
           <tr>
-            <th>Policy ID</th>
+            <th>Policy</th>
             <th>Applies To</th>
           </tr>
         </thead>

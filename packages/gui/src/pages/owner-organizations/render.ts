@@ -2,6 +2,7 @@ import {
     renderPage,
     escapeHtml,
     copyableId,
+    idBadge,
     formatTimestamp,
     infoIcon,
     INFO_ORG_STATUS,
@@ -86,11 +87,10 @@ export function renderOwnerOrganizations(orgs: OwnerOrgEntry[], renderPageOption
     const invites = pendingInvites ?? [];
     const rows = orgs.map((o) => {
         if (o.error) {
-            return `<tr><td>${copyableId(o.org_id)}</td><td colspan="4" class="text-muted">Not found</td></tr>`;
+            return `<tr><td>${escapeHtml(o.org_id.slice(0, 8))}${idBadge(o.org_id)}</td><td colspan="3" class="text-muted">Not found</td></tr>`;
         }
         return `<tr>
-      <td><a href="/gui/organizations/${escapeHtml(o.org_id)}" class="table-link">${escapeHtml(o.display_name || "—")}</a></td>
-      <td>${copyableId(o.org_id)}</td>
+      <td><a href="/gui/organizations/${escapeHtml(o.org_id)}" class="table-link">${escapeHtml(o.display_name || "—")}</a>${idBadge(o.org_id)}</td>
       <td>${roleBadge(o.role)}</td>
       <td>${statusBadge(o.status)}</td>
       <td>${formatTimestamp(o.created_at || "")}</td>
@@ -140,7 +140,6 @@ export function renderOwnerOrganizations(orgs: OwnerOrgEntry[], renderPageOption
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Org ID</th>
                 <th>Your Role${infoIcon("oorg-role", INFO_ORG_ROLE)}</th>
                 <th>Status${infoIcon("oorg-status", INFO_ORG_STATUS)}</th>
                 <th>Created</th>
@@ -393,18 +392,22 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
     const { org, members, agents, policies, currentUserId } = data;
     const isAdmin = org.role === "org_admin";
 
+    const agentNameMap = new Map(agents.map((a) => [a.agent_principal_id, a.agent_id]));
     const agentRows = agents.map((a) => `<tr>
-      <td>${escapeHtml(a.agent_id)}</td>
-      <td>${copyableId(a.agent_principal_id)}</td>
+      <td>${escapeHtml(a.agent_id)}${idBadge(a.agent_principal_id)}</td>
       <td>${statusBadge(a.status)}</td>
       <td class="mono">${formatTimestamp(a.created_at)}</td>
     </tr>`).join("\n");
 
-    const policyRows = policies.map((p) => `<tr>
-      <td>${escapeHtml(p.name || "—")}</td>
-      <td>${copyableId(p.policy_id)}</td>
-      <td>${p.applies_to_agent_principal_id ? copyableId(p.applies_to_agent_principal_id) : '<span class="text-muted">all agents</span>'}</td>
-    </tr>`).join("\n");
+    const policyRows = policies.map((p) => {
+        const appliesTo = p.applies_to_agent_principal_id
+            ? `${escapeHtml(agentNameMap.get(p.applies_to_agent_principal_id) || p.applies_to_agent_principal_id.slice(0, 8))}${idBadge(p.applies_to_agent_principal_id)}`
+            : '<span class="text-muted">all agents</span>';
+        return `<tr>
+      <td>${escapeHtml(p.name || "—")}${idBadge(p.policy_id)}</td>
+      <td>${appliesTo}</td>
+    </tr>`;
+    }).join("\n");
 
     const memberRows = members.map((m) => {
         const isSelf = m.user_principal_id === currentUserId;
@@ -422,8 +425,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
             }</td>`
             : "";
         return `<tr>
-      <td>${escapeHtml(m.display_name || "—")}${isSelf ? ' <span class="badge badge-muted">you</span>' : ""}</td>
-      <td>${copyableId(m.user_principal_id)}</td>
+      <td>${escapeHtml(m.display_name || "—")}${idBadge(m.user_principal_id)}${isSelf ? ' <span class="badge badge-muted">you</span>' : ""}</td>
       ${roleCell}
       <td class="mono">${formatTimestamp(m.created_at)}</td>
       ${actionCell}
@@ -490,7 +492,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
       ${members.length === 0
         ? '<p class="oorg-empty-section">No members</p>'
         : `<table>
-          <thead><tr><th>Name</th><th>User ID</th><th>Role${infoIcon("oorgd-mem-role", INFO_ORG_ROLE)}</th><th>Added</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
+          <thead><tr><th>Name</th><th>Role${infoIcon("oorgd-mem-role", INFO_ORG_ROLE)}</th><th>Added</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
           <tbody>${memberRows}</tbody>
         </table>`}
     </div>
@@ -499,8 +501,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
         const invites = data.pendingInvites ?? [];
         if (!isAdmin || invites.length === 0) return "";
         const inviteRows = invites.map((inv) => `<tr>
-          <td>${escapeHtml(inv.display_name || "—")}</td>
-          <td>${copyableId(inv.user_principal_id)}</td>
+          <td>${escapeHtml(inv.display_name || "—")}${idBadge(inv.user_principal_id)}</td>
           <td>${roleBadge(inv.role)}</td>
           <td class="mono">${formatTimestamp(inv.created_at)}</td>
           <td class="mono">${formatTimestamp(inv.expires_at)}</td>
@@ -512,7 +513,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
     <div class="card oorg-invites-card">
       <div class="card-title">Pending Invitations (${invites.length})</div>
       <table>
-        <thead><tr><th>Name</th><th>User ID</th><th>Role</th><th>Sent</th><th>Expires</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Role</th><th>Sent</th><th>Expires</th><th>Actions</th></tr></thead>
         <tbody>${inviteRows}</tbody>
       </table>
     </div>`;
@@ -529,7 +530,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
       ${agents.length === 0
         ? '<p class="oorg-empty-section">No agents registered under this organization</p>'
         : `<table>
-          <thead><tr><th>Agent ID</th><th>Principal ID</th><th>Status</th><th>Created</th></tr></thead>
+          <thead><tr><th>Agent</th><th>Status</th><th>Created</th></tr></thead>
           <tbody>${agentRows}</tbody>
         </table>`}
     </div>
@@ -539,7 +540,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
       ${policies.length === 0
         ? '<p class="oorg-empty-section">No policies for this organization</p>'
         : `<table>
-          <thead><tr><th>Name</th><th>Policy ID</th><th>Applies to</th></tr></thead>
+          <thead><tr><th>Policy</th><th>Applies to</th></tr></thead>
           <tbody>${policyRows}</tbody>
         </table>`}
     </div>
