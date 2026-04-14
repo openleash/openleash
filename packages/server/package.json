@@ -16,7 +16,7 @@
     "@fastify/static": "^9.1.0",
     "@openleash/core": "0.16.0",
     "@openleash/gui": "0.16.0",
-    "@scalar/fastify-api-reference": "^1.51.0",
+    "@scalar/fastify-api-reference": "^1.52.1",
     "fastify": "^5.8.4",
     "yaml": "^2.8.3",
     "zod": "^4.3.6"
