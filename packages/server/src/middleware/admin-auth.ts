@@ -15,7 +15,7 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore, plugi
 
     function deny(code: string, message: string, _statusCode = 401) {
       if (isGuiRequest) {
-        reply.redirect('/gui/login?redirect=' + encodeURIComponent(request.url));
+        reply.redirect('/gui/login?returnTo=' + encodeURIComponent(request.url));
       } else {
         reply.code(_statusCode).send({ error: { code, message } });
       }
