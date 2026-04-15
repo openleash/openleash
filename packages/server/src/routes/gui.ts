@@ -17,6 +17,7 @@ import {
     renderOwnerDashboard,
     renderOwnerApprovals,
     renderOwnerAgents,
+    renderOwnerAgentDetail,
     renderOwnerPolicies,
     renderOwnerPolicyCreate,
     renderOwnerProfile,
@@ -956,6 +957,69 @@ export function registerGuiRoutes(
             ownerOptions: ownerOptions.length > 1 ? ownerOptions : undefined,
         }, ownerRenderOptionsFor(session));
         reply.type("text/html").send(html);
+    });
+
+    // Owner agent detail
+    app.get("/gui/agents/:agentPrincipalId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { agentPrincipalId } = request.params as { agentPrincipalId: string };
+        const query = request.query as { audit_page?: string; audit_page_size?: string };
+        const auditPageSize = Math.min(Math.max(parseInt(query.audit_page_size || "25", 10) || 25, 1), 100);
+        const auditPage = Math.max(parseInt(query.audit_page || "1", 10) || 1, 1);
+        const auditOffset = (auditPage - 1) * auditPageSize;
+        const state = store.state.getState();
+
+        // Verify the agent belongs to this owner
+        const entry = state.agents.find(
+            (a) => a.agent_principal_id === agentPrincipalId && a.owner_type === "user" && a.owner_id === session.sub,
+        );
+        if (!entry) {
+            reply.code(404).type("text/html").send("<h1>Agent not found</h1>");
+            return;
+        }
+
+        try {
+            const agent = store.agents.read(agentPrincipalId);
+            const owner = store.users.read(session.sub);
+
+            // Policies that apply to this agent
+            const policies = state.policies
+                .filter((p) => p.owner_type === "user" && p.owner_id === session.sub &&
+                    (!p.applies_to_agent_principal_id || p.applies_to_agent_principal_id === agentPrincipalId))
+                .map((p) => ({
+                    policy_id: p.policy_id,
+                    name: p.name ?? null,
+                    applies_to_agent_principal_id: p.applies_to_agent_principal_id,
+                }));
+
+            // Audit log filtered to this agent
+            const auditData = store.audit.readByPrincipal(agentPrincipalId, new Set(), auditPageSize, auditOffset);
+            const nextCursor = auditOffset + auditPageSize < auditData.total ? String(auditOffset + auditPageSize) : null;
+
+            const html = renderOwnerAgentDetail({
+                agent: {
+                    agent_principal_id: agent.agent_principal_id,
+                    agent_id: agent.agent_id,
+                    status: agent.status,
+                    created_at: agent.created_at,
+                    revoked_at: agent.revoked_at,
+                    webhook_url: agent.webhook_url,
+                    attributes: agent.attributes ?? {},
+                },
+                policies,
+                audit: { items: auditData.items, next_cursor: nextCursor, total: auditData.total },
+                auditPage,
+                auditPageSize,
+                ownerName: owner.display_name,
+                ownerId: session.sub,
+                totpEnabled: !!owner.totp_enabled,
+                requireTotp: !!config.security.require_totp,
+            }, ownerRenderOptionsFor(session));
+            reply.type("text/html").send(html);
+        } catch {
+            reply.code(404).type("text/html").send("<h1>Agent file not found</h1>");
+        }
     });
 
     // Owner policies (includes policy drafts)

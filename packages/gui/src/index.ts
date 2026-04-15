@@ -20,6 +20,8 @@ export { renderOwnerApprovals } from "./pages/owner-approvals/render.js";
 export type { OwnerApprovalEntry, OwnerApprovalsOptions } from "./pages/owner-approvals/render.js";
 export { renderOwnerAgents } from "./pages/owner-agents/render.js";
 export type { OwnerAgentEntry, OwnerAgentsOptions } from "./pages/owner-agents/render.js";
+export { renderOwnerAgentDetail } from "./pages/owner-agent-detail/render.js";
+export type { OwnerAgentDetailData } from "./pages/owner-agent-detail/render.js";
 export { renderOwnerPolicies } from "./pages/owner-policies/render.js";
 export type {
     OwnerPolicyEntry,

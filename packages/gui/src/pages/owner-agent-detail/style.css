@@ -1,0 +1,18 @@
+/* ─── Owner agent detail page styles ─────────────────────────────── */
+
+.oagd-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.oagd-detail-label {
+  color: var(--text-muted);
+}
+
+.oagd-empty-section {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}

@@ -42,7 +42,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
                       const badge = a.status === "ACTIVE" ? "badge-green" : "badge-red";
                       return `
       <tr>
-        <td>${escapeHtml(a.agent_id)}${idBadge(a.agent_principal_id)}</td>
+        <td><a href="/gui/agents/${escapeHtml(a.agent_principal_id)}" class="table-link">${escapeHtml(a.agent_id)}</a>${idBadge(a.agent_principal_id)}</td>
         <td><span class="badge ${badge}">${escapeHtml(a.status)}</span></td>
         <td class="mono text-ellipsis" title="${a.webhook_url ? escapeHtml(a.webhook_url) : ''}">${a.webhook_url ? escapeHtml(a.webhook_url) : "-"}</td>
         <td>${formatTimestamp(a.created_at)}</td>

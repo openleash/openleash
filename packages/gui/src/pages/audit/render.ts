@@ -32,7 +32,7 @@ export interface AuditNameMap {
     eventTypes?: string[];
 }
 
-function eventBadge(type: string): string {
+export function eventBadge(type: string): string {
     if (type.includes("CREATED") || type.includes("REGISTERED") || type.includes("STARTED")) {
         return `<span class="badge badge-green">${escapeHtml(type)}</span>`;
     }
@@ -45,11 +45,11 @@ function eventBadge(type: string): string {
     return `<span class="badge badge-muted">${escapeHtml(type)}</span>`;
 }
 
-function resolveId(uuid: string, nameMap: AuditNameMap): string | undefined {
+export function resolveId(uuid: string, nameMap: AuditNameMap): string | undefined {
     return nameMap.owners.get(uuid) ?? nameMap.agents.get(uuid);
 }
 
-function principalDisplay(principalId: string | null, nameMap?: AuditNameMap): string {
+export function principalDisplay(principalId: string | null, nameMap?: AuditNameMap): string {
     if (!principalId) return '<span class="text-muted">--</span>';
     if (!nameMap) return copyableId(principalId);
     const name = resolveId(principalId, nameMap);
@@ -70,7 +70,7 @@ function validBadge(valid: boolean): string {
         : '<span class="badge badge-red">INVALID</span>';
 }
 
-function eventSummary(
+export function eventSummary(
     entry: AuditEntry,
     nameMap?: AuditNameMap,
     policyBasePath = "/gui/admin/policies",
@@ -158,7 +158,7 @@ function flowResult(icon: string, label: string, colorClass: string, tooltip = "
     return `<div class="flow-node ${colorClass}"${titleAttr}><span class="material-symbols-outlined">${icon}</span><span class="flow-node-label">${escapeHtml(label)}</span></div>`;
 }
 
-function renderEventFlow(entry: AuditEntry, nameMap?: AuditNameMap): string {
+export function renderEventFlow(entry: AuditEntry, nameMap?: AuditNameMap): string {
     const meta = entry.metadata_json;
     const agentLabel = meta.agent_id ? String(meta.agent_id) : "Agent";
     const ownerPid = meta.user_principal_id ?? meta.owner_principal_id;
@@ -528,7 +528,7 @@ function formatJsonCollapsible(key: string, val: unknown): string {
     return `<details id="${id}" class="audit-collapsible"><summary class="audit-collapsible-summary">expand</summary><pre class="mono audit-collapsible-body">${escaped}</pre></details>`;
 }
 
-function formatMetadata(
+export function formatMetadata(
     meta: Record<string, unknown>,
     nameMap?: AuditNameMap,
     policyBasePath = "/gui/admin/policies",

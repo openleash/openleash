@@ -41,6 +41,10 @@ export default defineConfig({
                     __dirname,
                     "src/pages/owner-agents/client.ts",
                 ),
+                "pages/owner-agent-detail/client": resolve(
+                    __dirname,
+                    "src/pages/owner-agent-detail/client.ts",
+                ),
                 "pages/owner-approvals/client": resolve(
                     __dirname,
                     "src/pages/owner-approvals/client.ts",

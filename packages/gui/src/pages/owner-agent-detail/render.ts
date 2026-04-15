@@ -2,11 +2,10 @@ import {
     renderPage,
     escapeHtml,
     copyableId,
-    idBadge,
     formatTimestamp,
-    formatNameWithId,
     infoIcon,
     INFO_AGENT_STATUS,
+    type RenderPageOptions,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 import type { AuditData, AuditNameMap } from "../audit/render.js";
@@ -20,13 +19,10 @@ import {
 
 // ─── Interfaces ───────────────────────────────────────────────────────
 
-export interface AdminAgentDetailData {
+export interface OwnerAgentDetailData {
     agent: {
         agent_principal_id: string;
         agent_id: string;
-        owner_type: string;
-        owner_id: string;
-        owner_name: string | null;
         status: string;
         created_at: string;
         revoked_at: string | null;
@@ -37,6 +33,10 @@ export interface AdminAgentDetailData {
     audit: AuditData;
     auditPage: number;
     auditPageSize: number;
+    ownerName: string | null;
+    ownerId: string;
+    totpEnabled: boolean;
+    requireTotp: boolean;
 }
 
 // ─── Badge helpers ────────────────────────────────────────────────────
@@ -54,40 +54,36 @@ function statusBadge(status: string): string {
 
 // ─── Detail page ──────────────────────────────────────────────────────
 
-export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
+export function renderOwnerAgentDetail(data: OwnerAgentDetailData, renderPageOptions?: RenderPageOptions): string {
     const { agent, policies, audit, auditPage, auditPageSize } = data;
-
-    const ownerHref = agent.owner_type === "org"
-        ? `/gui/admin/organizations/${escapeHtml(agent.owner_id)}`
-        : `/gui/admin/users/${escapeHtml(agent.owner_id)}`;
+    const policyBasePath = "/gui/policies";
 
     const policyRows = policies.map((p) => `<tr>
-      <td><a href="/gui/admin/policies/${escapeHtml(p.policy_id)}" class="table-link">${escapeHtml(p.name || "Unnamed")}</a>${idBadge(p.policy_id)}</td>
-      <td>${p.applies_to_agent_principal_id ? `${escapeHtml(agent.agent_id)}${idBadge(p.applies_to_agent_principal_id)}` : '<span class="text-muted">all agents</span>'}</td>
+      <td>${escapeHtml(p.name || "Unnamed")}</td>
+      <td>${p.applies_to_agent_principal_id ? escapeHtml(agent.agent_id) : '<span class="text-muted">all agents</span>'}</td>
     </tr>`).join("\n");
 
     const attrEntries = Object.entries(agent.attributes);
     const attrRows = attrEntries.map(([key, val]) => {
         const valStr = typeof val === "object" ? JSON.stringify(val) : String(val);
-        return `<tr><td class="aagt-detail-label">${escapeHtml(key)}</td><td class="mono">${escapeHtml(valStr)}</td></tr>`;
+        return `<tr><td class="oagd-detail-label">${escapeHtml(key)}</td><td class="mono">${escapeHtml(valStr)}</td></tr>`;
     }).join("\n");
 
-    // Build inline audit table (reuse audit render for the table body only)
+    // Build inline audit table
     const total = audit.total;
     const totalPages = Math.max(1, Math.ceil(total / auditPageSize));
     const items = [...audit.items].reverse();
     const offset = (auditPage - 1) * auditPageSize;
 
-    const auditBasePath = `/gui/admin/agents/${agent.agent_principal_id}`;
-    const policyBasePath = "/gui/admin/policies";
+    const auditBasePath = `/gui/agents/${agent.agent_principal_id}`;
 
     // Build a name map so audit entries can resolve principal IDs to names
     const nameMap: AuditNameMap = {
         owners: new Map(),
         agents: new Map([[agent.agent_principal_id, agent.agent_id]]),
     };
-    if (agent.owner_name) {
-        nameMap.owners.set(agent.owner_id, agent.owner_name);
+    if (data.ownerName) {
+        nameMap.owners.set(data.ownerId, data.ownerName);
     }
 
     const auditRows = items.map((e, i) => {
@@ -142,9 +138,11 @@ export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
     const prevHref = auditPage > 1 ? `${auditBasePath}?audit_page=${auditPage - 1}&audit_page_size=${auditPageSize}` : "#";
     const nextHref = auditPage < totalPages ? `${auditBasePath}?audit_page=${auditPage + 1}&audit_page_size=${auditPageSize}` : "#";
 
+    const disableRevoke = data.requireTotp && !data.totpEnabled;
+
     const content = `
     <div class="page-header">
-      <div class="aagt-detail-heading">
+      <div class="oagd-detail-heading">
         <h2><span class="material-symbols-outlined">smart_toy</span> ${escapeHtml(agent.agent_id)}</h2>
         ${statusBadge(agent.status)}${infoIcon("agent-detail-status", INFO_AGENT_STATUS)}
       </div>
@@ -156,13 +154,12 @@ export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
       <table>
         <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
-          <tr><td class="aagt-detail-label">Agent ID</td><td class="mono">${escapeHtml(agent.agent_id)}</td></tr>
-          <tr><td class="aagt-detail-label">Principal ID</td><td>${copyableId(agent.agent_principal_id, agent.agent_principal_id.length)}</td></tr>
-          <tr><td class="aagt-detail-label">Owner</td><td><a href="${ownerHref}" class="table-link">${formatNameWithId(agent.owner_name ?? undefined, agent.owner_id)}</a> <span class="badge badge-muted">${escapeHtml(agent.owner_type)}</span></td></tr>
-          <tr><td class="aagt-detail-label">Status</td><td>${statusBadge(agent.status)}</td></tr>
-          <tr><td class="aagt-detail-label">Created</td><td class="mono">${formatTimestamp(agent.created_at)}</td></tr>
-          ${agent.revoked_at ? `<tr><td class="aagt-detail-label">Revoked</td><td class="mono">${formatTimestamp(agent.revoked_at)}</td></tr>` : ""}
-          <tr><td class="aagt-detail-label">Webhook URL</td><td class="mono">${agent.webhook_url ? escapeHtml(agent.webhook_url) : '<span class="text-muted">None</span>'}</td></tr>
+          <tr><td class="oagd-detail-label">Agent ID</td><td class="mono">${escapeHtml(agent.agent_id)}</td></tr>
+          <tr><td class="oagd-detail-label">Principal ID</td><td>${copyableId(agent.agent_principal_id, agent.agent_principal_id.length)}</td></tr>
+          <tr><td class="oagd-detail-label">Status</td><td>${statusBadge(agent.status)}</td></tr>
+          <tr><td class="oagd-detail-label">Created</td><td class="mono">${formatTimestamp(agent.created_at)}</td></tr>
+          ${agent.revoked_at ? `<tr><td class="oagd-detail-label">Revoked</td><td class="mono">${formatTimestamp(agent.revoked_at)}</td></tr>` : ""}
+          <tr><td class="oagd-detail-label">Webhook URL</td><td class="mono">${agent.webhook_url ? escapeHtml(agent.webhook_url) : '<span class="text-muted">None</span>'}</td></tr>
         </tbody>
       </table>
     </div>
@@ -178,7 +175,7 @@ export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
     <div class="card">
       <div class="card-title">Policies (${policies.length})</div>
       ${policies.length === 0
-        ? '<p class="aagt-empty-section">No policies target this agent</p>'
+        ? '<p class="oagd-empty-section">No policies target this agent</p>'
         : `<table>
           <thead><tr><th>Name</th><th>Applies to</th></tr></thead>
           <tbody>${policyRows}</tbody>
@@ -188,7 +185,7 @@ export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
     <div class="card">
       <div class="card-title">Audit Log (${total} events)</div>
       ${total === 0
-        ? '<p class="aagt-empty-section">No audit events for this agent</p>'
+        ? '<p class="oagd-empty-section">No audit events for this agent</p>'
         : `<table>
           <colgroup><col style="width:36px"><col style="width:170px"><col style="width:240px"><col><col style="width:180px"><col style="width:290px"></colgroup>
           <thead><tr><th></th><th>Timestamp</th><th>Event</th><th>Principal</th><th>Detail</th><th>Event ID</th></tr></thead>
@@ -207,12 +204,12 @@ export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
     </div>
 
     <div class="toolbar">
-      <a href="/gui/admin/agents" class="btn btn-secondary">Back to Agents</a>
-      <button id="btn-delete-agent" class="btn btn-danger">Delete Agent</button>
+      <a href="/gui/agents" class="btn btn-secondary">Back to Agents</a>
+      ${agent.status === "ACTIVE" ? `<button id="btn-revoke-agent" class="btn btn-danger"${disableRevoke ? " disabled" : ""}>Revoke Agent</button>` : ""}
     </div>
 
-    <script>window.__PAGE_DATA__ = { agentPrincipalId: '${escapeHtml(agent.agent_principal_id)}', agentId: '${escapeHtml(agent.agent_id)}' };</script>
-    ${assetTags("pages/admin-agents/client.ts")}`;
+    <script>window.__PAGE_DATA__ = { agentPrincipalId: '${escapeHtml(agent.agent_principal_id)}', agentId: '${escapeHtml(agent.agent_id)}', totpEnabled: ${data.totpEnabled} };</script>
+    ${assetTags("pages/owner-agent-detail/client.ts")}`;
 
-    return renderPage(agent.agent_id, content, "/gui/admin/agents");
+    return renderPage(agent.agent_id, content, "/gui/agents", "owner", renderPageOptions);
 }
