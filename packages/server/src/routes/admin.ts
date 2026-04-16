@@ -302,11 +302,25 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       created_at: new Date().toISOString(),
     });
 
+    const adminPrincipalId = getAdminSession(request)?.principal_id ?? null;
+
     store.audit.append('USER_SETUP_INVITE_CREATED', {
       user_principal_id: userId,
       invite_id: inviteId,
       expires_at: expiresAt,
-    }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+    }, { principal_id: adminPrincipalId });
+
+    const user = store.users.read(userId);
+    const emailContact = user.contact_identities?.find((c) => c.type === 'EMAIL');
+    events.emit('user_setup_invite.created', {
+      invite_id: inviteId,
+      invite_token: inviteToken,
+      user_principal_id: userId,
+      display_name: user.display_name,
+      email: emailContact?.value ?? null,
+      expires_at: expiresAt,
+      created_by_user_id: adminPrincipalId,
+    });
 
     return {
       invite_id: inviteId,

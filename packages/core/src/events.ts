@@ -58,6 +58,16 @@ export interface ContactVerificationRequestedEvent {
   requested_by_user_id: string;
 }
 
+export interface UserSetupInviteCreatedEvent {
+  invite_id: string;
+  invite_token: string;
+  user_principal_id: string;
+  display_name: string;
+  email: string | null;
+  expires_at: string;
+  created_by_user_id: string | null;
+}
+
 export interface OpenleashEventMap {
   'approval_request.created': ApprovalRequestCreatedEvent;
   'policy_draft.created': PolicyDraftCreatedEvent;
@@ -65,6 +75,7 @@ export interface OpenleashEventMap {
   'org_member.added': OrgMemberAddedEvent;
   'org_member.removed': OrgMemberRemovedEvent;
   'contact_verification.requested': ContactVerificationRequestedEvent;
+  'user_setup_invite.created': UserSetupInviteCreatedEvent;
 }
 
 // ─── Typed event emitter ────────────────────────────────────────────

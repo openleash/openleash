@@ -227,6 +227,7 @@ export function registerGuiRoutes(
                     totp_enabled: user.totp_enabled,
                     totp_enabled_at: user.totp_enabled_at,
                     has_passphrase: !!user.passphrase_hash,
+                    setup_completed: !!user.passphrase_hash || !!user.last_login_at,
                     system_roles: resolveSystemRoles(user) as string[],
                 };
             } catch {
@@ -311,6 +312,7 @@ export function registerGuiRoutes(
                 totp_enabled: user.totp_enabled,
                 totp_enabled_at: user.totp_enabled_at,
                 has_passphrase: !!user.passphrase_hash,
+                setup_completed: !!user.passphrase_hash || !!user.last_login_at,
                 system_roles: resolveSystemRoles(user) as string[],
             };
             const html = renderOwnerDetail({

@@ -116,6 +116,7 @@ export interface OwnerData {
     totp_enabled?: boolean;
     totp_enabled_at?: string;
     has_passphrase?: boolean;
+    setup_completed?: boolean;
     system_roles?: string[];
 }
 
@@ -467,19 +468,19 @@ export function renderOwnerDetail(data: OwnerDetailData): string {
 
     <div class="card">
       <div class="owners-invite-header">
-        <div class="card-title">${owner.has_passphrase ? "Reset Passphrase" : "Setup Invite"}</div>
-        ${owner.has_passphrase ? '<span class="badge badge-green owners-badge-sm">Setup complete</span>' : '<span class="badge badge-amber owners-badge-sm">Setup pending</span>'}
+        <div class="card-title">${owner.setup_completed ? "Reset Passphrase" : "Setup Invite"}</div>
+        ${owner.setup_completed ? '<span class="badge badge-green owners-badge-sm">Setup complete</span>' : '<span class="badge badge-amber owners-badge-sm">Setup pending</span>'}
       </div>
       <p class="owners-invite-desc">
         ${
-            owner.has_passphrase
+            owner.setup_completed
                 ? "Generate a one-time link to let this owner reset their passphrase."
-                : "Generate a one-time setup invite link for this owner to set up their account (passphrase, contact info, IDs)."
+                : "Generate a one-time setup invite link for this owner to set up their account."
         }
       </p>
-      <button id="invite-btn" class="btn ${owner.has_passphrase ? "btn-secondary" : "btn-primary"} owners-invite-btn">${owner.has_passphrase ? "Generate Reset Link" : "Generate Setup Invite"}</button>
+      <button id="invite-btn" class="btn ${owner.setup_completed ? "btn-secondary" : "btn-primary"} owners-invite-btn">${owner.setup_completed ? "Generate Reset Link" : "Generate Setup Invite"}</button>
       <div id="invite-result" class="hidden owners-invite-result">
-        <div class="card-title">${owner.has_passphrase ? "Reset Link" : "Setup Link"} (copy and share securely — shown once)</div>
+        <div class="card-title">${owner.setup_completed ? "Reset Link" : "Setup Link"} (copy and share securely — shown once)</div>
         <div class="owners-invite-link-row">
           <pre id="invite-link" class="config-block owners-invite-link-block"></pre>
           <button type="button" id="copy-btn" class="btn btn-secondary owners-copy-btn">Copy</button>

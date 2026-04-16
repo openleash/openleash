@@ -265,6 +265,7 @@ export interface UserFrontmatter {
   passphrase_hash?: string;
   passphrase_salt?: string;
   passphrase_set_at?: string;
+  last_login_at?: string;
   // External auth provider link (e.g., Firebase)
   external_auth_provider?: string;
   external_auth_id?: string;

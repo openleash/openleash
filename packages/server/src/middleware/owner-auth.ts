@@ -64,11 +64,18 @@ export function createOwnerAuth(config: OpenleashConfig, store: DataStore, plugi
         return;
       }
 
+      // Track last login
+      const now = new Date().toISOString();
+      if (!user.last_login_at || user.last_login_at < now.slice(0, 10)) {
+        user.last_login_at = now;
+        store.users.write(user);
+      }
+
       const claims: SessionClaims = {
         iss: 'openleash:plugin',
         kid: '',
         sub: result.user_principal_id,
-        iat: new Date().toISOString(),
+        iat: now,
         exp: '',
         purpose: 'user_session',
         system_roles: resolveSystemRoles(user),
@@ -99,6 +106,13 @@ export function createOwnerAuth(config: OpenleashConfig, store: DataStore, plugi
     if (user.status !== 'ACTIVE') {
       deny('USER_INACTIVE', 'User account is not active');
       return;
+    }
+
+    // Track last login
+    const now = new Date().toISOString();
+    if (!user.last_login_at || user.last_login_at < now.slice(0, 10)) {
+      user.last_login_at = now;
+      store.users.write(user);
     }
 
     // Always resolve system_roles from store (authoritative source)
