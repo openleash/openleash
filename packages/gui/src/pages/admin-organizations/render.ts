@@ -269,20 +269,22 @@ export function renderAdminOrganizations(orgs: OrgListData[]): string {
     </div>
     ${orgs.length === 0
         ? '<div class="empty-state"><span class="material-symbols-outlined">corporate_fare</span><p>No organizations yet</p></div>'
-        : `<div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Status${infoIcon("org-list-status", INFO_ORG_STATUS)}</th>
-              <th>Verification${infoIcon("org-list-verif", INFO_ORG_VERIFICATION)}</th>
-              <th>Members</th>
-              <th>Agents</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
+        : `<div class="card">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Status${infoIcon("org-list-status", INFO_ORG_STATUS)}</th>
+                <th>Verification${infoIcon("org-list-verif", INFO_ORG_VERIFICATION)}</th>
+                <th>Members</th>
+                <th>Agents</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       </div>`
     }
 

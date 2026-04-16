@@ -883,6 +883,16 @@ export function registerOwnerRoutes(
             return;
         }
 
+        // Guard: prevent duplicate membership (e.g. invite expired, re-invited, both accepted)
+        const existingMembers = store.memberships.listByOrg(invite.org_id);
+        if (existingMembers.find((m) => m.user_principal_id === session.sub)) {
+            invite.status = "accepted";
+            invite.responded_at = new Date().toISOString();
+            store.orgInvites.write(invite);
+            reply.code(409).send({ error: { code: "ALREADY_MEMBER", message: "You are already a member of this organization" } });
+            return;
+        }
+
         // Accept: create membership
         invite.status = "accepted";
         invite.responded_at = new Date().toISOString();

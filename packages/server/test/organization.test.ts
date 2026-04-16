@@ -554,6 +554,44 @@ describe("Organization management", () => {
             expect(res.statusCode).toBe(200);
             expect(JSON.parse(res.payload).status).toBe("removed");
         });
+
+        it("prevents duplicate membership on invite acceptance", async () => {
+            // Step 1: Create an invite for C (not a member yet)
+            const inv = await app.inject({
+                method: "POST",
+                url: `/v1/owner/organizations/${orgId}/members`,
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+                payload: { user_principal_id: userCId, role: "org_member" },
+            });
+            expect(inv.statusCode).toBe(200);
+            const inviteId = JSON.parse(inv.payload).invite_id;
+
+            // Step 2: Add C directly via admin API (simulates membership created by another path)
+            const direct = await app.inject({
+                method: "POST",
+                url: `/v1/admin/organizations/${orgId}/members`,
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+                payload: { user_principal_id: userCId, role: "org_member" },
+            });
+            expect(direct.statusCode).toBe(200);
+
+            // Step 3: C tries to accept the invite — should be blocked (already a member)
+            const accept = await app.inject({
+                method: "POST",
+                url: `/v1/owner/organization-invites/${inviteId}/accept`,
+                headers: { authorization: `Bearer ${sessionTokenC}` },
+                payload: {},
+            });
+            expect(accept.statusCode).toBe(409);
+            expect(JSON.parse(accept.payload).error.code).toBe("ALREADY_MEMBER");
+
+            // Clean up: remove C for subsequent tests
+            await app.inject({
+                method: "DELETE",
+                url: `/v1/owner/organizations/${orgId}/members/${userCId}`,
+                headers: { authorization: `Bearer ${sessionTokenA}` },
+            });
+        });
     });
 
     // ─── Org-scoped policies ──────────────────────────────────────────
