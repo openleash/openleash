@@ -351,6 +351,7 @@ export function registerOwnerRoutes(
         };
 
         const user = store.users.read(session.sub);
+        const previousContactIds = new Set((user.contact_identities ?? []).map((c) => c.contact_id));
 
         if (body.display_name !== undefined) user.display_name = body.display_name;
         if (body.contact_identities !== undefined) {
@@ -378,6 +379,20 @@ export function registerOwnerRoutes(
         store.audit.append("USER_UPDATED", {
             user_principal_id: session.sub,
         });
+
+        // Emit verification request for newly added unverified contacts
+        for (const contact of user.contact_identities ?? []) {
+            if (!contact.verified && !previousContactIds.has(contact.contact_id)) {
+                events.emit("contact_verification.requested", {
+                    contact_id: contact.contact_id,
+                    type: contact.type,
+                    value: contact.value,
+                    owner_type: "user",
+                    owner_id: session.sub,
+                    requested_by_user_id: session.sub,
+                });
+            }
+        }
 
         const { passphrase_hash: _hash, passphrase_salt: _salt, ...safeUser } = user;
         return safeUser;
@@ -574,6 +589,20 @@ export function registerOwnerRoutes(
             created_by_user_id: session.sub,
         }, { principal_id: session.sub });
 
+        // Emit verification request for contacts provided at creation
+        for (const contact of contacts) {
+            if (!contact.verified) {
+                events.emit("contact_verification.requested", {
+                    contact_id: contact.contact_id,
+                    type: contact.type,
+                    value: contact.value,
+                    owner_type: "org",
+                    owner_id: orgId,
+                    requested_by_user_id: session.sub,
+                });
+            }
+        }
+
         return {
             org_id: orgId,
             display_name: body.display_name.trim(),
@@ -648,6 +677,7 @@ export function registerOwnerRoutes(
         };
 
         const org = store.organizations.read(orgId);
+        const previousContactIds = new Set((org.contact_identities ?? []).map((c) => c.contact_id));
         if (body.display_name !== undefined) org.display_name = body.display_name.trim();
         if (body.contact_identities !== undefined) org.contact_identities = body.contact_identities;
         if (body.company_ids !== undefined) {
@@ -673,6 +703,20 @@ export function registerOwnerRoutes(
             org_id: orgId,
             updated_by: session.sub,
         }, { principal_id: session.sub });
+
+        // Emit verification request for newly added unverified contacts
+        for (const contact of org.contact_identities ?? []) {
+            if (!contact.verified && !previousContactIds.has(contact.contact_id)) {
+                events.emit("contact_verification.requested", {
+                    contact_id: contact.contact_id,
+                    type: contact.type,
+                    value: contact.value,
+                    owner_type: "org",
+                    owner_id: orgId,
+                    requested_by_user_id: session.sub,
+                });
+            }
+        }
 
         return { org_id: orgId, status: "updated" };
     });

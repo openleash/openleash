@@ -49,12 +49,22 @@ export interface OrgMemberRemovedEvent {
   removed_by_user_id: string | null;
 }
 
+export interface ContactVerificationRequestedEvent {
+  contact_id: string;
+  type: string;
+  value: string;
+  owner_type: 'user' | 'org';
+  owner_id: string;
+  requested_by_user_id: string;
+}
+
 export interface OpenleashEventMap {
   'approval_request.created': ApprovalRequestCreatedEvent;
   'policy_draft.created': PolicyDraftCreatedEvent;
   'org_invite.created': OrgInviteCreatedEvent;
   'org_member.added': OrgMemberAddedEvent;
   'org_member.removed': OrgMemberRemovedEvent;
+  'contact_verification.requested': ContactVerificationRequestedEvent;
 }
 
 // ─── Typed event emitter ────────────────────────────────────────────

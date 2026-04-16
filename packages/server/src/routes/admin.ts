@@ -248,6 +248,20 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
       created_by_user_id: body.created_by_user_id,
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
 
+    // Emit verification request for contacts provided at creation
+    for (const contact of contacts) {
+      if (!contact.verified) {
+        events.emit('contact_verification.requested', {
+          contact_id: contact.contact_id,
+          type: contact.type,
+          value: contact.value,
+          owner_type: 'org',
+          owner_id: orgId,
+          requested_by_user_id: body.created_by_user_id,
+        });
+      }
+    }
+
     return {
       org_id: orgId,
       display_name: body.display_name,
@@ -608,6 +622,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     };
 
     const org = store.organizations.read(orgId);
+    const previousContactIds = new Set((org.contact_identities ?? []).map((c) => c.contact_id));
     if (body.display_name !== undefined) org.display_name = body.display_name.trim();
     if (body.contact_identities !== undefined) org.contact_identities = body.contact_identities;
     if (body.company_ids !== undefined) {
@@ -632,6 +647,20 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     store.audit.append('ORG_UPDATED', {
       org_id: orgId,
     }, { principal_id: getAdminSession(request)?.principal_id ?? null });
+
+    // Emit verification request for newly added unverified contacts
+    for (const contact of org.contact_identities ?? []) {
+      if (!contact.verified && !previousContactIds.has(contact.contact_id)) {
+        events.emit('contact_verification.requested', {
+          contact_id: contact.contact_id,
+          type: contact.type,
+          value: contact.value,
+          owner_type: 'org',
+          owner_id: orgId,
+          requested_by_user_id: getAdminSession(request)?.principal_id ?? '',
+        });
+      }
+    }
 
     return { org_id: orgId, status: 'updated' };
   });
