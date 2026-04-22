@@ -634,19 +634,19 @@ btnSaveRename?.addEventListener("click", async () => {
     }
 });
 
-// ─── Edit slug ────────────────────────────────────────────────────────
+// ─── Edit slug (org settings, distinct from the create-form slug input above) ─
 
 const slugDisplay = document.getElementById("slug-display");
 const slugForm = document.getElementById("slug-form") as HTMLFormElement | null;
-const slugInput = document.getElementById("slug-input") as HTMLInputElement | null;
+const editSlugInput = document.getElementById("slug-input") as HTMLInputElement | null;
 const btnEditSlug = document.getElementById("btn-edit-slug");
 const btnCancelSlug = document.getElementById("btn-cancel-slug");
 
 btnEditSlug?.addEventListener("click", () => {
     slugDisplay?.classList.add("hidden");
     slugForm?.classList.remove("hidden");
-    slugInput?.focus();
-    slugInput?.select();
+    editSlugInput?.focus();
+    editSlugInput?.select();
 });
 
 btnCancelSlug?.addEventListener("click", () => {
@@ -658,7 +658,7 @@ btnCancelSlug?.addEventListener("click", () => {
 slugForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     olClearFieldErrors("slug-form");
-    const next = slugInput?.value.trim().toLowerCase();
+    const next = editSlugInput?.value.trim().toLowerCase();
     if (!next) {
         olFieldError("slug-input", "Slug is required");
         return;
