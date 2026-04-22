@@ -261,7 +261,7 @@ describe("Cascade delete", () => {
             // Write org file
             const orgDir = path.join(dataDir, "organizations");
             fs.mkdirSync(orgDir, { recursive: true });
-            fs.writeFileSync(path.join(orgDir, `${orgId}.md`), `---\norg_id: ${orgId}\ndisplay_name: Test Org\nstatus: ACTIVE\ncreated_at: "${new Date().toISOString()}"\n---\nOrganization: Test Org\n`);
+            fs.writeFileSync(path.join(orgDir, `${orgId}.md`), `---\norg_id: ${orgId}\nslug: test-org-1\ndisplay_name: Test Org\nstatus: ACTIVE\ncreated_at: "${new Date().toISOString()}"\n---\nOrganization: Test Org\n`);
 
             // Write membership file
             const membershipId = crypto.randomUUID();
@@ -295,7 +295,7 @@ describe("Cascade delete", () => {
                 { user_principal_id: adminId, path: `./users/${adminId}.md` },
                 { user_principal_id: memberId, path: `./users/${memberId}.md` },
             );
-            state.organizations.push({ org_id: orgId, path: `./organizations/${orgId}.md` });
+            state.organizations.push({ org_id: orgId, slug: "test-org-1", path: `./organizations/${orgId}.md` });
             state.memberships.push({
                 membership_id: membershipId,
                 org_id: orgId,
@@ -386,7 +386,7 @@ describe("Cascade delete", () => {
             // Write org + membership for the user
             const orgDir = path.join(dataDir, "organizations");
             fs.mkdirSync(orgDir, { recursive: true });
-            fs.writeFileSync(path.join(orgDir, `${orgId}.md`), `---\norg_id: ${orgId}\ndisplay_name: Some Org\nstatus: ACTIVE\ncreated_at: "${new Date().toISOString()}"\n---\n`);
+            fs.writeFileSync(path.join(orgDir, `${orgId}.md`), `---\norg_id: ${orgId}\nslug: some-org\ndisplay_name: Some Org\nstatus: ACTIVE\ncreated_at: "${new Date().toISOString()}"\n---\n`);
 
             const membershipId = crypto.randomUUID();
             const membDir = path.join(dataDir, "memberships");
@@ -406,7 +406,7 @@ describe("Cascade delete", () => {
                 { user_principal_id: adminId, path: `./users/${adminId}.md` },
                 { user_principal_id: targetUserId, path: `./users/${targetUserId}.md` },
             );
-            state.organizations.push({ org_id: orgId, path: `./organizations/${orgId}.md` });
+            state.organizations.push({ org_id: orgId, slug: "some-org", path: `./organizations/${orgId}.md` });
             state.memberships.push({
                 membership_id: membershipId,
                 org_id: orgId,

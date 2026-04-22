@@ -1,5 +1,5 @@
 export { renderPage, setVersion, escapeHtml, formatNameWithId, copyableId, idBadge, authBrandHtml } from "./shared/layout.js";
-export type { RenderPageOptions } from "./shared/layout.js";
+export type { RenderPageOptions, ScopeOption, ScopeContext } from "./shared/layout.js";
 export { renderDashboard } from "./pages/dashboard/render.js";
 export type { DashboardData } from "./pages/dashboard/render.js";
 export { renderOwners, renderOwnerDetail } from "./pages/owners/render.js";

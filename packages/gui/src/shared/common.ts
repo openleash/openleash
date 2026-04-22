@@ -123,6 +123,15 @@ function toggleInfo(trigger: HTMLElement, id: string) {
 
 // ─── Global click delegation ────────────────────────────────────────
 
+function closeScopeSwitchers(except?: HTMLElement) {
+    document.querySelectorAll<HTMLElement>('[data-scope-switcher][data-open="true"]').forEach((el) => {
+        if (el === except) return;
+        el.setAttribute("data-open", "false");
+        const toggle = el.querySelector<HTMLElement>("[data-scope-switcher-toggle]");
+        toggle?.setAttribute("aria-expanded", "false");
+    });
+}
+
 document.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
 
@@ -142,10 +151,34 @@ document.addEventListener("click", (e) => {
         return;
     }
 
+    // Scope switcher toggle
+    const scopeToggle = target.closest<HTMLElement>("[data-scope-switcher-toggle]");
+    if (scopeToggle) {
+        e.stopPropagation();
+        const switcher = scopeToggle.closest<HTMLElement>("[data-scope-switcher]");
+        if (switcher) {
+            const wasOpen = switcher.getAttribute("data-open") === "true";
+            closeScopeSwitchers(switcher);
+            switcher.setAttribute("data-open", wasOpen ? "false" : "true");
+            scopeToggle.setAttribute("aria-expanded", wasOpen ? "false" : "true");
+        }
+        return;
+    }
+
+    // Close switcher on outside click (but not when a menu item was clicked —
+    // that click navigates).
+    if (!target.closest("[data-scope-switcher]")) {
+        closeScopeSwitchers();
+    }
+
     // Close popovers on outside click
     if (!target.closest(".info-popover")) {
         closeAllPopovers();
     }
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeScopeSwitchers();
 });
 
 // ─── Copy ID ────────────────────────────────────────────────────────

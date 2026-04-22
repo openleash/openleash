@@ -1,9 +1,24 @@
-import { renderPage, type RenderPageOptions } from "../../shared/layout.js";
+import { escapeHtml, renderPage, type RenderPageOptions } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
 
-export function renderOwnerPolicyCreate(renderPageOptions?: RenderPageOptions): string {
+export interface OwnerPolicyCreateOptions {
+    /** Scope-implied owner — policy is created for the current scope. */
+    ownerType: "user" | "org";
+    ownerId: string;
+    ownerDisplayName: string;
+}
+
+export function renderOwnerPolicyCreate(
+    options: OwnerPolicyCreateOptions,
+    renderPageOptions?: RenderPageOptions,
+): string {
+    const scopeLabel = options.ownerType === "org"
+        ? `Creating policy for ${options.ownerDisplayName}`
+        : "Creating personal policy";
+
     const content = `
     <h2>Create Policy</h2>
+    <p class="policy-create-scope-hint text-muted">${escapeHtml(scopeLabel)}</p>
 
     <div class="card policy-create-card">
       <div class="policy-create-fields">
@@ -35,6 +50,10 @@ rules:
       </div>
     </div>
 
+    <script>window.__PAGE_DATA__ = ${JSON.stringify({
+        ownerType: options.ownerType,
+        ownerId: options.ownerId,
+    })};</script>
     ${assetTags("pages/owner-policy-create/client.ts")}
   `;
     return renderPage("Create Policy", content, "/gui/policies", "owner", renderPageOptions);

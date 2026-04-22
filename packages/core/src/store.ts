@@ -26,6 +26,12 @@ export interface OrganizationRepository {
   read(orgId: string): OrganizationFrontmatter;
   write(org: OrganizationFrontmatter, body?: string): void;
   delete(orgId: string): void;
+  /**
+   * Look up an organization by its current slug. If no org has `slug` as its
+   * current slug, falls back to scanning `slug_history` so that old bookmarks
+   * continue to resolve after a slug rename. Returns `null` when no match.
+   */
+  readBySlug(slug: string): OrganizationFrontmatter | null;
 }
 
 export interface OrgMembershipRepository {

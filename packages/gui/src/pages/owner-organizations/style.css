@@ -111,3 +111,27 @@
     gap: 6px;
     flex-shrink: 0;
 }
+
+/* Editable org slug */
+.oorg-slug-display { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.oorg-slug { background: var(--bg-elevated); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--green-bright); }
+.oorg-slug-path { font-size: 11px; }
+.btn-inline-edit { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 4px; border-radius: 4px; display: inline-flex; align-items: center; transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out); }
+.btn-inline-edit:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.oorg-slug-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.oorg-slug-form .form-help { flex-basis: 100%; margin-top: 4px; }
+.oorg-slug-form .field-error { flex-basis: 100%; }
+.oorg-slug-input { font-family: var(--font-mono); max-width: 280px; }
+.oorg-slug-history { margin-top: 6px; font-size: 12px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.oorg-slug-prev { background: var(--bg-elevated); padding: 1px 6px; border-radius: 4px; color: var(--text-muted); font-size: 11px; }
+
+.oorg-slug-path-preview {
+  background: var(--bg-elevated);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.oorg-slug-path-preview #slug-preview {
+  color: var(--green-bright);
+}

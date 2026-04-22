@@ -18,6 +18,8 @@ import { COMPANY_REG_INFO } from "@openleash/core";
 
 export interface OwnerOrgEntry {
     org_id: string;
+    slug?: string;
+    slug_history?: string[];
     display_name?: string;
     status?: string;
     role: string;
@@ -90,7 +92,7 @@ export function renderOwnerOrganizations(orgs: OwnerOrgEntry[], renderPageOption
             return `<tr><td>${escapeHtml(o.org_id.slice(0, 8))}${idBadge(o.org_id)}</td><td colspan="3" class="text-muted">Not found</td></tr>`;
         }
         return `<tr>
-      <td><a href="/gui/organizations/${escapeHtml(o.org_id)}" class="table-link">${escapeHtml(o.display_name || "—")}</a>${idBadge(o.org_id)}</td>
+      <td><a href="${o.slug ? `/gui/orgs/${escapeHtml(o.slug)}` : `/gui/organizations/${escapeHtml(o.org_id)}`}" class="table-link">${escapeHtml(o.display_name || "—")}</a>${idBadge(o.org_id)}</td>
       <td>${roleBadge(o.role)}</td>
       <td>${statusBadge(o.status)}</td>
       <td>${formatTimestamp(o.created_at || "")}</td>
@@ -109,6 +111,15 @@ export function renderOwnerOrganizations(orgs: OwnerOrgEntry[], renderPageOption
         <label class="form-label" for="org-name">Organization Name</label>
         <input type="text" id="org-name" class="form-input" placeholder="My Organization">
         <div class="field-error" id="err-org-name"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="org-slug">URL slug</label>
+        <input type="text" id="org-slug" class="form-input oorg-slug-input" placeholder="my-organization" pattern="[a-z0-9]([a-z0-9-]*[a-z0-9])?" minlength="3" maxlength="40">
+        <div class="form-help">
+          Used in URLs like <code class="oorg-slug-path-preview">/gui/orgs/<span id="slug-preview">your-slug</span></code>.
+          Lowercase letters, digits, and hyphens. 3–40 characters. Editable later.
+        </div>
+        <div class="field-error" id="err-org-slug"></div>
       </div>
       <div class="oorg-create-actions">
         <button class="btn btn-primary" id="btn-submit-org">Create</button>
@@ -455,6 +466,30 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
         <colgroup><col style="width:160px"><col></colgroup>
         <tbody>
           <tr><td class="oorg-detail-label">Org ID</td><td>${copyableId(org.org_id, org.org_id.length)}</td></tr>
+          <tr>
+            <td class="oorg-detail-label">URL slug</td>
+            <td>
+              <span id="slug-display" class="oorg-slug-display">
+                <code class="oorg-slug">${escapeHtml(org.slug ?? "")}</code>
+                <span class="text-muted oorg-slug-path"> — /gui/orgs/${escapeHtml(org.slug ?? "")}</span>
+                ${isAdmin ? '<button type="button" class="btn-inline-edit" id="btn-edit-slug" title="Edit slug"><span class="material-symbols-outlined" style="font-size:16px">edit</span></button>' : ""}
+              </span>
+              ${isAdmin ? `
+              <form id="slug-form" class="hidden oorg-slug-form" data-org-id="${escapeHtml(org.org_id)}">
+                <input type="text" id="slug-input" class="form-input oorg-slug-input" value="${escapeHtml(org.slug ?? "")}" pattern="[a-z0-9]([a-z0-9-]*[a-z0-9])?" minlength="3" maxlength="40" required>
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-slug">Cancel</button>
+                <div class="form-help">Lowercase letters, digits, and hyphens. 3–40 characters. Changing the slug keeps old URLs working via redirects.</div>
+                <div class="field-error" id="err-slug-input"></div>
+              </form>` : ""}
+              ${org.slug_history && org.slug_history.length > 0
+                ? `<div class="oorg-slug-history">
+                     <span class="text-muted">Previous slugs (still redirect):</span>
+                     ${org.slug_history.map((s) => `<code class="oorg-slug-prev">${escapeHtml(s)}</code>`).join(" ")}
+                   </div>`
+                : ""}
+            </td>
+          </tr>
           <tr><td class="oorg-detail-label">Your Role${infoIcon("oorgd-role", INFO_ORG_ROLE)}</td><td>${roleBadge(org.role)}</td></tr>
           <tr><td class="oorg-detail-label">Status</td><td>${statusBadge(org.status)}</td></tr>
           <tr><td class="oorg-detail-label">Verification</td><td>${verificationBadge(org.verification_status)}</td></tr>

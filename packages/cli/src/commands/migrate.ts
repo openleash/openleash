@@ -8,6 +8,7 @@ import type {
   OrgMembership,
   StateData,
 } from '@openleash/core';
+import { slugifyName, ensureUniqueSlug } from '@openleash/core';
 
 // ─── V1 types (no longer in core) ─────────────────────────────────
 
@@ -200,8 +201,13 @@ function planMigration(dataDir: string): MigrationPlan {
         );
       }
 
+      const slug = ensureUniqueSlug(
+        slugifyName(owner.display_name),
+        new Set(orgsToCreate.map((o) => o.slug).filter(Boolean) as string[]),
+      );
       const org: OrganizationFrontmatter = {
         org_id: id,
+        slug,
         display_name: owner.display_name,
         status: owner.status as 'ACTIVE' | 'SUSPENDED' | 'REVOKED',
         attributes: owner.attributes ?? {},
@@ -261,6 +267,7 @@ function planMigration(dataDir: string): MigrationPlan {
     })),
     organizations: orgsToCreate.map((o) => ({
       org_id: o.org_id,
+      slug: o.slug,
       path: `./organizations/${o.org_id}.md`,
     })),
     memberships: membershipsToCreate.map((m) => ({

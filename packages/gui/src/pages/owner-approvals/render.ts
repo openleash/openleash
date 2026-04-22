@@ -24,6 +24,14 @@ export interface OwnerApprovalEntry {
     created_at: string;
     expires_at: string;
     resolved_at: string | null;
+    /**
+     * Scope hint for cross-scope inbox rendering. When set, the row shows a
+     * pill indicating which scope owns the request. Undefined on per-scope
+     * pages.
+     */
+    scope_label?: string;
+    /** Link to the per-scope approvals page. Paired with scope_label. */
+    scope_href?: string;
 }
 
 export interface ApprovalPage {
@@ -178,10 +186,13 @@ export function renderOwnerApprovals(
                       const agentDisplay = agentName
                           ? escapeHtml(agentName)
                           : escapeHtml(a.agent_id);
+                      const scopePill = a.scope_label
+                          ? `<a href="${escapeHtml(a.scope_href ?? "#")}" class="approvals-scope-pill" title="Go to ${escapeHtml(a.scope_label)}">${escapeHtml(a.scope_label)}</a>`
+                          : "";
                       return `
       <tr class="accordion-row">
         <td class="approvals-chevron-cell"><span class="chevron material-symbols-outlined">chevron_right</span></td>
-        <td>${agentDisplay}</td>
+        <td>${agentDisplay}${scopePill ? " " + scopePill : ""}</td>
         <td><span class="badge badge-muted">${escapeHtml(a.action_type)}</span>${a.action_type.startsWith("communication.") ? ' <span class="badge badge-muted approvals-badge-glove">MCP Glove</span>' : ""}</td>
         <td>${formatTimestamp(a.created_at)}</td>
         <td>${formatTimestamp(a.expires_at)}</td>

@@ -142,6 +142,7 @@ export const CreateUserSchema = z.object({
 export const CreateOrgSchema = z.object({
     display_name: displayName,
     created_by_user_id: uuid,
+    slug: z.string().trim().min(3).max(40).optional(),
 });
 
 // ─── Admin: Agent Invite ───────────────────────────────────────────

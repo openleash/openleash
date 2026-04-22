@@ -1,6 +1,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import {
+    resolveCurrentScope,
+    writeLastScopeCookie,
+    currentOwner,
+    createOrgScopePreHandler,
+    listPendingApprovalsByScope,
+    countPendingApprovalsAcrossScopes,
+} from "../scope.js";
+import type { Scope } from "../scope.js";
 import { resolveSystemRoles } from "@openleash/core";
 import type { OpenleashConfig, SessionClaims, DataStore, ServerPluginManifest } from "@openleash/core";
 import {
@@ -117,12 +126,69 @@ export function registerGuiRoutes(
             }
             : undefined;
 
-    /** Build render options with isAdmin from session claims. */
-    function ownerRenderOptionsFor(session: SessionClaims) {
+    /**
+     * Build render options for owner pages. Computes the active scope from the
+     * request URL + last_scope cookie, writes the cookie back so the sidebar
+     * switcher remembers it, and attaches the scope + available scopes so the
+     * layout can render the switcher.
+     */
+    function ownerRenderOptionsFor(
+        session: SessionClaims,
+        request?: FastifyRequest,
+        reply?: FastifyReply,
+    ) {
         const hasAdminRole = (session.system_roles ?? []).includes("admin");
-        return baseRenderOptions
+        const base = baseRenderOptions
             ? { ...baseRenderOptions, isAdmin: hasAdminRole }
-            : hasAdminRole ? { isAdmin: true } : undefined;
+            : hasAdminRole ? { isAdmin: true } : {};
+
+        if (!request) return Object.keys(base).length > 0 ? base : undefined;
+
+        const resolved = resolveCurrentScope(store, session, request);
+        if (!resolved) return Object.keys(base).length > 0 ? base : undefined;
+
+        // Persist the scope the user is currently on so the next visit restores
+        // it. Safe to write on every page load — cookie is HttpOnly + same-site.
+        if (reply) {
+            const currentAsScope: Scope =
+                resolved.current.type === "user"
+                    ? {
+                          type: "user",
+                          id: resolved.current.id,
+                          display_name: resolved.current.display_name,
+                      }
+                    : {
+                          type: "org",
+                          id: resolved.current.id,
+                          slug: resolved.current.slug,
+                          display_name: resolved.current.display_name,
+                          role: resolved.current.role,
+                      };
+            writeLastScopeCookie(reply, currentAsScope);
+        }
+
+        // Compute cross-scope pending count for the sidebar Inbox badge.
+        const pendingApprovalsTotal = countPendingApprovalsAcrossScopes(store, session);
+
+        return {
+            ...base,
+            pendingApprovalsTotal,
+            scope: {
+                current: {
+                    type: resolved.current.type,
+                    id: resolved.current.id,
+                    slug: resolved.current.type === "org" ? resolved.current.slug : undefined,
+                    display_name: resolved.current.display_name,
+                },
+                available: resolved.available.map((s) => ({
+                    type: s.type,
+                    id: s.id,
+                    slug: s.type === "org" ? s.slug : undefined,
+                    display_name: s.display_name,
+                })),
+                hasOrgs: resolved.hasOrgs,
+            },
+        };
     }
 
 
@@ -719,6 +785,42 @@ export function registerGuiRoutes(
     // ─── Owner GUI routes ─────────────────────────────────────────────
 
     const ownerAuth = createOwnerAuth(config, store, pluginManifest);
+    const orgScopePreHandler = createOrgScopePreHandler(store);
+
+    /**
+     * Register an owner handler at /gui/personal/<suffix> and /gui/orgs/:slug/<suffix>,
+     * plus a legacy /gui/<suffix> route that 302s to whichever scoped URL matches
+     * the user's current scope (URL pattern → cookie → personal fallback).
+     *
+     * Phase 10 (this commit): the legacy URL no longer runs the handler
+     * directly — it only redirects. This means the URL bar always matches the
+     * rendered scope, removing the "silent scope via cookie" surprise when a
+     * user followed a legacy bookmark.
+     */
+    function registerScopedOwnerRoute(
+        suffix: string,
+        handler: (request: FastifyRequest, reply: FastifyReply) => Promise<void> | void,
+    ) {
+        const legacyPath = `/gui/${suffix}`;
+        const personalPath = `/gui/personal/${suffix}`;
+        const orgPath = `/gui/orgs/:slug/${suffix}`;
+
+        app.get(legacyPath, { preHandler: ownerAuth }, async (request, reply) => {
+            const session = (request as unknown as Record<string, unknown>)
+                .ownerSession as SessionClaims;
+            const resolved = resolveCurrentScope(store, session, request);
+            const target =
+                resolved?.current.type === "org"
+                    ? `/gui/orgs/${encodeURIComponent(resolved.current.slug)}/${suffix}`
+                    : `/gui/personal/${suffix}`;
+            // Preserve the query string so pagination/filter params survive.
+            const q = request.url.indexOf("?");
+            const qs = q >= 0 ? request.url.slice(q) : "";
+            reply.redirect(target + qs);
+        });
+        app.get(personalPath, { preHandler: ownerAuth }, handler);
+        app.get(orgPath, { preHandler: [ownerAuth, orgScopePreHandler] }, handler);
+    }
 
     // Login page (no auth) — skipped if plugin replaces it
     if (!pluginManifest?.replacesUserLogin) {
@@ -734,36 +836,49 @@ export function registerGuiRoutes(
         reply.type("text/html").send(html);
     });
 
-    // Owner dashboard
-    app.get("/gui/dashboard", { preHandler: ownerAuth }, async (request, reply) => {
+    // Owner dashboard — served at /gui/dashboard (legacy, cookie-driven),
+    // /gui/personal/dashboard (explicit personal), and /gui/orgs/:slug/dashboard.
+    const dashboardHandler = async (request: FastifyRequest, reply: FastifyReply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
+        const scope = resolveCurrentScope(store, session, request);
+        const { ownerType, ownerId } = scope ? currentOwner(scope) : { ownerType: "user" as const, ownerId: session.sub };
         const state = store.state.getState();
-        const user = store.users.read(session.sub);
 
-        const agentCount = state.agents.filter((a) => a.owner_type === "user" && a.owner_id === session.sub).length;
+        // Display name reflects the scope: personal shows the user's name, org
+        // shows the org's name. This is what the dashboard title binds to.
+        let displayName = store.users.read(session.sub).display_name;
+        if (ownerType === "org") {
+            try {
+                displayName = store.organizations.read(ownerId).display_name;
+            } catch { /* fall back to user name */ }
+        }
+
+        const agentCount = state.agents.filter((a) => a.owner_type === ownerType && a.owner_id === ownerId).length;
         const policyCount = state.policies.filter(
-            (p) => p.owner_type === "user" && p.owner_id === session.sub,
+            (p) => p.owner_type === ownerType && p.owner_id === ownerId,
         ).length;
         const pendingApprovals = (state.approval_requests ?? []).filter(
-            (r) => r.owner_type === "user" && r.owner_id === session.sub && r.status === "PENDING",
+            (r) => r.owner_type === ownerType && r.owner_id === ownerId && r.status === "PENDING",
         ).length;
         const pendingPolicyDrafts = (state.policy_drafts ?? []).filter(
-            (d) => d.owner_type === "user" && d.owner_id === session.sub && d.status === "PENDING",
+            (d) => d.owner_type === ownerType && d.owner_id === ownerId && d.status === "PENDING",
         ).length;
 
         const html = renderOwnerDashboard({
-            display_name: user.display_name,
+            display_name: displayName,
             agent_count: agentCount,
             policy_count: policyCount,
             pending_approvals: pendingApprovals,
             pending_policy_drafts: pendingPolicyDrafts,
-        }, ownerRenderOptionsFor(session));
+        }, ownerRenderOptionsFor(session, request, reply));
         reply.type("text/html").send(html);
-    });
+    };
+    registerScopedOwnerRoute("dashboard", dashboardHandler);
 
     // Owner organizations
-    app.get("/gui/organizations", { preHandler: ownerAuth }, async (request, reply) => {
+    // Organization list — canonical at /gui/orgs; legacy /gui/organizations redirects.
+    const orgsListHandler = async (request: FastifyRequest, reply: FastifyReply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const memberships = store.memberships.listByUser(session.sub);
@@ -774,6 +889,7 @@ export function registerGuiRoutes(
                     const org = store.organizations.read(m.org_id);
                     return {
                         org_id: org.org_id,
+                        slug: org.slug,
                         display_name: org.display_name,
                         status: org.status,
                         role: m.role,
@@ -810,23 +926,19 @@ export function registerGuiRoutes(
                     };
                 }
             });
-        const html = renderOwnerOrganizations(orgs, ownerRenderOptionsFor(session), pendingInvites);
+        const html = renderOwnerOrganizations(orgs, ownerRenderOptionsFor(session, request, reply), pendingInvites);
         reply.type("text/html").send(html);
+    };
+    app.get("/gui/orgs", { preHandler: ownerAuth }, orgsListHandler);
+    app.get("/gui/organizations", { preHandler: ownerAuth }, async (_request, reply) => {
+        reply.redirect("/gui/orgs");
     });
 
-    // Owner organization detail
-    app.get("/gui/organizations/:orgId", { preHandler: ownerAuth }, async (request, reply) => {
+    // Owner organization detail — canonical URL is now /gui/orgs/:slug.
+    // Legacy /gui/organizations/:orgId redirects to the canonical form.
+    const orgDetailHandler = async (request: FastifyRequest, reply: FastifyReply, orgId: string, membership: { role: string }) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const { orgId } = request.params as { orgId: string };
-
-        // Verify user is a member of this org
-        const memberships = store.memberships.listByUser(session.sub);
-        const membership = memberships.find((m) => m.org_id === orgId && m.status === "active");
-        if (!membership) {
-            reply.code(404).type("text/html").send("<h1>Organization not found</h1>");
-            return;
-        }
 
         try {
             const org = store.organizations.read(orgId);
@@ -876,6 +988,8 @@ export function registerGuiRoutes(
             const html = renderOwnerOrganizationDetail({
                 org: {
                     org_id: org.org_id,
+                    slug: org.slug,
+                    slug_history: org.slug_history,
                     display_name: org.display_name,
                     status: org.status,
                     role: membership.role,
@@ -902,20 +1016,70 @@ export function registerGuiRoutes(
                         }
                     }),
                 currentUserId: session.sub,
-            }, ownerRenderOptionsFor(session));
+            }, ownerRenderOptionsFor(session, request, reply));
             reply.type("text/html").send(html);
+        } catch {
+            reply.code(404).type("text/html").send("<h1>Organization file not found</h1>");
+        }
+    };
+
+    // Canonical: /gui/orgs/:slug — renders org detail directly.
+    app.get("/gui/orgs/:slug", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { slug } = request.params as { slug: string };
+
+        const org = store.organizations.readBySlug(slug);
+        if (!org) {
+            reply.code(404).type("text/html").send("<h1>Organization not found</h1>");
+            return;
+        }
+        const membership = store.memberships
+            .listByUser(session.sub)
+            .find((m) => m.org_id === org.org_id && m.status === "active");
+        if (!membership) {
+            // 404 rather than 403 so we don't leak existence to non-members.
+            reply.code(404).type("text/html").send("<h1>Organization not found</h1>");
+            return;
+        }
+        // Canonicalize historical slugs.
+        if (org.slug !== slug) {
+            reply.redirect(`/gui/orgs/${encodeURIComponent(org.slug)}`);
+            return;
+        }
+        await orgDetailHandler(request, reply, org.org_id, { role: membership.role });
+    });
+
+    // Legacy: /gui/organizations/:orgId — 302 to the canonical slug URL so old
+    // bookmarks/email links keep working.
+    app.get("/gui/organizations/:orgId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+        const membership = store.memberships
+            .listByUser(session.sub)
+            .find((m) => m.org_id === orgId && m.status === "active");
+        if (!membership) {
+            reply.code(404).type("text/html").send("<h1>Organization not found</h1>");
+            return;
+        }
+        try {
+            const org = store.organizations.read(orgId);
+            reply.redirect(`/gui/orgs/${encodeURIComponent(org.slug)}`);
         } catch {
             reply.code(404).type("text/html").send("<h1>Organization file not found</h1>");
         }
     });
 
     // Owner agents
-    app.get("/gui/agents", { preHandler: ownerAuth }, async (request, reply) => {
+    const agentsListHandler = async (request: FastifyRequest, reply: FastifyReply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
+        const scope = resolveCurrentScope(store, session, request);
+        const { ownerType, ownerId } = scope ? currentOwner(scope) : { ownerType: "user" as const, ownerId: session.sub };
         const state = store.state.getState();
         const agents = state.agents
-            .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
+            .filter((a) => a.owner_type === ownerType && a.owner_id === ownerId)
             .map((entry) => {
                 try {
                     const agent = store.agents.read(entry.agent_principal_id);
@@ -938,31 +1102,25 @@ export function registerGuiRoutes(
                     };
                 }
             });
-        const agentOwner = store.users.read(session.sub);
-
-        // Build owner options (self + orgs where user is admin)
-        const ownerOptions: { id: string; display_name: string; type: "user" | "org" }[] = [
-            { id: session.sub, display_name: agentOwner.display_name, type: "user" },
-        ];
-        const userMemberships = store.memberships.listByUser(session.sub);
-        for (const m of userMemberships) {
-            if (m.status !== "active") continue;
-            try {
-                const org = store.organizations.read(m.org_id);
-                ownerOptions.push({ id: org.org_id, display_name: org.display_name, type: "org" });
-            } catch { /* skip */ }
-        }
+        const sessionUser = store.users.read(session.sub);
+        const ownerDisplayName =
+            ownerType === "org"
+                ? store.organizations.read(ownerId).display_name
+                : sessionUser.display_name;
 
         const html = renderOwnerAgents(agents, {
-            totp_enabled: !!agentOwner.totp_enabled,
+            totp_enabled: !!sessionUser.totp_enabled,
             require_totp: !!config.security.require_totp,
-            ownerOptions: ownerOptions.length > 1 ? ownerOptions : undefined,
-        }, ownerRenderOptionsFor(session));
+            ownerType,
+            ownerId,
+            ownerDisplayName,
+        }, ownerRenderOptionsFor(session, request, reply));
         reply.type("text/html").send(html);
-    });
+    };
+    registerScopedOwnerRoute("agents", agentsListHandler);
 
     // Owner agent detail
-    app.get("/gui/agents/:agentPrincipalId", { preHandler: ownerAuth }, async (request, reply) => {
+    const agentDetailHandler = async (request: FastifyRequest, reply: FastifyReply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const { agentPrincipalId } = request.params as { agentPrincipalId: string };
@@ -972,22 +1130,34 @@ export function registerGuiRoutes(
         const auditOffset = (auditPage - 1) * auditPageSize;
         const state = store.state.getState();
 
-        // Verify the agent belongs to this owner
-        const entry = state.agents.find(
-            (a) => a.agent_principal_id === agentPrincipalId && a.owner_type === "user" && a.owner_id === session.sub,
-        );
+        // Look up the agent without forcing a scope — the user may have
+        // followed a link from an out-of-scope context (e.g. an email). Ensure
+        // the viewer has access (owns it personally OR is an active member of
+        // the owning org) and auto-correct the scope to match.
+        const entry = state.agents.find((a) => a.agent_principal_id === agentPrincipalId);
         if (!entry) {
+            reply.code(404).type("text/html").send("<h1>Agent not found</h1>");
+            return;
+        }
+
+        const authorized = entry.owner_type === "user"
+            ? entry.owner_id === session.sub
+            : store.memberships.listByUser(session.sub).some(
+                  (m) => m.org_id === entry.owner_id && m.status === "active",
+              );
+        if (!authorized) {
             reply.code(404).type("text/html").send("<h1>Agent not found</h1>");
             return;
         }
 
         try {
             const agent = store.agents.read(agentPrincipalId);
-            const owner = store.users.read(session.sub);
+            const ownerUser = entry.owner_type === "user" ? store.users.read(entry.owner_id) : null;
+            const ownerOrg = entry.owner_type === "org" ? store.organizations.read(entry.owner_id) : null;
 
-            // Policies that apply to this agent
+            // Policies that apply to this agent — same owner as the agent.
             const policies = state.policies
-                .filter((p) => p.owner_type === "user" && p.owner_id === session.sub &&
+                .filter((p) => p.owner_type === entry.owner_type && p.owner_id === entry.owner_id &&
                     (!p.applies_to_agent_principal_id || p.applies_to_agent_principal_id === agentPrincipalId))
                 .map((p) => ({
                     policy_id: p.policy_id,
@@ -999,6 +1169,7 @@ export function registerGuiRoutes(
             const auditData = store.audit.readByPrincipal(agentPrincipalId, new Set(), auditPageSize, auditOffset);
             const nextCursor = auditOffset + auditPageSize < auditData.total ? String(auditOffset + auditPageSize) : null;
 
+            const sessionUser = store.users.read(session.sub);
             const html = renderOwnerAgentDetail({
                 agent: {
                     agent_principal_id: agent.agent_principal_id,
@@ -1013,24 +1184,27 @@ export function registerGuiRoutes(
                 audit: { items: auditData.items, next_cursor: nextCursor, total: auditData.total },
                 auditPage,
                 auditPageSize,
-                ownerName: owner.display_name,
-                ownerId: session.sub,
-                totpEnabled: !!owner.totp_enabled,
+                ownerName: (ownerUser?.display_name ?? ownerOrg?.display_name) ?? "",
+                ownerId: entry.owner_id,
+                totpEnabled: !!sessionUser.totp_enabled,
                 requireTotp: !!config.security.require_totp,
-            }, ownerRenderOptionsFor(session));
+            }, ownerRenderOptionsFor(session, request, reply));
             reply.type("text/html").send(html);
         } catch {
             reply.code(404).type("text/html").send("<h1>Agent file not found</h1>");
         }
-    });
+    };
+    registerScopedOwnerRoute("agents/:agentPrincipalId", agentDetailHandler);
 
     // Owner policies (includes policy drafts)
-    app.get("/gui/policies", { preHandler: ownerAuth }, async (request, reply) => {
+    const policiesListHandler = async (request: FastifyRequest, reply: FastifyReply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
+        const scope = resolveCurrentScope(store, session, request);
+        const { ownerType, ownerId } = scope ? currentOwner(scope) : { ownerType: "user" as const, ownerId: session.sub };
         const state = store.state.getState();
         const policies = state.policies
-            .filter((p) => p.owner_type === "user" && p.owner_id === session.sub)
+            .filter((p) => p.owner_type === ownerType && p.owner_id === ownerId)
             .map((entry) => {
                 try {
                     const yaml = store.policies.read(entry.policy_id);
@@ -1051,7 +1225,7 @@ export function registerGuiRoutes(
                 }
             });
         const draftEntries = (state.policy_drafts ?? []).filter(
-            (d) => d.owner_type === "user" && d.owner_id === session.sub,
+            (d) => d.owner_type === ownerType && d.owner_id === ownerId,
         );
         const drafts = draftEntries.map((entry) => {
             try {
@@ -1091,28 +1265,38 @@ export function registerGuiRoutes(
         });
         const agentNames = new Map(
             state.agents
-                .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
+                .filter((a) => a.owner_type === ownerType && a.owner_id === ownerId)
                 .map((a) => [a.agent_principal_id, a.agent_id]),
         );
-        const policyOwner = store.users.read(session.sub);
+        const sessionUser = store.users.read(session.sub);
         const html = renderOwnerPolicies(policies, drafts, {
-            totp_enabled: !!policyOwner.totp_enabled,
+            totp_enabled: !!sessionUser.totp_enabled,
             require_totp: !!config.security.require_totp,
             agent_names: agentNames,
-        }, ownerRenderOptionsFor(session));
+        }, ownerRenderOptionsFor(session, request, reply));
         reply.type("text/html").send(html);
-    });
+    };
+    registerScopedOwnerRoute("policies", policiesListHandler);
 
     // Owner create policy
-    app.get("/gui/policies/create", { preHandler: ownerAuth }, async (request, reply) => {
+    const policyCreateHandler = async (request: FastifyRequest, reply: FastifyReply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const html = renderOwnerPolicyCreate(ownerRenderOptionsFor(session));
+        const scope = resolveCurrentScope(store, session, request);
+        const { ownerType, ownerId } = scope ? currentOwner(scope) : { ownerType: "user" as const, ownerId: session.sub };
+        const ownerDisplayName = ownerType === "org"
+            ? store.organizations.read(ownerId).display_name
+            : store.users.read(session.sub).display_name;
+        const html = renderOwnerPolicyCreate(
+            { ownerType, ownerId, ownerDisplayName },
+            ownerRenderOptionsFor(session, request, reply),
+        );
         reply.type("text/html").send(html);
-    });
+    };
+    registerScopedOwnerRoute("policies/create", policyCreateHandler);
 
     // Owner approvals
-    app.get("/gui/approvals", { preHandler: ownerAuth }, async (request, reply) => {
+    const approvalsHandler = async (request: FastifyRequest, reply: FastifyReply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const query = request.query as {
@@ -1124,9 +1308,11 @@ export function registerGuiRoutes(
         const resolvedPageSize = Math.min(Math.max(parseInt(query.resolved_page_size || "25", 10) || 25, 1), 100);
         const resolvedPage = Math.max(parseInt(query.resolved_page || "1", 10) || 1, 1);
 
+        const scope = resolveCurrentScope(store, session, request);
+        const { ownerType, ownerId } = scope ? currentOwner(scope) : { ownerType: "user" as const, ownerId: session.sub };
         const state = store.state.getState();
         const approvalEntries = (state.approval_requests ?? []).filter(
-            (r) => r.owner_type === "user" && r.owner_id === session.sub,
+            (r) => r.owner_type === ownerType && r.owner_id === ownerId,
         );
 
         // Pending: filter from cached state, paginate from end (newest first), then read files
@@ -1138,7 +1324,7 @@ export function registerGuiRoutes(
 
         // Resolved: use StateRepository for cached owner->resolved mapping
         const resolvedOffset = (resolvedPage - 1) * resolvedPageSize;
-        const resolvedResult = store.state.getResolvedApprovals("user", session.sub, resolvedPageSize, resolvedOffset);
+        const resolvedResult = store.state.getResolvedApprovals(ownerType, ownerId, resolvedPageSize, resolvedOffset);
 
         function readEntry(entry: { approval_request_id: string; agent_principal_id: string; status: string }) {
             try {
@@ -1179,20 +1365,128 @@ export function registerGuiRoutes(
             }
         }
 
-        const approvalOwner = store.users.read(session.sub);
+        const sessionUser = store.users.read(session.sub);
         const approvalAgentNames = new Map(
             state.agents
-                .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
+                .filter((a) => a.owner_type === ownerType && a.owner_id === ownerId)
                 .map((a) => [a.agent_principal_id, a.agent_id]),
         );
         const html = renderOwnerApprovals({
             pending: { items: pendingSlice.map(readEntry), total: pendingEntries.length, page: pendingPage, pageSize: pendingPageSize },
             resolved: { items: resolvedResult.items.map(readEntry), total: resolvedResult.total, page: resolvedPage, pageSize: resolvedPageSize },
         }, {
-            totp_enabled: !!approvalOwner.totp_enabled,
+            totp_enabled: !!sessionUser.totp_enabled,
             require_totp: !!config.security.require_totp,
             agent_names: approvalAgentNames,
-        }, ownerRenderOptionsFor(session));
+        }, ownerRenderOptionsFor(session, request, reply));
+        reply.type("text/html").send(html);
+    };
+    // Per-scope approvals (filtered views): /gui/personal/approvals and
+    // /gui/orgs/:slug/approvals keep the existing handler.
+    app.get("/gui/personal/approvals", { preHandler: ownerAuth }, approvalsHandler);
+    app.get("/gui/orgs/:slug/approvals", { preHandler: [ownerAuth, orgScopePreHandler] }, approvalsHandler);
+
+    // Cross-scope inbox at the legacy /gui/approvals URL. Aggregates pending
+    // across personal + every active org membership and renders a single
+    // actionable list with scope pills. Resolved entries are hidden here —
+    // users drill into a per-scope page to see history.
+    app.get("/gui/approvals", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const query = request.query as { pending_page?: string; pending_page_size?: string };
+        const pendingPageSize = Math.min(Math.max(parseInt(query.pending_page_size || "25", 10) || 25, 1), 100);
+        const pendingPage = Math.max(parseInt(query.pending_page || "1", 10) || 1, 1);
+
+        const groups = listPendingApprovalsByScope(store, session);
+        const state = store.state.getState();
+
+        interface EnrichedEntry {
+            scopeLabel: string;
+            scopeHref: string;
+            entry: typeof state.approval_requests extends (infer U)[] | undefined ? U : never;
+        }
+        const allPending: EnrichedEntry[] = [];
+        for (const group of groups) {
+            const scopeLabel = group.scope.type === "user"
+                ? "Personal"
+                : group.scope.display_name;
+            const scopeHref = group.scope.type === "user"
+                ? "/gui/personal/approvals"
+                : `/gui/orgs/${encodeURIComponent(group.scope.slug)}/approvals`;
+            for (const id of group.approvalRequestIds) {
+                const entry = (state.approval_requests ?? []).find((r) => r.approval_request_id === id);
+                if (entry) allPending.push({ scopeLabel, scopeHref, entry });
+            }
+        }
+        // Sort newest-first by created_at from the actual request file —
+        // state entries don't carry created_at, so we rely on the file read
+        // below. As a cheap pre-sort, keep insertion order (scopes, then file order).
+
+        const pendingOffset = (pendingPage - 1) * pendingPageSize;
+        const pendingSlice = allPending.slice(pendingOffset, pendingOffset + pendingPageSize);
+
+        function readEntry(enriched: EnrichedEntry) {
+            const base = enriched.entry;
+            try {
+                const req = store.approvalRequests.read(base.approval_request_id);
+                return {
+                    approval_request_id: req.approval_request_id,
+                    agent_id: req.agent_id,
+                    agent_principal_id: base.agent_principal_id,
+                    action_type: req.action_type,
+                    action_hash: req.action_hash ?? null,
+                    decision_id: req.decision_id ?? null,
+                    action: req.action ?? null,
+                    context: req.context ?? null,
+                    justification: req.justification,
+                    status: req.status,
+                    denial_reason: req.denial_reason ?? null,
+                    created_at: req.created_at,
+                    expires_at: req.expires_at,
+                    resolved_at: req.resolved_at ?? null,
+                    scope_label: enriched.scopeLabel,
+                    scope_href: enriched.scopeHref,
+                };
+            } catch {
+                return {
+                    approval_request_id: base.approval_request_id,
+                    agent_id: "unknown",
+                    agent_principal_id: base.agent_principal_id,
+                    action_type: "unknown",
+                    action_hash: null,
+                    decision_id: null,
+                    action: null,
+                    context: null,
+                    justification: null,
+                    status: base.status,
+                    denial_reason: null,
+                    created_at: "",
+                    expires_at: "",
+                    resolved_at: null,
+                    scope_label: enriched.scopeLabel,
+                    scope_href: enriched.scopeHref,
+                };
+            }
+        }
+
+        const sessionUser = store.users.read(session.sub);
+        const agentNames = new Map<string, string>();
+        for (const a of state.agents) agentNames.set(a.agent_principal_id, a.agent_id);
+
+        const html = renderOwnerApprovals({
+            pending: {
+                items: pendingSlice.map(readEntry),
+                total: allPending.length,
+                page: pendingPage,
+                pageSize: pendingPageSize,
+            },
+            // Cross-scope view hides history — users drill into a scope for that.
+            resolved: { items: [], total: 0, page: 1, pageSize: 25 },
+        }, {
+            totp_enabled: !!sessionUser.totp_enabled,
+            require_totp: !!config.security.require_totp,
+            agent_names: agentNames,
+        }, ownerRenderOptionsFor(session, request, reply));
         reply.type("text/html").send(html);
     });
 
@@ -1218,18 +1512,19 @@ export function registerGuiRoutes(
             totp_enabled: !!user.totp_enabled,
             totp_enabled_at: user.totp_enabled_at,
             totp_backup_codes_remaining: user.totp_backup_codes_hash?.length,
-        }, ownerRenderOptionsFor(session));
+        }, ownerRenderOptionsFor(session, request, reply));
         reply.type("text/html").send(html);
     });
 
     // Owner audit
-    app.get("/gui/audit", { preHandler: ownerAuth }, async (request, reply) => {
+    const auditHandler = async (request: FastifyRequest, reply: FastifyReply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const query = request.query as { page?: string; page_size?: string };
         const pageSize = Math.min(Math.max(parseInt(query.page_size || "25", 10) || 25, 1), 100);
         const page = Math.max(parseInt(query.page || "1", 10) || 1, 1);
         const state = store.state.getState();
+        const resolvedScope = resolveCurrentScope(store, session, request);
 
         // Collect all related principal IDs: user's agents + org IDs + org agents
         const relatedIds = new Set<string>();
@@ -1251,8 +1546,14 @@ export function registerGuiRoutes(
                 .forEach((a) => relatedIds.add(a.agent_principal_id));
         }
 
-        // Apply filter from query string
-        const filterScope = (request.query as Record<string, string>).scope;
+        // Apply filter from query string, or default to the current scope so
+        // the audit view follows the sidebar switcher.
+        let filterScope = (request.query as Record<string, string>).scope;
+        if (!filterScope && resolvedScope) {
+            filterScope = resolvedScope.current.type === "org"
+                ? `org:${resolvedScope.current.id}`
+                : "user";
+        }
         let filteredRelatedIds = relatedIds;
         let filterPrincipalId = session.sub;
 
@@ -1323,10 +1624,11 @@ export function registerGuiRoutes(
             pageSize,
             { owners: ownerNames, agents: agentNames, eventTypes },
             "owner",
-            ownerRenderOptionsFor(session),
+            ownerRenderOptionsFor(session, request, reply),
             scopeOptions,
             filterScope || "",
         );
         reply.type("text/html").send(html);
-    });
+    };
+    registerScopedOwnerRoute("audit", auditHandler);
 }

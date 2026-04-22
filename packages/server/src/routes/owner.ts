@@ -19,6 +19,9 @@ import {
     validateCompanyIdValue,
     validateDomainName,
     computeOrgAssuranceLevel,
+    validateOrgSlug,
+    slugifyName,
+    ensureUniqueSlug,
 } from "@openleash/core";
 import {
     OrgRole,
@@ -529,6 +532,7 @@ export function registerOwnerRoutes(
             .ownerSession as SessionClaims;
         const body = request.body as {
             display_name: string;
+            slug?: string;
             contact_identities?: ContactIdentity[];
         };
 
@@ -537,6 +541,26 @@ export function registerOwnerRoutes(
                 error: { code: "INVALID_BODY", message: "display_name is required" },
             });
             return;
+        }
+
+        // Resolve slug: explicit wins, otherwise derive from display_name.
+        const currentSlugs = new Set(store.state.getState().organizations.map((e) => e.slug).filter(Boolean));
+        let slug: string;
+        if (typeof body.slug === "string" && body.slug.trim().length > 0) {
+            slug = body.slug.trim().toLowerCase();
+            const result = validateOrgSlug(slug);
+            if (!result.ok) {
+                reply.code(400).send({ error: { code: "INVALID_BODY", message: result.error } });
+                return;
+            }
+            if (currentSlugs.has(slug)) {
+                reply.code(409).send({
+                    error: { code: "SLUG_TAKEN", message: `slug "${slug}" is already in use` },
+                });
+                return;
+            }
+        } else {
+            slug = ensureUniqueSlug(slugifyName(body.display_name), currentSlugs);
         }
 
         const orgId = crypto.randomUUID();
@@ -551,6 +575,7 @@ export function registerOwnerRoutes(
 
         store.organizations.write({
             org_id: orgId,
+            slug,
             display_name: body.display_name.trim(),
             status: "ACTIVE",
             attributes: {},
@@ -573,7 +598,7 @@ export function registerOwnerRoutes(
         });
 
         store.state.updateState((s) => {
-            s.organizations.push({ org_id: orgId, path: `./organizations/${orgId}.md` });
+            s.organizations.push({ org_id: orgId, slug, path: `./organizations/${orgId}.md` });
             s.memberships.push({
                 membership_id: membershipId,
                 org_id: orgId,
@@ -605,6 +630,7 @@ export function registerOwnerRoutes(
 
         return {
             org_id: orgId,
+            slug,
             display_name: body.display_name.trim(),
             status: "ACTIVE",
             created_at: now,
@@ -671,6 +697,7 @@ export function registerOwnerRoutes(
 
         const body = request.body as {
             display_name?: string;
+            slug?: string;
             contact_identities?: ContactIdentity[];
             company_ids?: CompanyId[];
             domains?: OrgDomain[];
@@ -678,6 +705,41 @@ export function registerOwnerRoutes(
 
         const org = store.organizations.read(orgId);
         const previousContactIds = new Set((org.contact_identities ?? []).map((c) => c.contact_id));
+
+        // Slug update — validate, reject collisions with other orgs' *current*
+        // slugs (history collisions are allowed; caller is reclaiming an old
+        // slug nobody else currently uses), and push the old slug to history.
+        let slugChanged = false;
+        let previousSlug: string | null = null;
+        if (typeof body.slug === "string" && body.slug.trim().length > 0) {
+            const nextSlug = body.slug.trim().toLowerCase();
+            if (nextSlug !== org.slug) {
+                const validation = validateOrgSlug(nextSlug);
+                if (!validation.ok) {
+                    reply.code(400).send({ error: { code: "INVALID_BODY", message: validation.error } });
+                    return;
+                }
+                const collision = store.state
+                    .getState()
+                    .organizations
+                    .some((e) => e.org_id !== orgId && e.slug === nextSlug);
+                if (collision) {
+                    reply.code(409).send({
+                        error: { code: "SLUG_TAKEN", message: `slug "${nextSlug}" is already in use` },
+                    });
+                    return;
+                }
+                previousSlug = org.slug;
+                // Record the old slug so old URLs still redirect. Dedup + cap
+                // history at 10 entries to keep the file bounded.
+                const history = org.slug_history ?? [];
+                const deduped = [org.slug, ...history.filter((s) => s !== org.slug && s !== nextSlug)];
+                org.slug_history = deduped.slice(0, 10);
+                org.slug = nextSlug;
+                slugChanged = true;
+            }
+        }
+
         if (body.display_name !== undefined) org.display_name = body.display_name.trim();
         if (body.contact_identities !== undefined) org.contact_identities = body.contact_identities;
         if (body.company_ids !== undefined) {
@@ -699,9 +761,18 @@ export function registerOwnerRoutes(
         org.identity_assurance_level = computeOrgAssuranceLevel(org);
         store.organizations.write(org);
 
+        // Keep the state index slug in lock-step with the org file.
+        if (slugChanged) {
+            store.state.updateState((s) => {
+                const entry = s.organizations.find((e) => e.org_id === orgId);
+                if (entry) entry.slug = org.slug;
+            });
+        }
+
         store.audit.append("ORG_UPDATED", {
             org_id: orgId,
             updated_by: session.sub,
+            ...(slugChanged ? { slug_changed: true, previous_slug: previousSlug, new_slug: org.slug } : {}),
         }, { principal_id: session.sub });
 
         // Emit verification request for newly added unverified contacts
@@ -718,7 +789,12 @@ export function registerOwnerRoutes(
             }
         }
 
-        return { org_id: orgId, status: "updated" };
+        return {
+            org_id: orgId,
+            status: "updated",
+            slug: org.slug,
+            ...(slugChanged ? { slug_changed: true, previous_slug: previousSlug } : {}),
+        };
     });
 
     // GET /v1/owner/organizations/:orgId/members

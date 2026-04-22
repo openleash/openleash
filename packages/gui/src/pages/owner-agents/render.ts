@@ -18,16 +18,17 @@ export interface OwnerAgentEntry {
     webhook_url: string;
 }
 
-export interface OwnerAgentOwnerOption {
-    id: string;
-    display_name: string;
-    type: "user" | "org";
-}
-
 export interface OwnerAgentsOptions {
     totp_enabled?: boolean;
     require_totp?: boolean;
-    ownerOptions?: OwnerAgentOwnerOption[];
+    /**
+     * Scope-implied owner for the "create invite" action. The invite targets
+     * the current scope's owner (personal or org) — switch scope via the
+     * sidebar to invite an agent for a different owner.
+     */
+    ownerType: "user" | "org";
+    ownerId: string;
+    ownerDisplayName: string;
 }
 
 export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgentsOptions, renderPageOptions?: RenderPageOptions): string {
@@ -57,9 +58,14 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
                   })
                   .join("");
 
+    const ownerType = options?.ownerType ?? "user";
+    const ownerId = options?.ownerId ?? "";
+    const ownerDisplayName = options?.ownerDisplayName ?? "";
+    const scopeLabel = ownerType === "org" ? "Organization Agents" : "My Agents";
+
     const content = `
     <div class="agents-header">
-      <h2>My Agents</h2>
+      <h2>${escapeHtml(scopeLabel)}</h2>
       <button class="btn btn-primary" id="btn-create-invite">+ Create Agent Invite</button>
     </div>
 
@@ -68,26 +74,6 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
             ? '<div class="alert alert-error agents-totp-banner">Two-factor authentication is required to revoke agents. <a href="/gui/profile" class="agents-totp-link">Set up 2FA in your Profile.</a></div>'
             : ""
     }
-
-    ${(() => {
-        const ownerOpts = options?.ownerOptions ?? [];
-        if (ownerOpts.length <= 1) return "";
-        const optionsHtml = ownerOpts.map((o) =>
-            `<option value="${escapeHtml(o.id)}" data-type="${escapeHtml(o.type)}">${o.type === "org" ? "🏢 " : "👤 "}${escapeHtml(o.display_name)}</option>`,
-        ).join("");
-        return `
-    <div id="invite-owner-select" class="hidden" style="margin-bottom:12px">
-      <div class="form-group">
-        <label class="form-label" for="agent-owner">Create invite for</label>
-        <select id="agent-owner" class="form-select">${optionsHtml}</select>
-        <div class="form-help">The agent will be registered under the selected owner</div>
-      </div>
-      <div class="toolbar">
-        <button class="btn btn-primary" id="btn-confirm-invite">Create Invite</button>
-        <button class="btn btn-secondary" id="btn-cancel-invite-select">Cancel</button>
-      </div>
-    </div>`;
-    })()}
 
     <div id="invite-result" class="card hidden agents-invite-card">
       <div class="agents-invite-title">Agent Invite URL (single use, expires in 24h)</div>
@@ -108,7 +94,12 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
         <tbody>${rows}</tbody>
       </table>
     </div>
-    <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled} };</script>
+    <script>window.__PAGE_DATA__ = ${JSON.stringify({
+        totpEnabled,
+        ownerType,
+        ownerId,
+        ownerDisplayName,
+    })};</script>
     ${assetTags("pages/owner-agents/client.ts")}
   `;
     return renderPage("My Agents", content, "/gui/agents", "owner", renderPageOptions);

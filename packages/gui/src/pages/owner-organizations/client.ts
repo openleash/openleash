@@ -112,6 +112,37 @@ const form = document.getElementById("create-org-form");
 const btnSubmit = document.getElementById("btn-submit-org") as HTMLButtonElement | null;
 const btnCancel = document.getElementById("btn-cancel-org");
 const nameInput = document.getElementById("org-name") as HTMLInputElement | null;
+const slugInput = document.getElementById("org-slug") as HTMLInputElement | null;
+const slugPreview = document.getElementById("slug-preview");
+
+/**
+ * Browser-side slugify that mirrors the server-side `slugifyName` in core.
+ * Used to auto-suggest a slug while the user types the display name. Kept
+ * tiny — the server is authoritative and validates everything.
+ */
+function slugifyClient(input: string): string {
+    return input
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40)
+        .replace(/-+$/g, "");
+}
+
+// While the user has not typed a slug yet, keep the slug mirror in sync with
+// the display name. Stop syncing as soon as they edit the slug manually.
+let slugEditedManually = false;
+nameInput?.addEventListener("input", () => {
+    if (slugEditedManually || !slugInput) return;
+    slugInput.value = slugifyClient(nameInput.value);
+    if (slugPreview) slugPreview.textContent = slugInput.value || "your-slug";
+});
+slugInput?.addEventListener("input", () => {
+    slugEditedManually = slugInput.value.length > 0;
+    if (slugPreview) slugPreview.textContent = slugInput.value || "your-slug";
+});
 
 btnCreate?.addEventListener("click", () => {
     form?.classList.remove("hidden");
@@ -124,13 +155,21 @@ btnCancel?.addEventListener("click", () => {
     btnCreate?.classList.remove("hidden");
     olClearFieldErrors("create-org-form");
     if (nameInput) nameInput.value = "";
+    if (slugInput) slugInput.value = "";
+    slugEditedManually = false;
+    if (slugPreview) slugPreview.textContent = "your-slug";
 });
 
 btnSubmit?.addEventListener("click", async () => {
     olClearFieldErrors("create-org-form");
     const name = nameInput?.value.trim();
+    const slug = slugInput?.value.trim().toLowerCase();
     if (!name) {
         olFieldError("org-name", "Organization name is required");
+        return;
+    }
+    if (!slug) {
+        olFieldError("org-slug", "URL slug is required");
         return;
     }
 
@@ -141,13 +180,18 @@ btnSubmit?.addEventListener("click", async () => {
         const res = await fetch("/v1/owner/organizations", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ display_name: name }),
+            body: JSON.stringify({ display_name: name, slug }),
         });
 
         if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            const msg = data?.error?.message || "Failed to create organization";
-            olToast(msg, "error");
+            // Surface validation and collision errors on the slug field so
+            // users can fix without losing their other form input.
+            if ((res.status === 400 || res.status === 409) && data?.error?.message) {
+                olFieldError("org-slug", data.error.message);
+            } else {
+                olToast(data?.error?.message || "Failed to create organization", "error");
+            }
             return;
         }
 
@@ -284,7 +328,7 @@ btnLeave?.addEventListener("click", async () => {
         }
 
         olToast("You have left the organization", "success");
-        setTimeout(() => { window.location.href = "/gui/organizations"; }, 800);
+        setTimeout(() => { window.location.href = "/gui/orgs"; }, 800);
     } catch {
         olToast("Network error", "error");
         btnLeave.disabled = false;
@@ -347,7 +391,7 @@ btnDelete?.addEventListener("click", async () => {
         }
 
         olToast("Organization deleted", "success");
-        setTimeout(() => { window.location.href = "/gui/organizations"; }, 800);
+        setTimeout(() => { window.location.href = "/gui/orgs"; }, 800);
     } catch {
         olToast("Network error", "error");
         btnDelete.disabled = false;
@@ -587,6 +631,65 @@ btnSaveRename?.addEventListener("click", async () => {
         olToast("Network error", "error");
     } finally {
         btnSaveRename.disabled = false;
+    }
+});
+
+// ─── Edit slug ────────────────────────────────────────────────────────
+
+const slugDisplay = document.getElementById("slug-display");
+const slugForm = document.getElementById("slug-form") as HTMLFormElement | null;
+const slugInput = document.getElementById("slug-input") as HTMLInputElement | null;
+const btnEditSlug = document.getElementById("btn-edit-slug");
+const btnCancelSlug = document.getElementById("btn-cancel-slug");
+
+btnEditSlug?.addEventListener("click", () => {
+    slugDisplay?.classList.add("hidden");
+    slugForm?.classList.remove("hidden");
+    slugInput?.focus();
+    slugInput?.select();
+});
+
+btnCancelSlug?.addEventListener("click", () => {
+    slugForm?.classList.add("hidden");
+    slugDisplay?.classList.remove("hidden");
+    olClearFieldErrors("slug-form");
+});
+
+slugForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    olClearFieldErrors("slug-form");
+    const next = slugInput?.value.trim().toLowerCase();
+    if (!next) {
+        olFieldError("slug-input", "Slug is required");
+        return;
+    }
+
+    const submitBtn = slugForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+        const res = await fetch(`/v1/owner/organizations/${pageData.orgId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug: next }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            // Surface validation/uniqueness errors on the input; fall back to toast.
+            if (res.status === 400 || res.status === 409) {
+                olFieldError("slug-input", olApiError(err, "Invalid slug"));
+            } else {
+                olToast(olApiError(err, "Failed to update slug"), "error");
+            }
+            return;
+        }
+        // Reload so the URL, sidebar switcher label, and slug history all
+        // reflect the new state in one shot.
+        olToast("Slug updated", "success");
+        window.location.reload();
+    } catch {
+        olToast("Network error", "error");
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
     }
 });
 

@@ -182,6 +182,7 @@ export interface StateUserEntry {
 
 export interface StateOrgEntry {
   org_id: string;
+  slug: string;
   path: string;
 }
 
@@ -281,6 +282,9 @@ export interface UserFrontmatter {
 // ─── Organization file frontmatter (legal entity, never authenticates) ──
 export interface OrganizationFrontmatter {
   org_id: string;
+  slug: string;
+  /** Previous slugs, most-recent first. Used to resolve old URLs after a slug edit. */
+  slug_history?: string[];
   display_name: string;
   status: PrincipalStatus;
   attributes: Record<string, unknown>;

@@ -24,3 +24,4 @@ export * from './plugin-loader.js';
 export * from './server-plugin.js';
 export * from './server-plugin-loader.js';
 export * from './events.js';
+export * from './slug.js';

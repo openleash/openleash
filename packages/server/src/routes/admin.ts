@@ -9,6 +9,9 @@ import {
   computeOrgAssuranceLevel,
   hashPassphrase,
   resolveSystemRoles,
+  validateOrgSlug,
+  slugifyName,
+  ensureUniqueSlug,
 } from '@openleash/core';
 import type {
   DataStore,
@@ -141,12 +144,35 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     const body = request.body as {
       display_name: string;
       created_by_user_id: string;
+      slug?: string;
       contact_identities?: ContactIdentity[];
       company_ids?: CompanyId[];
       domains?: OrgDomain[];
       signatories?: Signatory[];
       signatory_rules?: SignatoryRule[];
     };
+
+    // Resolve slug: explicit wins, otherwise derive from display_name.
+    const currentSlugs = new Set(
+      store.state.getState().organizations.map((e) => e.slug).filter(Boolean),
+    );
+    let slug: string;
+    if (typeof body.slug === 'string' && body.slug.trim().length > 0) {
+      slug = body.slug.trim().toLowerCase();
+      const result = validateOrgSlug(slug);
+      if (!result.ok) {
+        reply.code(400).send({ error: { code: 'INVALID_BODY', message: result.error } });
+        return;
+      }
+      if (currentSlugs.has(slug)) {
+        reply.code(409).send({
+          error: { code: 'SLUG_TAKEN', message: `slug "${slug}" is already in use` },
+        });
+        return;
+      }
+    } else {
+      slug = ensureUniqueSlug(slugifyName(body.display_name), currentSlugs);
+    }
 
     const orgId = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -199,6 +225,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
 
     const org: OrganizationFrontmatter = {
       org_id: orgId,
+      slug,
       display_name: body.display_name,
       status: 'ACTIVE',
       attributes: {},
@@ -231,6 +258,7 @@ export function registerAdminRoutes(app: FastifyInstance, store: DataStore, conf
     store.state.updateState((s) => {
       s.organizations.push({
         org_id: orgId,
+        slug,
         path: `./organizations/${orgId}.md`,
       });
       s.memberships.push({

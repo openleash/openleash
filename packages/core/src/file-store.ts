@@ -101,6 +101,36 @@ class FileOrganizationRepository implements OrganizationRepository {
   delete(orgId: string): void {
     deleteOrgFile(this.dataDir, orgId);
   }
+
+  readBySlug(slug: string): OrganizationFrontmatter | null {
+    if (typeof slug !== 'string' || slug.length === 0) return null;
+    const state = readState(this.dataDir);
+
+    // Fast path: state index carries the current slug for each org.
+    const byCurrent = state.organizations.find((e) => e.slug === slug);
+    if (byCurrent) {
+      try {
+        return readOrgFile(this.dataDir, byCurrent.org_id);
+      } catch {
+        return null;
+      }
+    }
+
+    // Slow path: slug may match a previous slug after a rename. Scan org files
+    // looking at slug_history. Rename is expected to be rare, so a full scan
+    // here is acceptable.
+    for (const entry of state.organizations) {
+      try {
+        const org = readOrgFile(this.dataDir, entry.org_id);
+        if (org.slug_history?.includes(slug)) {
+          return org;
+        }
+      } catch {
+        // Corrupted or missing file — skip.
+      }
+    }
+    return null;
+  }
 }
 
 class FileOrgMembershipRepository implements OrgMembershipRepository {

@@ -58,15 +58,54 @@ const NAV_ITEMS = [
     { path: "/gui/admin/api-reference", label: "API Docs", icon: "api" },
 ];
 
-const USER_NAV_ITEMS = [
-    { path: "/gui/dashboard", label: "Dashboard", icon: "dashboard" },
-    { path: "/gui/profile", label: "Profile", icon: "account_circle" },
-    { path: "/gui/organizations", label: "Organizations", icon: "corporate_fare" },
-    { path: "/gui/agents", label: "My Agents", icon: "smart_toy" },
-    { path: "/gui/policies", label: "My Policies", icon: "policy" },
-    { path: "/gui/approvals", label: "Approvals", icon: "task_alt" },
-    { path: "/gui/audit", label: "Audit Log", icon: "receipt_long" },
-];
+interface OwnerNavItem {
+    path: string;
+    label: string;
+    icon: string;
+    /** Numeric badge shown next to the label (e.g. pending approvals). */
+    badge?: number;
+}
+
+/**
+ * Build the owner-sidebar nav for the current scope. Phase 5 moves all owner
+ * pages under scoped prefixes: `/gui/personal/*` for the user's own data and
+ * `/gui/orgs/:slug/*` for an organization. Phase 8 promotes the approvals
+ * entry to a cross-scope "Inbox" at `/gui/approvals` with a count badge —
+ * per-scope filtering still lives at `/gui/personal/approvals` and
+ * `/gui/orgs/:slug/approvals` for users who want to drill down.
+ */
+function buildOwnerNavItems(scope?: ScopeContext, pendingTotal?: number): OwnerNavItem[] {
+    const inboxItem: OwnerNavItem = {
+        path: "/gui/approvals",
+        label: "Inbox",
+        icon: "inbox",
+        ...(pendingTotal && pendingTotal > 0 ? { badge: pendingTotal } : {}),
+    };
+
+    if (scope?.current.type === "org") {
+        const prefix = `/gui/orgs/${encodeURIComponent(scope.current.slug ?? "")}`;
+        return [
+            { path: `${prefix}/dashboard`, label: "Dashboard", icon: "dashboard" },
+            { path: `${prefix}/agents`, label: "Agents", icon: "smart_toy" },
+            { path: `${prefix}/policies`, label: "Policies", icon: "policy" },
+            inboxItem,
+            { path: `${prefix}/audit`, label: "Audit Log", icon: "receipt_long" },
+            // The org detail page at /gui/orgs/:slug serves as the Settings page
+            // (member list, slug editor, contacts, company IDs, etc.).
+            { path: prefix, label: "Settings", icon: "settings" },
+        ];
+    }
+    // Personal scope — also used as the fallback when no scope is supplied.
+    return [
+        { path: "/gui/personal/dashboard", label: "Dashboard", icon: "dashboard" },
+        { path: "/gui/profile", label: "Profile", icon: "account_circle" },
+        { path: "/gui/orgs", label: "Organizations", icon: "corporate_fare" },
+        { path: "/gui/personal/agents", label: "My Agents", icon: "smart_toy" },
+        { path: "/gui/personal/policies", label: "My Policies", icon: "policy" },
+        inboxItem,
+        { path: "/gui/personal/audit", label: "Audit Log", icon: "receipt_long" },
+    ];
+}
 
 function escapeHtml(str: string): string {
     if (!str) return "";
@@ -317,6 +356,22 @@ export function formatNameWithId(name: string | undefined, uuid: string): string
     return `<span class="mono id-truncated copyable" title="${escaped} — click to copy" data-copy-id="${escaped}">${escapeHtml(uuid.slice(0, 8))}\u2026</span>`;
 }
 
+export interface ScopeOption {
+    type: "user" | "org";
+    /** UUID for user/org — used as the canonical id, never rendered. */
+    id: string;
+    /** Org slug — present only when type === 'org'. Drives URLs. */
+    slug?: string;
+    display_name: string;
+}
+
+export interface ScopeContext {
+    current: ScopeOption;
+    available: ScopeOption[];
+    /** True when the user belongs to at least one org. Drives switcher visibility. */
+    hasOrgs: boolean;
+}
+
 export interface RenderPageOptions {
     showContextSwitcher?: boolean;
     isAdmin?: boolean;
@@ -326,6 +381,72 @@ export interface RenderPageOptions {
     isHosted?: boolean;
     extraHeadHtml?: string;
     extraBodyHtml?: string;
+    /** Current owner scope (personal or org) + switcher options. Owner context only. */
+    scope?: ScopeContext;
+    /**
+     * Count of pending approvals across every scope the user can act within.
+     * Drives the sidebar bell-icon badge. Owner context only.
+     */
+    pendingApprovalsTotal?: number;
+}
+
+function scopeHref(scope: ScopeOption): string {
+    if (scope.type === "user") return "/gui/personal/dashboard";
+    return `/gui/orgs/${encodeURIComponent(scope.slug ?? "")}/dashboard`;
+}
+
+function renderScopeSwitcher(scope: ScopeContext): string {
+    const { current, available } = scope;
+    const currentLabel = escapeHtml(current.display_name);
+    const currentIcon =
+        current.type === "user" ? "person" : "corporate_fare";
+
+    const items = available
+        .map((s) => {
+            const active = s.type === current.type && s.id === current.id;
+            const icon = s.type === "user" ? "person" : "corporate_fare";
+            const subLabel =
+                s.type === "user"
+                    ? `<span class="scope-item-sub">Personal</span>`
+                    : `<span class="scope-item-sub">Organization</span>`;
+            return `<a href="${scopeHref(s)}" class="scope-item${active ? " active" : ""}" role="menuitem">
+          <span class="material-symbols-outlined scope-item-icon">${icon}</span>
+          <span class="scope-item-labels">
+            <span class="scope-item-name">${escapeHtml(s.display_name)}</span>
+            ${subLabel}
+          </span>
+          ${active ? `<span class="material-symbols-outlined scope-item-check">check</span>` : ""}
+        </a>`;
+        })
+        .join("\n");
+
+    return `<div class="scope-switcher" data-scope-switcher>
+      <button type="button" class="scope-switcher-button" data-scope-switcher-toggle aria-haspopup="menu" aria-expanded="false">
+        <span class="material-symbols-outlined scope-switcher-icon">${currentIcon}</span>
+        <span class="scope-switcher-label">${currentLabel}</span>
+        <span class="material-symbols-outlined scope-switcher-caret">expand_more</span>
+      </button>
+      <div class="scope-switcher-menu" role="menu">
+        <div class="scope-switcher-menu-section">
+          ${items}
+        </div>
+        <div class="scope-switcher-menu-divider"></div>
+        <div class="scope-switcher-menu-section">
+          <a href="/gui/orgs" class="scope-item scope-item-action" role="menuitem">
+            <span class="material-symbols-outlined scope-item-icon">add</span>
+            <span class="scope-item-labels">
+              <span class="scope-item-name">New organization</span>
+            </span>
+          </a>
+          <a href="/gui/orgs" class="scope-item scope-item-action" role="menuitem">
+            <span class="material-symbols-outlined scope-item-icon">settings</span>
+            <span class="scope-item-labels">
+              <span class="scope-item-name">Manage organizations</span>
+            </span>
+          </a>
+        </div>
+      </div>
+    </div>`;
 }
 
 export function renderPage(
@@ -339,23 +460,36 @@ export function renderPage(
     const extraItems = isOwner
         ? (options?.extraUserNavItems ?? [])
         : (options?.extraAdminNavItems ?? []);
-    const navItems = [...(isOwner ? USER_NAV_ITEMS : NAV_ITEMS), ...extraItems];
+    const ownerNavBase = buildOwnerNavItems(options?.scope, options?.pendingApprovalsTotal);
+    const navItems = [...(isOwner ? ownerNavBase : NAV_ITEMS), ...extraItems];
     const subtitle = isOwner ? "Owner Portal" : "Authorization GUI";
-    const dashboardPath = isOwner ? "/gui/dashboard" : "/gui/admin/dashboard";
+    // Dashboard's path shifts by scope in owner mode — use the first nav item,
+    // which is always the dashboard/overview. Admin mode keeps a stable path.
+    const dashboardPath = isOwner ? (ownerNavBase[0]?.path ?? "/gui/personal/dashboard") : "/gui/admin/dashboard";
 
     const navHtml = navItems
         .map((item) => {
             const active =
                 activePath === item.path ||
                 (item.path !== dashboardPath && activePath.startsWith(item.path));
+            const badgeRaw = (item as unknown as { badge?: number }).badge;
+            const badgeHtml =
+                typeof badgeRaw === "number" && badgeRaw > 0
+                    ? `<span class="nav-badge">${escapeHtml(String(badgeRaw))}</span>`
+                    : "";
             return `<a href="${item.path}" class="nav-item${active ? " active" : ""}">
       <span class="nav-icon material-symbols-outlined">${item.icon}</span>
       <span class="nav-label">${item.label}</span>
+      ${badgeHtml}
     </a>`;
         })
         .join("\n");
 
     const showSwitcher = options?.isAdmin === true || (!isOwner && options?.showContextSwitcher !== false);
+    const scopeSwitcherHtml =
+        isOwner && options?.scope && options.scope.hasOrgs
+            ? renderScopeSwitcher(options.scope)
+            : "";
 
     const logoutHtml = `
     <a href="#" class="nav-item" id="${isOwner ? "nav-logout" : "nav-admin-logout"}" style="color:var(--color-danger)">
@@ -407,6 +541,7 @@ export function renderPage(
       </div>
     </div>
     <div class="sidebar-switchers">
+      ${scopeSwitcherHtml}
       ${
           showSwitcher
               ? `<div class="context-switcher">

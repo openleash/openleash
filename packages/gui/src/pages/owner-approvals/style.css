@@ -77,3 +77,23 @@
 .approvals-chevron-cell {
   width: 20px;
 }
+
+/* Scope pill shown next to agent name in the cross-scope inbox */
+.approvals-scope-pill {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  margin-left: 6px;
+  vertical-align: middle;
+  transition: border-color 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+.approvals-scope-pill:hover {
+  border-color: var(--border-accent);
+  color: var(--text-primary);
+}
