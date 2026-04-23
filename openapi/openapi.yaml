@@ -40,7 +40,7 @@ info:
        and the agent re-authorizes with the approval token.
     7. A counterparty verifies the proof token via `/v1/verify-proof` or
        offline using the public keys from `/v1/public-keys`.
-  version: 0.4.0
+  version: 0.5.0
   license:
     name: Apache-2.0
     url: https://github.com/openleash/openleash/blob/main/LICENSE
@@ -1509,6 +1509,14 @@ paths:
       description: |
         Creates a new organization owned by the authenticated user.
         The creator is automatically added as an `org_admin` member.
+
+        The URL `slug` is optional. When provided, it must match the
+        format `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$` (3–40 characters,
+        no leading/trailing hyphens, no consecutive hyphens) and must
+        not collide with any other organization's current slug or
+        with the reserved word list (e.g. `personal`, `admin`, `api`,
+        `new`, `orgs`). When omitted, the server auto-derives a slug
+        from `display_name` with a numeric suffix on collision.
       security:
         - OwnerSession: []
       requestBody:
@@ -1521,6 +1529,15 @@ paths:
               properties:
                 display_name:
                   type: string
+                slug:
+                  type: string
+                  pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+                  minLength: 3
+                  maxLength: 40
+                  description: |
+                    Optional URL slug. Drives `/gui/orgs/:slug/*` URLs and
+                    the scope switcher. Auto-derived from `display_name`
+                    if omitted.
                 contact_identities:
                   type: array
                   items:
@@ -1532,11 +1549,14 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [org_id, display_name, status, created_at, your_role]
+                required: [org_id, slug, display_name, status, created_at, your_role]
                 properties:
                   org_id:
                     type: string
                     format: uuid
+                  slug:
+                    type: string
+                    description: The resolved slug (explicit or auto-derived).
                   display_name:
                     type: string
                   status:
@@ -1547,7 +1567,18 @@ paths:
                   your_role:
                     $ref: "#/components/schemas/OrgRole"
         "400":
-          description: Invalid request.
+          description: |
+            Invalid request. When the error code is `INVALID_BODY` and
+            `slug` is set, the slug failed format validation or was
+            reserved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: |
+            Slug collides with another organization's current slug.
+            The error code is `SLUG_TAKEN`.
           content:
             application/json:
               schema:
@@ -1623,6 +1654,15 @@ paths:
       description: |
         Updates an organization's details. Requires `org_admin` role
         in the organization.
+
+        When `slug` is set to a value different from the current slug,
+        the old slug is pushed onto `slug_history` (capped at 10
+        entries) so old URLs continue to redirect to the new one.
+        The slug must pass the same format/reservation checks as
+        `POST /v1/owner/organizations` and must not collide with any
+        other organization's *current* slug (history collisions are
+        allowed — a previously-used slug can be reclaimed by a
+        different org once its original holder has renamed away).
       security:
         - OwnerSession: []
       parameters:
@@ -1636,6 +1676,14 @@ paths:
               properties:
                 display_name:
                   type: string
+                slug:
+                  type: string
+                  pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+                  minLength: 3
+                  maxLength: 40
+                  description: |
+                    New slug for the organization. Supplying the
+                    current slug is a no-op (no history entry added).
                 contact_identities:
                   type: array
                   items:
@@ -1654,9 +1702,49 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OrganizationSummary"
+                type: object
+                required: [org_id, status, slug]
+                properties:
+                  org_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [updated]
+                  slug:
+                    type: string
+                    description: The organization's current slug after this update.
+                  slug_changed:
+                    type: boolean
+                    description: |
+                      Present and `true` only when the slug was
+                      actually renamed in this request.
+                  previous_slug:
+                    type: string
+                    nullable: true
+                    description: |
+                      Present when `slug_changed` is `true`. The slug
+                      that was in use before this update; now lives in
+                      `slug_history`.
+        "400":
+          description: |
+            Invalid request. When `slug` is set and the error code is
+            `INVALID_BODY`, the slug failed format validation or was
+            reserved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: Insufficient permissions (requires org_admin).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: |
+            The new `slug` collides with another organization's
+            current slug. Error code `SLUG_TAKEN`.
           content:
             application/json:
               schema:
@@ -2821,6 +2909,19 @@ components:
         org_id:
           type: string
           format: uuid
+        slug:
+          type: string
+          description: |
+            URL slug — drives `/gui/orgs/:slug/*` URLs. Always present
+            for organizations created or migrated on v0.19.0+.
+        slug_history:
+          type: array
+          items:
+            type: string
+          description: |
+            Previous slugs, most-recent first, capped at 10 entries.
+            Old URLs using these slugs 302-redirect to the current
+            slug.
         display_name:
           type: string
         status:
