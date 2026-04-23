@@ -7,10 +7,22 @@ import type { OpenleashConfig, DataStore, ServerPluginManifest, SessionClaims } 
 
 export function createOwnerAuth(config: OpenleashConfig, store: DataStore, pluginManifest?: ServerPluginManifest) {
   return async function ownerAuth(request: FastifyRequest, reply: FastifyReply) {
-    const isGuiRequest = request.url.startsWith('/gui/');
+    // An auth failure on a GUI URL redirects to the login page so a
+    // browser user lands somewhere they can re-authenticate. For API
+    // clients (mobile, SDKs) that must stay as a JSON envelope — a
+    // fetch that auto-follows the redirect chain ends up at the hosted
+    // landing HTML and tries to parse it as the requested resource.
+    //
+    // We treat the request as API-intended whenever the caller sent an
+    // explicit Bearer token (browsers never do) or didn't advertise
+    // `text/html` in Accept. Only a plain browser navigation to /gui/*
+    // gets the redirect.
+    const hasBearer = (request.headers.authorization ?? '').startsWith('Bearer ');
+    const acceptsHtml = (request.headers.accept ?? '').includes('text/html');
+    const isBrowserNavigation = request.url.startsWith('/gui/') && acceptsHtml && !hasBearer;
 
     function deny(code: string, message: string) {
-      if (isGuiRequest) {
+      if (isBrowserNavigation) {
         reply.redirect('/gui/login?returnTo=' + encodeURIComponent(request.url));
       } else {
         reply.code(401).send({ error: { code, message } });
