@@ -24,6 +24,12 @@ import {
   writePolicyDraftFile,
   readPolicyDraftFile,
   deletePolicyDraftFile,
+  writePolicyGroupFile,
+  readPolicyGroupFile,
+  deletePolicyGroupFile,
+  writeAgentGroupMembershipFile,
+  readAgentGroupMembershipFile,
+  deleteAgentGroupMembershipFile,
   writeSetupInviteFile,
   readSetupInviteFile,
   deleteSetupInviteFile,
@@ -41,12 +47,14 @@ import { FileAuditStore } from './audit.js';
 import type { AuditStore } from './audit.js';
 import type {
   AgentFrontmatter,
+  AgentGroupMembership,
   AgentInvite,
   ApprovalRequestFrontmatter,
   UserFrontmatter,
   OrganizationFrontmatter,
   OrgMembership,
   PolicyDraftFrontmatter,
+  PolicyGroupFrontmatter,
   ServerKeyFile,
   OrgInvite,
   SetupInvite,
@@ -62,6 +70,8 @@ import type {
   PolicyRepository,
   ApprovalRequestRepository,
   PolicyDraftRepository,
+  PolicyGroupRepository,
+  AgentGroupMembershipRepository,
   SetupInviteRepository,
   AgentInviteRepository,
   OrgInviteRepository,
@@ -237,6 +247,89 @@ class FilePolicyDraftRepository implements PolicyDraftRepository {
   }
 }
 
+class FilePolicyGroupRepository implements PolicyGroupRepository {
+  private cache: PolicyGroupFrontmatter[] | null = null;
+
+  constructor(private readonly dataDir: string) {}
+
+  private get dir() { return path.join(this.dataDir, 'policy-groups'); }
+
+  private loadAll(): PolicyGroupFrontmatter[] {
+    if (this.cache) return this.cache;
+    const dir = this.dir;
+    if (!fs.existsSync(dir)) { this.cache = []; return this.cache; }
+    this.cache = fs.readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as PolicyGroupFrontmatter);
+    return this.cache;
+  }
+
+  read(groupId: string): PolicyGroupFrontmatter {
+    return readPolicyGroupFile(this.dataDir, groupId);
+  }
+
+  write(group: PolicyGroupFrontmatter): void {
+    writePolicyGroupFile(this.dataDir, group);
+    this.cache = null;
+  }
+
+  delete(groupId: string): void {
+    deletePolicyGroupFile(this.dataDir, groupId);
+    this.cache = null;
+  }
+
+  listByOwner(ownerType: 'user' | 'org', ownerId: string): PolicyGroupFrontmatter[] {
+    return this.loadAll().filter((g) => g.owner_type === ownerType && g.owner_id === ownerId);
+  }
+
+  readBySlug(ownerType: 'user' | 'org', ownerId: string, slug: string): PolicyGroupFrontmatter | null {
+    if (typeof slug !== 'string' || slug.length === 0) return null;
+    return this.loadAll().find(
+      (g) => g.owner_type === ownerType && g.owner_id === ownerId && g.slug === slug,
+    ) ?? null;
+  }
+}
+
+class FileAgentGroupMembershipRepository implements AgentGroupMembershipRepository {
+  private cache: AgentGroupMembership[] | null = null;
+
+  constructor(private readonly dataDir: string) {}
+
+  private get dir() { return path.join(this.dataDir, 'agent-group-memberships'); }
+
+  private loadAll(): AgentGroupMembership[] {
+    if (this.cache) return this.cache;
+    const dir = this.dir;
+    if (!fs.existsSync(dir)) { this.cache = []; return this.cache; }
+    this.cache = fs.readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as AgentGroupMembership);
+    return this.cache;
+  }
+
+  read(membershipId: string): AgentGroupMembership {
+    return readAgentGroupMembershipFile(this.dataDir, membershipId);
+  }
+
+  write(membership: AgentGroupMembership): void {
+    writeAgentGroupMembershipFile(this.dataDir, membership);
+    this.cache = null;
+  }
+
+  delete(membershipId: string): void {
+    deleteAgentGroupMembershipFile(this.dataDir, membershipId);
+    this.cache = null;
+  }
+
+  listByGroup(groupId: string): AgentGroupMembership[] {
+    return this.loadAll().filter((m) => m.group_id === groupId);
+  }
+
+  listByAgent(agentPrincipalId: string): AgentGroupMembership[] {
+    return this.loadAll().filter((m) => m.agent_principal_id === agentPrincipalId);
+  }
+}
+
 class FileSetupInviteRepository implements SetupInviteRepository {
   constructor(private readonly dataDir: string) {}
 
@@ -367,6 +460,8 @@ export class FileDataStore implements DataStore {
   readonly policies: PolicyRepository;
   readonly approvalRequests: ApprovalRequestRepository;
   readonly policyDrafts: PolicyDraftRepository;
+  readonly policyGroups: PolicyGroupRepository;
+  readonly agentGroupMemberships: AgentGroupMembershipRepository;
   readonly setupInvites: SetupInviteRepository;
   readonly agentInvites: AgentInviteRepository;
   readonly orgInvites: OrgInviteRepository;
@@ -385,6 +480,8 @@ export class FileDataStore implements DataStore {
     this.policies = new FilePolicyRepository(dataDir);
     this.approvalRequests = new FileApprovalRequestRepository(dataDir);
     this.policyDrafts = new FilePolicyDraftRepository(dataDir);
+    this.policyGroups = new FilePolicyGroupRepository(dataDir);
+    this.agentGroupMemberships = new FileAgentGroupMembershipRepository(dataDir);
     this.setupInvites = new FileSetupInviteRepository(dataDir);
     this.agentInvites = new FileAgentInviteRepository(dataDir);
     this.orgInvites = new FileOrgInviteRepository(dataDir);
@@ -404,6 +501,8 @@ export class FileDataStore implements DataStore {
     fs.mkdirSync(path.join(this.dataDir, 'policies'), { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'approval-requests'), { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'invites'), { recursive: true });
+    fs.mkdirSync(path.join(this.dataDir, 'policy-groups'), { recursive: true });
+    fs.mkdirSync(path.join(this.dataDir, 'agent-group-memberships'), { recursive: true });
 
     // Ensure audit log
     const auditPath = path.join(this.dataDir, 'audit.log.jsonl');

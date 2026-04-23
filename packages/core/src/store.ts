@@ -1,11 +1,13 @@
 import type {
   AgentFrontmatter,
+  AgentGroupMembership,
   AgentInvite,
   ApprovalRequestFrontmatter,
   UserFrontmatter,
   OrganizationFrontmatter,
   OrgMembership,
   PolicyDraftFrontmatter,
+  PolicyGroupFrontmatter,
   ServerKeyFile,
   OrgInvite,
   SetupInvite,
@@ -66,6 +68,22 @@ export interface PolicyDraftRepository {
   delete(policyDraftId: string): void;
 }
 
+export interface PolicyGroupRepository {
+  read(groupId: string): PolicyGroupFrontmatter;
+  write(group: PolicyGroupFrontmatter): void;
+  delete(groupId: string): void;
+  listByOwner(ownerType: 'user' | 'org', ownerId: string): PolicyGroupFrontmatter[];
+  readBySlug(ownerType: 'user' | 'org', ownerId: string, slug: string): PolicyGroupFrontmatter | null;
+}
+
+export interface AgentGroupMembershipRepository {
+  read(membershipId: string): AgentGroupMembership;
+  write(membership: AgentGroupMembership): void;
+  delete(membershipId: string): void;
+  listByGroup(groupId: string): AgentGroupMembership[];
+  listByAgent(agentPrincipalId: string): AgentGroupMembership[];
+}
+
 export interface SetupInviteRepository {
   read(inviteId: string): SetupInvite;
   write(invite: SetupInvite): void;
@@ -113,6 +131,8 @@ export interface DataStore {
   policies: PolicyRepository;
   approvalRequests: ApprovalRequestRepository;
   policyDrafts: PolicyDraftRepository;
+  policyGroups: PolicyGroupRepository;
+  agentGroupMemberships: AgentGroupMembershipRepository;
   setupInvites: SetupInviteRepository;
   agentInvites: AgentInviteRepository;
   orgInvites: OrgInviteRepository;

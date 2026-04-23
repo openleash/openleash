@@ -207,6 +207,12 @@ export interface StatePolicyEntry {
   owner_type: OwnerType;
   owner_id: string;
   applies_to_agent_principal_id: string | null;
+  /**
+   * Org-scoped policy groups (v1, 2026-04-23): policy applies to every agent
+   * in the group. Optional so pre-groups state.md files still type-check;
+   * treated as null at evaluation time.
+   */
+  applies_to_group_id?: string | null;
   name: string | null;
   description: string | null;
   path: string;
@@ -217,6 +223,27 @@ export interface StateBinding {
   owner_id: string;
   policy_id: string;
   applies_to_agent_principal_id: string | null;
+  /**
+   * Org-scoped policy groups (v1): binding applies to every agent in the
+   * group. Optional for backward compatibility — absent is treated as null.
+   */
+  applies_to_group_id?: string | null;
+}
+
+export interface StatePolicyGroupEntry {
+  group_id: string;
+  owner_type: OwnerType; // v1: always 'org'
+  owner_id: string;
+  name: string;
+  slug: string;
+  path: string;
+}
+
+export interface StateAgentGroupMembershipEntry {
+  membership_id: string;
+  group_id: string;
+  agent_principal_id: string;
+  path: string;
 }
 
 export interface StateData {
@@ -234,6 +261,10 @@ export interface StateData {
   bindings: StateBinding[];
   approval_requests?: StateApprovalRequestEntry[];
   policy_drafts?: StatePolicyDraftEntry[];
+  /** Org-scoped policy groups. Optional for backward compatibility with pre-groups data. */
+  policy_groups?: StatePolicyGroupEntry[];
+  /** Agent ↔ group join rows. Optional for backward compatibility. */
+  agent_group_memberships?: StateAgentGroupMembershipEntry[];
 }
 
 // ─── Server key file ─────────────────────────────────────────────────
@@ -396,6 +427,32 @@ export interface PolicyDraftFrontmatter {
   resolved_by: string | null;
   denial_reason: string | null;
   created_at: string;
+}
+
+// ─── Policy group types ──────────────────────────────────────────────
+// A policy group is an org-scoped bucket that agents can join. Policies
+// can target a group (via applies_to_group_id on StateBinding), and at
+// evaluation time all members of the group pick up the group's policies.
+// v1 is org-scoped only; personal-scope groups may come later.
+
+export interface PolicyGroupFrontmatter {
+  group_id: string;
+  owner_type: OwnerType; // v1: always 'org'
+  owner_id: string;
+  name: string;
+  /** URL slug, unique within the owner. */
+  slug: string;
+  description: string | null;
+  created_at: string;
+  created_by_user_id: string;
+}
+
+export interface AgentGroupMembership {
+  membership_id: string;
+  group_id: string;
+  agent_principal_id: string;
+  added_at: string;
+  added_by_user_id: string;
 }
 
 export interface StatePolicyDraftEntry {

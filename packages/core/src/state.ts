@@ -3,12 +3,14 @@ import * as path from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type {
   AgentFrontmatter,
+  AgentGroupMembership,
   AgentInvite,
   ApprovalRequestFrontmatter,
   UserFrontmatter,
   OrganizationFrontmatter,
   OrgMembership,
   PolicyDraftFrontmatter,
+  PolicyGroupFrontmatter,
   SetupInvite,
   StateApprovalRequestEntry,
   StateData,
@@ -192,6 +194,44 @@ export function readPolicyDraftFile(dataDir: string, policyDraftId: string): Pol
 
 export function deletePolicyDraftFile(dataDir: string, policyDraftId: string): void {
   const filePath = path.join(dataDir, 'policy-drafts', `${policyDraftId}.md`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
+// ─── Policy group files ─────────────────────────────────────────────
+
+export function writePolicyGroupFile(dataDir: string, group: PolicyGroupFrontmatter): void {
+  const dir = path.join(dataDir, 'policy-groups');
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${group.group_id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(group, null, 2), 'utf-8');
+}
+
+export function readPolicyGroupFile(dataDir: string, groupId: string): PolicyGroupFrontmatter {
+  const filePath = path.join(dataDir, 'policy-groups', `${groupId}.json`);
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+export function deletePolicyGroupFile(dataDir: string, groupId: string): void {
+  const filePath = path.join(dataDir, 'policy-groups', `${groupId}.json`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
+// ─── Agent-group membership files ───────────────────────────────────
+
+export function writeAgentGroupMembershipFile(dataDir: string, m: AgentGroupMembership): void {
+  const dir = path.join(dataDir, 'agent-group-memberships');
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${m.membership_id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(m, null, 2), 'utf-8');
+}
+
+export function readAgentGroupMembershipFile(dataDir: string, membershipId: string): AgentGroupMembership {
+  const filePath = path.join(dataDir, 'agent-group-memberships', `${membershipId}.json`);
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+export function deleteAgentGroupMembershipFile(dataDir: string, membershipId: string): void {
+  const filePath = path.join(dataDir, 'agent-group-memberships', `${membershipId}.json`);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 

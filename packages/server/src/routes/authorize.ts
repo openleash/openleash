@@ -8,6 +8,8 @@ import {
   verifyApprovalToken,
   computeActionHash,
   NonceCache,
+  orderBindingsBySpecificity,
+  mergePolicyLayers,
 } from '@openleash/core';
 import type { OpenleashConfig, StateAgentEntry, DataStore } from '@openleash/core';
 import { createAgentAuth } from '../middleware/agent-auth.js';
@@ -176,34 +178,52 @@ export function registerAuthorizeRoutes(
     }
 
     // ─── Standard policy evaluation path ──────────────────────────────
-    // Find applicable policy
+    // Collect all bindings belonging to the agent's owner (prevents
+    // cross-owner policy leakage), then filter by specificity tier.
     const state = store.state.getState();
-    const binding = state.bindings.find((b) => {
-      // Binding must belong to the agent's owner (prevents cross-owner policy leakage)
-      if (b.owner_type !== agentEntry.owner_type || b.owner_id !== agentEntry.owner_id) return false;
-      // Match by specific agent or all agents under this owner
-      if (b.applies_to_agent_principal_id === agentEntry.agent_principal_id) return true;
-      if (b.applies_to_agent_principal_id === null) return true;
-      return false;
-    });
+    const ownerBindings = state.bindings.filter(
+      (b) => b.owner_type === agentEntry.owner_type && b.owner_id === agentEntry.owner_id,
+    );
 
-    if (!binding) {
+    // Resolve which groups this agent belongs to (v1: only org-scoped).
+    const agentGroupIds = new Set(
+      store.agentGroupMemberships
+        .listByAgent(agentEntry.agent_principal_id)
+        .map((m) => m.group_id),
+    );
+
+    const orderedBindings = orderBindingsBySpecificity(
+      ownerBindings,
+      agentEntry.agent_principal_id,
+      agentGroupIds,
+    );
+
+    if (orderedBindings.length === 0) {
       reply.code(403).send({
         error: { code: 'NO_POLICY', message: 'No policy bound to this agent or owner' },
       });
       return;
     }
 
-    const policyEntry = state.policies.find((p) => p.policy_id === binding.policy_id);
-    if (!policyEntry) {
+    // Load + parse the policy file for each binding, in tier order.
+    const layers = [];
+    const policyIds: string[] = [];
+    for (const b of orderedBindings) {
+      const policyEntry = state.policies.find((p) => p.policy_id === b.policy_id);
+      if (!policyEntry) continue; // stale binding — skip silently
+      const policyYaml = store.policies.read(policyEntry.policy_id);
+      layers.push(parsePolicyYaml(policyYaml));
+      policyIds.push(policyEntry.policy_id);
+    }
+
+    if (layers.length === 0) {
       reply.code(500).send({
         error: { code: 'POLICY_NOT_FOUND', message: 'Bound policy file not found' },
       });
       return;
     }
 
-    const policyYaml = store.policies.read(policyEntry.policy_id);
-    const policy = parsePolicyYaml(policyYaml);
+    const policy = mergePolicyLayers(layers);
 
     // Evaluate
     const engineResult = evaluate(action, policy, {
@@ -259,7 +279,8 @@ export function registerAuthorizeRoutes(
       owner_id: agentEntry.owner_id,
       reason: response.reason ?? null,
       obligations: response.obligations ?? [],
-      policy_id: policyEntry.policy_id,
+      policy_id: policyIds[0],
+      policy_ids: policyIds,
       trace: engineResult.trace ?? null,
     }, { decision_id: response.decision_id, action_id: action.action_id, principal_id: agentEntry.agent_principal_id });
 

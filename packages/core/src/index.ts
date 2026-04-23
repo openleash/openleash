@@ -8,6 +8,7 @@ export * from './constraints.js';
 export * from './obligations.js';
 export * from './policy-parser.js';
 export * from './engine.js';
+export * from './policy-resolution.js';
 export * from './keys.js';
 export * from './tokens.js';
 export * from './passphrase.js';
