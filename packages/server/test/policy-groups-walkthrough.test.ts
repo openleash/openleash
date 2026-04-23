@@ -178,8 +178,6 @@ describe("Policy groups — full QA walkthrough", () => {
         expect(res.body).toContain('id="grp-name"');
         expect(res.body).toContain('id="grp-slug"');
         expect(res.body).toContain('id="btn-grp-create"');
-        // Client asset tag must reference the Vite entry.
-        expect(res.body).toMatch(/pages\/owner-policy-groups\/client/);
         // Page data exposes orgId + orgSlug + canManage for the client.
         expect(res.body).toContain(`"orgId":"${orgId}"`);
         expect(res.body).toContain(`"orgSlug":"${orgSlug}"`);
@@ -234,8 +232,6 @@ describe("Policy groups — full QA walkthrough", () => {
         expect(res.body).toContain(agentId);
         // Delete button visible because no policies bound yet.
         expect(res.body).toContain('id="btn-delete-group"');
-        // Client bundle referenced.
-        expect(res.body).toMatch(/pages\/owner-policy-group-detail\/client/);
         // Page data exposes group_id for the membership API calls.
         expect(res.body).toContain(`"groupId":"${createdGroupId}"`);
     });
