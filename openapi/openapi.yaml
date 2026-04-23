@@ -40,7 +40,7 @@ info:
        and the agent re-authorizes with the approval token.
     7. A counterparty verifies the proof token via `/v1/verify-proof` or
        offline using the public keys from `/v1/public-keys`.
-  version: 0.5.0
+  version: 0.6.0
   license:
     name: Apache-2.0
     url: https://github.com/openleash/openleash/blob/main/LICENSE
@@ -2090,6 +2090,21 @@ paths:
                   type: string
                   format: uuid
                   nullable: true
+                  description: |
+                    Target a single agent. Mutually exclusive with
+                    `applies_to_group_id`.
+                applies_to_group_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: |
+                    Target every agent in an org-scoped policy group.
+                    Mutually exclusive with `applies_to_agent_principal_id`.
+                    See `/v1/owner/organizations/{orgId}/policy-groups`.
+                name:
+                  type: string
+                description:
+                  type: string
       responses:
         "200":
           description: Policy created.
@@ -2109,8 +2124,14 @@ paths:
                     type: string
                     format: uuid
                     nullable: true
+                  applies_to_group_id:
+                    type: string
+                    format: uuid
+                    nullable: true
         "400":
-          description: Invalid policy YAML.
+          description: |
+            Invalid body — e.g. invalid YAML, unknown agent/group, or both
+            `applies_to_agent_principal_id` and `applies_to_group_id` set.
           content:
             application/json:
               schema:
@@ -2187,6 +2208,262 @@ paths:
                   status:
                     type: string
                     example: deleted
+
+  /v1/owner/organizations/{orgId}/policy-groups:
+    get:
+      summary: List policy groups in an organization
+      operationId: listPolicyGroups
+      tags: [Organization, Owner]
+      description: |
+        Policy groups are an org-scoped middle tier between owner-wide
+        policies and per-agent policies. An agent that joins a group
+        picks up any policies bound to that group via
+        `applies_to_group_id`. Resolution order at authorize() time is
+        agent-specific → group → owner-wide.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Group list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [groups]
+                properties:
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      required: [group_id, name, slug, member_count]
+                      properties:
+                        group_id: { type: string, format: uuid }
+                        name: { type: string }
+                        slug: { type: string }
+                        description: { type: string, nullable: true }
+                        created_at: { type: string, format: date-time }
+                        created_by_user_id: { type: string, format: uuid }
+                        member_count: { type: integer }
+    post:
+      summary: Create policy group
+      operationId: createPolicyGroup
+      tags: [Organization, Owner]
+      description: |
+        Creates a new policy group. Requires `org_admin` role. Slug is
+        derived from `name` if not provided, and must be unique within
+        the org.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                slug:
+                  type: string
+                  description: |
+                    Optional. 3-40 lowercase letters/digits/hyphens. Auto-derived from `name` if omitted.
+                description: { type: string }
+      responses:
+        "200":
+          description: Group created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [group_id, name, slug]
+                properties:
+                  group_id: { type: string, format: uuid }
+                  name: { type: string }
+                  slug: { type: string }
+                  description: { type: string, nullable: true }
+        "400": { description: Invalid body or slug., content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "409":
+          description: A group with this slug already exists in the org.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /v1/owner/organizations/{orgId}/policy-groups/{groupId}:
+    parameters:
+      - $ref: "#/components/parameters/OrgId"
+      - name: groupId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The policy group's `group_id`.
+    get:
+      summary: Get policy group detail
+      operationId: getPolicyGroup
+      tags: [Organization, Owner]
+      description: |
+        Returns the group, its agent members, and the policies currently
+        bound to it. Any `org_viewer` in the org can call this.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Group detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [group_id, name, slug, agents, bound_policies]
+                properties:
+                  group_id: { type: string, format: uuid }
+                  name: { type: string }
+                  slug: { type: string }
+                  description: { type: string, nullable: true }
+                  created_at: { type: string, format: date-time }
+                  created_by_user_id: { type: string, format: uuid }
+                  agents:
+                    type: array
+                    items:
+                      type: object
+                      required: [agent_principal_id, agent_id, membership_id, added_at]
+                      properties:
+                        agent_principal_id: { type: string, format: uuid }
+                        agent_id: { type: string }
+                        membership_id: { type: string, format: uuid }
+                        added_at: { type: string, format: date-time }
+                  bound_policies:
+                    type: array
+                    items:
+                      type: object
+                      required: [policy_id]
+                      properties:
+                        policy_id: { type: string, format: uuid }
+                        name: { type: string, nullable: true }
+                        description: { type: string, nullable: true }
+        "404": { description: Group not found., content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    put:
+      summary: Update policy group
+      operationId: updatePolicyGroup
+      tags: [Organization, Owner]
+      description: |
+        Updates the name, slug, or description. Requires `org_admin` role.
+      security:
+        - OwnerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                slug: { type: string }
+                description: { type: string }
+      responses:
+        "200":
+          description: Group updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [group_id, name, slug]
+                properties:
+                  group_id: { type: string, format: uuid }
+                  name: { type: string }
+                  slug: { type: string }
+                  description: { type: string, nullable: true }
+        "400": { description: Invalid body or slug., content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { description: Group not found., content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "409":
+          description: A different group already uses this slug in the org.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    delete:
+      summary: Delete policy group
+      operationId: deletePolicyGroup
+      tags: [Organization, Owner]
+      description: |
+        Deletes the group. Refuses (409 `GROUP_HAS_POLICIES`) when any
+        policy is still bound to the group — the caller must unbind or
+        delete those policies first. Existing agent memberships are
+        cleaned up on success.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Group deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [group_id, status]
+                properties:
+                  group_id: { type: string, format: uuid }
+                  status: { type: string, example: deleted }
+        "404": { description: Group not found., content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "409":
+          description: Policies are bound to this group; unbind them first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/organizations/{orgId}/policy-groups/{groupId}/agents/{agentId}:
+    parameters:
+      - $ref: "#/components/parameters/OrgId"
+      - name: groupId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The agent's `agent_principal_id`.
+    post:
+      summary: Add an agent to a policy group
+      operationId: addAgentToPolicyGroup
+      tags: [Organization, Owner]
+      description: |
+        Idempotent. Requires `org_admin` role. The agent must already be
+        owned by the organization.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Membership added (or already existed).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [membership_id, status]
+                properties:
+                  membership_id: { type: string, format: uuid }
+                  status:
+                    type: string
+                    enum: [added, already_member]
+        "404": { description: Group or agent not found., content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    delete:
+      summary: Remove an agent from a policy group
+      operationId: removeAgentFromPolicyGroup
+      tags: [Organization, Owner]
+      description: |
+        Requires `org_admin` role. Returns 404 if the agent is not a
+        member of the group.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Membership removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [membership_id, status]
+                properties:
+                  membership_id: { type: string, format: uuid }
+                  status: { type: string, example: removed }
+        "404": { description: Group not found or agent not a member., content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
   /v1/owner/organizations/{orgId}/approval-requests:
     get:

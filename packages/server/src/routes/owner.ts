@@ -1500,6 +1500,7 @@ export function registerOwnerRoutes(
 
         const body = request.body as {
             applies_to_agent_principal_id?: string | null;
+            applies_to_group_id?: string | null;
             policy_yaml: string;
             name?: string;
             description?: string;
@@ -1515,6 +1516,14 @@ export function registerOwnerRoutes(
         }
 
         const appliesToAgent = body.applies_to_agent_principal_id ?? null;
+        const appliesToGroup = body.applies_to_group_id ?? null;
+
+        if (appliesToAgent && appliesToGroup) {
+            reply.code(400).send({
+                error: { code: "INVALID_BODY", message: "Cannot set both applies_to_agent_principal_id and applies_to_group_id — policies target exactly one tier" },
+            });
+            return;
+        }
 
         // Validate that the target agent belongs to this org
         if (appliesToAgent) {
@@ -1523,6 +1532,25 @@ export function registerOwnerRoutes(
             if (!targetAgent || targetAgent.owner_type !== "org" || targetAgent.owner_id !== orgId) {
                 reply.code(400).send({
                     error: { code: "INVALID_AGENT", message: "Target agent does not belong to this organization" },
+                });
+                return;
+            }
+        }
+
+        // Validate that the target group belongs to this org
+        if (appliesToGroup) {
+            let targetGroup;
+            try {
+                targetGroup = store.policyGroups.read(appliesToGroup);
+            } catch {
+                reply.code(400).send({
+                    error: { code: "INVALID_GROUP", message: "Target policy group not found" },
+                });
+                return;
+            }
+            if (targetGroup.owner_type !== "org" || targetGroup.owner_id !== orgId) {
+                reply.code(400).send({
+                    error: { code: "INVALID_GROUP", message: "Target policy group does not belong to this organization" },
                 });
                 return;
             }
@@ -1540,6 +1568,7 @@ export function registerOwnerRoutes(
                 owner_type: "org",
                 owner_id: orgId,
                 applies_to_agent_principal_id: appliesToAgent,
+                applies_to_group_id: appliesToGroup,
                 name: policyName,
                 description: policyDescription,
                 path: `./policies/${policyId}.yaml`,
@@ -1549,6 +1578,7 @@ export function registerOwnerRoutes(
                 owner_id: orgId,
                 policy_id: policyId,
                 applies_to_agent_principal_id: appliesToAgent,
+                applies_to_group_id: appliesToGroup,
             });
         });
 
@@ -1557,9 +1587,15 @@ export function registerOwnerRoutes(
             org_id: orgId,
             created_by: session.sub,
             applies_to_agent_principal_id: appliesToAgent,
+            applies_to_group_id: appliesToGroup,
         }, { principal_id: session.sub });
 
-        return { policy_id: policyId, org_id: orgId, applies_to_agent_principal_id: appliesToAgent };
+        return {
+            policy_id: policyId,
+            org_id: orgId,
+            applies_to_agent_principal_id: appliesToAgent,
+            applies_to_group_id: appliesToGroup,
+        };
     });
 
     // PUT /v1/owner/organizations/:orgId/policies/:policyId
@@ -1645,6 +1681,402 @@ export function registerOwnerRoutes(
         }, { principal_id: session.sub });
 
         return { policy_id: policyId, status: "deleted" };
+    });
+
+    // ─── Policy groups (org-scoped) ────────────────────────────────────
+
+    // GET /v1/owner/organizations/:orgId/policy-groups
+    app.get("/v1/owner/organizations/:orgId/policy-groups", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+        if (!requireOrgRole(session, orgId, "org_viewer", reply)) return;
+
+        const groups = store.policyGroups.listByOwner("org", orgId).map((g) => {
+            const members = store.agentGroupMemberships.listByGroup(g.group_id);
+            return {
+                group_id: g.group_id,
+                name: g.name,
+                slug: g.slug,
+                description: g.description,
+                created_at: g.created_at,
+                created_by_user_id: g.created_by_user_id,
+                member_count: members.length,
+            };
+        });
+        return { groups };
+    });
+
+    // POST /v1/owner/organizations/:orgId/policy-groups
+    app.post("/v1/owner/organizations/:orgId/policy-groups", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const body = request.body as {
+            name?: string;
+            slug?: string;
+            description?: string;
+        };
+
+        const name = body.name?.trim();
+        if (!name) {
+            reply.code(400).send({ error: { code: "INVALID_BODY", message: "name is required" } });
+            return;
+        }
+
+        const existingSlugs = new Set(store.policyGroups.listByOwner("org", orgId).map((g) => g.slug));
+        let slug: string;
+        if (typeof body.slug === "string" && body.slug.trim().length > 0) {
+            const check = validateOrgSlug(body.slug.trim());
+            if (!check.ok) {
+                reply.code(400).send({ error: { code: "INVALID_SLUG", message: check.error } });
+                return;
+            }
+            slug = body.slug.trim();
+            if (existingSlugs.has(slug)) {
+                reply.code(409).send({ error: { code: "SLUG_TAKEN", message: "A group with this slug already exists in the org" } });
+                return;
+            }
+        } else {
+            slug = ensureUniqueSlug(slugifyName(name), existingSlugs);
+        }
+
+        const groupId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        store.policyGroups.write({
+            group_id: groupId,
+            owner_type: "org",
+            owner_id: orgId,
+            name,
+            slug,
+            description: body.description?.trim() || null,
+            created_at: now,
+            created_by_user_id: session.sub,
+        });
+        store.state.updateState((s) => {
+            if (!s.policy_groups) s.policy_groups = [];
+            s.policy_groups.push({
+                group_id: groupId,
+                owner_type: "org",
+                owner_id: orgId,
+                name,
+                slug,
+                path: `./policy-groups/${groupId}.json`,
+            });
+        });
+
+        store.audit.append("POLICY_GROUP_CREATED", {
+            group_id: groupId,
+            org_id: orgId,
+            name,
+            slug,
+            created_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return { group_id: groupId, name, slug, description: body.description?.trim() || null };
+    });
+
+    // GET /v1/owner/organizations/:orgId/policy-groups/:groupId
+    app.get("/v1/owner/organizations/:orgId/policy-groups/:groupId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, groupId } = request.params as { orgId: string; groupId: string };
+        if (!requireOrgRole(session, orgId, "org_viewer", reply)) return;
+
+        let group;
+        try {
+            group = store.policyGroups.read(groupId);
+        } catch {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy group not found" } });
+            return;
+        }
+        if (group.owner_type !== "org" || group.owner_id !== orgId) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy group not found" } });
+            return;
+        }
+
+        const members = store.agentGroupMemberships.listByGroup(groupId);
+        const state = store.state.getState();
+        const agents = members
+            .map((m) => {
+                const entry = state.agents.find((a) => a.agent_principal_id === m.agent_principal_id);
+                if (!entry) return null;
+                return {
+                    agent_principal_id: m.agent_principal_id,
+                    agent_id: entry.agent_id,
+                    membership_id: m.membership_id,
+                    added_at: m.added_at,
+                };
+            })
+            .filter((a): a is { agent_principal_id: string; agent_id: string; membership_id: string; added_at: string } => a !== null);
+
+        const boundPolicies = state.policies
+            .filter((p) => p.owner_type === "org" && p.owner_id === orgId && p.applies_to_group_id === groupId)
+            .map((p) => ({ policy_id: p.policy_id, name: p.name, description: p.description }));
+
+        return {
+            group_id: group.group_id,
+            name: group.name,
+            slug: group.slug,
+            description: group.description,
+            created_at: group.created_at,
+            created_by_user_id: group.created_by_user_id,
+            agents,
+            bound_policies: boundPolicies,
+        };
+    });
+
+    // PUT /v1/owner/organizations/:orgId/policy-groups/:groupId
+    app.put("/v1/owner/organizations/:orgId/policy-groups/:groupId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, groupId } = request.params as { orgId: string; groupId: string };
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const body = request.body as { name?: string; slug?: string; description?: string };
+
+        let group;
+        try {
+            group = store.policyGroups.read(groupId);
+        } catch {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy group not found" } });
+            return;
+        }
+        if (group.owner_type !== "org" || group.owner_id !== orgId) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy group not found" } });
+            return;
+        }
+
+        if (body.name !== undefined) {
+            const name = body.name.trim();
+            if (!name) {
+                reply.code(400).send({ error: { code: "INVALID_BODY", message: "name cannot be empty" } });
+                return;
+            }
+            group.name = name;
+        }
+
+        if (body.slug !== undefined) {
+            const newSlug = body.slug.trim();
+            const check = validateOrgSlug(newSlug);
+            if (!check.ok) {
+                reply.code(400).send({ error: { code: "INVALID_SLUG", message: check.error } });
+                return;
+            }
+            if (newSlug !== group.slug) {
+                const existing = store.policyGroups.listByOwner("org", orgId);
+                if (existing.some((g) => g.group_id !== groupId && g.slug === newSlug)) {
+                    reply.code(409).send({ error: { code: "SLUG_TAKEN", message: "A group with this slug already exists in the org" } });
+                    return;
+                }
+                group.slug = newSlug;
+            }
+        }
+
+        if (body.description !== undefined) {
+            group.description = body.description.trim() || null;
+        }
+
+        store.policyGroups.write(group);
+        store.state.updateState((s) => {
+            if (!s.policy_groups) s.policy_groups = [];
+            const idx = s.policy_groups.findIndex((e) => e.group_id === groupId);
+            if (idx !== -1) {
+                s.policy_groups[idx] = {
+                    ...s.policy_groups[idx],
+                    name: group.name,
+                    slug: group.slug,
+                };
+            }
+        });
+
+        store.audit.append("POLICY_GROUP_UPDATED", {
+            group_id: groupId,
+            org_id: orgId,
+            updated_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return {
+            group_id: group.group_id,
+            name: group.name,
+            slug: group.slug,
+            description: group.description,
+        };
+    });
+
+    // DELETE /v1/owner/organizations/:orgId/policy-groups/:groupId
+    // Refuses when policies are bound to the group (409 CONFLICT) — forces
+    // explicit cleanup so rules don't silently disappear on delete.
+    app.delete("/v1/owner/organizations/:orgId/policy-groups/:groupId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, groupId } = request.params as { orgId: string; groupId: string };
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        let group;
+        try {
+            group = store.policyGroups.read(groupId);
+        } catch {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy group not found" } });
+            return;
+        }
+        if (group.owner_type !== "org" || group.owner_id !== orgId) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy group not found" } });
+            return;
+        }
+
+        const state = store.state.getState();
+        const boundPolicies = state.policies.filter(
+            (p) => p.owner_type === "org" && p.owner_id === orgId && p.applies_to_group_id === groupId,
+        );
+        if (boundPolicies.length > 0) {
+            reply.code(409).send({
+                error: {
+                    code: "GROUP_HAS_POLICIES",
+                    message: "Cannot delete group while policies are bound to it",
+                    details: { bound_policy_ids: boundPolicies.map((p) => p.policy_id) },
+                },
+            });
+            return;
+        }
+
+        // Remove all memberships first (cheap cleanup — no policy collateral).
+        const members = store.agentGroupMemberships.listByGroup(groupId);
+        for (const m of members) {
+            store.agentGroupMemberships.delete(m.membership_id);
+        }
+
+        store.policyGroups.delete(groupId);
+        store.state.updateState((s) => {
+            if (s.policy_groups) {
+                s.policy_groups = s.policy_groups.filter((e) => e.group_id !== groupId);
+            }
+            if (s.agent_group_memberships) {
+                s.agent_group_memberships = s.agent_group_memberships.filter((e) => e.group_id !== groupId);
+            }
+        });
+
+        store.audit.append("POLICY_GROUP_DELETED", {
+            group_id: groupId,
+            org_id: orgId,
+            deleted_by: session.sub,
+            removed_memberships: members.length,
+        }, { principal_id: session.sub });
+
+        return { group_id: groupId, status: "deleted" };
+    });
+
+    // POST /v1/owner/organizations/:orgId/policy-groups/:groupId/agents/:agentId
+    app.post("/v1/owner/organizations/:orgId/policy-groups/:groupId/agents/:agentId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, groupId, agentId } = request.params as { orgId: string; groupId: string; agentId: string };
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        let group;
+        try {
+            group = store.policyGroups.read(groupId);
+        } catch {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy group not found" } });
+            return;
+        }
+        if (group.owner_type !== "org" || group.owner_id !== orgId) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy group not found" } });
+            return;
+        }
+
+        const state = store.state.getState();
+        const agentEntry = state.agents.find((a) => a.agent_principal_id === agentId);
+        if (!agentEntry || agentEntry.owner_type !== "org" || agentEntry.owner_id !== orgId) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Agent not found in this organization" } });
+            return;
+        }
+
+        // Idempotent — if already a member, return the existing membership.
+        const existing = store.agentGroupMemberships
+            .listByGroup(groupId)
+            .find((m) => m.agent_principal_id === agentId);
+        if (existing) {
+            return { membership_id: existing.membership_id, status: "already_member" };
+        }
+
+        const membershipId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        store.agentGroupMemberships.write({
+            membership_id: membershipId,
+            group_id: groupId,
+            agent_principal_id: agentId,
+            added_at: now,
+            added_by_user_id: session.sub,
+        });
+        store.state.updateState((s) => {
+            if (!s.agent_group_memberships) s.agent_group_memberships = [];
+            s.agent_group_memberships.push({
+                membership_id: membershipId,
+                group_id: groupId,
+                agent_principal_id: agentId,
+                path: `./agent-group-memberships/${membershipId}.json`,
+            });
+        });
+
+        store.audit.append("POLICY_GROUP_AGENT_ADDED", {
+            group_id: groupId,
+            org_id: orgId,
+            agent_principal_id: agentId,
+            membership_id: membershipId,
+            added_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return { membership_id: membershipId, status: "added" };
+    });
+
+    // DELETE /v1/owner/organizations/:orgId/policy-groups/:groupId/agents/:agentId
+    app.delete("/v1/owner/organizations/:orgId/policy-groups/:groupId/agents/:agentId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, groupId, agentId } = request.params as { orgId: string; groupId: string; agentId: string };
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        let group;
+        try {
+            group = store.policyGroups.read(groupId);
+        } catch {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy group not found" } });
+            return;
+        }
+        if (group.owner_type !== "org" || group.owner_id !== orgId) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Policy group not found" } });
+            return;
+        }
+
+        const existing = store.agentGroupMemberships
+            .listByGroup(groupId)
+            .find((m) => m.agent_principal_id === agentId);
+        if (!existing) {
+            reply.code(404).send({ error: { code: "NOT_FOUND", message: "Agent is not a member of this group" } });
+            return;
+        }
+
+        store.agentGroupMemberships.delete(existing.membership_id);
+        store.state.updateState((s) => {
+            if (s.agent_group_memberships) {
+                s.agent_group_memberships = s.agent_group_memberships.filter(
+                    (e) => e.membership_id !== existing.membership_id,
+                );
+            }
+        });
+
+        store.audit.append("POLICY_GROUP_AGENT_REMOVED", {
+            group_id: groupId,
+            org_id: orgId,
+            agent_principal_id: agentId,
+            membership_id: existing.membership_id,
+            removed_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return { membership_id: existing.membership_id, status: "removed" };
     });
 
     // GET /v1/owner/organizations/:orgId/approval-requests
