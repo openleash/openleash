@@ -1170,10 +1170,35 @@ export function registerGuiRoutes(
             const nextCursor = auditOffset + auditPageSize < auditData.total ? String(auditOffset + auditPageSize) : null;
 
             const sessionUser = store.users.read(session.sub);
+
+            // Transfer targets: orgs where the caller is org_admin. Only
+            // meaningful when the agent is personally-owned by the caller;
+            // rendered as empty otherwise so the button stays hidden.
+            const transferTargets =
+                entry.owner_type === "user" && entry.owner_id === session.sub
+                    ? store.memberships
+                          .listByUser(session.sub)
+                          .filter((m) => m.status === "active" && m.role === "org_admin")
+                          .map((m) => {
+                              try {
+                                  const org = store.organizations.read(m.org_id);
+                                  return {
+                                      org_id: org.org_id,
+                                      display_name: org.display_name,
+                                      slug: org.slug,
+                                  };
+                              } catch {
+                                  return null;
+                              }
+                          })
+                          .filter((o): o is { org_id: string; display_name: string; slug: string } => o !== null)
+                    : [];
+
             const html = renderOwnerAgentDetail({
                 agent: {
                     agent_principal_id: agent.agent_principal_id,
                     agent_id: agent.agent_id,
+                    owner_type: agent.owner_type,
                     status: agent.status,
                     created_at: agent.created_at,
                     revoked_at: agent.revoked_at,
@@ -1188,6 +1213,7 @@ export function registerGuiRoutes(
                 ownerId: entry.owner_id,
                 totpEnabled: !!sessionUser.totp_enabled,
                 requireTotp: !!config.security.require_totp,
+                transferTargets,
             }, ownerRenderOptionsFor(session, request, reply));
             reply.type("text/html").send(html);
         } catch {

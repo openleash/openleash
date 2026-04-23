@@ -464,6 +464,97 @@ export function registerOwnerRoutes(
         };
     });
 
+    // POST /v1/owner/agents/:agentId/transfer
+    //
+    // Transfer a personal agent to an organization the caller belongs to as
+    // org_admin. The agent's principal ID and keypair are preserved, so
+    // agents in the wild keep authenticating. Policies do NOT follow — the
+    // new owner is responsible for attaching policies on the org side.
+    app.post("/v1/owner/agents/:agentId/transfer", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { agentId } = request.params as { agentId: string };
+        const body = request.body as { target_org_id?: string };
+
+        const targetOrgId = body?.target_org_id;
+        if (typeof targetOrgId !== "string" || !targetOrgId.trim()) {
+            reply.code(400).send({
+                error: { code: "INVALID_BODY", message: "target_org_id is required" },
+            });
+            return;
+        }
+
+        // Caller must own the agent in their personal scope.
+        const state = store.state.getState();
+        const agentEntry = state.agents.find(
+            (a) => a.agent_principal_id === agentId
+                && a.owner_type === "user"
+                && a.owner_id === session.sub,
+        );
+        if (!agentEntry) {
+            reply.code(404).send({
+                error: { code: "NOT_FOUND", message: "Agent not found" },
+            });
+            return;
+        }
+
+        // Target org must exist.
+        const orgEntry = state.organizations.find((o) => o.org_id === targetOrgId);
+        if (!orgEntry) {
+            reply.code(404).send({
+                error: { code: "NOT_FOUND", message: "Target organization not found" },
+            });
+            return;
+        }
+
+        // Caller must be org_admin of the target.
+        const membership = store.memberships.listByUser(session.sub).find(
+            (m) => m.org_id === targetOrgId && m.status === "active",
+        );
+        if (!membership || membership.role !== "org_admin") {
+            reply.code(403).send({
+                error: { code: "FORBIDDEN", message: "Must be org_admin of the target organization" },
+            });
+            return;
+        }
+
+        const agent = store.agents.read(agentEntry.agent_principal_id);
+        const fromOwner = { type: agent.owner_type, id: agent.owner_id };
+
+        agent.owner_type = "org";
+        agent.owner_id = targetOrgId;
+        store.agents.write(agent);
+
+        store.state.updateState((s) => {
+            const idx = s.agents.findIndex((a) => a.agent_principal_id === agentEntry.agent_principal_id);
+            if (idx >= 0) {
+                s.agents[idx] = {
+                    ...s.agents[idx],
+                    owner_type: "org",
+                    owner_id: targetOrgId,
+                };
+            }
+        });
+
+        store.audit.append("AGENT_TRANSFERRED", {
+            user_principal_id: session.sub,
+            agent_principal_id: agent.agent_principal_id,
+            agent_id: agent.agent_id,
+            from_owner_type: fromOwner.type,
+            from_owner_id: fromOwner.id,
+            to_owner_type: "org",
+            to_owner_id: targetOrgId,
+        });
+
+        return {
+            agent_principal_id: agent.agent_principal_id,
+            agent_id: agent.agent_id,
+            owner_type: agent.owner_type,
+            owner_id: agent.owner_id,
+            target_org_slug: orgEntry.slug,
+        };
+    });
+
     // POST /v1/owner/agent-invites
     app.post("/v1/owner/agent-invites", { preHandler: ownerAuth }, async (request) => {
         const session = (request as unknown as Record<string, unknown>)

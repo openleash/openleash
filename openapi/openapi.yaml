@@ -1028,6 +1028,89 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /v1/owner/agents/{agentId}/transfer:
+    post:
+      summary: Transfer a personal agent to an organization
+      operationId: transferOwnerAgent
+      tags: [Owner]
+      description: |
+        Transfers a personally-owned agent to an organization the caller
+        administers. The agent's principal ID and keypair are preserved —
+        deployed agents continue to authenticate without re-enrollment.
+
+        Policies do **not** follow the agent. The new org owner is
+        responsible for attaching policies on the org side.
+
+        Requires the caller to be (a) the current personal owner of the
+        agent and (b) an `org_admin` of the target organization.
+      security:
+        - OwnerSession: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The agent's `agent_principal_id`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_org_id]
+              properties:
+                target_org_id:
+                  type: string
+                  format: uuid
+                  description: |
+                    The organization to transfer the agent to. The caller
+                    must have an active `org_admin` membership in this org.
+      responses:
+        "200":
+          description: Agent transferred.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agent_principal_id, agent_id, owner_type, owner_id]
+                properties:
+                  agent_principal_id:
+                    type: string
+                    format: uuid
+                  agent_id:
+                    type: string
+                  owner_type:
+                    type: string
+                    enum: [org]
+                  owner_id:
+                    type: string
+                    format: uuid
+                  target_org_slug:
+                    type: string
+                    description: The slug of the destination org, convenient for building a follow-up URL like `/gui/orgs/{slug}/agents/{agent_principal_id}`.
+        "400":
+          description: Missing or invalid `target_org_id`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Caller is not `org_admin` of the target organization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: |
+            Agent not found, agent not owned personally by the caller, or
+            target organization not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v1/owner/policies:
     get:
       summary: List owner's policies

@@ -23,6 +23,7 @@ export interface OwnerAgentDetailData {
     agent: {
         agent_principal_id: string;
         agent_id: string;
+        owner_type: "user" | "org";
         status: string;
         created_at: string;
         revoked_at: string | null;
@@ -37,6 +38,8 @@ export interface OwnerAgentDetailData {
     ownerId: string;
     totpEnabled: boolean;
     requireTotp: boolean;
+    /** Orgs the caller can transfer this agent to (org_admin, not the current owner). */
+    transferTargets: { org_id: string; display_name: string; slug: string }[];
 }
 
 // ─── Badge helpers ────────────────────────────────────────────────────
@@ -139,6 +142,32 @@ export function renderOwnerAgentDetail(data: OwnerAgentDetailData, renderPageOpt
     const nextHref = auditPage < totalPages ? `${auditBasePath}?audit_page=${auditPage + 1}&audit_page_size=${auditPageSize}` : "#";
 
     const disableRevoke = data.requireTotp && !data.totpEnabled;
+    const canTransfer = agent.status === "ACTIVE"
+        && data.agent.owner_type === "user"
+        && data.transferTargets.length > 0;
+
+    const transferModal = canTransfer ? `
+    <div id="transfer-modal" class="modal-overlay" aria-hidden="true">
+      <div class="modal" role="dialog" aria-labelledby="transfer-modal-title">
+        <div class="modal-title" id="transfer-modal-title">Transfer agent to organization</div>
+        <p class="oagd-transfer-help">
+          The agent's principal ID and keypair are preserved, so agents in
+          the wild keep authenticating. <strong>Policies do not follow</strong> —
+          you'll need to attach new policies on the org side.
+        </p>
+        <div class="form-group">
+          <label for="transfer-org-select">Target organization</label>
+          <select id="transfer-org-select" class="form-select" style="width:100%">
+            ${data.transferTargets.map((o) => `<option value="${escapeHtml(o.org_id)}" data-slug="${escapeHtml(o.slug)}">${escapeHtml(o.display_name)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="modal-error" id="transfer-modal-error"></div>
+        <div class="modal-footer">
+          <button id="btn-transfer-cancel" class="btn btn-secondary">Cancel</button>
+          <button id="btn-transfer-confirm" class="btn btn-primary">Transfer</button>
+        </div>
+      </div>
+    </div>` : "";
 
     const content = `
     <div class="page-header">
@@ -205,8 +234,11 @@ export function renderOwnerAgentDetail(data: OwnerAgentDetailData, renderPageOpt
 
     <div class="toolbar">
       <a href="/gui/agents" class="btn btn-secondary">Back to Agents</a>
+      ${canTransfer ? `<button id="btn-transfer-agent" class="btn btn-secondary"><span class="material-symbols-outlined">swap_horiz</span> Transfer to Organization</button>` : ""}
       ${agent.status === "ACTIVE" ? `<button id="btn-revoke-agent" class="btn btn-danger"${disableRevoke ? " disabled" : ""}>Revoke Agent</button>` : ""}
     </div>
+
+    ${transferModal}
 
     <script>window.__PAGE_DATA__ = { agentPrincipalId: '${escapeHtml(agent.agent_principal_id)}', agentId: '${escapeHtml(agent.agent_id)}', totpEnabled: ${data.totpEnabled} };</script>
     ${assetTags("pages/owner-agent-detail/client.ts")}`;
