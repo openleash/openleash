@@ -23,3 +23,26 @@
   margin-bottom: 16px;
   line-height: 1.5;
 }
+
+.oagd-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.oagd-group-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.oagd-group-row:last-child { border-bottom: none; }
+
+.oagd-group-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.oagd-group-add .form-select { flex: 1; }

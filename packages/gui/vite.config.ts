@@ -89,6 +89,14 @@ export default defineConfig({
                     __dirname,
                     "src/pages/owner-dashboard/client.ts",
                 ),
+                "pages/owner-policy-groups/client": resolve(
+                    __dirname,
+                    "src/pages/owner-policy-groups/client.ts",
+                ),
+                "pages/owner-policy-group-detail/client": resolve(
+                    __dirname,
+                    "src/pages/owner-policy-group-detail/client.ts",
+                ),
             },
         },
     },

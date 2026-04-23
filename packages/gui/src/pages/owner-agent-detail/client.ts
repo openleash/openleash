@@ -9,6 +9,8 @@ interface AgentPageData {
     agentPrincipalId?: string;
     agentId?: string;
     totpEnabled: boolean;
+    ownerType?: "user" | "org";
+    orgId?: string | null;
 }
 
 declare global {
@@ -18,6 +20,52 @@ declare global {
 }
 
 const pageData = window.__PAGE_DATA__ || {};
+
+// ─── Policy group membership (org-owned agents only) ─────────────────
+const addGroupBtn = document.getElementById("oagd-add-group-btn");
+const addGroupSelect = document.getElementById("oagd-add-group") as HTMLSelectElement | null;
+addGroupBtn?.addEventListener("click", async () => {
+    const groupId = addGroupSelect?.value;
+    if (!groupId || !pageData.orgId || !pageData.agentPrincipalId) {
+        olToast("Pick a group", "error");
+        return;
+    }
+    (addGroupBtn as HTMLButtonElement).disabled = true;
+    const res = await fetch(
+        `/v1/owner/organizations/${encodeURIComponent(pageData.orgId)}/policy-groups/${encodeURIComponent(groupId)}/agents/${encodeURIComponent(pageData.agentPrincipalId)}`,
+        { method: "POST" },
+    );
+    if (res.ok) {
+        olToast("Added to group", "success");
+        window.location.reload();
+        return;
+    }
+    const data = await res.json().catch(() => ({}));
+    olToast(olApiError(data, "Add failed"), "error");
+    (addGroupBtn as HTMLButtonElement).disabled = false;
+});
+
+document.querySelectorAll<HTMLElement>("[data-remove-from-group]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        const groupId = btn.getAttribute("data-remove-from-group");
+        if (!groupId || !pageData.orgId || !pageData.agentPrincipalId) return;
+        if (!(await olConfirm("Remove from this group?", "Remove membership"))) return;
+
+        (btn as HTMLButtonElement).disabled = true;
+        const res = await fetch(
+            `/v1/owner/organizations/${encodeURIComponent(pageData.orgId)}/policy-groups/${encodeURIComponent(groupId)}/agents/${encodeURIComponent(pageData.agentPrincipalId)}`,
+            { method: "DELETE" },
+        );
+        if (res.ok) {
+            olToast("Removed", "success");
+            window.location.reload();
+            return;
+        }
+        const data = await res.json().catch(() => ({}));
+        olToast(olApiError(data, "Remove failed"), "error");
+        (btn as HTMLButtonElement).disabled = false;
+    });
+});
 
 // ─── Audit accordion expand/collapse ────────────────────────────────
 document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {

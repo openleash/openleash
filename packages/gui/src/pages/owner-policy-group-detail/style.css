@@ -1,0 +1,15 @@
+/* Detail page specific — extends the shared policy-groups styles. */
+
+.opg-add-member-control {
+  margin-bottom: 16px;
+}
+
+.opg-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.opg-add-row .form-select {
+  flex: 1;
+}

@@ -86,6 +86,7 @@ function buildOwnerNavItems(scope?: ScopeContext, pendingTotal?: number): OwnerN
             { path: `${prefix}/dashboard`, label: "Dashboard", icon: "dashboard" },
             { path: `${prefix}/agents`, label: "Agents", icon: "smart_toy" },
             { path: `${prefix}/policies`, label: "Policies", icon: "policy" },
+            { path: `${prefix}/policy-groups`, label: "Policy Groups", icon: "group_work" },
             inboxItem,
             { path: `${prefix}/audit`, label: "Audit Log", icon: "receipt_long" },
             // The org detail page at /gui/orgs/:slug serves as the Settings page

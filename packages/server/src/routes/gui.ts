@@ -28,6 +28,8 @@ import {
     renderOwnerAgents,
     renderOwnerAgentDetail,
     renderOwnerPolicies,
+    renderOwnerPolicyGroups,
+    renderOwnerPolicyGroupDetail,
     renderOwnerPolicyCreate,
     renderOwnerProfile,
     renderInitialSetup,
@@ -1190,6 +1192,47 @@ export function registerGuiRoutes(
                           .filter((o): o is { org_id: string; display_name: string; slug: string } => o !== null)
                     : [];
 
+            // Group memberships (org-owned agents only). org_admin of the
+            // owning org can add/remove; other viewers see the list read-only.
+            const memberships = entry.owner_type === "org"
+                ? store.agentGroupMemberships.listByAgent(agent.agent_principal_id)
+                : [];
+            const groupMemberships = memberships
+                .map((m) => {
+                    try {
+                        const g = store.policyGroups.read(m.group_id);
+                        return {
+                            membership_id: m.membership_id,
+                            group_id: g.group_id,
+                            group_name: g.name,
+                            group_slug: g.slug,
+                        };
+                    } catch {
+                        return null;
+                    }
+                })
+                .filter((m): m is NonNullable<typeof m> => m !== null);
+
+            const memberGroupIds = new Set(groupMemberships.map((m) => m.group_id));
+            const availableGroups = entry.owner_type === "org"
+                ? store.policyGroups
+                      .listByOwner("org", entry.owner_id)
+                      .filter((g) => !memberGroupIds.has(g.group_id))
+                      .map((g) => ({
+                          group_id: g.group_id,
+                          group_name: g.name,
+                          group_slug: g.slug,
+                      }))
+                : [];
+
+            const orgSlug = ownerOrg?.slug ?? null;
+            const agentOwnerMembership = entry.owner_type === "org"
+                ? store.memberships.listByUser(session.sub).find(
+                      (m) => m.org_id === entry.owner_id && m.status === "active",
+                  )
+                : null;
+            const canManageGroups = agentOwnerMembership?.role === "org_admin";
+
             const html = renderOwnerAgentDetail({
                 agent: {
                     agent_principal_id: agent.agent_principal_id,
@@ -1210,6 +1253,10 @@ export function registerGuiRoutes(
                 totpEnabled: !!sessionUser.totp_enabled,
                 requireTotp: !!config.security.require_totp,
                 transferTargets,
+                groupMemberships,
+                availableGroups,
+                orgSlug,
+                canManageGroups,
             }, ownerRenderOptionsFor(session, request, reply));
             reply.type("text/html").send(html);
         } catch {
@@ -1309,13 +1356,141 @@ export function registerGuiRoutes(
         const ownerDisplayName = ownerType === "org"
             ? store.organizations.read(ownerId).display_name
             : store.users.read(session.sub).display_name;
+
+        // Org scope: supply the group list so the UI can render the
+        // "applies to group" selector. Personal scope has no groups in v1.
+        const groups = ownerType === "org"
+            ? store.policyGroups.listByOwner("org", ownerId).map((g) => ({
+                  group_id: g.group_id,
+                  name: g.name,
+                  slug: g.slug,
+              }))
+            : [];
+        const q = request.query as { applies_to_group_id?: string };
+        const preselectedGroupId = typeof q.applies_to_group_id === "string"
+            && groups.some((g) => g.group_id === q.applies_to_group_id)
+            ? q.applies_to_group_id
+            : undefined;
+
         const html = renderOwnerPolicyCreate(
-            { ownerType, ownerId, ownerDisplayName },
+            { ownerType, ownerId, ownerDisplayName, groups, preselectedGroupId },
             ownerRenderOptionsFor(session, request, reply),
         );
         reply.type("text/html").send(html);
     };
     registerScopedOwnerRoute("policies/create", policyCreateHandler);
+
+    // Owner policy groups (org-scoped only in v1) — list + detail.
+    const policyGroupsListHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const scope = resolveCurrentScope(store, session, request);
+        if (!scope || scope.current.type !== "org") {
+            // Personal scope has no groups in v1 — nudge to the org list.
+            reply.redirect("/gui/orgs");
+            return;
+        }
+        const { ownerId: orgId } = currentOwner(scope);
+        const org = store.organizations.read(orgId);
+
+        const membership = store.memberships.listByUser(session.sub).find(
+            (m) => m.org_id === orgId && m.status === "active",
+        );
+        const canManage = membership?.role === "org_admin";
+
+        const groups = store.policyGroups.listByOwner("org", orgId).map((g) => ({
+            group_id: g.group_id,
+            name: g.name,
+            slug: g.slug,
+            description: g.description,
+            created_at: g.created_at,
+            member_count: store.agentGroupMemberships.listByGroup(g.group_id).length,
+        }));
+
+        const html = renderOwnerPolicyGroups(
+            groups,
+            {
+                orgId,
+                orgSlug: org.slug,
+                orgDisplayName: org.display_name,
+                canManage,
+            },
+            ownerRenderOptionsFor(session, request, reply),
+        );
+        reply.type("text/html").send(html);
+    };
+    registerScopedOwnerRoute("policy-groups", policyGroupsListHandler);
+
+    const policyGroupDetailHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const scope = resolveCurrentScope(store, session, request);
+        if (!scope || scope.current.type !== "org") {
+            reply.redirect("/gui/orgs");
+            return;
+        }
+        const { ownerId: orgId } = currentOwner(scope);
+        const org = store.organizations.read(orgId);
+
+        const { groupSlug } = request.params as { groupSlug: string };
+        const group = store.policyGroups.readBySlug("org", orgId, groupSlug);
+        if (!group) {
+            reply.code(404).type("text/html").send("<h1>Policy group not found</h1>");
+            return;
+        }
+
+        const membership = store.memberships.listByUser(session.sub).find(
+            (m) => m.org_id === orgId && m.status === "active",
+        );
+        const canManage = membership?.role === "org_admin";
+
+        const state = store.state.getState();
+        const memberRows = store.agentGroupMemberships.listByGroup(group.group_id);
+        const members = memberRows
+            .map((m) => {
+                const entry = state.agents.find((a) => a.agent_principal_id === m.agent_principal_id);
+                if (!entry) return null;
+                return {
+                    agent_principal_id: m.agent_principal_id,
+                    agent_id: entry.agent_id,
+                    membership_id: m.membership_id,
+                    added_at: m.added_at,
+                };
+            })
+            .filter((m): m is NonNullable<typeof m> => m !== null);
+
+        const memberIds = new Set(memberRows.map((m) => m.agent_principal_id));
+        const candidateAgents = state.agents
+            .filter((a) => a.owner_type === "org" && a.owner_id === orgId && !memberIds.has(a.agent_principal_id))
+            .map((a) => ({ agent_principal_id: a.agent_principal_id, agent_id: a.agent_id }));
+
+        const boundPolicies = state.policies
+            .filter(
+                (p) => p.owner_type === "org" && p.owner_id === orgId && p.applies_to_group_id === group.group_id,
+            )
+            .map((p) => ({ policy_id: p.policy_id, name: p.name, description: p.description }));
+
+        const html = renderOwnerPolicyGroupDetail(
+            {
+                group: {
+                    group_id: group.group_id,
+                    name: group.name,
+                    slug: group.slug,
+                    description: group.description,
+                    created_at: group.created_at,
+                },
+                members,
+                boundPolicies,
+                candidateAgents,
+                orgId,
+                orgSlug: org.slug,
+                canManage,
+            },
+            ownerRenderOptionsFor(session, request, reply),
+        );
+        reply.type("text/html").send(html);
+    };
+    registerScopedOwnerRoute("policy-groups/:groupSlug", policyGroupDetailHandler);
 
     // Owner approvals
     const approvalsHandler = async (request: FastifyRequest, reply: FastifyReply) => {

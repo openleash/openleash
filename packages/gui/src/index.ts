@@ -29,6 +29,15 @@ export type {
     OwnerPoliciesOptions,
 } from "./pages/owner-policies/render.js";
 export { renderOwnerPolicyCreate } from "./pages/owner-policy-create/render.js";
+export { renderOwnerPolicyGroups } from "./pages/owner-policy-groups/render.js";
+export type { OwnerPolicyGroupListEntry, OwnerPolicyGroupsOptions } from "./pages/owner-policy-groups/render.js";
+export { renderOwnerPolicyGroupDetail } from "./pages/owner-policy-group-detail/render.js";
+export type {
+    OwnerPolicyGroupDetailData,
+    OwnerPolicyGroupMember,
+    OwnerPolicyGroupBoundPolicy,
+    OwnerPolicyGroupCandidateAgent,
+} from "./pages/owner-policy-group-detail/render.js";
 export { renderOwnerProfile } from "./pages/owner-profile/render.js";
 export type { OwnerProfileData } from "./pages/owner-profile/render.js";
 export { renderInitialSetup } from "./pages/initial-setup/render.js";

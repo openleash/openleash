@@ -31,3 +31,24 @@
   gap: 8px;
   align-items: center;
 }
+
+.policy-create-scope-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.policy-create-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.policy-create-radio input[type="radio"]:disabled + span {
+  color: var(--text-muted);
+}

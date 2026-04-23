@@ -40,6 +40,14 @@ export interface OwnerAgentDetailData {
     requireTotp: boolean;
     /** Orgs the caller can transfer this agent to (org_admin, not the current owner). */
     transferTargets: { org_id: string; display_name: string; slug: string }[];
+    /** Groups this agent currently belongs to (org-owned agents only). Empty for personal agents. */
+    groupMemberships: { membership_id: string; group_id: string; group_name: string; group_slug: string }[];
+    /** Groups in the owning org that the agent is NOT a member of yet. Empty for personal agents. */
+    availableGroups: { group_id: string; group_name: string; group_slug: string }[];
+    /** Slug of the org owning this agent — used to build group URLs. Null for personal agents. */
+    orgSlug: string | null;
+    /** Whether the viewer can add/remove group memberships for this agent. */
+    canManageGroups: boolean;
 }
 
 // ─── Badge helpers ────────────────────────────────────────────────────
@@ -201,6 +209,25 @@ export function renderOwnerAgentDetail(data: OwnerAgentDetailData, renderPageOpt
       </table>
     </div>` : ""}
 
+    ${data.agent.owner_type === "org" && data.orgSlug ? `<div class="card">
+      <div class="card-title">Policy groups (${data.groupMemberships.length})</div>
+      ${data.groupMemberships.length === 0
+        ? '<p class="oagd-empty-section">Not a member of any groups</p>'
+        : `<div class="oagd-group-list">${data.groupMemberships.map((m) => `
+          <div class="oagd-group-row" data-membership-id="${escapeHtml(m.membership_id)}" data-group-id="${escapeHtml(m.group_id)}">
+            <a href="/gui/orgs/${encodeURIComponent(data.orgSlug ?? "")}/policy-groups/${encodeURIComponent(m.group_slug)}" class="table-link">${escapeHtml(m.group_name)}</a>
+            ${data.canManageGroups ? `<button class="btn btn-secondary btn-sm" data-remove-from-group="${escapeHtml(m.group_id)}">Remove</button>` : ""}
+          </div>`).join("")}</div>`}
+      ${data.canManageGroups && data.availableGroups.length > 0 ? `
+        <div class="oagd-group-add">
+          <select id="oagd-add-group" class="form-select">
+            <option value="">Add to a group...</option>
+            ${data.availableGroups.map((g) => `<option value="${escapeHtml(g.group_id)}">${escapeHtml(g.group_name)}</option>`).join("")}
+          </select>
+          <button id="oagd-add-group-btn" class="btn btn-primary btn-sm">Add</button>
+        </div>` : ""}
+    </div>` : ""}
+
     <div class="card">
       <div class="card-title">Policies (${policies.length})</div>
       ${policies.length === 0
@@ -240,7 +267,13 @@ export function renderOwnerAgentDetail(data: OwnerAgentDetailData, renderPageOpt
 
     ${transferModal}
 
-    <script>window.__PAGE_DATA__ = { agentPrincipalId: '${escapeHtml(agent.agent_principal_id)}', agentId: '${escapeHtml(agent.agent_id)}', totpEnabled: ${data.totpEnabled} };</script>
+    <script>window.__PAGE_DATA__ = ${JSON.stringify({
+        agentPrincipalId: agent.agent_principal_id,
+        agentId: agent.agent_id,
+        totpEnabled: data.totpEnabled,
+        ownerType: data.agent.owner_type,
+        orgId: data.agent.owner_type === "org" ? data.ownerId : null,
+    })};</script>
     ${assetTags("pages/owner-agent-detail/client.ts")}`;
 
     return renderPage(agent.agent_id, content, "/gui/agents", "owner", renderPageOptions);
