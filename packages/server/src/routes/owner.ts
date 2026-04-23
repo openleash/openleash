@@ -327,10 +327,30 @@ export function registerOwnerRoutes(
     // ─── Owner-authed routes ──────────────────────────────────────────
 
     // GET /v1/owner/profile
-    app.get("/v1/owner/profile", { preHandler: ownerAuth }, async (request) => {
+    app.get("/v1/owner/profile", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const user = store.users.read(session.sub);
+
+        // Guard: a partial/corrupt user record (missing required fields)
+        // must never be returned silently — mobile clients have been
+        // observed interpreting a stripped-body 200 as "empty", hiding the
+        // real problem. Fail loudly so it shows up in logs + status codes.
+        if (!user?.user_principal_id || !user.status || !user.created_at) {
+            request.log.error(
+                {
+                    user_principal_id: session.sub,
+                    has_id: !!user?.user_principal_id,
+                    has_status: !!user?.status,
+                    has_created_at: !!user?.created_at,
+                },
+                "profile: partial user record",
+            );
+            reply.code(500).send({
+                error: { code: "PARTIAL_USER_RECORD", message: "User record is incomplete" },
+            });
+            return;
+        }
 
         // Strip sensitive fields
         const {
