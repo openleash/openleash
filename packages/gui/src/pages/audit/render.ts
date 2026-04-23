@@ -738,7 +738,7 @@ export function renderAudit(
 
     <div class="card">
       <table>
-        <colgroup><col style="width:36px"><col style="width:170px"><col style="width:240px"><col><col style="width:180px"><col style="width:290px"></colgroup>
+        <colgroup><col style="width:36px"><col style="width:170px"><col style="width:280px"><col><col style="width:220px"><col style="width:290px"></colgroup>
         <thead>
           <tr>
             <th></th>

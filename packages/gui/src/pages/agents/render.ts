@@ -17,7 +17,6 @@ export interface AgentData {
     status: string;
     created_at: string;
     revoked_at: string | null;
-    webhook_url: string;
     error?: string;
 }
 
@@ -48,7 +47,6 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
       <td><a href="/gui/admin/agents/${escapeHtml(a.agent_principal_id)}" class="table-link">${escapeHtml(a.agent_id)}</a>${idBadge(a.agent_principal_id)}</td>
       <td>${formatNameWithId(ownerMap.get(a.owner_id), a.owner_id)}</td>
       <td>${statusBadge(a.status)}</td>
-      <td class="mono text-ellipsis" title="${a.webhook_url ? escapeHtml(a.webhook_url) : ""}">${a.webhook_url ? escapeHtml(a.webhook_url) : "-"}</td>
       <td class="mono">${a.created_at ? formatTimestamp(a.created_at, true) : "-"}</td>
       <td class="mono">${a.revoked_at ? formatTimestamp(a.revoked_at, true) : "-"}</td>
     </tr>
@@ -107,13 +105,12 @@ export function renderAgents(agents: AgentData[], owners: OwnerOption[]): string
             <th>Agent</th>
             <th>Owner</th>
             <th>Status${infoIcon("agents-status", INFO_AGENT_STATUS)}</th>
-            <th>Webhook</th>
             <th>Created</th>
             <th>Revoked</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="6" class="agents-table-empty">No agents registered</td></tr>'}
+          ${rows || '<tr><td colspan="5" class="agents-table-empty">No agents registered</td></tr>'}
         </tbody>
       </table>
     </div>

@@ -96,9 +96,9 @@ body.theme-light::before {
 }
 
 .auth-logo {
-  width: 72px;
-  height: 72px;
-  margin-bottom: 16px;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 18px;
   filter: drop-shadow(0 4px 12px rgba(52, 211, 153, 0.15));
 }
 

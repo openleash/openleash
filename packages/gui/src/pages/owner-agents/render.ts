@@ -15,7 +15,6 @@ export interface OwnerAgentEntry {
     status: string;
     created_at: string;
     revoked_at: string | null;
-    webhook_url: string;
 }
 
 export interface OwnerAgentsOptions {
@@ -37,7 +36,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
     const disableActions = requireTotp && !totpEnabled;
     const rows =
         agents.length === 0
-            ? '<tr><td colspan="5" class="agents-empty-row">No agents registered</td></tr>'
+            ? '<tr><td colspan="4" class="agents-empty-row">No agents registered</td></tr>'
             : agents
                   .map((a) => {
                       const badge = a.status === "ACTIVE" ? "badge-green" : "badge-red";
@@ -45,7 +44,6 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
       <tr>
         <td><a href="/gui/agents/${escapeHtml(a.agent_principal_id)}" class="table-link">${escapeHtml(a.agent_id)}</a>${idBadge(a.agent_principal_id)}</td>
         <td><span class="badge ${badge}">${escapeHtml(a.status)}</span></td>
-        <td class="mono text-ellipsis" title="${a.webhook_url ? escapeHtml(a.webhook_url) : ''}">${a.webhook_url ? escapeHtml(a.webhook_url) : "-"}</td>
         <td>${formatTimestamp(a.created_at)}</td>
         <td>
           ${
@@ -87,9 +85,9 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
 
     <div class="card agents-card">
       <table>
-        <colgroup><col><col style="width:290px"><col style="width:130px"><col style="width:250px"><col style="width:170px"><col style="width:140px"></colgroup>
+        <colgroup><col><col style="width:290px"><col style="width:250px"><col style="width:170px"><col style="width:140px"></colgroup>
         <thead>
-          <tr><th>Agent</th><th>Status${infoIcon("owner-agent-status", INFO_AGENT_STATUS)}</th><th>Webhook</th><th>Created</th><th>Actions</th></tr>
+          <tr><th>Agent</th><th>Status${infoIcon("owner-agent-status", INFO_AGENT_STATUS)}</th><th>Created</th><th>Actions</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>

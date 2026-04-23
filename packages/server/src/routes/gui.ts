@@ -99,7 +99,7 @@ export function registerGuiRoutes(
     options?: GuiRoutesOptions,
 ) {
     const vinfo = getVersionInfo();
-    setVersion(vinfo.version, vinfo.commitHash ?? undefined);
+    setVersion(vinfo.version);
     const adminAuth = createAdminAuth(config, store, options?.pluginManifest);
     const rootDir = path.dirname(dataDir);
     const statePath = path.join(dataDir, "state.md");
@@ -526,7 +526,6 @@ export function registerGuiRoutes(
                     status: agent.status,
                     created_at: agent.created_at,
                     revoked_at: agent.revoked_at,
-                    webhook_url: agent.webhook_url,
                 };
             } catch {
                 return {
@@ -537,7 +536,6 @@ export function registerGuiRoutes(
                     status: "UNKNOWN",
                     created_at: "",
                     revoked_at: null,
-                    webhook_url: "",
                     error: "file_not_found",
                 };
             }
@@ -1089,7 +1087,6 @@ export function registerGuiRoutes(
                         status: agent.status,
                         created_at: agent.created_at,
                         revoked_at: agent.revoked_at,
-                        webhook_url: agent.webhook_url,
                     };
                 } catch {
                     return {
@@ -1098,7 +1095,6 @@ export function registerGuiRoutes(
                         status: "UNKNOWN",
                         created_at: "",
                         revoked_at: null,
-                        webhook_url: "",
                     };
                 }
             });
