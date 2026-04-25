@@ -809,14 +809,15 @@ export function registerGuiRoutes(
             const session = (request as unknown as Record<string, unknown>)
                 .ownerSession as SessionClaims;
             const resolved = resolveCurrentScope(store, session, request);
-            const target =
+            // Rewrite the request URL itself rather than re-templating `suffix`,
+            // so route params like `:agentPrincipalId` resolve to their actual
+            // values. Query string survives because we're slicing the live URL.
+            const scopePrefix =
                 resolved?.current.type === "org"
-                    ? `/gui/orgs/${encodeURIComponent(resolved.current.slug)}/${suffix}`
-                    : `/gui/personal/${suffix}`;
-            // Preserve the query string so pagination/filter params survive.
-            const q = request.url.indexOf("?");
-            const qs = q >= 0 ? request.url.slice(q) : "";
-            reply.redirect(target + qs);
+                    ? `/gui/orgs/${encodeURIComponent(resolved.current.slug)}/`
+                    : "/gui/personal/";
+            const target = request.url.replace(/^\/gui\//, scopePrefix);
+            reply.redirect(target);
         });
         app.get(personalPath, { preHandler: ownerAuth }, handler);
         app.get(orgPath, { preHandler: [ownerAuth, orgScopePreHandler] }, handler);

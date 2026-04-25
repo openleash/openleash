@@ -149,6 +149,32 @@ describe("legacy owner URL redirects (Phase 10)", () => {
         expect(res.headers.location).toBe("/gui/personal/policies");
     });
 
+    it("legacy /gui/agents/<id> preserves the param when redirecting", async () => {
+        // Regression: the redirect handler used to interpolate the route
+        // template (`agents/:agentPrincipalId`) into the target, so users
+        // following a stale agent link landed on `/gui/personal/agents/:agentPrincipalId`
+        // and got "Agent not found". Verify the actual id is preserved.
+        const cookie = await sessionCookieFor(dataDir, userId);
+        const res = await app.inject({
+            method: "GET",
+            url: "/gui/agents/agent-abc-123",
+            headers: { cookie },
+        });
+        expect(res.statusCode).toBe(302);
+        expect(res.headers.location).toBe("/gui/personal/agents/agent-abc-123");
+    });
+
+    it("legacy /gui/agents/<id> preserves the param when redirecting to an org scope", async () => {
+        const cookie = await sessionCookieFor(dataDir, userId);
+        const res = await app.inject({
+            method: "GET",
+            url: "/gui/agents/agent-xyz-789?tab=audit",
+            headers: { cookie: `${cookie}; openleash_last_scope=org%3A${orgSlug}` },
+        });
+        expect(res.statusCode).toBe(302);
+        expect(res.headers.location).toBe(`/gui/orgs/${orgSlug}/agents/agent-xyz-789?tab=audit`);
+    });
+
     it("/gui/approvals (cross-scope inbox) renders directly — not redirected", async () => {
         // /gui/approvals was repurposed as the cross-scope inbox in Phase 8
         // and is NOT registered via registerScopedOwnerRoute. It should still
