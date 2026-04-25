@@ -471,7 +471,6 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
             <td>
               <span id="slug-display" class="oorg-slug-display">
                 <code class="oorg-slug">${escapeHtml(org.slug ?? "")}</code>
-                <span class="text-muted oorg-slug-path"> — /gui/orgs/${escapeHtml(org.slug ?? "")}</span>
                 ${isAdmin ? '<button type="button" class="btn-inline-edit" id="btn-edit-slug" title="Edit slug"><span class="material-symbols-outlined" style="font-size:16px">edit</span></button>' : ""}
               </span>
               ${isAdmin ? `
