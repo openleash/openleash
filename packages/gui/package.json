@@ -1,6 +1,6 @@
 {
   "name": "@openleash/gui",
-  "version": "0.20.4",
+  "version": "0.20.5",
   "description": "Web GUI for openleash",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -19,7 +19,7 @@
     "directory": "packages/gui"
   },
   "dependencies": {
-    "@openleash/core": "0.20.4",
+    "@openleash/core": "0.20.5",
     "dayjs": "^1.11.20",
     "zod": "^4.3.6"
   },
