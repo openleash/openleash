@@ -196,6 +196,7 @@ function renderAdminCompanyIdsCard(
       ${companyIds.length === 0
         ? '<p class="aorg-empty-section">No company IDs registered</p>'
         : `<table>
+          <colgroup><col><col><col><col><col style="width:180px"></colgroup>
           <thead><tr><th>Type</th><th>Country</th><th>Value</th><th>Status${infoIcon("aorg-cid-verif", INFO_VERIFICATION_LEVEL)}</th><th>Actions</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>`}
@@ -240,6 +241,7 @@ function renderAdminDomainsCard(
       ${domains.length === 0
         ? '<p class="aorg-empty-section">No domains registered</p>'
         : `<table>
+          <colgroup><col><col><col style="width:180px"></colgroup>
           <thead><tr><th>Domain</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>`}
@@ -375,7 +377,7 @@ export function renderAdminOrganizationDetail(data: OrgDetailData): string {
       </div>
       ${members.length === 0
         ? '<p class="aorg-empty-section">No members</p>'
-        : `<table><thead><tr><th>Name</th><th>Role${infoIcon("detail-org-role", INFO_ORG_ROLE)}</th><th>Added</th><th>Actions</th></tr></thead><tbody>${memberRows}</tbody></table>`}
+        : `<table><colgroup><col><col><col><col style="width:180px"></colgroup><thead><tr><th>Name</th><th>Role${infoIcon("detail-org-role", INFO_ORG_ROLE)}</th><th>Added</th><th>Actions</th></tr></thead><tbody>${memberRows}</tbody></table>`}
     </div>
 
     ${renderAdminContactIdentitiesCard(org.contact_identities ?? [])}

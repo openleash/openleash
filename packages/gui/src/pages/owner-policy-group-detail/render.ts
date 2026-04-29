@@ -54,7 +54,7 @@ export function renderOwnerPolicyGroupDetail(
         data.members.length === 0
             ? '<p class="opg-empty-row">No members yet.</p>'
             : `<table>
-          <colgroup><col><col style="width:200px"><col style="width:140px"></colgroup>
+          <colgroup><col><col style="width:200px"><col style="width:180px"></colgroup>
           <thead><tr><th>Agent</th><th>Added</th><th>Actions</th></tr></thead>
           <tbody>${data.members
               .map(

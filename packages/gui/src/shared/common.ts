@@ -204,6 +204,24 @@ function copyId(el: HTMLElement, id: string) {
     }, 1200));
 }
 
+// ─── Accordion rows ─────────────────────────────────────────────────
+
+const ACCORDION_INTERACTIVE_SELECTOR =
+    "button, a, input, select, textarea, [data-copy-id], [data-info-id]";
+
+export function bindAccordionRows(root: Document | HTMLElement = document) {
+    root.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
+        row.addEventListener("click", (e) => {
+            if ((e.target as HTMLElement).closest(ACCORDION_INTERACTIVE_SELECTOR)) return;
+            const detail = row.nextElementSibling as HTMLElement;
+            if (detail?.classList.contains("accordion-detail")) {
+                detail.classList.toggle("open");
+                row.classList.toggle("expanded");
+            }
+        });
+    });
+}
+
 // ─── Field errors ───────────────────────────────────────────────────
 
 export function olFieldError(id: string, msg?: string) {

@@ -2,6 +2,7 @@
  * Client-side logic for the audit log page.
  */
 import "./style.css";
+import { bindAccordionRows } from "../../shared/common";
 
 const pageData = (window as unknown as Record<string, unknown>).__PAGE_DATA__ as
     { page: number; pageSize: number; total: number; basePath: string; scope?: string } | undefined;
@@ -32,15 +33,7 @@ function filterEvents() {
 
 // ─── Event bindings ─────────────────────────────────────────────────
 
-document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
-    row.addEventListener("click", () => {
-        const detail = row.nextElementSibling as HTMLElement;
-        if (detail?.classList.contains("accordion-detail")) {
-            detail.classList.toggle("open");
-            row.classList.toggle("expanded");
-        }
-    });
-});
+bindAccordionRows();
 
 document.getElementById("event-filter")?.addEventListener("change", filterEvents);
 

@@ -85,7 +85,7 @@ export function renderOwnerAgents(agents: OwnerAgentEntry[], options?: OwnerAgen
 
     <div class="card agents-card">
       <table>
-        <colgroup><col><col style="width:290px"><col style="width:250px"><col style="width:170px"><col style="width:140px"></colgroup>
+        <colgroup><col><col style="width:290px"><col style="width:250px"><col style="width:180px"></colgroup>
         <thead>
           <tr><th>Agent</th><th>Status${infoIcon("owner-agent-status", INFO_AGENT_STATUS)}</th><th>Created</th><th>Actions</th></tr>
         </thead>

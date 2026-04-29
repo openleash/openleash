@@ -3,7 +3,7 @@
  */
 import "./style.css";
 import "../audit/style.css";
-import { olToast, olConfirm, olApiError } from "../../shared/common";
+import { olToast, olConfirm, olApiError, bindAccordionRows } from "../../shared/common";
 
 interface AgentPageData {
     agentPrincipalId?: string;
@@ -19,15 +19,7 @@ declare global {
 const pageData = window.__PAGE_DATA__ || {};
 
 // ─── Audit accordion expand/collapse ────────────────────────────────
-document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
-    row.addEventListener("click", () => {
-        const detail = row.nextElementSibling as HTMLElement;
-        if (detail?.classList.contains("accordion-detail")) {
-            detail.classList.toggle("open");
-            row.classList.toggle("expanded");
-        }
-    });
-});
+bindAccordionRows();
 
 document.getElementById("btn-delete-agent")?.addEventListener("click", async () => {
     const name = pageData.agentId || pageData.agentPrincipalId?.slice(0, 8) || "this agent";

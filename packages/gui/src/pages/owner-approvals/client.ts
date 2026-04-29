@@ -2,7 +2,7 @@
  * Client-side logic for the owner approvals page.
  */
 import "./style.css";
-import { olToast, olPrompt, ol2FA, olApiError } from "../../shared/common";
+import { olToast, olPrompt, ol2FA, olApiError, bindAccordionRows } from "../../shared/common";
 
 interface OwnerApprovalsPageData {
     totpEnabled: boolean;
@@ -58,22 +58,13 @@ async function handleApproval(id: string, action: string) {
 
 // ─── Event bindings ─────────────────────────────────────────────────
 
-document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
-    row.addEventListener("click", () => {
-        const detail = row.nextElementSibling as HTMLElement;
-        if (detail?.classList.contains("accordion-detail")) {
-            detail.classList.toggle("open");
-            row.classList.toggle("expanded");
-        }
-    });
-});
+bindAccordionRows();
 
-document.addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-handle-approval]");
-    if (btn) {
+document.querySelectorAll<HTMLElement>("[data-handle-approval]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
         e.stopPropagation();
         handleApproval(btn.dataset.handleApproval!, btn.dataset.approvalAction!);
-    }
+    });
 });
 
 // Pending page size change

@@ -2,7 +2,7 @@
  * Client-side logic for the admin owners pages (list + detail).
  */
 import "./style.css";
-import { olToast, olFieldError, olConfirm, olApiError } from "../../shared/common";
+import { olToast, olFieldError, olConfirm, olApiError, bindAccordionRows } from "../../shared/common";
 
 interface OwnersPageData {
     ownerId?: string;
@@ -163,15 +163,7 @@ document.querySelectorAll<HTMLElement>("[data-toggle-form]").forEach((el) => {
 document.getElementById("create-btn")?.addEventListener("click", createOwner);
 
 // Owner detail page bindings
-document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
-    row.addEventListener("click", () => {
-        const detail = row.nextElementSibling as HTMLElement;
-        if (detail?.classList.contains("accordion-detail")) {
-            detail.classList.toggle("open");
-            row.classList.toggle("expanded");
-        }
-    });
-});
+bindAccordionRows();
 document.getElementById("invite-btn")?.addEventListener("click", generateInvite);
 document.getElementById("copy-btn")?.addEventListener("click", copyLink);
 document.getElementById("btn-admin-disable-totp")?.addEventListener("click", adminDisableTotp);

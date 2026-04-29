@@ -289,6 +289,7 @@ function renderCompanyIdsCard(
     const table = companyIds.length === 0
         ? '<p class="oorg-empty-section">No company IDs registered</p>'
         : `<table>
+          <colgroup><col><col><col><col>${isAdmin ? '<col style="width:180px">' : ""}</colgroup>
           <thead><tr><th>Type</th><th>Country</th><th>Value</th><th>Status${infoIcon("oorgd-cid-verif", INFO_VERIFICATION_LEVEL)}</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
@@ -345,6 +346,7 @@ function renderContactIdentitiesCard(
       ${contacts.length === 0
         ? '<p class="oorg-empty-section">No contact identities</p>'
         : `<table>
+          <colgroup><col><col><col>${isAdmin ? '<col style="width:180px">' : ""}</colgroup>
           <thead><tr><th>Type</th><th>Value</th><th>Status</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
           <tbody>${rows}</tbody>
         </table>`}
@@ -393,6 +395,7 @@ function renderDomainsCard(
       ${domains.length === 0
         ? '<p class="oorg-empty-section">No domains registered</p>'
         : `<table>
+          <colgroup><col><col>${isAdmin ? '<col style="width:180px">' : ""}</colgroup>
           <thead><tr><th>Domain</th><th>Status</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
           <tbody>${rows}</tbody>
         </table>`}
@@ -526,6 +529,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
       ${members.length === 0
         ? '<p class="oorg-empty-section">No members</p>'
         : `<table>
+          <colgroup><col><col><col>${isAdmin ? '<col style="width:180px">' : ""}</colgroup>
           <thead><tr><th>Name</th><th>Role${infoIcon("oorgd-mem-role", INFO_ORG_ROLE)}</th><th>Added</th>${isAdmin ? "<th>Actions</th>" : ""}</tr></thead>
           <tbody>${memberRows}</tbody>
         </table>`}
@@ -547,6 +551,7 @@ export function renderOwnerOrganizationDetail(data: OwnerOrgDetailData, renderPa
     <div class="card oorg-invites-card">
       <div class="card-title">Pending Invitations (${invites.length})</div>
       <table>
+        <colgroup><col><col><col><col><col style="width:180px"></colgroup>
         <thead><tr><th>Name</th><th>Role</th><th>Sent</th><th>Expires</th><th>Actions</th></tr></thead>
         <tbody>${inviteRows}</tbody>
       </table>

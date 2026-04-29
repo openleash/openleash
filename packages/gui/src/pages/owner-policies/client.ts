@@ -2,7 +2,7 @@
  * Client-side logic for the owner policies page.
  */
 import "./style.css";
-import { olToast, olConfirm, olPrompt, ol2FA, olApiError } from "../../shared/common";
+import { olToast, olConfirm, olPrompt, ol2FA, olApiError, bindAccordionRows } from "../../shared/common";
 
 interface OwnerPoliciesPageData {
     totpEnabled: boolean;
@@ -102,15 +102,7 @@ async function handleDraft(id: string, action: string) {
 // ─── Event bindings ─────────────────────────────────────────────────
 
 // Accordion rows (draft toggles)
-document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
-    row.addEventListener("click", () => {
-        const detail = row.nextElementSibling as HTMLElement;
-        if (detail?.classList.contains("accordion-detail")) {
-            detail.classList.toggle("open");
-            row.classList.toggle("expanded");
-        }
-    });
-});
+bindAccordionRows();
 
 // Dynamic policy actions via event delegation
 document.addEventListener("click", (e) => {

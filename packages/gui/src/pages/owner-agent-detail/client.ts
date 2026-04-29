@@ -3,7 +3,7 @@
  */
 import "./style.css";
 import "../audit/style.css";
-import { olToast, olConfirm, ol2FA, olApiError } from "../../shared/common";
+import { olToast, olConfirm, ol2FA, olApiError, bindAccordionRows } from "../../shared/common";
 
 interface AgentPageData {
     agentPrincipalId?: string;
@@ -68,15 +68,7 @@ document.querySelectorAll<HTMLElement>("[data-remove-from-group]").forEach((btn)
 });
 
 // ─── Audit accordion expand/collapse ────────────────────────────────
-document.querySelectorAll<HTMLElement>(".accordion-row").forEach((row) => {
-    row.addEventListener("click", () => {
-        const detail = row.nextElementSibling as HTMLElement;
-        if (detail?.classList.contains("accordion-detail")) {
-            detail.classList.toggle("open");
-            row.classList.toggle("expanded");
-        }
-    });
-});
+bindAccordionRows();
 
 // ─── Transfer agent to organization ─────────────────────────────────
 const transferModal = document.getElementById("transfer-modal");
