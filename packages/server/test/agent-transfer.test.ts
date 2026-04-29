@@ -295,7 +295,7 @@ describe("POST /v1/owner/agents/:agentId/transfer", () => {
 
         const after = store.audit.readByPrincipal(aliceId, new Set(), 1000, 0);
         expect(after.total).toBe(before + 1);
-        const latest = after.items[after.items.length - 1];
+        const latest = after.items[0];
         expect(latest.event_type).toBe("AGENT_TRANSFERRED");
         expect(latest.metadata_json).toMatchObject({
             agent_principal_id: agentPrincipalId,

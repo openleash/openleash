@@ -616,13 +616,13 @@ export function renderAudit(
     const auditBasePath = isOwner ? "/gui/audit" : "/gui/admin/audit";
     const total = data.total;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    // Reverse to show newest first
-    const items = [...data.items].reverse();
+    // Server returns newest first; render in that order.
+    const items = data.items;
 
     const offset = (page - 1) * pageSize;
     const rows = items
         .map((e, i) => {
-            const idx = offset + data.items.length - 1 - i;
+            const idx = offset + i;
 
             const extraFields: string[] = [];
             if (e.principal_id) {

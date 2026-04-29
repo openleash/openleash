@@ -75,7 +75,8 @@ export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
     // Build inline audit table (reuse audit render for the table body only)
     const total = audit.total;
     const totalPages = Math.max(1, Math.ceil(total / auditPageSize));
-    const items = [...audit.items].reverse();
+    // Server returns newest first; render in that order.
+    const items = audit.items;
     const offset = (auditPage - 1) * auditPageSize;
 
     const auditBasePath = `/gui/admin/agents/${agent.agent_principal_id}`;
@@ -91,7 +92,7 @@ export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
     }
 
     const auditRows = items.map((e, i) => {
-        const idx = offset + items.length - 1 - i;
+        const idx = offset + i;
 
         const extraFields: string[] = [];
         if (e.principal_id) {

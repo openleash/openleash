@@ -83,7 +83,8 @@ export function renderOwnerAgentDetail(data: OwnerAgentDetailData, renderPageOpt
     // Build inline audit table
     const total = audit.total;
     const totalPages = Math.max(1, Math.ceil(total / auditPageSize));
-    const items = [...audit.items].reverse();
+    // Server returns newest first; render in that order.
+    const items = audit.items;
     const offset = (auditPage - 1) * auditPageSize;
 
     const auditBasePath = `/gui/agents/${agent.agent_principal_id}`;
@@ -98,7 +99,7 @@ export function renderOwnerAgentDetail(data: OwnerAgentDetailData, renderPageOpt
     }
 
     const auditRows = items.map((e, i) => {
-        const idx = offset + items.length - 1 - i;
+        const idx = offset + i;
 
         const extraFields: string[] = [];
         if (e.principal_id) {

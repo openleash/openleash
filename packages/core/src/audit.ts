@@ -136,10 +136,11 @@ export class FileAuditStore implements AuditStore {
     if (total === 0 || offset >= total) {
       return { items: [], total };
     }
-    // Read from the end so page 1 = newest entries
+    // Read from the end so page 1 = newest entries; reverse so within the
+    // page items[0] is newest (matches what every API consumer expects).
     const start = Math.max(total - offset - limit, 0);
     const end = total - offset;
-    const items = this.readLines(start, end);
+    const items = this.readLines(start, end).reverse();
     return { items, total };
   }
 
@@ -165,12 +166,12 @@ export class FileAuditStore implements AuditStore {
     // Sort ascending
     const sorted = [...lineSet].sort((a, b) => a - b);
     const total = sorted.length;
-    // Read from the end so page 1 = newest entries
+    // Read from the end so page 1 = newest entries; reverse so items[0] is newest.
     const start = Math.max(total - offset - limit, 0);
     const end = total - offset;
     const page = sorted.slice(start, end);
 
-    const items = this.readSpecificLines(page);
+    const items = this.readSpecificLines(page).reverse();
     return { items, total };
   }
 

@@ -72,19 +72,19 @@ describe('FileAuditStore', () => {
 
     const store = new FileAuditStore(tmpDir);
 
-    // Page 1 — newest entries (read from end)
+    // Page 1 — newest first
     const p1 = store.readPage(3, 0);
     expect(p1.total).toBe(10);
     expect(p1.items).toHaveLength(3);
-    expect(p1.items[0].event_type).toBe('EVT_7');
-    expect(p1.items[2].event_type).toBe('EVT_9');
+    expect(p1.items[0].event_type).toBe('EVT_9');
+    expect(p1.items[2].event_type).toBe('EVT_7');
 
     // Page 2
     const p2 = store.readPage(3, 3);
     expect(p2.items).toHaveLength(3);
-    expect(p2.items[0].event_type).toBe('EVT_4');
+    expect(p2.items[0].event_type).toBe('EVT_6');
 
-    // Last page (partial)
+    // Last page (partial) — oldest event
     const p4 = store.readPage(3, 9);
     expect(p4.items).toHaveLength(1);
     expect(p4.items[0].event_type).toBe('EVT_0');
@@ -136,11 +136,11 @@ describe('FileAuditStore', () => {
     const p1 = store.readByPrincipal('owner-a', new Set(), 3, 0);
     expect(p1.total).toBe(10);
     expect(p1.items).toHaveLength(3);
-    expect(p1.items[0].event_type).toBe('EVT_7');
+    expect(p1.items[0].event_type).toBe('EVT_9');
 
     const p2 = store.readByPrincipal('owner-a', new Set(), 3, 3);
     expect(p2.items).toHaveLength(3);
-    expect(p2.items[0].event_type).toBe('EVT_4');
+    expect(p2.items[0].event_type).toBe('EVT_6');
 
     const pLast = store.readByPrincipal('owner-a', new Set(), 3, 9);
     expect(pLast.items).toHaveLength(1);
@@ -162,11 +162,11 @@ describe('FileAuditStore', () => {
     const e2 = store.append('EVT_2', { user_principal_id: 'owner-b' });
     expect(store.getTotal()).toBe(2);
 
-    // Read back
+    // Read back — newest first
     const page = store.readPage(10, 0);
     expect(page.items).toHaveLength(2);
-    expect(page.items[0].event_id).toBe(e1.event_id);
-    expect(page.items[1].event_id).toBe(e2.event_id);
+    expect(page.items[0].event_id).toBe(e2.event_id);
+    expect(page.items[1].event_id).toBe(e1.event_id);
 
     // Principal index updated too
     const byOwner = store.readByPrincipal('owner-a', new Set(), 10, 0);
@@ -188,7 +188,7 @@ describe('FileAuditStore', () => {
     // Should detect growth and return updated total
     expect(store.getTotal()).toBe(2);
     const page = store.readPage(10, 0);
-    expect(page.items[1].event_type).toBe('EXTERNAL');
+    expect(page.items[0].event_type).toBe('EXTERNAL');
   });
 
   it('handles truncated file gracefully', () => {
