@@ -31,6 +31,29 @@ Local-first. No cloud dependency. Apache-2.0.
 
 ---
 
+## How it fits
+
+```
+   ┌─────────┐   1. authorize()   ┌────────────┐
+   │  Agent  │ ─────────────────▶ │  OpenLeash │ ◀── YAML policies
+   │         │ ◀───────────────── │  (sidecar) │     (set by owner)
+   └────┬────┘   2. decision +    └─────┬──────┘
+        │         proof token           │
+        │                                ▼
+        │ 3. action with         ┌──────────────┐
+        │    proof token         │  Audit log   │
+        ▼                        │   (JSONL)    │
+   ┌──────────────┐              └──────────────┘
+   │ Counterparty │
+   │   verifies   │
+   │   offline    │
+   └──────────────┘
+```
+
+OpenLeash runs locally next to your agent. Before any side-effectful action, the agent calls `authorize()`. OpenLeash evaluates the YAML policy, returns a decision and a short-lived proof token, and writes the outcome to an append-only audit log. The agent attaches the token to the action so any counterparty can verify offline that the action was authorized.
+
+---
+
 ## Add OpenLeash to your agent
 
 **Before** — your agent acts directly:

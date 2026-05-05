@@ -11,6 +11,10 @@ pip install openleash-sdk
 ## Quick start
 
 ```python
+import os
+import uuid
+from datetime import datetime, timezone
+
 from openleash import (
     authorize,
     generate_ed25519_keypair,
@@ -22,16 +26,28 @@ from openleash import (
 keypair = generate_ed25519_keypair()
 print(keypair["public_key_b64"])
 
-# Authorize an action (async)
+# Authorize an action (async). All fields below are required by the server.
 result = await authorize(
     openleash_url="http://127.0.0.1:8787",
     agent_id="my-agent",
     private_key_b64=keypair["private_key_b64"],
     action={
+        "action_id": str(uuid.uuid4()),
         "action_type": "purchase",
-        "payload": {"amount_minor": 500, "currency": "USD"},
+        "requested_at": datetime.now(timezone.utc).isoformat(),
+        "principal": {"agent_id": "my-agent"},
+        "subject": {"principal_id": "<owner-id>"},
+        "relying_party": {"domain": "example.com", "trust_profile": "LOW"},
+        "payload": {
+            "amount_minor": 500,
+            "currency": "USD",
+            "merchant_domain": "example.com",
+        },
     },
 )
+
+if result["decision"] != "ALLOW":
+    raise RuntimeError(f"Action {result['decision']}")
 
 # Verify a proof token offline
 verification = verify_proof_offline(
