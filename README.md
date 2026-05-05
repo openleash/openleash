@@ -4,63 +4,101 @@
 
 # OpenLeash
 
-🔐 **Authorization guardrails for AI agents.** 🦞
+### Authorization guardrails for AI agents.
+
+</div>
+
+Your agent asks before doing anything risky. You define what's allowed in YAML. OpenLeash decides — `ALLOW`, `DENY`, or escalate to a human. Every approved action gets a cryptographic proof token, verifiable offline by anyone.
+
+Local-first. No cloud dependency. Apache-2.0.
+
+<div align="center">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/openleash/openleash/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/openleash/openleash/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@openleash/core?style=for-the-badge&label=npm)](https://www.npmjs.com/package/@openleash/core)
 [![License](https://img.shields.io/github/license/openleash/openleash?style=for-the-badge)](LICENSE)
 [![Discussions](https://img.shields.io/github/discussions/openleash/openleash?style=for-the-badge)](https://github.com/openleash/openleash/discussions)
 
-[📖 Docs](docs/) &bull; [🚀 Getting Started](#quickstart) &bull; [📦 npm](https://www.npmjs.com/org/openleash) &bull; [💬 Discussions](https://github.com/openleash/openleash/discussions)
+[Docs](docs/) &bull; [Quickstart](#quickstart) &bull; [npm](https://www.npmjs.com/org/openleash) &bull; [Discussions](https://github.com/openleash/openleash/discussions)
 
 </div>
 
 ---
 
-## What is OpenLeash?
+**For agent developers** — Wrap any risky action with one call. Your agent can't overspend, call random APIs, or take irreversible actions without policy approval. SDKs for [TypeScript](packages/sdk-ts), [Python](packages/sdk-python), and [Go](packages/sdk-go). Works alongside LangChain, LlamaIndex, AutoGen, CrewAI, and MCP servers.
 
-An open-source authorization layer where owners set policies, agents ask before acting, and counterparties can verify the agent was authorized.
+**For security & compliance** — Every agent action is policy-checked, logged, and produces a cryptographic proof token (PASETO v4.public, Ed25519-signed). Append-only audit log. Policies as YAML, version-controlled in your repo. Runs locally — no data leaves your network.
 
-OpenLeash runs locally next to your AI agent runtime. Before an agent takes a side-effectful action (purchases, bookings, sending messages, government submissions), it asks OpenLeash. The server evaluates the request against YAML policies and returns a decision (`ALLOW`, `DENY`, `REQUIRE_APPROVAL`, `REQUIRE_STEP_UP`, `REQUIRE_DEPOSIT`), a list of obligations, and optionally a short-lived proof token (PASETO v4.public) that counterparties can verify.
+---
 
-## ⚡ Quickstart
+## Add OpenLeash to your agent
 
-```bash
-# Clone and build
-git clone https://github.com/openleash/openleash.git && cd openleash
-npm install && npm run build
+**Before** — your agent acts directly:
 
-# Start the server (bootstraps ./data and config.yaml)
-npx openleash start
-
-# Run the interactive setup wizard
-npx openleash wizard
+```typescript
+await sendEmail({ to, subject, body });
 ```
 
-## 🔧 SDK Usage
+**After** — your agent asks first:
 
 ```typescript
 import { authorize } from '@openleash/sdk-ts';
 
 const result = await authorize({
-  openleashUrl: 'http://127.0.0.1:8787',
-  agentId: 'my-agent',
-  privateKeyB64: process.env.OPENLEASH_AGENT_PRIVATE_KEY_B64!,
+  openleashUrl: process.env.OPENLEASH_URL!,
+  agentId: process.env.OPENLEASH_AGENT_ID!,
+  privateKeyB64: process.env.OPENLEASH_AGENT_KEY!,
   action: {
     action_id: crypto.randomUUID(),
-    action_type: 'purchase',
+    action_type: 'send_email',
     requested_at: new Date().toISOString(),
-    principal: { agent_id: 'my-agent' },
-    subject: { principal_id: '<owner-id>' },
-    relying_party: { domain: 'example.com', trust_profile: 'LOW' },
-    payload: { amount_minor: 5000, currency: 'USD', merchant_domain: 'example.com' },
+    principal: { agent_id: process.env.OPENLEASH_AGENT_ID! },
+    subject: { principal_id: ownerId },
+    relying_party: { domain: 'your-app.com', trust_profile: 'LOW' },
+    payload: { to, subject, body },
   },
 });
 
-console.log(result);
+if (result.decision !== 'ALLOW') {
+  throw new Error(`Action ${result.decision}`);
+}
+
+await sendEmail({ to, subject, body });
+// result.proof_token — share or store as a verifiable receipt
 ```
 
-Verify a proof offline:
+See [packages/sdk-python/README.md](packages/sdk-python/README.md) and [packages/sdk-go/README.md](packages/sdk-go/README.md) for Python and Go examples.
+
+## Quickstart
+
+Install the CLI globally:
+
+```bash
+npm install -g @openleash/cli
+```
+
+Or run without installing:
+
+```bash
+npx @openleash/cli start
+```
+
+Or use the one-liner installer (installs Node.js if missing):
+
+```bash
+curl -fsSL https://openleash.ai/install.sh | bash
+```
+
+Then start the server and run the interactive setup wizard:
+
+```bash
+openleash start          # starts the sidecar on 127.0.0.1:8787
+openleash wizard         # creates your first owner, agent, and policy
+```
+
+> Building from source? See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Verifying a proof token
 
 ```typescript
 import { verifyProofOffline } from '@openleash/sdk-ts';
