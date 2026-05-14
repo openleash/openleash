@@ -25,6 +25,10 @@ export default defineConfig({
                     __dirname,
                     "src/pages/owner-setup/client.ts",
                 ),
+                "pages/owner-recover/client": resolve(
+                    __dirname,
+                    "src/pages/owner-recover/client.ts",
+                ),
                 "pages/owner-profile/client": resolve(
                     __dirname,
                     "src/pages/owner-profile/client.ts",

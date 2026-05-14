@@ -46,6 +46,7 @@ import {
     InitialSetupSchema,
     UserSetupSchema,
     UserLoginSchema,
+    UserRecoverySchema,
     TotpVerifySchema,
     SavePolicySchema,
 } from "@openleash/gui";
@@ -185,6 +186,90 @@ export function registerOwnerRoutes(
             status: "setup_complete",
             user_principal_id: invite.user_principal_id,
         };
+    });
+
+    // POST /v1/owner/recover — request a passphrase-reset link by email.
+    // Always returns the same generic 200 response to prevent account
+    // enumeration; the heavy lifting is delegated to whatever plugin
+    // listens for `user_setup_invite.created` (typically the email plugin).
+    app.post("/v1/owner/recover", async (request, reply) => {
+        // Disabled in hosted mode — recovery there is handled by the
+        // external auth provider (e.g. Firebase).
+        if (config.instance?.mode === "hosted") {
+            reply.code(403).send({
+                error: { code: "NOT_AVAILABLE", message: "Recovery is not available in hosted mode" },
+            });
+            return;
+        }
+
+        const body = validateBody(request.body, UserRecoverySchema, reply);
+        if (!body) return;
+
+        const genericOk = {
+            status: "ok",
+            message: "If an account exists for that address, a recovery link has been sent.",
+        };
+
+        // Locate an ACTIVE user with this email contact identity. We accept
+        // any EMAIL contact (verified or not) — the recovery link itself
+        // proves control of the inbox. Email comparison is case-insensitive
+        // (the schema already lowercases incoming input).
+        const target = (() => {
+            const state = store.state.getState();
+            for (const entry of state.users) {
+                let user;
+                try {
+                    user = store.users.read(entry.user_principal_id);
+                } catch {
+                    continue;
+                }
+                if (user.status !== "ACTIVE") continue;
+                const hasEmail = (user.contact_identities ?? []).some(
+                    (c) => c.type === "EMAIL" && c.value.trim().toLowerCase() === body.email,
+                );
+                if (hasEmail) return user;
+            }
+            return null;
+        })();
+
+        store.audit.append("USER_RECOVERY_REQUESTED", {
+            email: body.email,
+            matched: !!target,
+            user_principal_id: target?.user_principal_id ?? null,
+        });
+
+        if (!target) {
+            // Same response shape as the matched path — do not leak existence.
+            return genericOk;
+        }
+
+        const inviteToken = crypto.randomBytes(32).toString("base64url");
+        const inviteId = crypto.randomUUID();
+        const { hash, salt } = hashPassphrase(inviteToken);
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+        store.setupInvites.write({
+            invite_id: inviteId,
+            user_principal_id: target.user_principal_id,
+            token_hash: hash,
+            token_salt: salt,
+            expires_at: expiresAt,
+            used: false,
+            used_at: null,
+            created_at: new Date().toISOString(),
+        });
+
+        events.emit("user_setup_invite.created", {
+            invite_id: inviteId,
+            invite_token: inviteToken,
+            user_principal_id: target.user_principal_id,
+            display_name: target.display_name,
+            email: body.email,
+            expires_at: expiresAt,
+            created_by_user_id: null,
+        });
+
+        return genericOk;
     });
 
     // POST /v1/owner/login

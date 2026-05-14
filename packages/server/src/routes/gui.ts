@@ -23,6 +23,7 @@ import {
     renderAudit,
     renderOwnerLogin,
     renderOwnerSetup,
+    renderOwnerRecover,
     renderOwnerDashboard,
     renderOwnerApprovals,
     renderOwnerAgents,
@@ -836,6 +837,15 @@ export function registerGuiRoutes(
         const html = renderOwnerSetup();
         reply.type("text/html").send(html);
     });
+
+    // Passphrase recovery page (no auth). Hidden in hosted mode because the
+    // external auth provider runs its own recovery flow there.
+    if (!isHosted && !pluginManifest?.replacesUserLogin) {
+        app.get("/gui/recover", async (_request, reply) => {
+            const html = renderOwnerRecover();
+            reply.type("text/html").send(html);
+        });
+    }
 
     // Owner dashboard — served at /gui/dashboard (legacy, cookie-driven),
     // /gui/personal/dashboard (explicit personal), and /gui/orgs/:slug/dashboard.

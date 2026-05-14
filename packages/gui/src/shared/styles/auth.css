@@ -319,6 +319,21 @@ body.theme-light .setup-card {
 
 /* ─── Login-specific ─────────────────────────────────────────────── */
 
+.forgot-link {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 12px;
+}
+
+.forgot-link a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.forgot-link a:hover {
+  color: var(--green-bright);
+}
+
 .admin-link {
   display: block;
   text-align: center;

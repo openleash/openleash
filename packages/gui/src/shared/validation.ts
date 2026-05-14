@@ -64,6 +64,12 @@ export const UserLoginSchema = z.object({
     passphrase: z.string().min(1, "Passphrase is required"),
 });
 
+// ─── User Recovery (passphrase reset request) ───────────────────────
+
+export const UserRecoverySchema = z.object({
+    email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+});
+
 // ─── Profile: Display Name ──────────────────────────────────────────
 
 export const UpdateDisplayNameSchema = z.object({

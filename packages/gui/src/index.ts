@@ -14,6 +14,7 @@ export { renderAudit } from "./pages/audit/render.js";
 export type { AuditData, AuditEntry, AuditNameMap, AuditScopeOption } from "./pages/audit/render.js";
 export { renderOwnerLogin } from "./pages/owner-login/render.js";
 export { renderOwnerSetup } from "./pages/owner-setup/render.js";
+export { renderOwnerRecover } from "./pages/owner-recover/render.js";
 export { renderOwnerDashboard } from "./pages/owner-dashboard/render.js";
 export type { OwnerDashboardData } from "./pages/owner-dashboard/render.js";
 export { renderOwnerApprovals } from "./pages/owner-approvals/render.js";
