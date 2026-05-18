@@ -11,19 +11,42 @@ export interface AdminSession {
 export function createAdminAuth(config: OpenleashConfig, store: DataStore, pluginManifest?: ServerPluginManifest) {
   return async function adminAuth(request: FastifyRequest, reply: FastifyReply) {
     const isHosted = config.instance?.mode === 'hosted';
-    const isGuiRequest = request.url.startsWith('/gui/');
 
-    function deny(code: string, message: string, _statusCode = 401) {
-      if (isGuiRequest) {
+    // Match owner-auth: API clients send a Bearer token or don't advertise
+    // `text/html`. Only a plain browser navigation to /gui/* gets the redirect
+    // — otherwise a fetch that auto-follows redirects ends up parsing the
+    // landing HTML as the requested resource.
+    const hasBearer = (request.headers.authorization ?? '').startsWith('Bearer ');
+    const acceptsHtml = (request.headers.accept ?? '').includes('text/html');
+    const isBrowserNavigation = request.url.startsWith('/gui/') && acceptsHtml && !hasBearer;
+
+    function denyUnauthenticated(code: string, message: string) {
+      if (isBrowserNavigation) {
         reply.redirect('/gui/login?returnTo=' + encodeURIComponent(request.url));
       } else {
-        reply.code(_statusCode).send({ error: { code, message } });
+        reply.code(401).send({ error: { code, message } });
+      }
+    }
+
+    // Authenticated as a valid owner, but lacks the admin role. Must NOT
+    // redirect to login — the landing page auto-renews the session and bounces
+    // straight back here, producing an infinite loop. Render a 403 instead.
+    function denyForbidden(code: string, message: string) {
+      if (isBrowserNavigation) {
+        reply.code(403).type('text/html').send(renderAdminForbiddenHtml());
+      } else {
+        reply.code(403).send({ error: { code, message } });
       }
     }
 
     function attachSession(session: AdminSession) {
       (request as unknown as Record<string, unknown>).adminSession = session;
     }
+
+    // Tracks whether any auth path validated the caller as a real user who
+    // just happens to lack the admin role. If true and no later path grants
+    // admin access (e.g. localhost bypass), we return 403 instead of redirect.
+    let authenticatedNonAdmin = false;
 
     // ── Path 0: Plugin token verification (hosted mode) ───────────────
     if (pluginManifest?.verifyToken) {
@@ -41,6 +64,7 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore, plugi
                 attachSession({ principal_id: result.user_principal_id, auth_method: 'session' });
                 return;
               }
+              authenticatedNonAdmin = true;
             }
           }
         }
@@ -65,6 +89,7 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore, plugi
               attachSession({ principal_id: result.claims.sub, auth_method: 'session' });
               return;
             }
+            authenticatedNonAdmin = true;
           }
         }
       }
@@ -72,8 +97,8 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore, plugi
 
     // ── Path 2: Legacy admin token (API-only) ─────────────────────────
     if (config.admin.token && validateAdminToken(request, config.admin.token)) {
-      if (isGuiRequest) {
-        deny('ADMIN_UNAUTHORIZED', 'Please log in with your account');
+      if (isBrowserNavigation) {
+        denyUnauthenticated('ADMIN_UNAUTHORIZED', 'Please log in with your account');
         return;
       }
       attachSession({ principal_id: null, auth_method: 'token' });
@@ -91,8 +116,43 @@ export function createAdminAuth(config: OpenleashConfig, store: DataStore, plugi
       }
     }
 
-    deny('ADMIN_UNAUTHORIZED', 'Admin access requires an account with admin role');
+    if (authenticatedNonAdmin) {
+      denyForbidden('ADMIN_REQUIRED', 'Your account does not have the admin role');
+      return;
+    }
+
+    denyUnauthenticated('ADMIN_UNAUTHORIZED', 'Admin access requires an account with admin role');
   };
+}
+
+function renderAdminForbiddenHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin access required - OpenLeash</title>
+  <style>
+    :root { color-scheme: dark light; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0b1015; color: #e7eef5; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .card { max-width: 28rem; padding: 2rem; border: 1px solid #1f2933; border-radius: 12px; background: #11171f; }
+    h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+    p { line-height: 1.5; color: #b9c2cc; margin: 0 0 1rem; }
+    a { color: #34d399; text-decoration: none; font-weight: 600; }
+    a:hover { text-decoration: underline; }
+    .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Admin access required</h1>
+    <p>You're signed in, but your account does not have the admin role. Ask an existing admin to grant you the role.</p>
+    <div class="actions">
+      <a href="/gui/dashboard">Back to your dashboard</a>
+    </div>
+  </main>
+</body>
+</html>`;
 }
 
 function extractBearerToken(request: FastifyRequest): string | undefined {

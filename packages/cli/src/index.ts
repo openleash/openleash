@@ -20,6 +20,7 @@ import {
   ownerValidateCommand,
 } from './commands/owner.js';
 import { migrateCommand } from './commands/migrate.js';
+import { adminListCommand, adminGrantCommand, adminRevokeCommand } from './commands/admin.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -120,6 +121,21 @@ async function main() {
       case 'migrate':
         await migrateCommand(args.slice(1));
         break;
+      case 'admin':
+        switch (subcommand) {
+          case 'list':
+            await adminListCommand(store);
+            break;
+          case 'grant':
+            await adminGrantCommand(store, args[2]);
+            break;
+          case 'revoke':
+            await adminRevokeCommand(store, args[2]);
+            break;
+          default:
+            console.log('Usage: openleash admin <list|grant|revoke> [user-principal-id-or-email]');
+        }
+        break;
       case 'testvectors':
         await testvectorsCommand();
         break;
@@ -154,6 +170,9 @@ Commands:
   policy delete        Delete a policy and its bindings
   policy unbind        Remove policy bindings
   migrate v2           Migrate data from v1 to v2 (dry-run by default, --apply to execute)
+  admin list           List users with their system roles
+  admin grant <id|email>   Grant admin role to a user
+  admin revoke <id|email>  Revoke admin role from a user
   playground list      List playground scenarios
   playground run <n>   Run a playground scenario
   keys list            List signing keys
