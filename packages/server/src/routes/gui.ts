@@ -1353,6 +1353,7 @@ export function registerGuiRoutes(
             totp_enabled: !!sessionUser.totp_enabled,
             require_totp: !!config.security.require_totp,
             agent_names: agentNames,
+            org_id: ownerType === "org" ? ownerId : null,
         }, ownerRenderOptionsFor(session, request, reply));
         reply.type("text/html").send(html);
     };
@@ -1535,6 +1536,10 @@ export function registerGuiRoutes(
         const resolvedResult = store.state.getResolvedApprovals(ownerType, ownerId, resolvedPageSize, resolvedOffset);
 
         function readEntry(entry: { approval_request_id: string; agent_principal_id: string; status: string }) {
+            const ownerInfo = {
+                owner_type: ownerType,
+                org_id: ownerType === "org" ? ownerId : null,
+            };
             try {
                 const req = store.approvalRequests.read(entry.approval_request_id);
                 return {
@@ -1552,6 +1557,7 @@ export function registerGuiRoutes(
                     created_at: req.created_at,
                     expires_at: req.expires_at,
                     resolved_at: req.resolved_at ?? null,
+                    ...ownerInfo,
                 };
             } catch {
                 return {
@@ -1569,6 +1575,7 @@ export function registerGuiRoutes(
                     created_at: "",
                     expires_at: "",
                     resolved_at: null,
+                    ...ownerInfo,
                 };
             }
         }
@@ -1611,6 +1618,8 @@ export function registerGuiRoutes(
         interface EnrichedEntry {
             scopeLabel: string;
             scopeHref: string;
+            ownerType: "user" | "org";
+            orgId: string | null;
             entry: typeof state.approval_requests extends (infer U)[] | undefined ? U : never;
         }
         const allPending: EnrichedEntry[] = [];
@@ -1621,9 +1630,11 @@ export function registerGuiRoutes(
             const scopeHref = group.scope.type === "user"
                 ? "/gui/personal/approvals"
                 : `/gui/orgs/${encodeURIComponent(group.scope.slug)}/approvals`;
+            const ownerType = group.scope.type;
+            const orgId = group.scope.type === "org" ? group.scope.id : null;
             for (const id of group.approvalRequestIds) {
                 const entry = (state.approval_requests ?? []).find((r) => r.approval_request_id === id);
-                if (entry) allPending.push({ scopeLabel, scopeHref, entry });
+                if (entry) allPending.push({ scopeLabel, scopeHref, ownerType, orgId, entry });
             }
         }
         // Sort newest-first by created_at from the actual request file —
@@ -1635,6 +1646,12 @@ export function registerGuiRoutes(
 
         function readEntry(enriched: EnrichedEntry) {
             const base = enriched.entry;
+            const scopeInfo = {
+                scope_label: enriched.scopeLabel,
+                scope_href: enriched.scopeHref,
+                owner_type: enriched.ownerType,
+                org_id: enriched.orgId,
+            };
             try {
                 const req = store.approvalRequests.read(base.approval_request_id);
                 return {
@@ -1652,8 +1669,7 @@ export function registerGuiRoutes(
                     created_at: req.created_at,
                     expires_at: req.expires_at,
                     resolved_at: req.resolved_at ?? null,
-                    scope_label: enriched.scopeLabel,
-                    scope_href: enriched.scopeHref,
+                    ...scopeInfo,
                 };
             } catch {
                 return {
@@ -1671,8 +1687,7 @@ export function registerGuiRoutes(
                     created_at: "",
                     expires_at: "",
                     resolved_at: null,
-                    scope_label: enriched.scopeLabel,
-                    scope_href: enriched.scopeHref,
+                    ...scopeInfo,
                 };
             }
         }

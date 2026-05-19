@@ -37,6 +37,8 @@ export interface OwnerPoliciesOptions {
     totp_enabled?: boolean;
     require_totp?: boolean;
     agent_names?: Map<string, string>;
+    /** Set when rendering /gui/orgs/:slug/policies so the client targets org-scoped endpoints. */
+    org_id?: string | null;
 }
 
 function appliesToCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string>): string {
@@ -278,7 +280,7 @@ export function renderOwnerPolicies(
             : ""
     }
 
-    <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled} };</script>
+    <script>window.__PAGE_DATA__ = { totpEnabled: ${totpEnabled}, orgId: ${options?.org_id ? JSON.stringify(options.org_id) : "null"} };</script>
     ${assetTags("pages/owner-policies/client.ts")}
   `;
     return renderPage("My Policies", content, "/gui/policies", "owner", renderPageOptions);

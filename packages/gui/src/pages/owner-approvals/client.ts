@@ -21,7 +21,7 @@ declare global {
 const pageData = window.__PAGE_DATA__;
 const { totpEnabled } = pageData;
 
-async function handleApproval(id: string, action: string) {
+async function handleApproval(id: string, action: string, orgId: string | null) {
     const bodyObj: Record<string, unknown> = {};
     if (action === "deny") {
         const reason = await olPrompt("Reason for denial (optional):", "Enter reason...", "Deny Request");
@@ -29,10 +29,14 @@ async function handleApproval(id: string, action: string) {
         if (reason) bodyObj.reason = reason;
     }
 
+    const url = orgId
+        ? `/v1/owner/organizations/${encodeURIComponent(orgId)}/approval-requests/${encodeURIComponent(id)}/${action}`
+        : `/v1/owner/approval-requests/${encodeURIComponent(id)}/${action}`;
+
     async function doApproval(totpCode?: string): Promise<string | null> {
         if (totpCode) bodyObj.totp_code = totpCode;
         try {
-            const res = await fetch("/v1/owner/approval-requests/" + id + "/" + action, {
+            const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(bodyObj),
@@ -63,7 +67,11 @@ bindAccordionRows();
 document.querySelectorAll<HTMLElement>("[data-handle-approval]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        handleApproval(btn.dataset.handleApproval!, btn.dataset.approvalAction!);
+        handleApproval(
+            btn.dataset.handleApproval!,
+            btn.dataset.approvalAction!,
+            btn.dataset.orgId ?? null,
+        );
     });
 });
 

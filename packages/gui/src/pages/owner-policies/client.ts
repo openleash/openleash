@@ -6,6 +6,8 @@ import { olToast, olConfirm, olPrompt, ol2FA, olApiError, bindAccordionRows } fr
 
 interface OwnerPoliciesPageData {
     totpEnabled: boolean;
+    /** When set, this page is rendered under an org scope and API calls must use the org-scoped URLs. */
+    orgId: string | null;
 }
 
 declare global {
@@ -14,7 +16,17 @@ declare global {
     }
 }
 
-const { totpEnabled } = window.__PAGE_DATA__;
+const { totpEnabled, orgId } = window.__PAGE_DATA__;
+
+const policyUrl = (id: string) =>
+    orgId
+        ? `/v1/owner/organizations/${encodeURIComponent(orgId)}/policies/${encodeURIComponent(id)}`
+        : `/v1/owner/policies/${encodeURIComponent(id)}`;
+
+const draftUrl = (id: string, action: string) =>
+    orgId
+        ? `/v1/owner/organizations/${encodeURIComponent(orgId)}/policy-drafts/${encodeURIComponent(id)}/${action}`
+        : `/v1/owner/policy-drafts/${encodeURIComponent(id)}/${action}`;
 
 function toggleEditor(policyId: string) {
     document.getElementById("editor-row-" + policyId)!.classList.toggle("hidden");
@@ -25,7 +37,7 @@ async function savePolicy(policyId: string) {
     const name = (document.getElementById("editor-name-" + policyId) as HTMLInputElement).value;
     const desc = (document.getElementById("editor-desc-" + policyId) as HTMLInputElement).value;
 
-    const res = await fetch("/v1/owner/policies/" + policyId, {
+    const res = await fetch(policyUrl(policyId), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ policy_yaml: yaml, name: name || null, description: desc || null }),
@@ -49,7 +61,7 @@ async function deletePolicy(id: string) {
             headers["Content-Type"] = "application/json";
             opts.body = JSON.stringify({ totp_code: totpCode });
         }
-        const res = await fetch("/v1/owner/policies/" + id, opts);
+        const res = await fetch(policyUrl(id), opts);
         if (res.ok) return null;
         const data = await res.json().catch(() => ({}));
         return olApiError(data, "Failed to delete policy");
@@ -76,7 +88,7 @@ async function handleDraft(id: string, action: string) {
     async function doDraft(totpCode?: string): Promise<string | null> {
         if (totpCode) bodyObj.totp_code = totpCode;
         try {
-            const res = await fetch("/v1/owner/policy-drafts/" + id + "/" + action, {
+            const res = await fetch(draftUrl(id, action), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(bodyObj),

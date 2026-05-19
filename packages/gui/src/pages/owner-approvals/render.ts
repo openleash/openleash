@@ -32,6 +32,13 @@ export interface OwnerApprovalEntry {
     scope_label?: string;
     /** Link to the per-scope approvals page. Paired with scope_label. */
     scope_href?: string;
+    /**
+     * Owner of the approval request. Used by the client to pick the correct
+     * API endpoint (personal vs org-scoped) when approving/denying.
+     */
+    owner_type?: "user" | "org";
+    /** Set only when owner_type === "org". */
+    org_id?: string | null;
 }
 
 export interface ApprovalPage {
@@ -189,6 +196,9 @@ export function renderOwnerApprovals(
                       const scopePill = a.scope_label
                           ? `<a href="${escapeHtml(a.scope_href ?? "#")}" class="approvals-scope-pill" title="Go to ${escapeHtml(a.scope_label)}">${escapeHtml(a.scope_label)}</a>`
                           : "";
+                      const orgIdAttr = a.owner_type === "org" && a.org_id
+                          ? ` data-org-id="${escapeHtml(a.org_id)}"`
+                          : "";
                       return `
       <tr class="accordion-row">
         <td class="approvals-chevron-cell"><span class="chevron material-symbols-outlined">chevron_right</span></td>
@@ -197,8 +207,8 @@ export function renderOwnerApprovals(
         <td>${formatTimestamp(a.created_at)}</td>
         <td>${formatTimestamp(a.expires_at)}</td>
         <td>
-          <button class="btn btn-primary approvals-btn-approve" data-handle-approval="${a.approval_request_id}" data-approval-action="approve" ${disableActions ? "disabled" : ""}>Approve</button>
-          <button class="btn btn-secondary approvals-btn-deny" data-handle-approval="${a.approval_request_id}" data-approval-action="deny" ${disableActions ? "disabled" : ""}>Deny</button>
+          <button class="btn btn-primary approvals-btn-approve" data-handle-approval="${a.approval_request_id}" data-approval-action="approve"${orgIdAttr} ${disableActions ? "disabled" : ""}>Approve</button>
+          <button class="btn btn-secondary approvals-btn-deny" data-handle-approval="${a.approval_request_id}" data-approval-action="deny"${orgIdAttr} ${disableActions ? "disabled" : ""}>Deny</button>
         </td>
       </tr>
       <tr class="accordion-detail" id="detail-${escapeHtml(a.approval_request_id)}">
