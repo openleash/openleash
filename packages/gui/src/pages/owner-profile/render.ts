@@ -112,6 +112,16 @@ function countryFlag(code: string): string {
     );
 }
 
+function contactTypeBadge(type: string, platform?: string): string {
+    if (type === "INSTANT_MESSAGE" && platform === "telegram") {
+        return '<span class="badge badge-muted">Telegram</span>';
+    }
+    if (type === "INSTANT_MESSAGE" && platform) {
+        return `<span class="badge badge-muted">${escapeHtml(platform)}</span>`;
+    }
+    return `<span class="badge badge-muted">${escapeHtml(type)}</span>`;
+}
+
 // ─── Interfaces ───────────────────────────────────────────────────────
 
 export interface OwnerProfileData {
@@ -157,16 +167,24 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
             (c, i) => {
                 let verifyCell = "";
                 if (!c.verified) {
-                    const providerKey = c.type === "EMAIL" ? "email-otp" : c.type === "PHONE" ? "sms-otp" : null;
+                    const providerKey =
+                        c.type === "EMAIL"
+                            ? "email-otp"
+                            : c.type === "PHONE"
+                                ? "sms-otp"
+                                : c.type === "INSTANT_MESSAGE" && c.platform === "telegram"
+                                    ? "telegram"
+                                    : null;
                     if (providerKey && verificationProviders.includes(providerKey)) {
                         verifyCell = `<a href="/gui/verification" class="btn btn-primary btn-sm">Verify</a>`;
                     } else if (providerKey && !isHosted) {
                         verifyCell = `<span class="profile-hosted-only">Available in hosted solution</span>`;
                     }
                 }
+                const typeLabel = contactTypeBadge(c.type, c.platform);
                 return `
     <tr>
-      <td><span class="badge badge-muted">${escapeHtml(c.type)}</span></td>
+      <td>${typeLabel}</td>
       <td>${escapeHtml(c.value)}</td>
       <td>${escapeHtml(c.label ?? "-")}</td>
       <td class="profile-status-cell">${c.verified ? '<span class="badge badge-green">Verified</span>' : `<span class="badge badge-muted">Unverified</span>${verifyCell ? ` ${verifyCell}` : ""}`}</td>
@@ -331,6 +349,13 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
               <option value="PHONE">Phone</option>
               <option value="INSTANT_MESSAGE">Instant Message</option>
               <option value="SOCIAL_MEDIA">Social Media</option>
+            </select>
+          </div>
+          <div id="contact-platform-group" class="hidden">
+            <label class="detail-label">Platform</label>
+            <select id="contact-platform" class="form-select">
+              <option value="telegram">Telegram</option>
+              <option value="">Other</option>
             </select>
           </div>
           <div id="contact-value-group">

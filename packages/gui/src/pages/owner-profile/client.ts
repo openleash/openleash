@@ -105,17 +105,35 @@ const contactTypeInputConfig: Record<string, { label: string; type: string; plac
 };
 
 const contactTypeSelect = document.getElementById("contact-type") as HTMLSelectElement | null;
+const contactPlatformGroup = document.getElementById("contact-platform-group") as HTMLElement | null;
+const contactPlatformSelect = document.getElementById("contact-platform") as HTMLSelectElement | null;
+
+function updateContactValueField() {
+    const type = contactTypeSelect?.value ?? "EMAIL";
+    const platform = contactPlatformSelect?.value ?? "";
+    const input = document.getElementById("contact-value") as HTMLInputElement;
+    const label = document.getElementById("contact-value-label") as HTMLElement;
+    let cfg = contactTypeInputConfig[type] ?? contactTypeInputConfig.EMAIL;
+    if (type === "INSTANT_MESSAGE" && platform === "telegram") {
+        cfg = { label: "Telegram username", type: "text", placeholder: "@username", autocomplete: "off" };
+    }
+    input.type = cfg.type;
+    input.placeholder = cfg.placeholder;
+    input.autocomplete = cfg.autocomplete;
+    label.textContent = cfg.label;
+    olFieldError("contact-value", "");
+}
+
 if (contactTypeSelect) {
     contactTypeSelect.addEventListener("change", () => {
-        const cfg = contactTypeInputConfig[contactTypeSelect.value] ?? contactTypeInputConfig.EMAIL;
-        const input = document.getElementById("contact-value") as HTMLInputElement;
-        const label = document.getElementById("contact-value-label") as HTMLElement;
-        input.type = cfg.type;
-        input.placeholder = cfg.placeholder;
-        input.autocomplete = cfg.autocomplete;
-        label.textContent = cfg.label;
-        olFieldError("contact-value", "");
+        const isIm = contactTypeSelect.value === "INSTANT_MESSAGE";
+        contactPlatformGroup?.classList.toggle("hidden", !isIm);
+        updateContactValueField();
     });
+}
+
+if (contactPlatformSelect) {
+    contactPlatformSelect.addEventListener("change", updateContactValueField);
 }
 
 function validateContactValue(type: string, value: string): string | null {
@@ -133,6 +151,7 @@ async function addContact() {
     const type = (document.getElementById("contact-type") as HTMLSelectElement).value;
     const value = (document.getElementById("contact-value") as HTMLInputElement).value.trim();
     const label = (document.getElementById("contact-label") as HTMLInputElement).value.trim();
+    const platform = type === "INSTANT_MESSAGE" ? (contactPlatformSelect?.value ?? "") : "";
     olFieldError("contact-value", "");
 
     const error = validateContactValue(type, value);
@@ -145,6 +164,7 @@ async function addContact() {
         type, value, added_at: new Date().toISOString(), verified: false, verified_at: null,
     };
     if (label) entry.label = label;
+    if (platform) entry.platform = platform;
     const updated = contacts.concat([entry as unknown as ContactIdentity]);
     if (await saveProfile({ contact_identities: updated })) window.location.reload();
 }

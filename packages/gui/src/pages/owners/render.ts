@@ -186,13 +186,14 @@ function assuranceBadge(level?: string): string {
     return `<span class="badge badge-muted">${escapeHtml(level)}</span>`;
 }
 
-function contactTypeLabel(type: string): string {
+function contactTypeLabel(type: string, platform?: string): string {
     switch (type) {
         case "EMAIL":
             return "Email";
         case "PHONE":
             return "Phone";
         case "INSTANT_MESSAGE":
+            if (platform === "telegram") return "Telegram";
             return "IM";
         case "SOCIAL_MEDIA":
             return "Social";
@@ -284,7 +285,7 @@ function renderContactIdentitiesCard(owner: OwnerData): string {
         .map(
             (c) => `
     <tr>
-      <td>${escapeHtml(contactTypeLabel(c.type))}</td>
+      <td>${escapeHtml(contactTypeLabel(c.type, c.platform))}</td>
       <td class="mono">${escapeHtml(c.value)}</td>
       <td>${escapeHtml(c.label ?? "-")}</td>
       <td>${escapeHtml(c.platform ?? "-")}</td>
