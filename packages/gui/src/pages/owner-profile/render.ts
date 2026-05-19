@@ -363,6 +363,9 @@ export function renderOwnerProfile(data: OwnerProfileData, renderPageOptions?: R
             <input type="email" id="contact-value" class="form-input" placeholder="you@example.com" autocomplete="email">
             <div class="field-error" id="err-contact-value"></div>
           </div>
+          <div id="contact-telegram-hint" class="hidden profile-form-full-row">
+            <p class="profile-hint">We'll fetch your Telegram username automatically when you scan the QR code in the next step.</p>
+          </div>
           <div>
             <label class="detail-label">Label (optional)</label>
             <input type="text" id="contact-label" class="form-input" placeholder="e.g. Work, Personal">

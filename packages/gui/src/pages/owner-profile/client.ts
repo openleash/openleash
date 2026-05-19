@@ -108,15 +108,25 @@ const contactTypeSelect = document.getElementById("contact-type") as HTMLSelectE
 const contactPlatformGroup = document.getElementById("contact-platform-group") as HTMLElement | null;
 const contactPlatformSelect = document.getElementById("contact-platform") as HTMLSelectElement | null;
 
+const contactValueGroup = document.getElementById("contact-value-group") as HTMLElement | null;
+const contactTelegramHint = document.getElementById("contact-telegram-hint") as HTMLElement | null;
+const btnAddContact = document.getElementById("btn-add-contact") as HTMLButtonElement | null;
+
+function isTelegramFlow(): boolean {
+    return contactTypeSelect?.value === "INSTANT_MESSAGE"
+        && contactPlatformSelect?.value === "telegram";
+}
+
 function updateContactValueField() {
     const type = contactTypeSelect?.value ?? "EMAIL";
-    const platform = contactPlatformSelect?.value ?? "";
     const input = document.getElementById("contact-value") as HTMLInputElement;
     const label = document.getElementById("contact-value-label") as HTMLElement;
-    let cfg = contactTypeInputConfig[type] ?? contactTypeInputConfig.EMAIL;
-    if (type === "INSTANT_MESSAGE" && platform === "telegram") {
-        cfg = { label: "Telegram username", type: "text", placeholder: "@username", autocomplete: "off" };
-    }
+    const telegram = isTelegramFlow();
+    contactValueGroup?.classList.toggle("hidden", telegram);
+    contactTelegramHint?.classList.toggle("hidden", !telegram);
+    if (btnAddContact) btnAddContact.textContent = telegram ? "Add & verify with Telegram" : "Add";
+    if (telegram) return;
+    const cfg = contactTypeInputConfig[type] ?? contactTypeInputConfig.EMAIL;
     input.type = cfg.type;
     input.placeholder = cfg.placeholder;
     input.autocomplete = cfg.autocomplete;
@@ -149,15 +159,20 @@ function validateContactValue(type: string, value: string): string | null {
 
 async function addContact() {
     const type = (document.getElementById("contact-type") as HTMLSelectElement).value;
-    const value = (document.getElementById("contact-value") as HTMLInputElement).value.trim();
     const label = (document.getElementById("contact-label") as HTMLInputElement).value.trim();
     const platform = type === "INSTANT_MESSAGE" ? (contactPlatformSelect?.value ?? "") : "";
+    const telegram = isTelegramFlow();
     olFieldError("contact-value", "");
 
-    const error = validateContactValue(type, value);
-    if (error) {
-        olFieldError("contact-value", error);
-        return;
+    let value = (document.getElementById("contact-value") as HTMLInputElement).value.trim();
+    if (telegram) {
+        value = "(verifying via Telegram)";
+    } else {
+        const error = validateContactValue(type, value);
+        if (error) {
+            olFieldError("contact-value", error);
+            return;
+        }
     }
 
     const entry: Record<string, unknown> = {
@@ -165,8 +180,14 @@ async function addContact() {
     };
     if (label) entry.label = label;
     if (platform) entry.platform = platform;
+    const newIndex = contacts.length;
     const updated = contacts.concat([entry as unknown as ContactIdentity]);
-    if (await saveProfile({ contact_identities: updated })) window.location.reload();
+    if (!(await saveProfile({ contact_identities: updated }))) return;
+    if (telegram) {
+        window.location.href = `/gui/verification?auto=telegram&contact=${newIndex}`;
+    } else {
+        window.location.reload();
+    }
 }
 
 async function removeContact(idx: number) {
@@ -334,7 +355,7 @@ async function confirmDisableTotp() {
 document.getElementById("btn-show-name-edit")?.addEventListener("click", showNameEdit);
 document.getElementById("btn-hide-name-edit")?.addEventListener("click", hideNameEdit);
 document.getElementById("btn-update-name")?.addEventListener("click", updateName);
-document.getElementById("btn-add-contact")?.addEventListener("click", addContact);
+btnAddContact?.addEventListener("click", addContact);
 document.getElementById("btn-add-gov-id")?.addEventListener("click", addGovId);
 document.getElementById("btn-add-company-id")?.addEventListener("click", addCompanyId);
 document.getElementById("btn-delete-account")?.addEventListener("click", () => {
