@@ -3055,7 +3055,18 @@ export function registerOwnerRoutes(
             }
 
             try {
-                return store.approvalRequests.read(id);
+                const req = store.approvalRequests.read(id);
+                // Compute effective status: PENDING + past expiry → EXPIRED.
+                // The on-disk status is only flipped lazily by approve/deny —
+                // a stale PENDING that nobody touched stays PENDING in the file,
+                // so we have to surface the truth on read.
+                if (
+                    req.status === "PENDING"
+                    && new Date(req.expires_at).getTime() <= Date.now()
+                ) {
+                    return { ...req, status: "EXPIRED" };
+                }
+                return req;
             } catch {
                 reply.code(404).send({
                     error: { code: "FILE_NOT_FOUND", message: "Approval request file not found" },

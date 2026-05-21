@@ -376,4 +376,51 @@ rules:
     expect(getBody.status).toBe('DENIED');
     expect(getBody.denial_reason).toBe('Amount too high');
   });
+
+  it('owner GET surfaces effective EXPIRED for PENDING past expires_at', async () => {
+    // Create a fresh approval request via the agent endpoint.
+    const action = {
+      action_id: crypto.randomUUID(),
+      action_type: 'purchase',
+      requested_at: new Date().toISOString(),
+      principal: { agent_id: agentId },
+      subject: { principal_id: ownerId },
+      payload: { amount: 1000 },
+    };
+    const reqBody = {
+      decision_id: crypto.randomUUID(),
+      action,
+      justification: 'Will sit until it rots',
+    };
+    const bodyBytes = Buffer.from(JSON.stringify(reqBody));
+    const headers = signedHeaders('POST', '/v1/agent/approval-requests', bodyBytes);
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/v1/agent/approval-requests',
+      headers: { 'content-type': 'application/json', ...headers },
+      payload: reqBody,
+    });
+    expect(createRes.statusCode).toBe(200);
+    const newReqId = JSON.parse(createRes.payload).approval_request_id;
+
+    // Backdate expires_at without touching status (simulates the real-world
+    // case: nobody approved/denied, the TTL passed, status stays PENDING on
+    // disk because there's no background sweeper).
+    const store = createFileDataStore(dataDir);
+    const stored = store.approvalRequests.read(newReqId);
+    store.approvalRequests.write({
+      ...stored,
+      expires_at: new Date(Date.now() - 60_000).toISOString(),
+    });
+
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/v1/owner/approval-requests/${newReqId}`,
+      headers: { authorization: `Bearer ${ownerSessionToken}` },
+    });
+    expect(getRes.statusCode).toBe(200);
+    const getBody = JSON.parse(getRes.payload);
+    expect(getBody.status).toBe('EXPIRED');
+    expect(getBody.approval_request_id).toBe(newReqId);
+  });
 });

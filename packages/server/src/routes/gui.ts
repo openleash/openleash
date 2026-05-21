@@ -1524,12 +1524,11 @@ export function registerGuiRoutes(
             (r) => r.owner_type === ownerType && r.owner_id === ownerId,
         );
 
-        // Pending: filter from cached state, paginate from end (newest first), then read files
-        const pendingEntries = approvalEntries.filter((e) => e.status === "PENDING");
-        const pendingOffset = (pendingPage - 1) * pendingPageSize;
-        const pendingStart = Math.max(pendingEntries.length - pendingOffset - pendingPageSize, 0);
-        const pendingEnd = pendingEntries.length - pendingOffset;
-        const pendingSlice = pendingEntries.slice(pendingStart, pendingEnd);
+        // Pending entries in state can be stale (no background sweeper flips
+        // PENDING → EXPIRED — only approve/deny do that lazily). Read the file
+        // for every state-pending entry so we can drop the ones whose
+        // expires_at is in the past, then paginate the live list.
+        const pendingStateEntries = approvalEntries.filter((e) => e.status === "PENDING");
 
         // Resolved: use StateRepository for cached owner->resolved mapping
         const resolvedOffset = (resolvedPage - 1) * resolvedPageSize;
@@ -1580,6 +1579,14 @@ export function registerGuiRoutes(
             }
         }
 
+        const now = Date.now();
+        const pendingLive = pendingStateEntries
+            .map(readEntry)
+            .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
+            .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+        const pendingOffset = (pendingPage - 1) * pendingPageSize;
+        const pendingSlice = pendingLive.slice(pendingOffset, pendingOffset + pendingPageSize);
+
         const sessionUser = store.users.read(session.sub);
         const approvalAgentNames = new Map(
             state.agents
@@ -1587,7 +1594,7 @@ export function registerGuiRoutes(
                 .map((a) => [a.agent_principal_id, a.agent_id]),
         );
         const html = renderOwnerApprovals({
-            pending: { items: pendingSlice.map(readEntry), total: pendingEntries.length, page: pendingPage, pageSize: pendingPageSize },
+            pending: { items: pendingSlice, total: pendingLive.length, page: pendingPage, pageSize: pendingPageSize },
             resolved: { items: resolvedResult.items.map(readEntry), total: resolvedResult.total, page: resolvedPage, pageSize: resolvedPageSize },
         }, {
             totp_enabled: !!sessionUser.totp_enabled,
@@ -1637,13 +1644,6 @@ export function registerGuiRoutes(
                 if (entry) allPending.push({ scopeLabel, scopeHref, ownerType, orgId, entry });
             }
         }
-        // Sort newest-first by created_at from the actual request file —
-        // state entries don't carry created_at, so we rely on the file read
-        // below. As a cheap pre-sort, keep insertion order (scopes, then file order).
-
-        const pendingOffset = (pendingPage - 1) * pendingPageSize;
-        const pendingSlice = allPending.slice(pendingOffset, pendingOffset + pendingPageSize);
-
         function readEntry(enriched: EnrichedEntry) {
             const base = enriched.entry;
             const scopeInfo = {
@@ -1692,14 +1692,25 @@ export function registerGuiRoutes(
             }
         }
 
+        // Read every pending file across scopes, drop expired-but-still-PENDING
+        // records (no background sweeper flips status), sort newest-first by
+        // created_at, then paginate.
+        const now = Date.now();
+        const pendingLive = allPending
+            .map(readEntry)
+            .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
+            .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+        const pendingOffset = (pendingPage - 1) * pendingPageSize;
+        const pendingSlice = pendingLive.slice(pendingOffset, pendingOffset + pendingPageSize);
+
         const sessionUser = store.users.read(session.sub);
         const agentNames = new Map<string, string>();
         for (const a of state.agents) agentNames.set(a.agent_principal_id, a.agent_id);
 
         const html = renderOwnerApprovals({
             pending: {
-                items: pendingSlice.map(readEntry),
-                total: allPending.length,
+                items: pendingSlice,
+                total: pendingLive.length,
                 page: pendingPage,
                 pageSize: pendingPageSize,
             },
