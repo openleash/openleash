@@ -41,6 +41,7 @@ import type {
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
 import { cascadeDeleteOrg, cascadeDeleteUser } from "../cascade.js";
+import { buildAvailableScopes } from "../scope.js";
 import { validateBody } from "../validate.js";
 import {
     InitialSetupSchema,
@@ -3031,6 +3032,63 @@ export function registerOwnerRoutes(
         });
 
         return { approval_requests: details };
+    });
+
+    // GET /v1/owner/approvals — cross-scope list of approval requests.
+    // Aggregates approvals from every scope the session user can act within
+    // (personal + each org they're an active member of). Each entry carries
+    // a `scope` object so the caller can group/route in one round trip
+    // instead of fanning out to N per-scope endpoints. Mirrors the server-side
+    // helper used by the GUI inbox (`listPendingApprovalsByScope`).
+    //
+    // ?status= is applied to the *effective* status: a PENDING entry past
+    // its expiry is treated as EXPIRED (matches the single-item GET fix in
+    // v0.20.11), so ?status=PENDING returns only truly-pending work.
+    app.get("/v1/owner/approvals", { preHandler: ownerAuth }, async (request) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const query = request.query as { status?: string };
+
+        const state = store.state.getState();
+        const { personal, orgs } = buildAvailableScopes(store, session);
+        const scopeByKey = new Map<string, typeof personal | typeof orgs[number]>();
+        scopeByKey.set(`${personal.type}:${personal.id}`, personal);
+        for (const o of orgs) scopeByKey.set(`${o.type}:${o.id}`, o);
+
+        const entries = (state.approval_requests ?? []).filter((r) =>
+            scopeByKey.has(`${r.owner_type}:${r.owner_id}`),
+        );
+
+        const now = Date.now();
+        const approvals = entries.map((entry) => {
+            const scope = scopeByKey.get(`${entry.owner_type}:${entry.owner_id}`)!;
+            const scopeInfo = {
+                owner_type: scope.type,
+                owner_id: scope.id,
+                display_name: scope.display_name,
+                slug: scope.type === "org" ? scope.slug : null,
+            };
+            try {
+                const req = store.approvalRequests.read(entry.approval_request_id);
+                const effective = req.status === "PENDING"
+                    && new Date(req.expires_at).getTime() <= now
+                    ? { ...req, status: "EXPIRED" as const }
+                    : req;
+                return { ...effective, scope: scopeInfo };
+            } catch {
+                return {
+                    approval_request_id: entry.approval_request_id,
+                    error: "file_not_found" as const,
+                    scope: scopeInfo,
+                };
+            }
+        });
+
+        const filtered = query.status
+            ? approvals.filter((a) => "status" in a && a.status === query.status)
+            : approvals;
+
+        return { approval_requests: filtered };
     });
 
     // GET /v1/owner/approval-requests/:id
