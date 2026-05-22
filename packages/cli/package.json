@@ -1,6 +1,6 @@
 {
   "name": "@openleash/cli",
-  "version": "0.20.11",
+  "version": "0.20.12",
   "description": "CLI for openleash",
   "main": "./dist/index.js",
   "bin": {
@@ -11,8 +11,8 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@openleash/core": "0.20.11",
-    "@openleash/server": "0.20.11",
+    "@openleash/core": "0.20.12",
+    "@openleash/server": "0.20.12",
     "prompts": "^2.4.2",
     "yaml": "^2.8.3"
   },
