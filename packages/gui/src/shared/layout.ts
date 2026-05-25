@@ -202,6 +202,19 @@ export const INFO_POLICY_DRAFTS = `
     <dd>The agent is proposing a policy for a different agent. This is unusual and warrants careful review.</dd>
   </dl>`;
 
+export const INFO_POLICY_TIERS = `
+  <div class="info-title">Evaluation Order</div>
+  <p style="margin-bottom:8px">When an agent requests authorization, policies evaluate top-down within three fixed tiers. The first rule that matches decides the outcome.</p>
+  <dl>
+    <dt>1. Agent-specific</dt>
+    <dd>Policies bound to one specific agent. Always evaluated first.</dd>
+    <dt>2. Group</dt>
+    <dd>Policies bound to a policy group the agent belongs to. Drag within this section to choose which group's policies fire first.</dd>
+    <dt>3. Owner-wide</dt>
+    <dd>Policies that apply to every agent you own. Drag within this section to set baseline vs. override order.</dd>
+  </dl>
+  <p style="margin-top:8px">Drag the <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">drag_indicator</span> handle on a row to reorder within its tier. Tiers themselves cannot be reordered — specificity always wins.</p>`;
+
 export const INFO_APPROVAL_REQUESTS = `
   <div class="info-title">Approval Requests</div>
   <p style="margin-bottom:8px">When a policy evaluates to REQUIRE_APPROVAL, the agent's action is paused and an approval request is created for you to review.</p>

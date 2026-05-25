@@ -88,6 +88,67 @@ describe('orderBindingsBySpecificity', () => {
         // Owner-wide must still come last.
         expect(ordered[ordered.length - 1].policy_id).toBe('p-owner');
     });
+
+    it('sorts owner-wide bindings by rank ascending', () => {
+        const late = binding({ policy_id: 'p-late', rank: 300 });
+        const early = binding({ policy_id: 'p-early', rank: 100 });
+        const middle = binding({ policy_id: 'p-middle', rank: 200 });
+
+        const ordered = orderBindingsBySpecificity([late, early, middle], AGENT_A, new Set());
+        expect(ordered.map((b) => b.policy_id)).toEqual(['p-early', 'p-middle', 'p-late']);
+    });
+
+    it('sorts group bindings by rank without breaking tier dominance', () => {
+        const groupLate = binding({ policy_id: 'p-grp-late', applies_to_group_id: GROUP_HR, rank: 999 });
+        const groupEarly = binding({ policy_id: 'p-grp-early', applies_to_group_id: GROUP_HR, rank: 1 });
+        // Agent-specific has the highest possible rank — must still win.
+        const agent = binding({ policy_id: 'p-agent', applies_to_agent_principal_id: AGENT_A, rank: 9999 });
+
+        const ordered = orderBindingsBySpecificity(
+            [groupLate, agent, groupEarly],
+            AGENT_A,
+            new Set([GROUP_HR]),
+        );
+        expect(ordered.map((b) => b.policy_id)).toEqual(['p-agent', 'p-grp-early', 'p-grp-late']);
+    });
+
+    it('treats absent rank as 100', () => {
+        const explicit50 = binding({ policy_id: 'p-50', rank: 50 });
+        const noRank = binding({ policy_id: 'p-default' });
+        const explicit200 = binding({ policy_id: 'p-200', rank: 200 });
+
+        const ordered = orderBindingsBySpecificity(
+            [explicit200, noRank, explicit50],
+            AGENT_A,
+            new Set(),
+        );
+        expect(ordered.map((b) => b.policy_id)).toEqual(['p-50', 'p-default', 'p-200']);
+    });
+
+    it('preserves insertion order among equal ranks (stable sort)', () => {
+        const a = binding({ policy_id: 'p-a', rank: 100 });
+        const b = binding({ policy_id: 'p-b', rank: 100 });
+        const c = binding({ policy_id: 'p-c', rank: 100 });
+
+        const ordered = orderBindingsBySpecificity([a, b, c], AGENT_A, new Set());
+        expect(ordered.map((x) => x.policy_id)).toEqual(['p-a', 'p-b', 'p-c']);
+    });
+
+    it('group-tier rank is global across groups, not per-group', () => {
+        // Engineering policy gets rank 100, finance policy gets rank 200.
+        // Engineering should fire first regardless of which group the
+        // policies belong to, because rank is global within the tier.
+        const finPolicy = binding({ policy_id: 'p-fin', applies_to_group_id: GROUP_FINANCE, rank: 200 });
+        const engPolicy = binding({ policy_id: 'p-eng', applies_to_group_id: GROUP_HR, rank: 100 });
+        const engOther = binding({ policy_id: 'p-eng-2', applies_to_group_id: GROUP_HR, rank: 300 });
+
+        const ordered = orderBindingsBySpecificity(
+            [finPolicy, engPolicy, engOther],
+            AGENT_A,
+            new Set([GROUP_HR, GROUP_FINANCE]),
+        );
+        expect(ordered.map((x) => x.policy_id)).toEqual(['p-eng', 'p-fin', 'p-eng-2']);
+    });
 });
 
 describe('mergePolicyLayers', () => {

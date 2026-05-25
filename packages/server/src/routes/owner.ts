@@ -22,6 +22,7 @@ import {
     validateOrgSlug,
     slugifyName,
     ensureUniqueSlug,
+    comparePoliciesForListing,
 } from "@openleash/core";
 import {
     OrgRole,
@@ -51,6 +52,59 @@ import {
     TotpVerifySchema,
     SavePolicySchema,
 } from "@openleash/gui";
+import type { StateBinding } from "@openleash/core";
+
+// ─── Policy ordering helpers ───────────────────────────────────────────
+//
+// Rank orders bindings within one of three fixed *specificity tiers*. The
+// engine (packages/core/src/policy-resolution.ts) flattens bindings in tier
+// order — agent-specific > group > owner-wide — and within each tier sorts
+// by rank ascending. Rank is a global ordering inside its tier: for the
+// group tier, that means policies for different groups share a single rank
+// space so the owner can decide "engineering fires before finance" without
+// per-group fiddling.
+
+type PolicyTier = "agent" | "group" | "owner_wide";
+
+function bindingPolicyTier(b: StateBinding): PolicyTier {
+    if (b.applies_to_agent_principal_id) return "agent";
+    if (b.applies_to_group_id) return "group";
+    return "owner_wide";
+}
+
+interface TierScope {
+    owner_type: "user" | "org";
+    owner_id: string;
+    tier: PolicyTier;
+}
+
+function bindingMatchesScope(b: StateBinding, scope: TierScope): boolean {
+    return (
+        b.owner_type === scope.owner_type &&
+        b.owner_id === scope.owner_id &&
+        bindingPolicyTier(b) === scope.tier
+    );
+}
+
+/** Next rank slot for a new binding in the given specificity tier. Steps by 100. */
+function nextRankInTier(bindings: StateBinding[], scope: TierScope): number {
+    let max = 0;
+    for (const b of bindings) {
+        if (!bindingMatchesScope(b, scope)) continue;
+        const r = b.rank ?? 100;
+        if (r > max) max = r;
+    }
+    return max === 0 ? 100 : max + 100;
+}
+
+function tierFromApplies(
+    appliesToAgent: string | null,
+    appliesToGroup: string | null,
+): PolicyTier {
+    if (appliesToAgent) return "agent";
+    if (appliesToGroup) return "group";
+    return "owner_wide";
+}
 
 export function registerOwnerRoutes(
     app: FastifyInstance,
@@ -721,6 +775,85 @@ export function registerOwnerRoutes(
             return null;
         }
         return membership;
+    }
+
+    /**
+     * Validate a reorder body and rewrite ranks for the named specificity tier.
+     * Returns `{ reordered: n }` on success or `null` after sending an error.
+     */
+    function reorderPoliciesForTier(
+        ownerType: "user" | "org",
+        ownerId: string,
+        body: unknown,
+        reply: FastifyReply,
+    ): { reordered: number } | null {
+        const b = body as {
+            tier?: unknown;
+            ordered_policy_ids?: unknown;
+        } | null;
+
+        if (!b || (b.tier !== "agent" && b.tier !== "group" && b.tier !== "owner_wide")) {
+            reply.code(400).send({
+                error: { code: "INVALID_BODY", message: "tier must be one of: agent, group, owner_wide" },
+            });
+            return null;
+        }
+        if (!Array.isArray(b.ordered_policy_ids)) {
+            reply.code(400).send({
+                error: { code: "INVALID_BODY", message: "ordered_policy_ids must be an array of policy IDs" },
+            });
+            return null;
+        }
+        const orderedIds = b.ordered_policy_ids as unknown[];
+        if (!orderedIds.every((x): x is string => typeof x === "string")) {
+            reply.code(400).send({
+                error: { code: "INVALID_BODY", message: "ordered_policy_ids must contain only strings" },
+            });
+            return null;
+        }
+
+        const scope: TierScope = { owner_type: ownerType, owner_id: ownerId, tier: b.tier };
+        const state = store.state.getState();
+        const tierBindings = state.bindings.filter((x) => bindingMatchesScope(x, scope));
+        const tierIds = new Set(tierBindings.map((x) => x.policy_id));
+
+        const seen = new Set<string>();
+        for (const id of orderedIds) {
+            if (seen.has(id)) {
+                reply.code(400).send({
+                    error: { code: "INVALID_BODY", message: "ordered_policy_ids contains duplicates" },
+                });
+                return null;
+            }
+            seen.add(id);
+            if (!tierIds.has(id)) {
+                reply.code(400).send({
+                    error: { code: "INVALID_BODY", message: `Policy ${id} is not in the specified tier` },
+                });
+                return null;
+            }
+        }
+        if (orderedIds.length !== tierIds.size) {
+            reply.code(400).send({
+                error: {
+                    code: "INVALID_BODY",
+                    message: `Expected ${tierIds.size} policy IDs in this tier, got ${orderedIds.length}`,
+                },
+            });
+            return null;
+        }
+
+        store.state.updateState((s) => {
+            for (let i = 0; i < orderedIds.length; i++) {
+                const id = orderedIds[i];
+                const binding = s.bindings.find(
+                    (x) => x.policy_id === id && bindingMatchesScope(x, scope),
+                );
+                if (binding) binding.rank = (i + 1) * 100;
+            }
+        });
+
+        return { reordered: orderedIds.length };
     }
 
     // POST /v1/owner/organizations — create a new organization (self-service)
@@ -1563,16 +1696,21 @@ export function registerOwnerRoutes(
         if (!requireOrgRole(session, orgId, "org_viewer", reply)) return;
 
         const state = store.state.getState();
+        const bindingsById = new Map(state.bindings.map((b) => [b.policy_id, b]));
         const policies = state.policies
             .filter((p) => p.owner_type === "org" && p.owner_id === orgId)
             .map((entry) => {
+                const binding = bindingsById.get(entry.policy_id);
+                const rank = binding?.rank ?? 100;
+                const appliesToGroup = entry.applies_to_group_id ?? binding?.applies_to_group_id ?? null;
                 try {
                     const yaml = store.policies.read(entry.policy_id);
-                    return { ...entry, policy_yaml: yaml };
+                    return { ...entry, applies_to_group_id: appliesToGroup, rank, policy_yaml: yaml };
                 } catch {
-                    return { ...entry, error: "file_not_found" };
+                    return { ...entry, applies_to_group_id: appliesToGroup, rank, error: "file_not_found" };
                 }
-            });
+            })
+            .sort(comparePoliciesForListing);
         return { policies };
     });
 
@@ -1649,6 +1787,11 @@ export function registerOwnerRoutes(
         const policyDescription = body.description?.trim() || null;
 
         store.state.updateState(s => {
+            const rank = nextRankInTier(s.bindings, {
+                owner_type: "org",
+                owner_id: orgId,
+                tier: tierFromApplies(appliesToAgent, appliesToGroup),
+            });
             s.policies.push({
                 policy_id: policyId,
                 owner_type: "org",
@@ -1665,6 +1808,7 @@ export function registerOwnerRoutes(
                 policy_id: policyId,
                 applies_to_agent_principal_id: appliesToAgent,
                 applies_to_group_id: appliesToGroup,
+                rank,
             });
         });
 
@@ -1734,6 +1878,27 @@ export function registerOwnerRoutes(
         }, { principal_id: session.sub });
 
         return { policy_id: policyId, status: "updated" };
+    });
+
+    // PUT /v1/owner/organizations/:orgId/policies/order — reorder within a tier
+    app.put("/v1/owner/organizations/:orgId/policies/order", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        const result = reorderPoliciesForTier("org", orgId, request.body, reply);
+        if (!result) return;
+
+        const auditBody = request.body as { tier: string; ordered_policy_ids: string[] };
+        store.audit.append("POLICIES_REORDERED", {
+            org_id: orgId,
+            reordered_by: session.sub,
+            tier: auditBody.tier,
+            ordered_policy_ids: auditBody.ordered_policy_ids,
+        }, { principal_id: session.sub });
+
+        return result;
     });
 
     // DELETE /v1/owner/organizations/:orgId/policies/:policyId
@@ -2592,16 +2757,21 @@ export function registerOwnerRoutes(
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
         const state = store.state.getState();
+        const bindingsById = new Map(state.bindings.map((b) => [b.policy_id, b]));
         const policies = state.policies
             .filter((p) => p.owner_type === "user" && p.owner_id === session.sub)
             .map((entry) => {
+                const binding = bindingsById.get(entry.policy_id);
+                const rank = binding?.rank ?? 100;
+                const appliesToGroup = entry.applies_to_group_id ?? binding?.applies_to_group_id ?? null;
                 try {
                     const yaml = store.policies.read(entry.policy_id);
-                    return { ...entry, policy_yaml: yaml };
+                    return { ...entry, applies_to_group_id: appliesToGroup, rank, policy_yaml: yaml };
                 } catch {
-                    return { ...entry, error: "file_not_found" };
+                    return { ...entry, applies_to_group_id: appliesToGroup, rank, error: "file_not_found" };
                 }
-            });
+            })
+            .sort(comparePoliciesForListing);
         return { policies };
     });
 
@@ -2646,6 +2816,11 @@ export function registerOwnerRoutes(
         const policyDescription = body.description?.trim() || null;
 
         store.state.updateState(s => {
+            const rank = nextRankInTier(s.bindings, {
+                owner_type: "user",
+                owner_id: session.sub,
+                tier: tierFromApplies(appliesToAgent, null),
+            });
             s.policies.push({
                 policy_id: policyId,
                 owner_type: "user",
@@ -2661,6 +2836,7 @@ export function registerOwnerRoutes(
                 owner_id: session.sub,
                 policy_id: policyId,
                 applies_to_agent_principal_id: appliesToAgent,
+                rank,
             });
         });
 
@@ -2762,6 +2938,24 @@ export function registerOwnerRoutes(
         });
 
         return { policy_id: policyId, status: "updated" };
+    });
+
+    // PUT /v1/owner/policies/order — reorder within a tier (user-scoped)
+    app.put("/v1/owner/policies/order", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+
+        const result = reorderPoliciesForTier("user", session.sub, request.body, reply);
+        if (!result) return;
+
+        const auditBody = request.body as { tier: string; ordered_policy_ids: string[] };
+        store.audit.append("POLICIES_REORDERED", {
+            user_principal_id: session.sub,
+            tier: auditBody.tier,
+            ordered_policy_ids: auditBody.ordered_policy_ids,
+        });
+
+        return result;
     });
 
     // DELETE /v1/owner/policies/:policyId

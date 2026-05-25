@@ -228,6 +228,13 @@ export interface StateBinding {
    * group. Optional for backward compatibility — absent is treated as null.
    */
   applies_to_group_id?: string | null;
+  /**
+   * Within-tier evaluation order. Lower runs first. Absent reads as 100.
+   * Tiers (agent-specific > group > owner-wide) still dominate; rank only
+   * orders bindings that share a tier. Server writes step `100, 200, 300, …`
+   * on create so manual edits and reorders can interleave cleanly.
+   */
+  rank?: number;
 }
 
 export interface StatePolicyGroupEntry {

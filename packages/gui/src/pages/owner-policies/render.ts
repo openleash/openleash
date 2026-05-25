@@ -5,6 +5,7 @@ import {
     formatTimestamp,
     infoIcon,
     INFO_POLICY_DRAFTS,
+    INFO_POLICY_TIERS,
     type RenderPageOptions,
 } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
@@ -12,6 +13,8 @@ import { assetTags } from "../../shared/manifest.js";
 export interface OwnerPolicyEntry {
     policy_id: string;
     applies_to_agent_principal_id: string | null;
+    applies_to_group_id?: string | null;
+    rank?: number;
     name: string | null;
     description: string | null;
     policy_yaml?: string;
@@ -37,8 +40,17 @@ export interface OwnerPoliciesOptions {
     totp_enabled?: boolean;
     require_totp?: boolean;
     agent_names?: Map<string, string>;
+    group_names?: Map<string, string>;
     /** Set when rendering /gui/orgs/:slug/policies so the client targets org-scoped endpoints. */
     org_id?: string | null;
+}
+
+type Tier = "agent" | "group" | "owner_wide";
+
+function tierOf(p: OwnerPolicyEntry): Tier {
+    if (p.applies_to_agent_principal_id) return "agent";
+    if (p.applies_to_group_id) return "group";
+    return "owner_wide";
 }
 
 function appliesToCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string>): string {
@@ -55,7 +67,6 @@ function appliesToCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string
             : `${copyableId(d.applies_to_agent_principal_id!)} <span class="opol-self-label">(self)</span>`;
         return display;
     }
-    // Other agent
     const name = agentNames?.get(d.applies_to_agent_principal_id!) ?? null;
     const display = name ? escapeHtml(name) : copyableId(d.applies_to_agent_principal_id!);
     return `${display} <span class="badge badge-amber opol-badge-sm-ml" title="This agent is suggesting a policy for a DIFFERENT agent">other agent</span>`;
@@ -63,9 +74,7 @@ function appliesToCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string
 
 function suggestedByCell(d: OwnerPolicyDraftEntry, agentNames?: Map<string, string>): string {
     const name = agentNames?.get(d.agent_principal_id) ?? null;
-    if (name) {
-        return escapeHtml(name);
-    }
+    if (name) return escapeHtml(name);
     return copyableId(d.agent_id, d.agent_id.length);
 }
 
@@ -86,6 +95,101 @@ function scopeWarning(d: OwnerPolicyDraftEntry): string {
     return "";
 }
 
+function policyAppliesToCell(
+    p: OwnerPolicyEntry,
+    agentNames?: Map<string, string>,
+    groupNames?: Map<string, string>,
+): string {
+    if (p.applies_to_agent_principal_id) {
+        const name = agentNames?.get(p.applies_to_agent_principal_id) ?? null;
+        return name ? escapeHtml(name) : copyableId(p.applies_to_agent_principal_id);
+    }
+    if (p.applies_to_group_id) {
+        const name = groupNames?.get(p.applies_to_group_id) ?? null;
+        const display = name
+            ? `<span class="badge badge-blue opol-badge-sm" title="Policy bound to group ${escapeHtml(name)}">${escapeHtml(name)}</span>`
+            : `<span class="badge badge-blue opol-badge-sm">Group ${copyableId(p.applies_to_group_id)}</span>`;
+        return display;
+    }
+    return '<span class="badge badge-amber opol-badge-sm" title="This policy applies to ALL your agents">All agents</span>';
+}
+
+function renderPolicyRow(
+    p: OwnerPolicyEntry,
+    tier: Tier,
+    disableActions: boolean,
+    agentNames?: Map<string, string>,
+    groupNames?: Map<string, string>,
+): string {
+    const displayName = p.name
+        ? escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)
+        : "";
+    const appliesTo = policyAppliesToCell(p, agentNames, groupNames);
+    const idAttr = escapeHtml(p.policy_id);
+
+    return `
+      <tr id="policy-row-${idAttr}" class="opol-policy-row" draggable="true" data-policy-id="${idAttr}" data-tier="${tier}">
+        <td class="opol-drag-cell"><span class="material-symbols-outlined opol-drag-handle" aria-hidden="true">drag_indicator</span></td>
+        <td>
+          ${displayName ? `<div>${displayName}</div>` : ""}
+          <div class="${displayName ? "opol-id-line" : "opol-id-line-no-gap"}">${copyableId(p.policy_id)}</div>
+        </td>
+        <td>${appliesTo}</td>
+        <td>
+          <button class="btn btn-secondary opol-btn-action" data-toggle-editor="${idAttr}">Edit</button>
+          <button class="btn btn-secondary opol-btn-action opol-btn-ml opol-btn-danger-outline" data-delete-policy="${idAttr}" ${disableActions ? "disabled" : ""}>Delete</button>
+        </td>
+      </tr>
+      <tr id="editor-row-${idAttr}" class="hidden">
+        <td colspan="4" class="opol-editor-cell">
+          <div class="opol-editor-fields">
+            <div class="opol-editor-field-sm">
+              <label class="opol-editor-label">Name</label>
+              <input type="text" id="editor-name-${idAttr}" class="form-input" value="${escapeHtml(p.name ?? "")}" placeholder="e.g. Read-only access">
+            </div>
+            <div class="opol-editor-field-lg">
+              <label class="opol-editor-label">Description</label>
+              <input type="text" id="editor-desc-${idAttr}" class="form-input" value="${escapeHtml(p.description ?? "")}" placeholder="What does this policy do?">
+            </div>
+          </div>
+          <textarea id="editor-yaml-${idAttr}" class="yaml-editor opol-yaml-inline">${escapeHtml(p.policy_yaml ?? "")}</textarea>
+          <div class="opol-editor-actions">
+            <button class="btn btn-primary opol-btn-action" data-save-policy="${idAttr}">Save</button>
+            <button class="btn btn-secondary opol-btn-action" data-toggle-editor="${idAttr}">Cancel</button>
+          </div>
+        </td>
+      </tr>
+    `;
+}
+
+function renderTierSection(
+    label: string,
+    description: string,
+    tier: Tier,
+    policies: OwnerPolicyEntry[],
+    disableActions: boolean,
+    agentNames?: Map<string, string>,
+    groupNames?: Map<string, string>,
+): string {
+    const rowsHtml = policies.length === 0
+        ? `<tr><td colspan="4" class="opol-empty-cell">No policies in this tier</td></tr>`
+        : policies
+              .map((p) => renderPolicyRow(p, tier, disableActions, agentNames, groupNames))
+              .join("");
+
+    return `
+    <div class="opol-tier" data-tier="${tier}">
+      <div class="opol-tier-header">
+        <span class="opol-tier-label">${escapeHtml(label)}</span>
+        <span class="opol-tier-desc">${escapeHtml(description)}</span>
+      </div>
+      <table class="opol-table-fixed">
+        <colgroup><col style="width:32px"><col><col style="width:220px"><col style="width:180px"></colgroup>
+        <tbody data-tier-body="${tier}">${rowsHtml}</tbody>
+      </table>
+    </div>`;
+}
+
 export function renderOwnerPolicies(
     policies: OwnerPolicyEntry[],
     drafts: OwnerPolicyDraftEntry[],
@@ -95,63 +199,27 @@ export function renderOwnerPolicies(
     const totpEnabled = options?.totp_enabled ?? false;
     const requireTotp = options?.require_totp ?? false;
     const agentNames = options?.agent_names;
+    const groupNames = options?.group_names;
     const disableActions = requireTotp && !totpEnabled;
     const pending = drafts.filter((d) => d.status === "PENDING");
     const resolved = drafts.filter((d) => d.status !== "PENDING");
 
-    // --- Active Policies section ---
-    const policyRows =
-        policies.length === 0
-            ? '<tr><td colspan="3" class="opol-empty-cell">No policies</td></tr>'
-            : policies
-                  .map((p) => {
-                      let appliesTo: string;
-                      if (!p.applies_to_agent_principal_id) {
-                          appliesTo =
-                              '<span class="badge badge-amber opol-badge-sm" title="This policy applies to ALL your agents">All agents</span>';
-                      } else {
-                          const name = agentNames?.get(p.applies_to_agent_principal_id) ?? null;
-                          appliesTo = name
-                              ? escapeHtml(name)
-                              : copyableId(p.applies_to_agent_principal_id);
-                      }
-                      const displayName = p.name
-                          ? escapeHtml(p.name.length > 36 ? p.name.slice(0, 36) + "..." : p.name)
-                          : "";
-                      return `
-      <tr id="policy-row-${escapeHtml(p.policy_id)}">
-        <td>
-          ${displayName ? `<div>${displayName}</div>` : ""}
-          <div class="${displayName ? "opol-id-line" : "opol-id-line-no-gap"}">${copyableId(p.policy_id)}</div>
-        </td>
-        <td>${appliesTo}</td>
-        <td>
-          <button class="btn btn-secondary opol-btn-action" data-toggle-editor="${escapeHtml(p.policy_id)}">Edit</button>
-          <button class="btn btn-secondary opol-btn-action opol-btn-ml opol-btn-danger-outline" data-delete-policy="${escapeHtml(p.policy_id)}" ${disableActions ? "disabled" : ""}>Delete</button>
-        </td>
-      </tr>
-      <tr id="editor-row-${escapeHtml(p.policy_id)}" class="hidden">
-        <td colspan="3" class="opol-editor-cell">
-          <div class="opol-editor-fields">
-            <div class="opol-editor-field-sm">
-              <label class="opol-editor-label">Name</label>
-              <input type="text" id="editor-name-${escapeHtml(p.policy_id)}" class="form-input" value="${escapeHtml(p.name ?? "")}" placeholder="e.g. Read-only access">
-            </div>
-            <div class="opol-editor-field-lg">
-              <label class="opol-editor-label">Description</label>
-              <input type="text" id="editor-desc-${escapeHtml(p.policy_id)}" class="form-input" value="${escapeHtml(p.description ?? "")}" placeholder="What does this policy do?">
-            </div>
-          </div>
-          <textarea id="editor-yaml-${escapeHtml(p.policy_id)}" class="yaml-editor opol-yaml-inline">${escapeHtml(p.policy_yaml ?? "")}</textarea>
-          <div class="opol-editor-actions">
-            <button class="btn btn-primary opol-btn-action" data-save-policy="${escapeHtml(p.policy_id)}">Save</button>
-            <button class="btn btn-secondary opol-btn-action" data-toggle-editor="${escapeHtml(p.policy_id)}">Cancel</button>
-          </div>
-        </td>
-      </tr>
+    // Bucket by tier (server already sorted by rank within each tier).
+    const agentTier: OwnerPolicyEntry[] = [];
+    const groupTier: OwnerPolicyEntry[] = [];
+    const ownerTier: OwnerPolicyEntry[] = [];
+    for (const p of policies) {
+        const t = tierOf(p);
+        if (t === "agent") agentTier.push(p);
+        else if (t === "group") groupTier.push(p);
+        else ownerTier.push(p);
+    }
+
+    const activeSections = `
+      ${renderTierSection("Agent-specific", "Evaluated first — bound to one specific agent.", "agent", agentTier, disableActions, agentNames, groupNames)}
+      ${renderTierSection("Group", "Evaluated second — bound to a policy group. Drag to choose which group fires first.", "group", groupTier, disableActions, agentNames, groupNames)}
+      ${renderTierSection("Owner-wide", "Evaluated last — apply to every agent you own. Drag to set baseline vs. override.", "owner_wide", ownerTier, disableActions, agentNames, groupNames)}
     `;
-                  })
-                  .join("");
 
     // --- Pending Drafts section ---
     const totpBanner =
@@ -239,14 +307,8 @@ export function renderOwnerPolicies(
     </div>
 
     <div class="card opol-card-flush">
-      <h3 class="opol-card-heading">Active Policies</h3>
-      <table class="opol-table-fixed">
-        <colgroup><col><col style="width:220px"><col style="width:180px"></colgroup>
-        <thead>
-          <tr><th>Policy</th><th>Applies To</th><th>Actions</th></tr>
-        </thead>
-        <tbody>${policyRows}</tbody>
-      </table>
+      <h3 class="opol-card-heading">Active Policies${infoIcon("policy-tiers-info", INFO_POLICY_TIERS)}</h3>
+      ${activeSections}
     </div>
 
     <div class="card opol-card-flush">

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Within-tier policy ordering. Each binding now carries an optional `rank` (default `100`, lower runs first). The engine sorts bindings by rank within each specificity tier (agent-specific > group > owner-wide); tiers themselves still dominate. `POST /v1/owner/policies` (and the org-scoped variant) assigns the next rank slot (steps of 100) on create.
+- `PUT /v1/owner/policies/order` and `PUT /v1/owner/organizations/:orgId/policies/order` to reorder all policies in a tier in one request. Body: `{ tier: "agent" | "group" | "owner_wide", ordered_policy_ids: string[] }`. Server validates the list is a complete permutation of the tier's current policies, rewrites ranks, and writes a `POLICIES_REORDERED` audit event.
+- Owner policies GUI now shows three tier sections (Agent-specific / Group / Owner-wide) with native HTML5 drag-and-drop reordering within each section. Tiers cannot be reordered against each other — specificity always wins.
+
+### Changed
+
+- `GET /v1/owner/policies` and `GET /v1/owner/organizations/:orgId/policies` now include `rank` and `applies_to_group_id` on each entry and return policies pre-sorted by tier then rank.
+
 ## [0.1.0] - 2025-06-01
 
 ### Added

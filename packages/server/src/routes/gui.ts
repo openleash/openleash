@@ -10,7 +10,7 @@ import {
     countPendingApprovalsAcrossScopes,
 } from "../scope.js";
 import type { Scope } from "../scope.js";
-import { resolveSystemRoles } from "@openleash/core";
+import { resolveSystemRoles, comparePoliciesForListing } from "@openleash/core";
 import type { OpenleashConfig, SessionClaims, DataStore, ServerPluginManifest } from "@openleash/core";
 import {
     renderDashboard,
@@ -1283,14 +1283,20 @@ export function registerGuiRoutes(
         const scope = resolveCurrentScope(store, session, request);
         const { ownerType, ownerId } = scope ? currentOwner(scope) : { ownerType: "user" as const, ownerId: session.sub };
         const state = store.state.getState();
+        const bindingsById = new Map(state.bindings.map((b) => [b.policy_id, b]));
         const policies = state.policies
             .filter((p) => p.owner_type === ownerType && p.owner_id === ownerId)
             .map((entry) => {
+                const binding = bindingsById.get(entry.policy_id);
+                const rank = binding?.rank ?? 100;
+                const appliesToGroup = entry.applies_to_group_id ?? binding?.applies_to_group_id ?? null;
                 try {
                     const yaml = store.policies.read(entry.policy_id);
                     return {
                         policy_id: entry.policy_id,
                         applies_to_agent_principal_id: entry.applies_to_agent_principal_id,
+                        applies_to_group_id: appliesToGroup,
+                        rank,
                         name: entry.name ?? null,
                         description: entry.description ?? null,
                         policy_yaml: yaml,
@@ -1299,11 +1305,14 @@ export function registerGuiRoutes(
                     return {
                         policy_id: entry.policy_id,
                         applies_to_agent_principal_id: entry.applies_to_agent_principal_id,
+                        applies_to_group_id: appliesToGroup,
+                        rank,
                         name: entry.name ?? null,
                         description: entry.description ?? null,
                     };
                 }
-            });
+            })
+            .sort(comparePoliciesForListing);
         const draftEntries = (state.policy_drafts ?? []).filter(
             (d) => d.owner_type === ownerType && d.owner_id === ownerId,
         );
@@ -1348,11 +1357,19 @@ export function registerGuiRoutes(
                 .filter((a) => a.owner_type === ownerType && a.owner_id === ownerId)
                 .map((a) => [a.agent_principal_id, a.agent_id]),
         );
+        const groupNames = ownerType === "org"
+            ? new Map(
+                store.policyGroups
+                    .listByOwner("org", ownerId)
+                    .map((g) => [g.group_id, g.name] as const),
+            )
+            : new Map<string, string>();
         const sessionUser = store.users.read(session.sub);
         const html = renderOwnerPolicies(policies, drafts, {
             totp_enabled: !!sessionUser.totp_enabled,
             require_totp: !!config.security.require_totp,
             agent_names: agentNames,
+            group_names: groupNames,
             org_id: ownerType === "org" ? ownerId : null,
         }, ownerRenderOptionsFor(session, request, reply));
         reply.type("text/html").send(html);

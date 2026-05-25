@@ -111,6 +111,128 @@ async function handleDraft(id: string, action: string) {
     window.location.reload();
 }
 
+// ─── Drag-and-drop reorder ──────────────────────────────────────────
+
+type Tier = "agent" | "group" | "owner_wide";
+
+const reorderUrl = () =>
+    orgId
+        ? `/v1/owner/organizations/${encodeURIComponent(orgId)}/policies/order`
+        : `/v1/owner/policies/order`;
+
+let dragRow: HTMLTableRowElement | null = null;
+let dragTier: Tier | null = null;
+let dragSnapshot: HTMLTableRowElement[] = [];
+
+function getTierBody(tier: Tier): HTMLTableSectionElement | null {
+    return document.querySelector<HTMLTableSectionElement>(`[data-tier-body="${tier}"]`);
+}
+
+function getPolicyRows(tier: Tier): HTMLTableRowElement[] {
+    const body = getTierBody(tier);
+    if (!body) return [];
+    return Array.from(body.querySelectorAll<HTMLTableRowElement>("tr.opol-policy-row"));
+}
+
+function snapshotRows(rows: HTMLTableRowElement[]): HTMLTableRowElement[] {
+    // Clone the live array; rows themselves are stable DOM nodes.
+    return rows.slice();
+}
+
+function restoreSnapshot(tier: Tier, snapshot: HTMLTableRowElement[]) {
+    const body = getTierBody(tier);
+    if (!body) return;
+    for (const row of snapshot) {
+        // Each policy row has a sibling editor row that must stay paired.
+        const editor = document.getElementById("editor-row-" + row.dataset.policyId!);
+        body.appendChild(row);
+        if (editor) body.appendChild(editor);
+    }
+}
+
+async function submitOrder(tier: Tier, rows: HTMLTableRowElement[]) {
+    const ordered_policy_ids = rows.map((r) => r.dataset.policyId!).filter(Boolean);
+    if (ordered_policy_ids.length === 0) return null;
+    const res = await fetch(reorderUrl(), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier, ordered_policy_ids }),
+    });
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return olApiError(data, "Failed to reorder");
+    }
+    olToast("Order saved", "success");
+    return null;
+}
+
+document.addEventListener("dragstart", (e) => {
+    const target = e.target as HTMLElement;
+    const row = target.closest<HTMLTableRowElement>("tr.opol-policy-row");
+    if (!row) return;
+    const tier = row.dataset.tier as Tier | undefined;
+    if (!tier) return;
+    dragRow = row;
+    dragTier = tier;
+    dragSnapshot = snapshotRows(getPolicyRows(tier));
+    row.classList.add("opol-row-dragging");
+    e.dataTransfer!.effectAllowed = "move";
+    // Setting *some* data is required for Firefox to start the drag.
+    e.dataTransfer!.setData("text/plain", row.dataset.policyId ?? "");
+});
+
+document.addEventListener("dragend", () => {
+    if (dragRow) dragRow.classList.remove("opol-row-dragging");
+    document
+        .querySelectorAll(".opol-row-drop-target")
+        .forEach((el) => el.classList.remove("opol-row-drop-target"));
+    dragRow = null;
+    dragTier = null;
+    dragSnapshot = [];
+});
+
+document.addEventListener("dragover", (e) => {
+    if (!dragRow || !dragTier) return;
+    const target = (e.target as HTMLElement).closest<HTMLTableRowElement>("tr.opol-policy-row");
+    if (!target || target.dataset.tier !== dragTier || target === dragRow) return;
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = "move";
+    document
+        .querySelectorAll(".opol-row-drop-target")
+        .forEach((el) => el.classList.remove("opol-row-drop-target"));
+    target.classList.add("opol-row-drop-target");
+});
+
+document.addEventListener("drop", async (e) => {
+    if (!dragRow || !dragTier) return;
+    const target = (e.target as HTMLElement).closest<HTMLTableRowElement>("tr.opol-policy-row");
+    if (!target || target.dataset.tier !== dragTier || target === dragRow) return;
+    e.preventDefault();
+
+    // Move dragRow + its editor row to just before `target` + target's editor.
+    const body = target.parentElement!;
+    const draggedEditor = document.getElementById("editor-row-" + dragRow.dataset.policyId!);
+    body.insertBefore(dragRow, target);
+    if (draggedEditor) body.insertBefore(draggedEditor, target);
+
+    const tier = dragTier;
+    const newRows = getPolicyRows(tier);
+    const snap = dragSnapshot;
+
+    // Reset drag state so the dragend handler won't fight us on revert.
+    dragRow.classList.remove("opol-row-dragging");
+    target.classList.remove("opol-row-drop-target");
+    dragRow = null;
+    dragTier = null;
+    dragSnapshot = [];
+
+    const err = await submitOrder(tier, newRows);
+    if (err) {
+        restoreSnapshot(tier, snap);
+        olToast(err, "error");
+    }
+});
+
 // ─── Event bindings ─────────────────────────────────────────────────
 
 // Accordion rows (draft toggles)

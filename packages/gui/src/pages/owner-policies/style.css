@@ -120,3 +120,57 @@
 
 /* Dynamic margin-top for id-line when name is present vs absent */
 .opol-id-line-no-gap { margin-top: 0; }
+
+/* ─── Tier sections + drag-and-drop ────────────────────────────────── */
+
+/* Wrapper for one of the three tier sections (agent / group / owner-wide). */
+.opol-tier {
+  border-top: 1px solid var(--border-subtle);
+}
+.opol-tier:first-of-type { border-top: none; }
+
+/* Header row above each tier table */
+.opol-tier-header {
+  padding: 10px 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  background: var(--bg-subtle);
+}
+.opol-tier-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+.opol-tier-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Drag handle column (first cell in each policy row) */
+.opol-drag-cell {
+  width: 32px;
+  text-align: center;
+  vertical-align: middle;
+}
+.opol-drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  opacity: 0.5;
+  user-select: none;
+  font-size: 20px;
+}
+.opol-policy-row:hover .opol-drag-handle { opacity: 1; }
+.opol-drag-handle:active { cursor: grabbing; }
+
+/* Row state while it is being dragged */
+.opol-policy-row.opol-row-dragging {
+  opacity: 0.4;
+}
+
+/* Highlight on the row the cursor is hovering during a drag */
+.opol-policy-row.opol-row-drop-target > td {
+  border-top: 2px solid var(--color-accent, var(--color-primary, currentColor));
+}

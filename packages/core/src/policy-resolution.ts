@@ -40,7 +40,51 @@ export function orderBindingsBySpecificity(
     // else: binding applies to a different agent or a group the agent isn't in — skip.
   }
 
+  // Within each tier, lower rank evaluates first. Absent reads as 100.
+  // Array.prototype.sort is stable in V8/modern engines (ECMA-262 §22.1.3.27),
+  // so equal-rank bindings keep their insertion order.
+  const byRank = (a: StateBinding, b: StateBinding) =>
+    (a.rank ?? 100) - (b.rank ?? 100);
+  agentSpecific.sort(byRank);
+  group.sort(byRank);
+  ownerWide.sort(byRank);
+
   return [...agentSpecific, ...group, ...ownerWide];
+}
+
+/**
+ * Comparator for displaying policies in the order they would evaluate for
+ * any agent under the owner: agent-specific tier first, then group, then
+ * owner-wide; within each tier sorted by `rank` ascending; final tiebreak
+ * by policy_id for stable output. Use for UI / API listing — `evaluate()`
+ * itself does not depend on this.
+ */
+export function comparePoliciesForListing(
+  a: {
+    applies_to_agent_principal_id: string | null;
+    applies_to_group_id?: string | null;
+    rank?: number;
+    policy_id: string;
+  },
+  b: {
+    applies_to_agent_principal_id: string | null;
+    applies_to_group_id?: string | null;
+    rank?: number;
+    policy_id: string;
+  },
+): number {
+  const tierA = a.applies_to_agent_principal_id ? 1 : a.applies_to_group_id ? 2 : 3;
+  const tierB = b.applies_to_agent_principal_id ? 1 : b.applies_to_group_id ? 2 : 3;
+  if (tierA !== tierB) return tierA - tierB;
+  const subA = a.applies_to_agent_principal_id ?? a.applies_to_group_id ?? '';
+  const subB = b.applies_to_agent_principal_id ?? b.applies_to_group_id ?? '';
+  if (subA !== subB) return subA < subB ? -1 : 1;
+  const rankA = a.rank ?? 100;
+  const rankB = b.rank ?? 100;
+  if (rankA !== rankB) return rankA - rankB;
+  if (a.policy_id < b.policy_id) return -1;
+  if (a.policy_id > b.policy_id) return 1;
+  return 0;
 }
 
 /**
