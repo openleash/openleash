@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.21.0] - 2026-05-25
 
 ### Added
 
@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Changed
 
 - `GET /v1/owner/policies` and `GET /v1/owner/organizations/:orgId/policies` now include `rank` and `applies_to_group_id` on each entry and return policies pre-sorted by tier then rank.
+
+[0.21.0]: https://github.com/openleash/openleash/releases/tag/v0.21.0
 
 ## [0.1.0] - 2025-06-01
 
