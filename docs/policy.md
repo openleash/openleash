@@ -6,7 +6,7 @@ Policies are YAML files with this structure:
 
 ```yaml
 version: 1          # always 1
-default: deny       # "allow" or "deny" — applied when no rule matches
+default: deny       # allow | deny | passthrough | require_approval — applied when no rule matches
 rules:              # ordered list of rules
   - id: rule_name
     effect: allow   # "allow" or "deny"
@@ -16,24 +16,55 @@ rules:              # ordered list of rules
 
 Rules are evaluated in order. The first matching rule determines the decision. If no rule matches, the `default` is used.
 
+### `default` values
+
+| Value | When no rule matches |
+| --- | --- |
+| `allow` | Decision is `ALLOW`. |
+| `deny` | Decision is `DENY`. |
+| `require_approval` | Decision is `REQUIRE_APPROVAL` with a `HUMAN_APPROVAL` obligation — "anything not explicitly allowed needs a human." |
+| `passthrough` | The policy **abstains** from the default and defers it to the next (less specific) layer. Use this so an agent- or group-scoped policy inherits the owner-wide baseline instead of overriding it. |
+
+`passthrough` only makes sense in a layered evaluation (see [Layering](#layering--specificity)). When the merged policy resolves its default, it walks layers most-specific first and takes the first non-`passthrough` default; if every layer is `passthrough` (or a `passthrough` policy is evaluated alone), it fails safe to `deny`.
+
 Full JSON Schema: [docs/policy.schema.json](./policy.schema.json)
 
-## Binding Resolution
+## Layering & specificity
 
-Policies are connected to owners and agents through **bindings** stored in `state.md`. When the server receives an authorization request, it resolves the applicable policy as follows:
+Policies are connected to owners and agents through **bindings** stored in `state.md`. Unlike a single first-match lookup, **all** of an owner's bindings that apply to the requesting agent are collected and layered into one effective policy. Each binding falls into one of three specificity tiers:
 
-1. The server iterates `state.bindings` **in array order** and finds the first binding where:
-   - `owner_id` matches the request's `subject.principal_id`, AND
-   - `applies_to_agent_principal_id` matches the requesting agent, OR is `null` (meaning "all agents for this owner")
-2. **First match wins** — the policy referenced by that binding is used for evaluation. Later bindings are ignored.
-3. Agent-specific bindings (where `applies_to_agent_principal_id` is set) are more precise than owner-wide bindings (`null`), but **array order takes precedence**. If an owner-wide binding appears before an agent-specific one, the owner-wide binding wins.
+1. **Agent-specific** — `applies_to_agent_principal_id` equals the requesting agent.
+2. **Group** — `applies_to_group_id` is a group the agent belongs to.
+3. **Owner-wide** — both are `null` ("all agents for this owner").
 
-### Implications
+Bindings are ordered **agent-specific → group → owner-wide**. Within a tier, bindings are sorted by `rank` ascending (lower runs first; absent `rank` is treated as `100`). Rank is managed by the policies page (drag-and-drop) or `PUT /v1/owner/policies/order`.
 
-- `policy upsert` **appends** new bindings to the end of the array. If an earlier binding already matches the same owner/agent, the new policy will never be evaluated.
-- To replace a policy: first `policy unbind` the old one, then `policy upsert` the new one.
-- **Recommended practice:** maintain one binding per owner/agent pair. Use `policy unbind` to clean up stale bindings before adding new ones.
-- To update a policy's rules without changing bindings, use `policy upsert --policy-id <existing-id> --file <new-file>` — this overwrites the YAML file in place without creating a new binding.
+The ordered layers are then merged:
+
+- **Rules** from every layer are concatenated in order (most specific first), and the engine applies first-match semantics across the whole concatenated list. So a less-specific layer's rules still fire if nothing more specific matched.
+- **The `default`** is resolved by walking layers most-specific first and taking the first one whose default is not `passthrough` (see [`default` values](#default-values)). This is the only thing that does *not* simply fall through — which is why `passthrough` exists.
+
+### Example: owner-wide baseline with a per-agent override
+
+```yaml
+# Owner-wide (tier 3) — the org baseline
+default: require_approval
+rules:
+  - id: deny_payouts
+    effect: deny
+    action: payment.payout
+```
+
+```yaml
+# Agent-specific (tier 1) — inherits the baseline default, adds an allowance
+default: passthrough
+rules:
+  - id: allow_reads
+    effect: allow
+    action: read.*
+```
+
+For this agent: `read.*` is allowed, `payment.payout` is denied (owner-wide rule still fires), and anything else falls through the agent layer's `passthrough` to the owner-wide `require_approval`. If the agent layer used `default: allow` instead, unmatched actions would be allowed — overriding the baseline.
 
 ## Rule Fields
 

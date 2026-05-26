@@ -150,9 +150,20 @@ export interface PolicyRule {
   proof?: PolicyProof;
 }
 
+/**
+ * Policy-level default decision when no rule matches.
+ * - `allow` / `deny` — terminal.
+ * - `passthrough` — abstain; defer the default to the next (less specific)
+ *   policy layer. Resolved at merge time (see `mergePolicyLayers`). A
+ *   passthrough that reaches the engine standalone is treated as `deny`.
+ * - `require_approval` — unmatched actions require human approval
+ *   (emits a HUMAN_APPROVAL obligation → REQUIRE_APPROVAL).
+ */
+export type PolicyDefault = 'allow' | 'deny' | 'passthrough' | 'require_approval';
+
 export interface Policy {
   version: 1;
-  default: 'allow' | 'deny';
+  default: PolicyDefault;
   rules: PolicyRule[];
 }
 

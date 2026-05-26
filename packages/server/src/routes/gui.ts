@@ -1401,8 +1401,13 @@ export function registerGuiRoutes(
             ? q.applies_to_group_id
             : undefined;
 
+        // Agents owned by the current scope, for the "specific agent" picker.
+        const agents = store.state.getState().agents
+            .filter((a) => a.owner_type === ownerType && a.owner_id === ownerId)
+            .map((a) => ({ agent_principal_id: a.agent_principal_id, agent_id: a.agent_id }));
+
         const html = renderOwnerPolicyCreate(
-            { ownerType, ownerId, ownerDisplayName, groups, preselectedGroupId },
+            { ownerType, ownerId, ownerDisplayName, groups, agents, preselectedGroupId },
             ownerRenderOptionsFor(session, request, reply),
         );
         reply.type("text/html").send(html);

@@ -104,10 +104,28 @@ export function evaluate(
         ? `Allowed by rule "${matchedRule.id}"`
         : `Rule "${matchedRule.id}" requires: ${result}`;
     }
+  } else if (policy.default === 'allow') {
+    result = 'ALLOW';
+    reason = 'No rule matched; default policy: allow';
+  } else if (policy.default === 'require_approval') {
+    // Default-deny-but-ask: unmatched actions need a human in the loop.
+    result = 'REQUIRE_APPROVAL';
+    obligations = [
+      {
+        obligation_id: crypto.randomUUID(),
+        type: 'HUMAN_APPROVAL',
+        status: 'PENDING',
+        details_json: {},
+      },
+    ];
+    reason = 'No rule matched; default policy: require_approval';
   } else {
-    // Use default
-    result = policy.default === 'allow' ? 'ALLOW' : 'DENY';
-    reason = `No rule matched; default policy: ${policy.default}`;
+    // 'deny', or a 'passthrough' that reached the engine standalone with
+    // nothing to defer to — fail safe to deny.
+    result = 'DENY';
+    reason = policy.default === 'passthrough'
+      ? 'No rule matched; default policy: passthrough (no further layer — denied)'
+      : 'No rule matched; default policy: deny';
   }
 
   // Determine proof requirement

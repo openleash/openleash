@@ -45,15 +45,16 @@ async function createPolicy() {
                 return;
             }
         } else if (chosen === "agent") {
-            appliesToAgent = (document.getElementById("agent-id") as HTMLInputElement | null)?.value.trim() || null;
+            appliesToAgent = (document.getElementById("agent-id") as HTMLInputElement | HTMLSelectElement | null)?.value.trim() || null;
             if (!appliesToAgent) {
-                olToast("Enter an agent principal ID", "error");
+                olToast("Select an agent", "error");
                 return;
             }
         }
     } else {
-        // Personal scope keeps today's behavior — optional agent input.
-        appliesToAgent = (document.getElementById("agent-id") as HTMLInputElement | null)?.value.trim() || null;
+        // Personal scope keeps today's behavior — optional agent picker
+        // ("All agents" selects the empty value → owner-wide policy).
+        appliesToAgent = (document.getElementById("agent-id") as HTMLInputElement | HTMLSelectElement | null)?.value.trim() || null;
     }
 
     const url = ownerType === "org"

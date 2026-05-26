@@ -47,7 +47,7 @@ export const policyJsonSchema = {
   "required": ["version", "default", "rules"],
   "properties": {
     "version": { "enum": [1] },
-    "default": { "enum": ["allow", "deny"] },
+    "default": { "enum": ["allow", "deny", "passthrough", "require_approval"] },
     "rules": {
       "type": "array",
       "items": {

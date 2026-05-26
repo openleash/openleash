@@ -39,6 +39,7 @@ describe("Policy groups GUI pages — render smoke tests", () => {
     const adminUserId = crypto.randomUUID();
     const orgId = crypto.randomUUID();
     const orgSlug = "acme";
+    const agentPrincipalId = crypto.randomUUID();
     let groupId: string;
     const groupSlug = "engineering";
 
@@ -107,6 +108,13 @@ describe("Policy groups GUI pages — render smoke tests", () => {
                 name: "Engineering",
                 slug: groupSlug,
                 path: `./policy-groups/${groupId}.json`,
+            });
+            s.agents.push({
+                agent_principal_id: agentPrincipalId,
+                agent_id: "billing-bot",
+                owner_type: "org",
+                owner_id: orgId,
+                path: `./agents/${agentPrincipalId}.md`,
             });
         });
 
@@ -180,6 +188,10 @@ describe("Policy groups GUI pages — render smoke tests", () => {
         expect(res.body).toContain("Applies to");
         expect(res.body).toContain("A policy group");
         expect(res.body).toContain("Engineering");
+        // "A specific agent" branch renders a dropdown of the org's agents.
+        expect(res.body).toContain('<select id="agent-id"');
+        expect(res.body).toContain(`value="${agentPrincipalId}"`);
+        expect(res.body).toContain("billing-bot");
     });
 
     it("policy-create in personal scope does not show the group selector", async () => {

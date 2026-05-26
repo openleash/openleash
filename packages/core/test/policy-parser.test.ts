@@ -29,6 +29,20 @@ rules: "not an array"
     expect(() => parsePolicyYaml(yaml)).toThrow();
   });
 
+  it('accepts default: passthrough and default: require_approval', () => {
+    for (const def of ['passthrough', 'require_approval']) {
+      const yaml = `
+version: 1
+default: ${def}
+rules:
+  - id: r1
+    effect: allow
+    action: read
+`;
+      expect(parsePolicyYaml(yaml).default).toBe(def);
+    }
+  });
+
   it('validates valid policy', () => {
     const yaml = `
 version: 1

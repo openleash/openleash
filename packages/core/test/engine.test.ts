@@ -68,6 +68,39 @@ describe('policy engine', () => {
     expect(result.response.result).toBe('ALLOW');
   });
 
+  it('no match with default require_approval requires human approval', () => {
+    const policy: Policy = {
+      version: 1,
+      default: 'require_approval',
+      rules: [{ id: 'r1', effect: 'allow', action: 'read.*' }],
+    };
+    const result = evaluate(makeAction({ action_type: 'purchase' }), policy);
+    expect(result.response.result).toBe('REQUIRE_APPROVAL');
+    expect(result.response.matched_rule_id).toBeNull();
+    expect(result.response.obligations.map((o) => o.type)).toEqual(['HUMAN_APPROVAL']);
+  });
+
+  it('default require_approval does not override an explicit allow rule', () => {
+    const policy: Policy = {
+      version: 1,
+      default: 'require_approval',
+      rules: [{ id: 'r1', effect: 'allow', action: 'read.*' }],
+    };
+    const result = evaluate(makeAction({ action_type: 'read.profile' }), policy);
+    expect(result.response.result).toBe('ALLOW');
+    expect(result.response.obligations).toEqual([]);
+  });
+
+  it('a standalone passthrough default fails safe to deny', () => {
+    const policy: Policy = {
+      version: 1,
+      default: 'passthrough',
+      rules: [{ id: 'r1', effect: 'allow', action: 'read.*' }],
+    };
+    const result = evaluate(makeAction({ action_type: 'purchase' }), policy);
+    expect(result.response.result).toBe('DENY');
+  });
+
   it('deny rule', () => {
     const policy: Policy = {
       version: 1,

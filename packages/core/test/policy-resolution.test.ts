@@ -152,7 +152,7 @@ describe('orderBindingsBySpecificity', () => {
 });
 
 describe('mergePolicyLayers', () => {
-    function p(id: string, def: 'allow' | 'deny', ruleId: string, action: string, effect: 'allow' | 'deny'): Policy {
+    function p(id: string, def: 'allow' | 'deny' | 'passthrough' | 'require_approval', ruleId: string, action: string, effect: 'allow' | 'deny'): Policy {
         return {
             version: 1,
             default: def,
@@ -187,5 +187,35 @@ describe('mergePolicyLayers', () => {
         const ownerWide = p('p-owner', 'deny', 'r-owner', 'y', 'allow');
         const merged = mergePolicyLayers([specific, ownerWide]);
         expect(merged.default).toBe('allow');
+    });
+
+    it('a passthrough layer defers its default to the next layer', () => {
+        const specific = p('p-agent', 'passthrough', 'r-agent', 'x', 'allow');
+        const ownerWide = p('p-owner', 'deny', 'r-owner', 'y', 'allow');
+        const merged = mergePolicyLayers([specific, ownerWide]);
+        expect(merged.default).toBe('deny');
+        // Rules from both layers are still concatenated in order.
+        expect(merged.rules.map((r) => r.id)).toEqual(['r-agent', 'r-owner']);
+    });
+
+    it('skips consecutive passthrough layers to the first concrete default', () => {
+        const agent = p('p-agent', 'passthrough', 'r-agent', 'x', 'allow');
+        const group = p('p-group', 'passthrough', 'r-group', 'y', 'allow');
+        const ownerWide = p('p-owner', 'require_approval', 'r-owner', 'z', 'allow');
+        const merged = mergePolicyLayers([agent, group, ownerWide]);
+        expect(merged.default).toBe('require_approval');
+    });
+
+    it('all-passthrough layers fail safe to deny', () => {
+        const a = p('p-a', 'passthrough', 'r-a', 'x', 'allow');
+        const b = p('p-b', 'passthrough', 'r-b', 'y', 'allow');
+        const merged = mergePolicyLayers([a, b]);
+        expect(merged.default).toBe('deny');
+    });
+
+    it('a single passthrough layer (nothing to defer to) fails safe to deny', () => {
+        const only = p('p-only', 'passthrough', 'r-only', 'x', 'allow');
+        const merged = mergePolicyLayers([only]);
+        expect(merged.default).toBe('deny');
     });
 });

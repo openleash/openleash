@@ -7,6 +7,12 @@ export interface PolicyCreateGroupOption {
     slug: string;
 }
 
+export interface PolicyCreateAgentOption {
+    agent_principal_id: string;
+    /** Human-friendly agent name shown in the dropdown. */
+    agent_id: string;
+}
+
 export interface OwnerPolicyCreateOptions {
     /** Scope-implied owner — policy is created for the current scope. */
     ownerType: "user" | "org";
@@ -14,8 +20,20 @@ export interface OwnerPolicyCreateOptions {
     ownerDisplayName: string;
     /** Only populated for org scope. Empty array in personal scope. */
     groups?: PolicyCreateGroupOption[];
+    /** Agents owned by the current scope, for the "specific agent" picker. */
+    agents?: PolicyCreateAgentOption[];
     /** Optional pre-selected group from query string (deep-link from group detail page). */
     preselectedGroupId?: string;
+}
+
+/** Render <option> tags for a list of agents (value = principal id, label = name). */
+function agentOptionTags(agents: PolicyCreateAgentOption[]): string {
+    return agents
+        .map(
+            (a) =>
+                `<option value="${escapeHtml(a.agent_principal_id)}">${escapeHtml(a.agent_id)}</option>`,
+        )
+        .join("");
 }
 
 export function renderOwnerPolicyCreate(
@@ -27,6 +45,7 @@ export function renderOwnerPolicyCreate(
         : "Creating personal policy";
 
     const groups = options.groups ?? [];
+    const agents = options.agents ?? [];
     const preselectedGroup = options.preselectedGroupId;
 
     const scopeSelector = options.ownerType === "org"
@@ -59,13 +78,23 @@ export function renderOwnerPolicyCreate(
       </div>
 
       <div id="agent-picker" class="form-group hidden">
-        <label>Agent Principal ID</label>
-        <input type="text" id="agent-id" class="form-input policy-create-agent-input" placeholder="agent_principal_id UUID">
+        <label for="agent-id">Agent</label>
+        ${agents.length > 0
+            ? `<select id="agent-id" class="form-select">
+          <option value="" disabled selected>Select an agent…</option>
+          ${agentOptionTags(agents)}
+        </select>`
+            : `<p class="text-muted">No agents in this organization yet.</p>`}
       </div>`
         : `
       <div class="form-group">
-        <label>Agent Principal ID (optional)</label>
-        <input type="text" id="agent-id" class="form-input policy-create-agent-input" placeholder="Leave empty for all agents">
+        <label for="agent-id">Agent</label>
+        ${agents.length > 0
+            ? `<select id="agent-id" class="form-select">
+          <option value="" selected>All agents (owner-wide)</option>
+          ${agentOptionTags(agents)}
+        </select>`
+            : `<input type="text" id="agent-id" class="form-input policy-create-agent-input" placeholder="Leave empty for all agents">`}
       </div>`;
 
     const content = `

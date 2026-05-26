@@ -89,18 +89,23 @@ export function comparePoliciesForListing(
 
 /**
  * Merge an ordered list of policies (most specific first) into one Policy
- * by concatenating rules. The merged `default` is taken from the most
- * specific layer (index 0) — if tier 1 has a policy, its default wins;
- * otherwise tier 2; otherwise tier 3. Empty input yields a deny-by-default
- * policy with no rules (caller treats this as "no policy bound").
+ * by concatenating rules.
+ *
+ * Rules from every layer are concatenated in order, so a less-specific
+ * layer's rules still fire if nothing more specific matched. The merged
+ * `default` is resolved by walking layers most-specific first and taking
+ * the first one whose default is not `passthrough`: a `passthrough` layer
+ * contributes its rules but abstains from the default decision, deferring
+ * it to the next layer. If every layer is `passthrough` (or input is empty)
+ * the effective default is `deny` (fail-safe). The merged policy therefore
+ * never carries `passthrough` itself.
  */
 export function mergePolicyLayers(layers: Policy[]): Policy {
-  if (layers.length === 0) {
-    return { version: 1, default: 'deny', rules: [] };
-  }
+  const resolvedDefault =
+    layers.find((p) => p.default !== 'passthrough')?.default ?? 'deny';
   return {
     version: 1,
-    default: layers[0].default,
+    default: resolvedDefault,
     rules: layers.flatMap((p) => p.rules),
   };
 }
