@@ -197,15 +197,24 @@ export function registerGuiRoutes(
 
     // Guard: if the data directory or state file is missing, re-bootstrap and
     // redirect to the initial setup page so the user can start fresh.
-    app.addHook("onRequest", async (request, reply) => {
-        if (!fs.existsSync(statePath)) {
+    //
+    // Hosted mode skips this entirely — the store is Firestore, `state.md`
+    // never exists on local disk, and on every cold-start container the
+    // first request would otherwise be bounced to the landing HTML.
+    //
+    // Even self-hosted, we only redirect when the URL is itself a GUI path.
+    // Bouncing `/v1/...` to `/gui` makes API clients parse landing HTML as
+    // their requested resource.
+    if (!isHosted) {
+        app.addHook("onRequest", async (request, reply) => {
+            if (fs.existsSync(statePath)) return;
             bootstrapState(rootDir);
-            // Let setup-related and admin routes through without redirect
             const url = request.url.split("?")[0];
+            if (!url.startsWith("/gui")) return;
             if (url === "/gui" || url === "/gui/setup" || url.startsWith("/gui/admin")) return;
             reply.redirect("/gui");
-        }
-    });
+        });
+    }
 
     // Redirect /gui — if no owners, go to setup; otherwise owner dashboard
     if (!pluginManifest?.handlesRootPath) {
