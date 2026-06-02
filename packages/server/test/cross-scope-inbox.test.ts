@@ -222,6 +222,19 @@ describe("cross-scope inbox (Phase 8)", () => {
         expect(res.body).toContain("Acme");
     });
 
+    it("/gui/approvals shows resolved approvals across scopes", async () => {
+        const cookie = await sessionCookieFor(dataDir, userId);
+        const res = await app.inject({
+            method: "GET",
+            url: "/gui/approvals",
+            headers: { cookie },
+        });
+        expect(res.statusCode).toBe(200);
+        // The APPROVED org approval lives in the Resolved section now.
+        expect(res.body).toContain("Resolved");
+        expect(res.body).toContain("APPROVED");
+    });
+
     it("/gui/personal/approvals shows only personal pending, no scope pills", async () => {
         const cookie = await sessionCookieFor(dataDir, userId);
         const res = await app.inject({

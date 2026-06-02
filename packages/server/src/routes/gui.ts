@@ -8,6 +8,7 @@ import {
     createOrgScopePreHandler,
     listPendingApprovalsByScope,
     countPendingApprovalsAcrossScopes,
+    buildAvailableScopes,
 } from "../scope.js";
 import type { Scope } from "../scope.js";
 import { resolveSystemRoles, comparePoliciesForListing } from "@openleash/core";
@@ -1639,19 +1640,39 @@ export function registerGuiRoutes(
     app.get("/gui/personal/approvals", { preHandler: ownerAuth }, approvalsHandler);
     app.get("/gui/orgs/:slug/approvals", { preHandler: [ownerAuth, orgScopePreHandler] }, approvalsHandler);
 
-    // Cross-scope inbox at the legacy /gui/approvals URL. Aggregates pending
-    // across personal + every active org membership and renders a single
-    // actionable list with scope pills. Resolved entries are hidden here —
-    // users drill into a per-scope page to see history.
+    // Cross-scope inbox at the legacy /gui/approvals URL. Aggregates both
+    // pending and resolved approvals across personal + every active org
+    // membership and renders a single list with scope pills.
     app.get("/gui/approvals", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const query = request.query as { pending_page?: string; pending_page_size?: string };
+        const query = request.query as {
+            pending_page?: string; pending_page_size?: string;
+            resolved_page?: string; resolved_page_size?: string;
+        };
         const pendingPageSize = Math.min(Math.max(parseInt(query.pending_page_size || "25", 10) || 25, 1), 100);
         const pendingPage = Math.max(parseInt(query.pending_page || "1", 10) || 1, 1);
+        const resolvedPageSize = Math.min(Math.max(parseInt(query.resolved_page_size || "25", 10) || 25, 1), 100);
+        const resolvedPage = Math.max(parseInt(query.resolved_page || "1", 10) || 1, 1);
 
         const groups = listPendingApprovalsByScope(store, session);
         const state = store.state.getState();
+
+        // Map every scope the user can act within to its display metadata, so
+        // both pending and resolved rows can render a scope pill / drill-in link.
+        const scopeMeta = (scope: Scope) => ({
+            scopeLabel: scope.type === "user" ? "Personal" : scope.display_name,
+            scopeHref: scope.type === "user"
+                ? "/gui/personal/approvals"
+                : `/gui/orgs/${encodeURIComponent(scope.slug)}/approvals`,
+            ownerType: scope.type,
+            orgId: scope.type === "org" ? scope.id : null,
+        });
+        const built = buildAvailableScopes(store, session);
+        const scopeByKey = new Map<string, Scope>();
+        for (const scope of [built.personal, ...built.orgs]) {
+            scopeByKey.set(`${scope.type}:${scope.id}`, scope);
+        }
 
         interface EnrichedEntry {
             scopeLabel: string;
@@ -1662,17 +1683,10 @@ export function registerGuiRoutes(
         }
         const allPending: EnrichedEntry[] = [];
         for (const group of groups) {
-            const scopeLabel = group.scope.type === "user"
-                ? "Personal"
-                : group.scope.display_name;
-            const scopeHref = group.scope.type === "user"
-                ? "/gui/personal/approvals"
-                : `/gui/orgs/${encodeURIComponent(group.scope.slug)}/approvals`;
-            const ownerType = group.scope.type;
-            const orgId = group.scope.type === "org" ? group.scope.id : null;
+            const meta = scopeMeta(group.scope);
             for (const id of group.approvalRequestIds) {
                 const entry = (state.approval_requests ?? []).find((r) => r.approval_request_id === id);
-                if (entry) allPending.push({ scopeLabel, scopeHref, ownerType, orgId, entry });
+                if (entry) allPending.push({ ...meta, entry });
             }
         }
         function readEntry(enriched: EnrichedEntry) {
@@ -1734,6 +1748,19 @@ export function registerGuiRoutes(
         const pendingOffset = (pendingPage - 1) * pendingPageSize;
         const pendingSlice = pendingLive.slice(pendingOffset, pendingOffset + pendingPageSize);
 
+        // Resolved across every scope. State entries are appended in
+        // chronological order, so reversing yields newest-first without needing
+        // to read each file. Paginate the index, then read files only for the
+        // current page slice.
+        const resolvedAll = (state.approval_requests ?? [])
+            .filter((r) => r.status !== "PENDING" && scopeByKey.has(`${r.owner_type}:${r.owner_id}`))
+            .reverse();
+        const resolvedOffset = (resolvedPage - 1) * resolvedPageSize;
+        const resolvedSlice = resolvedAll
+            .slice(resolvedOffset, resolvedOffset + resolvedPageSize)
+            .map((entry) => ({ ...scopeMeta(scopeByKey.get(`${entry.owner_type}:${entry.owner_id}`)!), entry }))
+            .map(readEntry);
+
         const sessionUser = store.users.read(session.sub);
         const agentNames = new Map<string, string>();
         for (const a of state.agents) agentNames.set(a.agent_principal_id, a.agent_id);
@@ -1745,8 +1772,12 @@ export function registerGuiRoutes(
                 page: pendingPage,
                 pageSize: pendingPageSize,
             },
-            // Cross-scope view hides history — users drill into a scope for that.
-            resolved: { items: [], total: 0, page: 1, pageSize: 25 },
+            resolved: {
+                items: resolvedSlice,
+                total: resolvedAll.length,
+                page: resolvedPage,
+                pageSize: resolvedPageSize,
+            },
         }, {
             totp_enabled: !!sessionUser.totp_enabled,
             require_totp: !!config.security.require_totp,
