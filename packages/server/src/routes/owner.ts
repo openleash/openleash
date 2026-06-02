@@ -3238,10 +3238,16 @@ export function registerOwnerRoutes(
     // ?status= is applied to the *effective* status: a PENDING entry past
     // its expiry is treated as EXPIRED (matches the single-item GET fix in
     // v0.20.11), so ?status=PENDING returns only truly-pending work.
+    //
+    // Pagination is opt-in via ?limit= (1–100) and ?offset= (default 0). The
+    // list is sorted newest-first by created_at so paging is deterministic.
+    // Without ?limit the full list is returned (preserves the original
+    // contract). The response always carries `total` (filtered count, before
+    // paging) plus the applied `limit`/`offset` so clients can page reliably.
     app.get("/v1/owner/approvals", { preHandler: ownerAuth }, async (request) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const query = request.query as { status?: string };
+        const query = request.query as { status?: string; limit?: string; offset?: string };
 
         const state = store.state.getState();
         const { personal, orgs } = buildAvailableScopes(store, session);
@@ -3282,7 +3288,24 @@ export function registerOwnerRoutes(
             ? approvals.filter((a) => "status" in a && a.status === query.status)
             : approvals;
 
-        return { approval_requests: filtered };
+        // Newest-first by created_at. Entries that failed to read (no
+        // created_at) sort to the end.
+        filtered.sort((a, b) => {
+            const ca = (a as { created_at?: string }).created_at ?? "";
+            const cb = (b as { created_at?: string }).created_at ?? "";
+            return cb.localeCompare(ca);
+        });
+
+        const total = filtered.length;
+        const limit = query.limit !== undefined
+            ? Math.min(Math.max(parseInt(query.limit, 10) || 0, 1), 100)
+            : null;
+        const offset = Math.max(parseInt(query.offset ?? "0", 10) || 0, 0);
+        const page = limit === null
+            ? filtered.slice(offset)
+            : filtered.slice(offset, offset + limit);
+
+        return { approval_requests: page, total, limit, offset };
     });
 
     // GET /v1/owner/approval-requests/:id

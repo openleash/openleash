@@ -323,6 +323,92 @@ describe("GET /v1/owner/approvals (cross-scope)", () => {
         });
     });
 
+    it("returns total/limit/offset and pages with ?limit & ?offset", async () => {
+        const cookie = await sessionCookieFor(dataDir, userId);
+
+        // No limit → full list, limit reported as null, total = 4.
+        const all = await app.inject({
+            method: "GET",
+            url: "/v1/owner/approvals",
+            headers: { cookie },
+        });
+        const allBody = all.json() as {
+            approval_requests: Array<{ approval_request_id: string }>;
+            total: number; limit: number | null; offset: number;
+        };
+        expect(allBody.total).toBe(4);
+        expect(allBody.limit).toBeNull();
+        expect(allBody.offset).toBe(0);
+        expect(allBody.approval_requests).toHaveLength(4);
+
+        // First page of 2.
+        const p1 = await app.inject({
+            method: "GET",
+            url: "/v1/owner/approvals?limit=2&offset=0",
+            headers: { cookie },
+        });
+        const p1Body = p1.json() as {
+            approval_requests: Array<{ approval_request_id: string }>;
+            total: number; limit: number; offset: number;
+        };
+        expect(p1Body.total).toBe(4);
+        expect(p1Body.limit).toBe(2);
+        expect(p1Body.offset).toBe(0);
+        expect(p1Body.approval_requests).toHaveLength(2);
+
+        // Second page of 2 — disjoint from the first, together covering all 4.
+        const p2 = await app.inject({
+            method: "GET",
+            url: "/v1/owner/approvals?limit=2&offset=2",
+            headers: { cookie },
+        });
+        const p2Body = p2.json() as {
+            approval_requests: Array<{ approval_request_id: string }>;
+            total: number;
+        };
+        expect(p2Body.approval_requests).toHaveLength(2);
+        const combined = new Set([
+            ...p1Body.approval_requests.map((a) => a.approval_request_id),
+            ...p2Body.approval_requests.map((a) => a.approval_request_id),
+        ]);
+        expect(combined.size).toBe(4);
+
+        // Offset past the end → empty page, total still reported.
+        const past = await app.inject({
+            method: "GET",
+            url: "/v1/owner/approvals?limit=2&offset=10",
+            headers: { cookie },
+        });
+        const pastBody = past.json() as { approval_requests: unknown[]; total: number };
+        expect(pastBody.approval_requests).toHaveLength(0);
+        expect(pastBody.total).toBe(4);
+
+        // limit is clamped to a max of 100.
+        const clamped = await app.inject({
+            method: "GET",
+            url: "/v1/owner/approvals?limit=9999",
+            headers: { cookie },
+        });
+        expect((clamped.json() as { limit: number }).limit).toBe(100);
+    });
+
+    it("combines ?status with pagination over the filtered set", async () => {
+        const cookie = await sessionCookieFor(dataDir, userId);
+        const res = await app.inject({
+            method: "GET",
+            url: "/v1/owner/approvals?status=PENDING&limit=1&offset=0",
+            headers: { cookie },
+        });
+        const body = res.json() as {
+            approval_requests: Array<{ status: string }>;
+            total: number; limit: number;
+        };
+        // 2 effective-PENDING entries (personal + org); paged 1 at a time.
+        expect(body.total).toBe(2);
+        expect(body.approval_requests).toHaveLength(1);
+        expect(body.approval_requests[0].status).toBe("PENDING");
+    });
+
     it("requires owner auth", async () => {
         const res = await app.inject({
             method: "GET",
