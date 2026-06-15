@@ -136,27 +136,8 @@ function renderPolicyRow(
         </td>
         <td>${appliesTo}</td>
         <td>
-          <button class="btn btn-secondary opol-btn-action" data-toggle-editor="${idAttr}">Edit</button>
+          <a class="btn btn-secondary opol-btn-action" href="/gui/policies/${idAttr}/edit">Edit</a>
           <button class="btn btn-secondary opol-btn-action opol-btn-ml opol-btn-danger-outline" data-delete-policy="${idAttr}" ${disableActions ? "disabled" : ""}>Delete</button>
-        </td>
-      </tr>
-      <tr id="editor-row-${idAttr}" class="hidden">
-        <td colspan="4" class="opol-editor-cell">
-          <div class="opol-editor-fields">
-            <div class="opol-editor-field-sm">
-              <label class="opol-editor-label">Name</label>
-              <input type="text" id="editor-name-${idAttr}" class="form-input" value="${escapeHtml(p.name ?? "")}" placeholder="e.g. Read-only access">
-            </div>
-            <div class="opol-editor-field-lg">
-              <label class="opol-editor-label">Description</label>
-              <input type="text" id="editor-desc-${idAttr}" class="form-input" value="${escapeHtml(p.description ?? "")}" placeholder="What does this policy do?">
-            </div>
-          </div>
-          <textarea id="editor-yaml-${idAttr}" class="yaml-editor opol-yaml-inline">${escapeHtml(p.policy_yaml ?? "")}</textarea>
-          <div class="opol-editor-actions">
-            <button class="btn btn-primary opol-btn-action" data-save-policy="${idAttr}">Save</button>
-            <button class="btn btn-secondary opol-btn-action" data-toggle-editor="${idAttr}">Cancel</button>
-          </div>
         </td>
       </tr>
     `;

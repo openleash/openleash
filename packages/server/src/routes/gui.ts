@@ -33,6 +33,7 @@ import {
     renderOwnerPolicyGroups,
     renderOwnerPolicyGroupDetail,
     renderOwnerPolicyCreate,
+    renderOwnerPolicyEdit,
     renderOwnerProfile,
     renderInitialSetup,
     renderApiReference,
@@ -1423,6 +1424,44 @@ export function registerGuiRoutes(
         reply.type("text/html").send(html);
     };
     registerScopedOwnerRoute("policies/create", policyCreateHandler);
+
+    // Owner edit policy (visual builder)
+    const policyEditHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const scope = resolveCurrentScope(store, session, request);
+        const { ownerType, ownerId } = scope ? currentOwner(scope) : { ownerType: "user" as const, ownerId: session.sub };
+        const { policyId } = request.params as { policyId: string };
+
+        const entry = store.state.getState().policies.find(
+            (p) => p.policy_id === policyId && p.owner_type === ownerType && p.owner_id === ownerId,
+        );
+        if (!entry) {
+            reply.code(404).type("text/html").send("<h1>Policy not found</h1>");
+            return;
+        }
+
+        let policyYaml: string;
+        try {
+            policyYaml = store.policies.read(policyId);
+        } catch {
+            reply.code(404).type("text/html").send("<h1>Policy file not found</h1>");
+            return;
+        }
+
+        const html = renderOwnerPolicyEdit(
+            {
+                policyId,
+                name: entry.name ?? null,
+                description: entry.description ?? null,
+                policyYaml,
+                orgId: ownerType === "org" ? ownerId : null,
+            },
+            ownerRenderOptionsFor(session, request, reply),
+        );
+        reply.type("text/html").send(html);
+    };
+    registerScopedOwnerRoute("policies/:policyId/edit", policyEditHandler);
 
     // Owner policy groups (org-scoped only in v1) — list + detail.
     const policyGroupsListHandler = async (request: FastifyRequest, reply: FastifyReply) => {

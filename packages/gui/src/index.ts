@@ -30,6 +30,7 @@ export type {
     OwnerPoliciesOptions,
 } from "./pages/owner-policies/render.js";
 export { renderOwnerPolicyCreate } from "./pages/owner-policy-create/render.js";
+export { renderOwnerPolicyEdit } from "./pages/owner-policy-edit/render.js";
 export { renderOwnerPolicyGroups } from "./pages/owner-policy-groups/render.js";
 export type { OwnerPolicyGroupListEntry, OwnerPolicyGroupsOptions } from "./pages/owner-policy-groups/render.js";
 export { renderOwnerPolicyGroupDetail } from "./pages/owner-policy-group-detail/render.js";

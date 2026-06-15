@@ -1,0 +1,163 @@
+/* Shared visual policy builder (create + edit pages). */
+
+.pb {
+    margin-top: 8px;
+}
+
+/* Mode toggle */
+.pb-modes {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+.pb-mode-btn {
+    appearance: none;
+    border: none;
+    background: var(--bg-elevated, transparent);
+    color: var(--text-muted);
+    padding: 7px 16px;
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.pb-mode-btn + .pb-mode-btn {
+    border-left: 1px solid var(--border);
+}
+.pb-mode-btn.pb-mode-active {
+    background: var(--accent, #4f46e5);
+    color: #fff;
+}
+
+/* Default decision cards */
+.pb-section-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.pb-default-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+}
+.pb-default-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+}
+.pb-default-card-active {
+    border-color: var(--accent, #4f46e5);
+    box-shadow: 0 0 0 1px var(--accent, #4f46e5) inset;
+}
+.pb-default-card input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.pb-default-title {
+    font-weight: 600;
+}
+.pb-default-desc {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+}
+
+/* Rules */
+.pb-rules-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.pb-btn-icon {
+    font-size: 18px;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+.pb-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.pb-empty {
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    font-size: 0.9rem;
+}
+.pb-rule {
+    padding: 14px;
+}
+.pb-rule-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.pb-rule-num {
+    font-weight: 600;
+}
+.pb-badge-sm {
+    font-size: 0.7rem;
+}
+.pb-rule-head .pb-remove-rule {
+    margin-left: auto;
+    padding: 4px 10px;
+    font-size: 0.82rem;
+}
+.pb-btn-danger-outline {
+    color: var(--danger, #dc2626);
+    border-color: var(--danger, #dc2626);
+}
+
+.pb-rule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+.pb-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.pb-field-wide {
+    grid-column: 1 / -1;
+}
+.pb-field-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.pb-rule-section {
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+}
+.pb-rule-section > summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+.pb-obligations {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+.pb-obligation {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+}
+
+.pb-yaml {
+    width: 100%;
+}

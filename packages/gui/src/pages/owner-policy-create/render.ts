@@ -1,5 +1,6 @@
 import { escapeHtml, renderPage, type RenderPageOptions } from "../../shared/layout.js";
 import { assetTags } from "../../shared/manifest.js";
+import { renderPolicyBuilderShell, DEFAULT_POLICY_YAML } from "../../shared/policy-builder-shell.js";
 
 export interface PolicyCreateGroupOption {
     group_id: string;
@@ -113,15 +114,7 @@ export function renderOwnerPolicyCreate(
         </div>
       </div>
       ${scopeSelector}
-      <div class="form-group">
-        <label>Policy YAML</label>
-        <textarea id="policy-yaml" class="yaml-editor policy-create-yaml">version: 1
-default: deny
-rules:
-  - id: allow_read
-    effect: allow
-    action: read</textarea>
-      </div>
+      ${renderPolicyBuilderShell(DEFAULT_POLICY_YAML)}
       <div class="policy-create-actions">
         <button id="btn-create-policy" class="btn btn-primary">Create Policy</button>
         <a href="/gui/policies" class="btn btn-secondary">Cancel</a>

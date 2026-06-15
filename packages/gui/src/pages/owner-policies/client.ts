@@ -28,29 +28,6 @@ const draftUrl = (id: string, action: string) =>
         ? `/v1/owner/organizations/${encodeURIComponent(orgId)}/policy-drafts/${encodeURIComponent(id)}/${action}`
         : `/v1/owner/policy-drafts/${encodeURIComponent(id)}/${action}`;
 
-function toggleEditor(policyId: string) {
-    document.getElementById("editor-row-" + policyId)!.classList.toggle("hidden");
-}
-
-async function savePolicy(policyId: string) {
-    const yaml = (document.getElementById("editor-yaml-" + policyId) as HTMLTextAreaElement).value;
-    const name = (document.getElementById("editor-name-" + policyId) as HTMLInputElement).value;
-    const desc = (document.getElementById("editor-desc-" + policyId) as HTMLInputElement).value;
-
-    const res = await fetch(policyUrl(policyId), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ policy_yaml: yaml, name: name || null, description: desc || null }),
-    });
-
-    if (res.ok) {
-        olToast("Policy saved", "success");
-    } else {
-        const data = await res.json();
-        olToast(olApiError(data, "Failed to save policy"), "error");
-    }
-}
-
 async function deletePolicy(id: string) {
     if (!(await olConfirm("Are you sure you want to delete this policy?", "Delete Policy"))) return;
 
@@ -143,10 +120,7 @@ function restoreSnapshot(tier: Tier, snapshot: HTMLTableRowElement[]) {
     const body = getTierBody(tier);
     if (!body) return;
     for (const row of snapshot) {
-        // Each policy row has a sibling editor row that must stay paired.
-        const editor = document.getElementById("editor-row-" + row.dataset.policyId!);
         body.appendChild(row);
-        if (editor) body.appendChild(editor);
     }
 }
 
@@ -209,11 +183,9 @@ document.addEventListener("drop", async (e) => {
     if (!target || target.dataset.tier !== dragTier || target === dragRow) return;
     e.preventDefault();
 
-    // Move dragRow + its editor row to just before `target` + target's editor.
+    // Move dragRow to just before `target`.
     const body = target.parentElement!;
-    const draggedEditor = document.getElementById("editor-row-" + dragRow.dataset.policyId!);
     body.insertBefore(dragRow, target);
-    if (draggedEditor) body.insertBefore(draggedEditor, target);
 
     const tier = dragTier;
     const newRows = getPolicyRows(tier);
@@ -241,12 +213,8 @@ bindAccordionRows();
 // Dynamic policy actions via event delegation
 document.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
-    const btn = target.closest<HTMLElement>("[data-toggle-editor]");
-    if (btn) { toggleEditor(btn.dataset.toggleEditor!); return; }
     const del = target.closest<HTMLElement>("[data-delete-policy]");
     if (del) { deletePolicy(del.dataset.deletePolicy!); return; }
-    const save = target.closest<HTMLElement>("[data-save-policy]");
-    if (save) { savePolicy(save.dataset.savePolicy!); return; }
     const draft = target.closest<HTMLElement>("[data-handle-draft]");
     if (draft) {
         e.stopPropagation();

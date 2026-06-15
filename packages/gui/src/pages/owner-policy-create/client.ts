@@ -3,6 +3,7 @@
  */
 import "./style.css";
 import { olToast, olApiError } from "../../shared/common";
+import { mountPolicyBuilder } from "../../shared/policy-builder";
 
 interface OwnerPolicyCreatePageData {
     ownerType: "user" | "org";
@@ -16,6 +17,8 @@ declare global {
 }
 
 const { ownerType, ownerId } = window.__PAGE_DATA__;
+
+const builder = mountPolicyBuilder();
 
 // ─── Scope selector (org only) ──────────────────────────────────────
 const groupPicker = document.getElementById("group-picker");
@@ -31,7 +34,7 @@ document.querySelectorAll<HTMLInputElement>("input[name='applies-to']").forEach(
 async function createPolicy() {
     const name = (document.getElementById("policy-name") as HTMLInputElement).value.trim() || null;
     const desc = (document.getElementById("policy-desc") as HTMLInputElement).value.trim() || null;
-    const yaml = (document.getElementById("policy-yaml") as HTMLTextAreaElement).value;
+    const yaml = builder.getYaml();
 
     // Determine scope: explicit in org mode, agent-or-all in personal mode.
     let appliesToAgent: string | null = null;

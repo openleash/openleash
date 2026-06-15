@@ -7,6 +7,7 @@ interface ManifestEntry {
     src?: string;
     isEntry?: boolean;
     css?: string[];
+    imports?: string[];
 }
 
 type Manifest = Record<string, ManifestEntry>;
@@ -41,12 +42,31 @@ export function resolveAsset(entry: string): string | null {
 
 /**
  * Resolve CSS files associated with an entry point.
+ *
+ * Walks the entry's imported chunks so CSS that lives in a shared chunk
+ * (e.g. a module imported by several pages) is linked too — Vite only lists a
+ * chunk's CSS on the chunk itself, not on every entry that imports it.
  */
 export function resolveAssetCss(entry: string): string[] {
     if (!cachedManifest) return [];
-    const manifestEntry = cachedManifest[entry];
-    if (!manifestEntry?.css) return [];
-    return manifestEntry.css.map((f) => `/gui/${f}`);
+    const manifest = cachedManifest;
+    const seen = new Set<string>();
+    const css: string[] = [];
+
+    const visit = (key: string) => {
+        if (seen.has(key)) return;
+        seen.add(key);
+        const node = manifest[key];
+        if (!node) return;
+        for (const f of node.css ?? []) {
+            const href = `/gui/${f}`;
+            if (!css.includes(href)) css.push(href);
+        }
+        for (const imp of node.imports ?? []) visit(imp);
+    };
+
+    visit(entry);
+    return css;
 }
 
 /**
