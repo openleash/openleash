@@ -7,6 +7,7 @@
   "include": ["src/**/*"],
   "exclude": [
     "src/shared/common.ts",
+    "src/shared/agent-chat.ts",
     "src/shared/policy-builder.ts",
     "src/pages/*/client.ts",
     "src/shared/styles/**",

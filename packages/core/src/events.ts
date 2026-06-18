@@ -68,8 +68,40 @@ export interface UserSetupInviteCreatedEvent {
   created_by_user_id: string | null;
 }
 
+export interface ApprovalRequestResolvedEvent {
+  approval_request_id: string;
+  decision_id: string;
+  agent_id: string;
+  agent_principal_id: string;
+  owner_type: 'user' | 'org';
+  owner_id: string;
+  action_type: string;
+  /** Final status after the owner acted (or the request lapsed). */
+  status: 'APPROVED' | 'DENIED' | 'EXPIRED';
+  resolved_by: string | null;
+}
+
+/**
+ * Fired for every audit entry as it is appended. Carries the routing fields a
+ * live consumer (e.g. the SSE stream backing the agent activity drawer) needs
+ * to decide which owner the entry concerns, without re-reading the log.
+ */
+export interface AuditAppendedEvent {
+  event_id: string;
+  timestamp: string;
+  event_type: string;
+  principal_id: string | null;
+  /** Pulled out of metadata_json for convenient routing. */
+  agent_principal_id: string | null;
+  owner_type: 'user' | 'org' | null;
+  owner_id: string | null;
+  user_principal_id: string | null;
+}
+
 export interface OpenleashEventMap {
   'approval_request.created': ApprovalRequestCreatedEvent;
+  'approval_request.resolved': ApprovalRequestResolvedEvent;
+  'audit.appended': AuditAppendedEvent;
   'policy_draft.created': PolicyDraftCreatedEvent;
   'org_invite.created': OrgInviteCreatedEvent;
   'org_member.added': OrgMemberAddedEvent;
@@ -82,6 +114,12 @@ export interface OpenleashEventMap {
 
 export class OpenleashEvents {
   private emitter = new EventEmitter();
+
+  constructor() {
+    // Each live SSE connection registers its own listeners; lift Node's
+    // default 10-listener cap so many concurrent streams don't warn.
+    this.emitter.setMaxListeners(0);
+  }
 
   on<K extends keyof OpenleashEventMap>(
     event: K,

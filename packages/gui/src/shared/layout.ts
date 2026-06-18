@@ -532,6 +532,7 @@ export function renderPage(
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 120 120' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2334d399'/%3E%3Cstop offset='100%25' stop-color='%23065f46'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M60 10C32 10 18 30 18 48C18 66 32 80 46 84L46 88L54 88L54 84C54 84 60 86 66 84L66 88L74 88L74 84C88 80 102 66 102 48C102 30 88 10 60 10Z' fill='url(%23g)'/%3E%3Cpath d='M22 38C8 34 2 43 6 52C10 61 20 57 24 48C27 42 24 38 22 38Z' fill='url(%23g)'/%3E%3Cpath d='M98 38C112 34 118 43 114 52C110 61 100 57 96 48C93 42 96 38 98 38Z' fill='url(%23g)'/%3E%3Ccircle cx='45' cy='30' r='5.5' fill='%23050a0e'/%3E%3Ccircle cx='75' cy='30' r='5.5' fill='%23050a0e'/%3E%3Ccircle cx='46' cy='29' r='2' fill='%23fbbf24'/%3E%3Ccircle cx='76' cy='29' r='2' fill='%23fbbf24'/%3E%3Cpath d='M28 56C42 64 78 64 92 56' stroke='%23fbbf24' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3Cpath d='M60 62L60 98Q58 106 50 108' stroke='%23fbbf24' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Cellipse cx='45' cy='109' rx='8' ry='4.5' fill='none' stroke='%23fbbf24' stroke-width='3'/%3E%3C/svg%3E">
   ${assetTags("shared/common.ts")}
+  ${isOwner ? assetTags("shared/agent-chat.ts") : ""}
   ${options?.extraHeadHtml ?? ""}
 </head>
 <body>
@@ -590,6 +591,14 @@ export function renderPage(
     </div>
     ${navHtml}
     <div class="sidebar-bottom">
+      ${
+          isOwner
+              ? `<button type="button" class="nav-item acd-trigger" id="acd-trigger" aria-controls="acd-drawer" aria-expanded="false">
+        <span class="nav-icon material-symbols-outlined">forum</span>
+        <span class="nav-label">Activity</span>
+      </button>`
+              : ""
+      }
       ${_version ? `<div class="sidebar-version">${!isOwner ? `<a href="/gui/admin/about" class="sidebar-version-link">` : ""}<span>${escapeHtml(_version)}</span>${!isOwner ? `</a>` : ""}</div>` : ""}
       ${logoutHtml}
       <button class="sidebar-toggle" title="Toggle sidebar">
@@ -615,7 +624,44 @@ export function renderPage(
       </div>
     </div>
   </div>
+  ${isOwner ? renderAgentChatDrawer(options?.scope?.current) : ""}
   ${options?.extraBodyHtml ?? ""}
 </body>
 </html>`;
+}
+
+/**
+ * Right-side "Agent activity" drawer — a chat-style timeline of audit events
+ * and approval requests for a single selected agent. Rendered on every owner
+ * page; populated client-side by `shared/agent-chat.ts`. The current scope is
+ * passed via data attributes so the client knows which agents endpoint to call
+ * (personal vs. org) and which approval routes to use.
+ */
+function renderAgentChatDrawer(scope?: ScopeOption): string {
+    const scopeType = scope?.type ?? "user";
+    const scopeId = scope?.id ?? "";
+    const scopeSlug = scope?.slug ?? "";
+    const scopeName = scope?.display_name ?? "";
+    return `<div class="acd-backdrop" id="acd-backdrop" hidden></div>
+  <aside id="acd-drawer" class="acd-drawer" aria-hidden="true" aria-label="Agent activity"
+    data-scope-type="${escapeHtml(scopeType)}" data-scope-id="${escapeHtml(scopeId)}" data-scope-slug="${escapeHtml(scopeSlug)}" data-scope-name="${escapeHtml(scopeName)}">
+    <header class="acd-header">
+      <div class="acd-title"><span class="material-symbols-outlined">forum</span><span>Agent activity</span></div>
+      <button type="button" class="acd-icon-btn" data-acd-close aria-label="Close activity drawer"><span class="material-symbols-outlined">close</span></button>
+    </header>
+    <div class="acd-agentbar">
+      <select id="acd-agent" class="form-input acd-agent-select" aria-label="Select an agent"></select>
+    </div>
+    <div class="acd-substatus" id="acd-substatus"></div>
+    <div class="acd-body" id="acd-body">
+      <div class="acd-loadolder" id="acd-loadolder" hidden>
+        <button type="button" class="acd-loadolder-btn" data-acd-loadolder>Load older activity</button>
+      </div>
+      <div class="acd-feed" id="acd-feed"></div>
+    </div>
+    <footer class="acd-footer">
+      <span class="acd-live" id="acd-live"><span class="acd-live-dot"></span><span id="acd-live-label">Auto-refreshing</span></span>
+      <button type="button" class="acd-icon-btn acd-refresh" data-acd-refresh aria-label="Refresh now" title="Refresh now"><span class="material-symbols-outlined">refresh</span></button>
+    </footer>
+  </aside>`;
 }

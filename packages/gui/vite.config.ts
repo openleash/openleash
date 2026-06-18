@@ -10,6 +10,7 @@ export default defineConfig({
         rolldownOptions: {
             input: {
                 "shared/common": resolve(__dirname, "src/shared/common.ts"),
+                "shared/agent-chat": resolve(__dirname, "src/shared/agent-chat.ts"),
                 "pages/audit/client": resolve(__dirname, "src/pages/audit/client.ts"),
                 "pages/owners/client": resolve(__dirname, "src/pages/owners/client.ts"),
                 "pages/agents/client": resolve(__dirname, "src/pages/agents/client.ts"),

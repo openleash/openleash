@@ -2430,6 +2430,18 @@ export function registerOwnerRoutes(
             agent_principal_id: req.agent_principal_id,
         }, { principal_id: session.sub });
 
+        events.emit("approval_request.resolved", {
+            approval_request_id: id,
+            decision_id: req.decision_id,
+            agent_id: req.agent_id,
+            agent_principal_id: req.agent_principal_id,
+            owner_type: "org",
+            owner_id: orgId,
+            action_type: req.action_type,
+            status: "APPROVED",
+            resolved_by: session.sub,
+        });
+
         const approveAgent = store.agents.read(req.agent_principal_id);
         deliverWebhook({
             webhookUrl: approveAgent.webhook_url,
@@ -2507,6 +2519,18 @@ export function registerOwnerRoutes(
             agent_principal_id: req.agent_principal_id,
             reason: body?.reason ?? null,
         }, { principal_id: session.sub });
+
+        events.emit("approval_request.resolved", {
+            approval_request_id: id,
+            decision_id: req.decision_id,
+            agent_id: req.agent_id,
+            agent_principal_id: req.agent_principal_id,
+            owner_type: "org",
+            owner_id: orgId,
+            action_type: req.action_type,
+            status: "DENIED",
+            resolved_by: session.sub,
+        });
 
         const denyAgent = store.agents.read(req.agent_principal_id);
         deliverWebhook({
@@ -3440,6 +3464,18 @@ export function registerOwnerRoutes(
                 agent_principal_id: req.agent_principal_id,
             });
 
+            events.emit("approval_request.resolved", {
+                approval_request_id: id,
+                decision_id: req.decision_id,
+                agent_id: req.agent_id,
+                agent_principal_id: req.agent_principal_id,
+                owner_type: "user",
+                owner_id: session.sub,
+                action_type: req.action_type,
+                status: "APPROVED",
+                resolved_by: session.sub,
+            });
+
             // Fire webhook
             const approveAgent = store.agents.read(req.agent_principal_id);
             deliverWebhook({
@@ -3528,6 +3564,18 @@ export function registerOwnerRoutes(
                 action_type: req.action_type,
                 agent_principal_id: req.agent_principal_id,
                 reason: body?.reason ?? null,
+            });
+
+            events.emit("approval_request.resolved", {
+                approval_request_id: id,
+                decision_id: req.decision_id,
+                agent_id: req.agent_id,
+                agent_principal_id: req.agent_principal_id,
+                owner_type: "user",
+                owner_id: session.sub,
+                action_type: req.action_type,
+                status: "DENIED",
+                resolved_by: session.sub,
             });
 
             // Fire webhook
@@ -3834,17 +3882,76 @@ export function registerOwnerRoutes(
     // ─── Owner audit ──────────────────────────────────────────────────
 
     // GET /v1/owner/audit
-    app.get("/v1/owner/audit", { preHandler: ownerAuth }, async (request) => {
+    app.get("/v1/owner/audit", { preHandler: ownerAuth }, async (request, reply) => {
         const session = (request as unknown as Record<string, unknown>)
             .ownerSession as SessionClaims;
-        const query = request.query as { limit?: string; cursor?: string };
+        const query = request.query as {
+            limit?: string;
+            cursor?: string;
+            agent_principal_id?: string;
+            since?: string;
+        };
         const limit = query.limit
             ? Math.max(1, Math.min(parseInt(query.limit, 10) || 1, 1000))
             : 50;
         const cursor = query.cursor ? Math.max(0, parseInt(query.cursor, 10) || 0) : 0;
 
-        // Find this owner's agents for filtering
+        // Optional `since` lower bound (ISO timestamp). Entries older than this
+        // are dropped and the cursor is nulled once we cross the boundary, so
+        // the "last 24h" view stops paging at the window edge.
+        const sinceMs = query.since ? new Date(query.since).getTime() : NaN;
+        const hasSince = !Number.isNaN(sinceMs);
+
         const state = store.state.getState();
+
+        // Single-agent view (chat drawer): return only events about that agent,
+        // after verifying the caller owns it personally or via org membership.
+        if (query.agent_principal_id) {
+            let agent;
+            try {
+                agent = store.agents.read(query.agent_principal_id);
+            } catch {
+                reply.code(404).send({
+                    error: { code: "NOT_FOUND", message: "Agent not found" },
+                });
+                return;
+            }
+            const ownedByUser =
+                agent.owner_type === "user" && agent.owner_id === session.sub;
+            const ownedByOrg =
+                agent.owner_type === "org" &&
+                (session.org_memberships ?? []).some((m) => m.org_id === agent.owner_id);
+            if (!ownedByUser && !ownedByOrg) {
+                reply.code(403).send({
+                    error: {
+                        code: "FORBIDDEN",
+                        message: "You do not have access to this agent",
+                    },
+                });
+                return;
+            }
+
+            // The audit index keys events by agent_principal_id, so reading
+            // "by principal" with the agent as the principal yields exactly the
+            // events about that agent.
+            const data = store.audit.readByPrincipal(
+                query.agent_principal_id,
+                new Set(),
+                limit,
+                cursor,
+            );
+            const windowed = hasSince
+                ? data.items.filter((e) => new Date(e.timestamp).getTime() >= sinceMs)
+                : data.items;
+            const crossedWindow = hasSince && windowed.length < data.items.length;
+            const nextCursor =
+                crossedWindow || cursor + limit >= data.total
+                    ? null
+                    : String(cursor + limit);
+            return { items: windowed, next_cursor: nextCursor };
+        }
+
+        // Default: all of this owner's events plus events about their agents.
         const ownerAgentIds = new Set(
             state.agents
                 .filter((a) => a.owner_type === "user" && a.owner_id === session.sub)
@@ -3852,11 +3959,124 @@ export function registerOwnerRoutes(
         );
 
         const data = store.audit.readByPrincipal(session.sub, ownerAgentIds, limit, cursor);
-        const nextCursor = cursor + limit < data.total ? String(cursor + limit) : null;
+        const windowed = hasSince
+            ? data.items.filter((e) => new Date(e.timestamp).getTime() >= sinceMs)
+            : data.items;
+        const crossedWindow = hasSince && windowed.length < data.items.length;
+        const nextCursor =
+            crossedWindow || cursor + limit >= data.total ? null : String(cursor + limit);
 
         return {
-            items: data.items,
+            items: windowed,
             next_cursor: nextCursor,
         };
+    });
+
+    // ─── Owner event stream (SSE) ─────────────────────────────────────
+
+    // GET /v1/owner/events/stream — Server-Sent Events feed that powers the
+    // agent activity drawer's live updates. Forwards a compact nudge whenever
+    // an audit entry is appended or an approval is created/resolved for a
+    // principal the caller can see; the browser then re-fetches through the
+    // normal authorized endpoints. EventSource (browser) carries the session
+    // cookie automatically, so ownerAuth applies as usual.
+    app.get("/v1/owner/events/stream", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+
+        const orgIds = new Set((session.org_memberships ?? []).map((m) => m.org_id));
+
+        // The set of principals this user can observe: themselves, their orgs,
+        // and every agent owned by them or those orgs. Recomputed per event so
+        // agents registered mid-session are picked up.
+        function accessiblePrincipals(): Set<string> {
+            const s = store.state.getState();
+            const set = new Set<string>([session.sub, ...orgIds]);
+            for (const a of s.agents) {
+                if (
+                    (a.owner_type === "user" && a.owner_id === session.sub) ||
+                    (a.owner_type === "org" && orgIds.has(a.owner_id))
+                ) {
+                    set.add(a.agent_principal_id);
+                }
+            }
+            return set;
+        }
+
+        function relevant(concerned: Array<string | null | undefined>): boolean {
+            const access = accessiblePrincipals();
+            return concerned.some((c) => c != null && access.has(c));
+        }
+
+        const raw = reply.raw;
+        raw.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache, no-transform",
+            Connection: "keep-alive",
+            // Disable proxy buffering (nginx / Cloud Run) so events flush live.
+            "X-Accel-Buffering": "no",
+        });
+        // Tell EventSource to wait 3s before reconnecting, and open the stream.
+        raw.write("retry: 3000\n");
+        raw.write(": connected\n\n");
+
+        function send(obj: Record<string, unknown>): void {
+            if (raw.writableEnded) return;
+            try {
+                raw.write(`data: ${JSON.stringify(obj)}\n\n`);
+            } catch {
+                /* socket gone — cleanup runs on close */
+            }
+        }
+
+        const onAudit = (e: import("@openleash/core").AuditAppendedEvent) => {
+            if (relevant([e.principal_id, e.agent_principal_id, e.owner_id, e.user_principal_id])) {
+                send({
+                    type: "audit",
+                    agent_principal_id: e.agent_principal_id,
+                    event_type: e.event_type,
+                });
+            }
+        };
+        const onCreated = (e: import("@openleash/core").ApprovalRequestCreatedEvent) => {
+            if (relevant([e.agent_principal_id, e.owner_id])) {
+                send({ type: "approval_created", agent_principal_id: e.agent_principal_id });
+            }
+        };
+        const onResolved = (e: import("@openleash/core").ApprovalRequestResolvedEvent) => {
+            if (relevant([e.agent_principal_id, e.owner_id])) {
+                send({
+                    type: "approval_resolved",
+                    agent_principal_id: e.agent_principal_id,
+                    status: e.status,
+                });
+            }
+        };
+
+        events.on("audit.appended", onAudit);
+        events.on("approval_request.created", onCreated);
+        events.on("approval_request.resolved", onResolved);
+
+        // Heartbeat comment keeps idle connections alive through proxies.
+        const heartbeat = setInterval(() => {
+            if (raw.writableEnded) return;
+            try {
+                raw.write(": ping\n\n");
+            } catch {
+                /* ignore */
+            }
+        }, 25000);
+
+        const cleanup = () => {
+            clearInterval(heartbeat);
+            events.off("audit.appended", onAudit);
+            events.off("approval_request.created", onCreated);
+            events.off("approval_request.resolved", onResolved);
+        };
+        request.raw.on("close", cleanup);
+        request.raw.on("error", cleanup);
+
+        // Take over the socket — Fastify must not try to send its own reply.
+        reply.hijack();
     });
 }

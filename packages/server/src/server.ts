@@ -60,6 +60,34 @@ export async function createServer(options: CreateServerOptions) {
   const nonceCache = new NonceCache(config.security.nonce_ttl_seconds);
   const events = new OpenleashEvents();
 
+  // Bridge every audit append onto the event bus so live consumers (the owner
+  // SSE stream backing the agent activity drawer) react without polling the
+  // log. Wraps whichever store implementation was passed (file or Firestore).
+  const originalAuditAppend = store.audit.append.bind(store.audit);
+  store.audit.append = ((
+    eventType: string,
+    metadata: Record<string, unknown> = {},
+    opts?: { principal_id?: string | null; action_id?: string | null; decision_id?: string | null },
+  ) => {
+    const event = originalAuditAppend(eventType, metadata, opts);
+    try {
+      const meta = (event.metadata_json ?? {}) as Record<string, unknown>;
+      events.emit('audit.appended', {
+        event_id: event.event_id,
+        timestamp: event.timestamp,
+        event_type: event.event_type,
+        principal_id: event.principal_id,
+        agent_principal_id: (meta.agent_principal_id as string | undefined) ?? null,
+        owner_type: (meta.owner_type as 'user' | 'org' | undefined) ?? null,
+        owner_id: (meta.owner_id as string | undefined) ?? null,
+        user_principal_id: (meta.user_principal_id as string | undefined) ?? null,
+      });
+    } catch {
+      /* never let event delivery break an audit write */
+    }
+    return event;
+  }) as typeof store.audit.append;
+
   // Load server plugin before routes so the manifest is available
   // for owner-auth and admin-auth middlewares (plugin token verification)
   let pluginManifest: ServerPluginManifest | undefined;
