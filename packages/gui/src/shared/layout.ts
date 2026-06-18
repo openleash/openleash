@@ -661,7 +661,10 @@ function renderAgentChatDrawer(scope?: ScopeOption): string {
     </div>
     <footer class="acd-footer">
       <span class="acd-live" id="acd-live"><span class="acd-live-dot"></span><span id="acd-live-label">Auto-refreshing</span></span>
-      <button type="button" class="acd-icon-btn acd-refresh" data-acd-refresh aria-label="Refresh now" title="Refresh now"><span class="material-symbols-outlined">refresh</span></button>
+      <div class="acd-footer-actions">
+        <button type="button" class="acd-icon-btn acd-notify" id="acd-notify" data-acd-notify aria-label="Toggle sound and desktop notifications" title="Sound &amp; desktop notifications"><span class="material-symbols-outlined">notifications_off</span></button>
+        <button type="button" class="acd-icon-btn acd-refresh" data-acd-refresh aria-label="Refresh now" title="Refresh now"><span class="material-symbols-outlined">refresh</span></button>
+      </div>
     </footer>
   </aside>`;
 }

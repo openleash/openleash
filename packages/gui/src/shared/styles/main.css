@@ -1126,6 +1126,8 @@ body.sidebar-collapsed .sidebar-toggle .expand-icon { display: inline; }
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
+.acd-footer-actions { display: inline-flex; align-items: center; gap: 4px; }
+.acd-notify.is-on { color: var(--green-bright); }
 .acd-live { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text-muted); }
 .acd-live-dot {
   width: 7px;

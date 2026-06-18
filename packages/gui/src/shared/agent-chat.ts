@@ -72,6 +72,7 @@ function initAgentChat(
     const live = document.getElementById("acd-live")!;
     const liveLabel = document.getElementById("acd-live-label")!;
     const refreshBtn = drawer.querySelector<HTMLButtonElement>("[data-acd-refresh]")!;
+    const notifyBtn = drawer.querySelector<HTMLButtonElement>("[data-acd-notify]")!;
 
     const scopeType = drawer.dataset.scopeType === "org" ? "org" : "user";
     const scopeId = drawer.dataset.scopeId ?? "";
@@ -96,6 +97,8 @@ function initAgentChat(
     let stream: EventSource | null = null;
     let streamConnected = false;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let notifyEnabled = localStorage.getItem("acd_notify") === "1";
+    let audioCtx: AudioContext | null = null;
 
     // ─── Open / close ───────────────────────────────────────────────
 
@@ -243,6 +246,106 @@ function initAgentChat(
         if (selectedAgent) void pollTick();
     });
 
+    // ─── Sound + desktop notifications ──────────────────────────────
+
+    function updateNotifyBtn() {
+        const icon = notifyBtn.querySelector(".material-symbols-outlined")!;
+        icon.textContent = notifyEnabled ? "notifications_active" : "notifications_off";
+        notifyBtn.classList.toggle("is-on", notifyEnabled);
+        notifyBtn.title = notifyEnabled
+            ? "Sound & desktop notifications on"
+            : "Sound & desktop notifications off";
+    }
+
+    notifyBtn.addEventListener("click", async () => {
+        notifyEnabled = !notifyEnabled;
+        localStorage.setItem("acd_notify", notifyEnabled ? "1" : "0");
+        updateNotifyBtn();
+        if (notifyEnabled) {
+            // Ask for desktop-notification permission (this click is the gesture)
+            // and prime the audio context so the first chime isn't blocked.
+            if ("Notification" in window && Notification.permission === "default") {
+                try {
+                    await Notification.requestPermission();
+                } catch {
+                    /* ignore */
+                }
+            }
+            playChime();
+        }
+    });
+
+    function playChime() {
+        try {
+            const Ctor =
+                window.AudioContext ||
+                (window as unknown as { webkitAudioContext: typeof AudioContext })
+                    .webkitAudioContext;
+            audioCtx = audioCtx || new Ctor();
+            if (audioCtx.state === "suspended") void audioCtx.resume();
+            const start = audioCtx.currentTime;
+            // Two-note rising chime (A5 → D6).
+            [880, 1174.66].forEach((freq, i) => {
+                const osc = audioCtx!.createOscillator();
+                const gain = audioCtx!.createGain();
+                osc.type = "sine";
+                osc.frequency.value = freq;
+                osc.connect(gain);
+                gain.connect(audioCtx!.destination);
+                const t = start + i * 0.12;
+                gain.gain.setValueAtTime(0.0001, t);
+                gain.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+                osc.start(t);
+                osc.stop(t + 0.3);
+            });
+        } catch {
+            /* audio not available — silent */
+        }
+    }
+
+    /** Chime + (when the tab is hidden) a desktop notification for new items. */
+    function notifyNew(newAuditIds: string[], newPendingIds: string[]) {
+        if (!notifyEnabled) return;
+
+        let body: string;
+        if (newPendingIds.length) {
+            const a = pendingById.get(newPendingIds[0]);
+            body = a ? `Approval requested: ${a.action_type}` : "New approval request";
+        } else {
+            const ev = newAuditIds
+                .map((id) => auditById.get(id))
+                .filter((e): e is AuditEvent => !!e)
+                .sort((x, y) => new Date(y.timestamp).getTime() - new Date(x.timestamp).getTime())[0];
+            if (!ev) return;
+            const d = describeEvent(ev);
+            const action = ev.metadata_json?.action_type as string | undefined;
+            body = action ? `${d.title}: ${action}` : d.title;
+        }
+
+        playChime();
+
+        // Desktop notification only when the tab isn't focused — no point
+        // popping a toast-equivalent over a drawer the user is already watching.
+        if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+            const agentLabel = select.selectedOptions[0]?.textContent ?? "agent";
+            try {
+                const n = new Notification(`OpenLeash · ${agentLabel}`, {
+                    body,
+                    tag: "ol-activity",
+                });
+                n.onclick = () => {
+                    window.focus();
+                    n.close();
+                };
+            } catch {
+                /* ignore */
+            }
+        }
+    }
+
+    updateNotifyBtn();
+
     // ─── Data loading ───────────────────────────────────────────────
 
     async function getJSON<T>(url: string): Promise<T> {
@@ -337,6 +440,10 @@ function initAgentChat(
         loading = true;
         loadOlderBtn.disabled = true;
         loadOlderBtn.textContent = "Loading…";
+        // When the feed is currently empty (24h window had nothing), the first
+        // older page IS the most recent activity, so jump to the bottom; once
+        // there's history on screen, preserve the reading position instead.
+        const wasEmpty = buildItems().length === 0;
         // No `since` here: deliberately page beyond the 24h window.
         const url = `/v1/owner/audit?agent_principal_id=${encodeURIComponent(
             selectedAgent,
@@ -350,7 +457,7 @@ function initAgentChat(
                 auditOffset += data.items.length;
                 if (data.next_cursor === null) auditExhausted = true;
             }
-            render({ scroll: "preserve" });
+            render({ scroll: wasEmpty ? "bottom" : "preserve" });
         } catch {
             olToast("Could not load older activity", "error");
         } finally {
@@ -365,6 +472,8 @@ function initAgentChat(
     async function pollTick() {
         const since = dayjs().subtract(WINDOW_HOURS, "hour").toISOString();
         const before = signature();
+        const prevAudit = new Set(auditById.keys());
+        const prevPending = new Set(pendingById.keys());
         // Head re-fetch only — newer events land at the bottom, older history
         // already loaded stays put.
         try {
@@ -379,6 +488,10 @@ function initAgentChat(
         }
         await fetchPending();
         if (signature() !== before) render({ scroll: "auto" });
+
+        const newAudit = [...auditById.keys()].filter((k) => !prevAudit.has(k));
+        const newPending = [...pendingById.keys()].filter((k) => !prevPending.has(k));
+        if (newAudit.length || newPending.length) notifyNew(newAudit, newPending);
     }
 
     /** Cheap change-detection so an unchanged poll doesn't churn the DOM. */
@@ -510,11 +623,20 @@ function initAgentChat(
 
     function render(opts: { scroll: "bottom" | "preserve" | "auto" }) {
         const items = buildItems();
-        loadOlderWrap.hidden = auditExhausted || auditById.size === 0;
+        // Keep "Load older" reachable until the server runs dry — even when the
+        // 24h window is empty there may be older history to step back into.
+        loadOlderWrap.hidden = auditExhausted;
+        loadOlderBtn.textContent =
+            items.length === 0 ? "Show earlier activity" : "Load older activity";
         renderSubstatus();
 
         if (items.length === 0) {
-            renderEmpty("history", "No activity in the last 24 hours.");
+            feed.innerHTML = emptyHtml(
+                "history",
+                auditExhausted
+                    ? "No activity recorded for this agent."
+                    : "No activity in the last 24 hours.",
+            );
             return;
         }
 
@@ -552,11 +674,16 @@ function initAgentChat(
         }
     }
 
-    function renderEmpty(icon: string, message: string) {
-        loadOlderWrap.hidden = true;
-        feed.innerHTML = `<div class="acd-empty"><span class="material-symbols-outlined">${escapeHtml(
+    function emptyHtml(icon: string, message: string): string {
+        return `<div class="acd-empty"><span class="material-symbols-outlined">${escapeHtml(
             icon,
         )}</span>${escapeHtml(message)}</div>`;
+    }
+
+    /** Terminal empty state (no agents / error) — no "load older" affordance. */
+    function renderEmpty(icon: string, message: string) {
+        loadOlderWrap.hidden = true;
+        feed.innerHTML = emptyHtml(icon, message);
     }
 
     function renderApprovalCard(a: ApprovalRequest): string {
