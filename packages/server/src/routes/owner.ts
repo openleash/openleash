@@ -3918,9 +3918,13 @@ export function registerOwnerRoutes(
             }
             const ownedByUser =
                 agent.owner_type === "user" && agent.owner_id === session.sub;
+            // Resolve org membership from the store, not session claims —
+            // hosted-mode (plugin) sessions don't carry `org_memberships`.
             const ownedByOrg =
                 agent.owner_type === "org" &&
-                (session.org_memberships ?? []).some((m) => m.org_id === agent.owner_id);
+                store.memberships
+                    .listByUser(session.sub)
+                    .some((m) => m.org_id === agent.owner_id && m.status === "active");
             if (!ownedByUser && !ownedByOrg) {
                 reply.code(403).send({
                     error: {

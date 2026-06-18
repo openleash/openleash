@@ -96,6 +96,8 @@ describe("GET /v1/owner/audit (agent_principal_id + since)", () => {
     let agentA: string;
     let agentB: string;
     let otherAgent: string;
+    let orgId: string;
+    let orgAgent: string;
 
     beforeAll(async () => {
         rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "openleash-audit-filter-"));
@@ -129,6 +131,44 @@ describe("GET /v1/owner/audit (agent_principal_id + since)", () => {
         seedAgent(store, agentB, "agent-b", "user", userId);
         seedAgent(store, otherAgent, "bob-bot", "user", otherUserId);
 
+        // Org that Alice is an active member of, with an org-owned agent.
+        // The session helper issues a token WITHOUT org_memberships claims —
+        // exactly the hosted-mode shape — so this guards the regression where
+        // org-agent access was (wrongly) gated on session.org_memberships.
+        orgId = crypto.randomUUID();
+        orgAgent = crypto.randomUUID();
+        store.organizations.write({
+            org_id: orgId,
+            slug: "acme",
+            display_name: "Acme",
+            status: "ACTIVE",
+            attributes: {},
+            created_at: new Date().toISOString(),
+            created_by_user_id: userId,
+            verification_status: "unverified",
+        });
+        const membershipId = crypto.randomUUID();
+        store.memberships.write({
+            membership_id: membershipId,
+            org_id: orgId,
+            user_principal_id: userId,
+            role: "org_admin",
+            status: "active",
+            invited_by_user_id: null,
+            created_at: new Date().toISOString(),
+        });
+        seedAgent(store, orgAgent, "org-bot", "org", orgId);
+        store.state.updateState((s) => {
+            s.organizations.push({ org_id: orgId, slug: "acme", path: `./organizations/${orgId}.md` });
+            s.memberships.push({
+                membership_id: membershipId,
+                org_id: orgId,
+                user_principal_id: userId,
+                role: "org_admin",
+                path: `./memberships/${membershipId}.json`,
+            });
+        });
+
         const now = Date.now();
         const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
         // agentA: oldest first so newest line = most recent event.
@@ -137,6 +177,8 @@ describe("GET /v1/owner/audit (agent_principal_id + since)", () => {
         rawAudit(dataDir, "APPROVAL_REQUEST_CREATED", agentA, iso(1 * 3600 * 1000)); // 1h ago
         // agentB: one recent event, must never appear in agentA's view.
         rawAudit(dataDir, "AUTHORIZE_CALLED", agentB, iso(30 * 60 * 1000)); // 30m ago
+        // org agent event
+        rawAudit(dataDir, "AUTHORIZE_CALLED", orgAgent, iso(20 * 60 * 1000)); // 20m ago
 
         const { app: server } = await createServer({ config, dataDir, store });
         app = server;
@@ -182,6 +224,31 @@ describe("GET /v1/owner/audit (agent_principal_id + since)", () => {
         expect(body.items).toHaveLength(2);
         expect(body.items.some((i) => i.event_type === "AGENT_REGISTERED")).toBe(false);
         expect(body.next_cursor).toBeNull();
+    });
+
+    it("lets an org member read an org-owned agent's feed (no org_memberships in session)", async () => {
+        // Regression: org-agent access must resolve membership from the store,
+        // not session claims — hosted-mode sessions carry no org_memberships.
+        const cookie = await sessionCookieFor(dataDir, userId);
+        const res = await app.inject({
+            method: "GET",
+            url: `/v1/owner/audit?agent_principal_id=${orgAgent}`,
+            headers: { cookie },
+        });
+        expect(res.statusCode).toBe(200);
+        const body = res.json() as { items: Array<{ event_type: string }> };
+        expect(body.items).toHaveLength(1);
+        expect(body.items[0].event_type).toBe("AUTHORIZE_CALLED");
+    });
+
+    it("403s an org agent for a non-member", async () => {
+        const cookie = await sessionCookieFor(dataDir, otherUserId);
+        const res = await app.inject({
+            method: "GET",
+            url: `/v1/owner/audit?agent_principal_id=${orgAgent}`,
+            headers: { cookie },
+        });
+        expect(res.statusCode).toBe(403);
     });
 
     it("403s for an agent the caller does not own", async () => {

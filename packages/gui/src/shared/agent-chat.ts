@@ -99,6 +99,7 @@ function initAgentChat(
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     let notifyEnabled = localStorage.getItem("acd_notify") === "1";
     let audioCtx: AudioContext | null = null;
+    let windowError = false; // initial-load failure, so we don't show "No activity" for an error
 
     // ─── Open / close ───────────────────────────────────────────────
 
@@ -401,6 +402,7 @@ function initAgentChat(
         pendingById.clear();
         auditOffset = 0;
         auditExhausted = false;
+        windowError = false;
         feed.innerHTML = "";
         const since = dayjs().subtract(WINDOW_HOURS, "hour").toISOString();
         await Promise.all([fetchAuditWindow(since), fetchPending()]);
@@ -416,8 +418,10 @@ function initAgentChat(
             const data = await getJSON<{ items: AuditEvent[]; next_cursor: string | null }>(url);
             for (const ev of data.items) auditById.set(ev.event_id, ev);
             auditOffset = data.items.length;
+            windowError = false;
         } catch {
-            /* leave feed as-is; surfaced by empty state if nothing loaded */
+            // Surface the failure rather than masquerading as "No activity".
+            windowError = true;
         }
     }
 
@@ -631,6 +635,11 @@ function initAgentChat(
         renderSubstatus();
 
         if (items.length === 0) {
+            if (windowError) {
+                loadOlderWrap.hidden = true;
+                feed.innerHTML = emptyHtml("error", "Couldn't load activity. Try refreshing.");
+                return;
+            }
             feed.innerHTML = emptyHtml(
                 "history",
                 auditExhausted

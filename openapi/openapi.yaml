@@ -1553,6 +1553,14 @@ paths:
         Returns audit log events related to the authenticated owner
         and their agents. Events are filtered server-side to only
         include entries for this owner's resources.
+
+        Pass `agent_principal_id` to scope the feed to a single agent
+        (the caller must own it, personally or via org membership);
+        the response then contains only events about that agent. Pass
+        `since` (ISO 8601) to cap the window to recent activity —
+        entries older than `since` are dropped and `next_cursor` is set
+        to `null` once the window boundary is crossed. These back the
+        per-agent activity drawer in the GUI.
       security:
         - OwnerSession: []
       parameters:
@@ -1565,6 +1573,22 @@ paths:
           in: query
           schema:
             type: integer
+        - name: agent_principal_id
+          in: query
+          description: >-
+            Restrict the feed to events about a single agent owned by
+            the caller. Returns 404 if unknown, 403 if not owned.
+          schema:
+            type: string
+            format: uuid
+        - name: since
+          in: query
+          description: >-
+            ISO 8601 lower bound. Drops older entries and nulls the
+            cursor once the window is crossed.
+          schema:
+            type: string
+            format: date-time
       responses:
         "200":
           description: Filtered audit log.
@@ -1581,6 +1605,42 @@ paths:
                   next_cursor:
                     type: integer
                     nullable: true
+        "403":
+          description: Caller does not own the requested agent.
+        "404":
+          description: Requested agent not found.
+
+  /v1/owner/events/stream:
+    get:
+      summary: Owner event stream (SSE)
+      operationId: getOwnerEventStream
+      tags: [Owner]
+      description: |
+        Server-Sent Events feed that powers the GUI agent activity
+        drawer's live updates. Emits a compact JSON nudge whenever an
+        audit entry is appended or an approval is created/resolved for a
+        principal the caller can observe (themselves, their orgs, and
+        agents owned by either). Clients react by re-fetching through the
+        normal authorized endpoints.
+
+        Each SSE `data:` line is a JSON object:
+        `{ "type": "audit" | "approval_created" | "approval_resolved",
+        "agent_principal_id": string | null, "event_type"?: string,
+        "status"?: "APPROVED" | "DENIED" }`. The server sends `retry: 3000`
+        and a `: ping` heartbeat comment every ~25s. Browser `EventSource`
+        carries the session cookie automatically, so no extra auth header
+        is required.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: An open `text/event-stream` connection.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          description: Missing or invalid owner session.
 
   # ── Owner: Organizations ─────────────────────────────────────────────
 
