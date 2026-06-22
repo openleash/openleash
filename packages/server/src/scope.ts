@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import type { DataStore, SessionClaims, OrgRole } from '@openleash/core';
+import type { DataStore, SessionClaims, OrgRole, StateApprovalRequestEntry } from '@openleash/core';
 
 /**
  * The "scope" a user is acting within in the GUI. `personal` means the user's
@@ -222,9 +222,38 @@ export function currentOwner(resolved: AvailableScopes): { ownerType: 'user' | '
 }
 
 /**
+ * True if an index entry counts as an actionable pending approval — i.e. it is
+ * PENDING *and* not past its expiry. Without this check the badge/banner counts
+ * diverge from the inbox list, which drops expired-but-still-PENDING records
+ * (no background sweeper flips PENDING → EXPIRED; only approve/deny do, lazily).
+ *
+ * Uses the indexed `expires_at` when present. Entries written before that field
+ * was indexed lack it, so we fall back to reading the live record. A record that
+ * can't be read (or carries no expiry) is treated as actionable, matching the
+ * inbox's `!expires_at` keep-it behaviour.
+ */
+export function isActionablePending(
+    store: DataStore,
+    entry: StateApprovalRequestEntry,
+    now: number,
+): boolean {
+    if (entry.status !== 'PENDING') return false;
+    let expiresAt = entry.expires_at;
+    if (!expiresAt) {
+        try {
+            expiresAt = store.approvalRequests.read(entry.approval_request_id).expires_at;
+        } catch {
+            return true;
+        }
+    }
+    return !expiresAt || new Date(expiresAt).getTime() > now;
+}
+
+/**
  * Count pending approval requests across every scope a user can act within.
  * Used by the sidebar bell badge and the cross-scope inbox. Cheap to call on
- * every owner page render — it reads the in-memory state index, not files.
+ * every owner page render — it reads the in-memory state index (live-record
+ * reads only happen for legacy entries that predate the indexed `expires_at`).
  */
 export function countPendingApprovalsAcrossScopes(
     store: DataStore,
@@ -235,13 +264,37 @@ export function countPendingApprovalsAcrossScopes(
     const activeOrgIds = new Set(
         memberships.filter((m) => m.status === 'active').map((m) => m.org_id),
     );
+    const now = Date.now();
     let total = 0;
     for (const r of state.approval_requests ?? []) {
-        if (r.status !== 'PENDING') continue;
-        if (r.owner_type === 'user' && r.owner_id === session.sub) total += 1;
-        else if (r.owner_type === 'org' && activeOrgIds.has(r.owner_id)) total += 1;
+        if (r.owner_type === 'user' && r.owner_id === session.sub) {
+            if (isActionablePending(store, r, now)) total += 1;
+        } else if (r.owner_type === 'org' && activeOrgIds.has(r.owner_id)) {
+            if (isActionablePending(store, r, now)) total += 1;
+        }
     }
     return total;
+}
+
+/**
+ * Lazily flip an expired-but-still-PENDING approval to EXPIRED, persisting both
+ * the record and its state-index entry. Mirrors the lazy transition the
+ * approve/deny handlers already perform — there is no background sweeper, so the
+ * inbox does this when it encounters a stale record. No-op if the request is
+ * already resolved. Best-effort: callers wrap this so a write failure never
+ * breaks page rendering.
+ */
+export function markApprovalExpired(store: DataStore, approvalRequestId: string): void {
+    const req = store.approvalRequests.read(approvalRequestId);
+    if (req.status !== 'PENDING') return;
+    req.status = 'EXPIRED';
+    store.approvalRequests.write(req);
+    store.state.updateState((s) => {
+        const e = (s.approval_requests ?? []).find(
+            (r) => r.approval_request_id === approvalRequestId,
+        );
+        if (e) e.status = 'EXPIRED';
+    });
 }
 
 export interface PendingScopeGroup {

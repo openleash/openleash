@@ -8,6 +8,8 @@ import {
     createOrgScopePreHandler,
     listPendingApprovalsByScope,
     countPendingApprovalsAcrossScopes,
+    isActionablePending,
+    markApprovalExpired,
     buildAvailableScopes,
 } from "../scope.js";
 import type { Scope } from "../scope.js";
@@ -880,8 +882,12 @@ export function registerGuiRoutes(
         const policyCount = state.policies.filter(
             (p) => p.owner_type === ownerType && p.owner_id === ownerId,
         ).length;
+        const nowMs = Date.now();
         const pendingApprovals = (state.approval_requests ?? []).filter(
-            (r) => r.owner_type === ownerType && r.owner_id === ownerId && r.status === "PENDING",
+            (r) =>
+                r.owner_type === ownerType &&
+                r.owner_id === ownerId &&
+                isActionablePending(store, r, nowMs),
         ).length;
         const pendingPolicyDrafts = (state.policy_drafts ?? []).filter(
             (d) => d.owner_type === ownerType && d.owner_id === ownerId && d.status === "PENDING",
@@ -1653,7 +1659,15 @@ export function registerGuiRoutes(
         const now = Date.now();
         const pendingLive = pendingStateEntries
             .map(readEntry)
-            .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
+            .filter((r) => {
+                const expired = !!r.expires_at && new Date(r.expires_at).getTime() <= now;
+                if (expired && r.status === "PENDING") {
+                    // Lazily flip stale PENDING → EXPIRED so the count stops
+                    // including it (see markApprovalExpired). Best-effort.
+                    try { markApprovalExpired(store, r.approval_request_id); } catch { /* ignore */ }
+                }
+                return !expired;
+            })
             .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
         const pendingOffset = (pendingPage - 1) * pendingPageSize;
         const pendingSlice = pendingLive.slice(pendingOffset, pendingOffset + pendingPageSize);
@@ -1782,7 +1796,17 @@ export function registerGuiRoutes(
         const now = Date.now();
         const pendingLive = allPending
             .map(readEntry)
-            .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
+            .filter((r) => {
+                const expired = !!r.expires_at && new Date(r.expires_at).getTime() <= now;
+                if (expired && r.status === "PENDING") {
+                    // No background sweeper flips PENDING → EXPIRED; do it here so
+                    // the badge/banner counts (which read the index) stop counting
+                    // this stale record. Best-effort — never break the page on a
+                    // write failure.
+                    try { markApprovalExpired(store, r.approval_request_id); } catch { /* ignore */ }
+                }
+                return !expired;
+            })
             .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
         const pendingOffset = (pendingPage - 1) * pendingPageSize;
         const pendingSlice = pendingLive.slice(pendingOffset, pendingOffset + pendingPageSize);

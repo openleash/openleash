@@ -12,6 +12,9 @@ import {
     decodeScopeCookie,
     readLastScopeCookie,
     writeLastScopeCookie,
+    countPendingApprovalsAcrossScopes,
+    isActionablePending,
+    markApprovalExpired,
 } from "../src/scope.js";
 
 /**
@@ -252,5 +255,118 @@ describe("buildAvailableScopes + resolveCurrentScope", () => {
             makeRequest("/gui/dashboard", "openleash_last_scope=org%3Aacme"),
         );
         expect(scope?.current.type).toBe("user");
+    });
+});
+
+describe("countPendingApprovalsAcrossScopes + expiry", () => {
+    let dataDir: string;
+    let store: DataStore;
+    let userId: string;
+
+    beforeEach(() => {
+        dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "openleash-scope-appr-"));
+        store = createFileDataStore(dataDir);
+        store.initialize();
+        userId = seedUser(store, "Alice");
+    });
+
+    afterEach(() => {
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    });
+
+    /**
+     * Seed an approval request (live record + state-index entry) for the
+     * personal scope. `expiresAtMs` controls the expiry; `indexExpiresAt`
+     * controls whether the *index* entry carries expires_at — set it to false
+     * to simulate legacy entries written before the field was indexed.
+     */
+    function seedApproval(opts: {
+        expiresAtMs: number;
+        indexExpiresAt?: boolean;
+        status?: "PENDING" | "APPROVED";
+    }): string {
+        const id = crypto.randomUUID();
+        const agentPrincipalId = crypto.randomUUID();
+        const expiresAt = new Date(opts.expiresAtMs).toISOString();
+        store.approvalRequests.write({
+            approval_request_id: id,
+            decision_id: crypto.randomUUID(),
+            agent_principal_id: agentPrincipalId,
+            agent_id: "agent-1",
+            owner_type: "user",
+            owner_id: userId,
+            action_type: "purchase",
+            action_hash: "hash",
+            action: {
+                action_id: crypto.randomUUID(),
+                action_type: "purchase",
+                requested_at: new Date().toISOString(),
+                principal: { agent_id: "agent-1" },
+                subject: { principal_id: userId },
+                payload: { amount: 100 },
+            },
+            justification: null,
+            context: null,
+            status: opts.status ?? "PENDING",
+            approval_token: null,
+            approval_token_expires_at: null,
+            resolved_at: null,
+            resolved_by: null,
+            denial_reason: null,
+            consumed_at: null,
+            created_at: new Date().toISOString(),
+            expires_at: expiresAt,
+        });
+        store.state.updateState((s) => {
+            if (!s.approval_requests) s.approval_requests = [];
+            s.approval_requests.push({
+                approval_request_id: id,
+                owner_type: "user",
+                owner_id: userId,
+                agent_principal_id: agentPrincipalId,
+                status: opts.status ?? "PENDING",
+                expires_at: opts.indexExpiresAt === false ? undefined : expiresAt,
+                path: `./approval-requests/${id}.md`,
+            });
+        });
+        return id;
+    }
+
+    it("counts a live (unexpired) pending approval", () => {
+        seedApproval({ expiresAtMs: Date.now() + 3600_000 });
+        expect(countPendingApprovalsAcrossScopes(store, fakeSession(userId))).toBe(1);
+    });
+
+    it("excludes an expired-but-still-PENDING approval (indexed expires_at)", () => {
+        seedApproval({ expiresAtMs: Date.now() - 60_000 });
+        expect(countPendingApprovalsAcrossScopes(store, fakeSession(userId))).toBe(0);
+    });
+
+    it("excludes an expired legacy entry via live-record fallback", () => {
+        // Index entry lacks expires_at (predates the field); the live record is
+        // already expired. The count must still drop it.
+        seedApproval({ expiresAtMs: Date.now() - 60_000, indexExpiresAt: false });
+        expect(countPendingApprovalsAcrossScopes(store, fakeSession(userId))).toBe(0);
+    });
+
+    it("isActionablePending ignores non-PENDING entries", () => {
+        const id = seedApproval({ expiresAtMs: Date.now() + 3600_000, status: "APPROVED" });
+        const entry = store.state.getState().approval_requests!.find(
+            (r) => r.approval_request_id === id,
+        )!;
+        expect(isActionablePending(store, entry, Date.now())).toBe(false);
+    });
+
+    it("markApprovalExpired flips a stale PENDING to EXPIRED in record and index", () => {
+        const id = seedApproval({ expiresAtMs: Date.now() - 60_000 });
+        markApprovalExpired(store, id);
+        expect(store.approvalRequests.read(id).status).toBe("EXPIRED");
+        const entry = store.state.getState().approval_requests!.find(
+            (r) => r.approval_request_id === id,
+        )!;
+        expect(entry.status).toBe("EXPIRED");
+        // Idempotent: a second call is a no-op.
+        markApprovalExpired(store, id);
+        expect(store.approvalRequests.read(id).status).toBe("EXPIRED");
     });
 });

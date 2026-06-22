@@ -111,9 +111,10 @@ export function registerAgentSelfRoutes(
       s.approval_requests.push({
         approval_request_id: approvalRequestId,
         owner_type: agentEntry.owner_type,
-      owner_id: agentEntry.owner_id,
+        owner_id: agentEntry.owner_id,
         agent_principal_id: agentEntry.agent_principal_id,
         status: 'PENDING',
+        expires_at: expiresAt.toISOString(),
         path: `./approval-requests/${approvalRequestId}.md`,
       });
     });

@@ -417,6 +417,13 @@ export interface StateApprovalRequestEntry {
   owner_id: string;
   agent_principal_id: string;
   status: ApprovalRequestStatus;
+  /**
+   * Mirror of the request's `expires_at` so pending-count callers can drop
+   * expired-but-still-PENDING entries without reading the underlying record.
+   * Optional for backward compatibility: entries written before this field
+   * existed lack it, and callers fall back to reading the live record.
+   */
+  expires_at?: string;
   path: string;
 }
 
