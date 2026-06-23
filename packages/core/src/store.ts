@@ -13,6 +13,7 @@ import type {
   SetupInvite,
   StateApprovalRequestEntry,
   StateData,
+  TransformationFrontmatter,
 } from './types.js';
 import type { AuditStore } from './audit.js';
 
@@ -104,6 +105,13 @@ export interface OrgInviteRepository {
   listByOrg(orgId: string): OrgInvite[];
 }
 
+export interface TransformationRepository {
+  read(transformationId: string): TransformationFrontmatter;
+  write(transformation: TransformationFrontmatter): void;
+  delete(transformationId: string): void;
+  listByOwner(ownerType: 'user' | 'org', ownerId: string): TransformationFrontmatter[];
+}
+
 export interface KeyRepository {
   read(kid: string): ServerKeyFile;
   write(key: ServerKeyFile): void;
@@ -133,6 +141,7 @@ export interface DataStore {
   policyDrafts: PolicyDraftRepository;
   policyGroups: PolicyGroupRepository;
   agentGroupMemberships: AgentGroupMembershipRepository;
+  transformations: TransformationRepository;
   setupInvites: SetupInviteRepository;
   agentInvites: AgentInviteRepository;
   orgInvites: OrgInviteRepository;

@@ -101,6 +101,7 @@ function buildOwnerNavItems(scope?: ScopeContext, pendingTotal?: number): OwnerN
         { path: "/gui/orgs", label: "Organizations", icon: "corporate_fare" },
         { path: "/gui/personal/agents", label: "My Agents", icon: "smart_toy" },
         { path: "/gui/personal/policies", label: "My Policies", icon: "policy" },
+        { path: "/gui/personal/transformations", label: "Transformations", icon: "transform" },
         inboxItem,
         { path: "/gui/personal/audit", label: "Audit Log", icon: "receipt_long" },
     ];

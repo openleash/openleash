@@ -32,6 +32,7 @@ import {
     renderOwnerAgents,
     renderOwnerAgentDetail,
     renderOwnerPolicies,
+    renderOwnerTransformations,
     renderOwnerPolicyGroups,
     renderOwnerPolicyGroupDetail,
     renderOwnerPolicyCreate,
@@ -1392,6 +1393,30 @@ export function registerGuiRoutes(
         reply.type("text/html").send(html);
     };
     registerScopedOwnerRoute("policies", policiesListHandler);
+
+    // Owner output transformations (personal scope only in this PoC)
+    const transformationsListHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const transformations = store.transformations
+            .listByOwner("user", session.sub)
+            .map((t) => ({
+                transformation_id: t.transformation_id,
+                applies_to_agent_principal_id: t.applies_to_agent_principal_id,
+                name: t.name,
+                description: t.description,
+                enabled: t.enabled,
+                rank: t.rank,
+                rule: t.rule,
+            }));
+        const html = renderOwnerTransformations(
+            transformations,
+            { org_id: null },
+            ownerRenderOptionsFor(session, request, reply),
+        );
+        reply.type("text/html").send(html);
+    };
+    registerScopedOwnerRoute("transformations", transformationsListHandler);
 
     // Owner create policy
     const policyCreateHandler = async (request: FastifyRequest, reply: FastifyReply) => {
