@@ -2060,6 +2060,60 @@ paths:
                     items:
                       $ref: "#/components/schemas/AgentRegistration"
 
+  /v1/owner/organizations/{orgId}/audit:
+    get:
+      summary: Organization audit log
+      operationId: getOrgAudit
+      tags: [Organization, Owner]
+      description: |
+        Returns the organization's audit trail: events attributed to the
+        org principal plus events about agents the org owns. Any active
+        member (`org_viewer` and up) may read it. Pagination and response
+        shape match `GET /v1/owner/audit`.
+
+        Pass `since` (ISO 8601) to cap the window to recent activity —
+        entries older than `since` are dropped and `next_cursor` is set to
+        `null` once the window boundary is crossed.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: integer
+        - name: since
+          in: query
+          description: >-
+            ISO 8601 lower bound. Drops older entries and nulls the
+            cursor once the window is crossed.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: The organization's audit log.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEvent"
+                  next_cursor:
+                    type: integer
+                    nullable: true
+        "403":
+          description: Caller is not a member of the organization.
+
   /v1/owner/organizations/{orgId}/agent-invites:
     post:
       summary: Create agent invite for organization

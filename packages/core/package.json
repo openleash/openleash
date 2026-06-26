@@ -1,6 +1,6 @@
 {
   "name": "@openleash/core",
-  "version": "0.24.3",
+  "version": "0.25.0",
   "description": "Core authorization engine for openleash",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

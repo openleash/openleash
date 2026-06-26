@@ -3976,6 +3976,54 @@ export function registerOwnerRoutes(
         };
     });
 
+    // GET /v1/owner/organizations/:orgId/audit
+    // The organization's audit trail: events attributed to the org principal
+    // plus events about agents the org owns. Pagination/response match
+    // GET /v1/owner/audit; scoping matches the GUI org audit view (gui.ts).
+    app.get(
+        "/v1/owner/organizations/:orgId/audit",
+        { preHandler: ownerAuth },
+        async (request, reply) => {
+            const session = (request as unknown as Record<string, unknown>)
+                .ownerSession as SessionClaims;
+            const { orgId } = request.params as { orgId: string };
+
+            // Any org member (viewer and up) may read the org audit log.
+            if (!requireOrgRole(session, orgId, "org_viewer", reply)) return;
+
+            const query = request.query as {
+                limit?: string;
+                cursor?: string;
+                since?: string;
+            };
+            const limit = query.limit
+                ? Math.max(1, Math.min(parseInt(query.limit, 10) || 1, 1000))
+                : 50;
+            const cursor = query.cursor ? Math.max(0, parseInt(query.cursor, 10) || 0) : 0;
+            const sinceMs = query.since ? new Date(query.since).getTime() : NaN;
+            const hasSince = !Number.isNaN(sinceMs);
+
+            const state = store.state.getState();
+            const orgAgentIds = new Set(
+                state.agents
+                    .filter((a) => a.owner_type === "org" && a.owner_id === orgId)
+                    .map((a) => a.agent_principal_id),
+            );
+
+            const data = store.audit.readByPrincipal(orgId, orgAgentIds, limit, cursor);
+            const windowed = hasSince
+                ? data.items.filter((e) => new Date(e.timestamp).getTime() >= sinceMs)
+                : data.items;
+            const crossedWindow = hasSince && windowed.length < data.items.length;
+            const nextCursor =
+                crossedWindow || cursor + limit >= data.total
+                    ? null
+                    : String(cursor + limit);
+
+            return { items: windowed, next_cursor: nextCursor };
+        },
+    );
+
     // ─── Owner event stream (SSE) ─────────────────────────────────────
 
     // GET /v1/owner/events/stream — Server-Sent Events feed that powers the
