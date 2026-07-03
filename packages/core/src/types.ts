@@ -248,6 +248,14 @@ export interface StateBinding {
   rank?: number;
 }
 
+export interface StateProvisionerEntry {
+  provisioner_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
+  name: string;
+  path: string;
+}
+
 export interface StatePolicyGroupEntry {
   group_id: string;
   owner_type: OwnerType; // v1: always 'org'
@@ -283,6 +291,8 @@ export interface StateData {
   policy_groups?: StatePolicyGroupEntry[];
   /** Agent ↔ group join rows. Optional for backward compatibility. */
   agent_group_memberships?: StateAgentGroupMembershipEntry[];
+  /** Machine principals that enroll agents on an owner's behalf. Optional for backward compatibility. */
+  provisioners?: StateProvisionerEntry[];
 }
 
 // ─── Server key file ─────────────────────────────────────────────────
@@ -510,6 +520,36 @@ export interface AgentInvite {
   used: boolean;
   used_at: string | null;
   created_at: string;
+  /**
+   * Provisioner enrollment fields (optional — absent on owner-created
+   * invites). An invite created via POST /v1/provisioner/enrollments
+   * records which provisioner minted it, the intended agent name, and an
+   * optional policy to bind to the agent at redemption time.
+   */
+  provisioner_id?: string | null;
+  agent_name?: string | null;
+  bind_policy_id?: string | null;
+  /** Stamped at redemption so enrollments can be traced to the agent. */
+  agent_principal_id?: string | null;
+}
+
+/**
+ * A provisioner is a machine principal (e.g. an agent launchpad or CI
+ * pipeline) that enrolls agents on an owner's behalf. It authenticates
+ * with a bearer token of the form `olp_<provisioner_id>.<secret>`; only
+ * the scrypt hash of the secret is stored.
+ */
+export interface Provisioner {
+  provisioner_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
+  name: string;
+  token_hash: string;
+  token_salt: string;
+  status: 'ACTIVE' | 'REVOKED';
+  created_at: string;
+  revoked_at: string | null;
+  last_used_at: string | null;
 }
 
 export interface OrgInvite {

@@ -57,17 +57,33 @@ export function createAgentAuth(config: OpenleashConfig, store: DataStore, nonce
       return;
     }
 
-    // Look up agent
+    // Look up agent. The same agent_id may have several registrations
+    // (an agent can be re-enrolled with a fresh keypair); authenticate
+    // against the newest ACTIVE one so re-enrollment supersedes older
+    // registrations instead of shadowing them.
     const state = store.state.getState();
-    const agentEntry = state.agents.find((a) => a.agent_id === agentId);
-    if (!agentEntry) {
+    const candidates = state.agents.filter((a) => a.agent_id === agentId);
+    if (candidates.length === 0) {
       reply.code(401).send({
         error: { code: 'AGENT_NOT_FOUND', message: `Agent "${agentId}" not found` },
       });
       return;
     }
 
-    const agent = store.agents.read(agentEntry.agent_principal_id);
+    let agentEntry = candidates[0];
+    let agent = store.agents.read(agentEntry.agent_principal_id);
+    for (const candidate of candidates.slice(1)) {
+      const candidateAgent = store.agents.read(candidate.agent_principal_id);
+      const preferCandidate =
+        (candidateAgent.status === 'ACTIVE' && agent.status !== 'ACTIVE') ||
+        (candidateAgent.status === agent.status &&
+          candidateAgent.created_at > agent.created_at);
+      if (preferCandidate) {
+        agentEntry = candidate;
+        agent = candidateAgent;
+      }
+    }
+
     if (agent.status !== 'ACTIVE') {
       reply.code(401).send({
         error: { code: 'AGENT_INACTIVE', message: `Agent "${agentId}" is not active` },

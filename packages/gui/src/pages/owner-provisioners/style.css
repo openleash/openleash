@@ -1,0 +1,37 @@
+.oprov-help {
+    color: var(--text-muted);
+    max-width: 46rem;
+    margin-bottom: 16px;
+}
+
+.oprov-create-panel,
+.oprov-token-panel {
+    margin-bottom: 16px;
+}
+
+.oprov-token-help {
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.oprov-token-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.oprov-token-value {
+    flex: 1;
+    padding: 8px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    overflow-wrap: anywhere;
+    user-select: all;
+}
+
+.oprov-empty-row {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 24px 0;
+}

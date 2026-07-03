@@ -41,6 +41,7 @@ import type {
     ServerPluginManifest,
 } from "@openleash/core";
 import { createOwnerAuth } from "../middleware/owner-auth.js";
+import { formatProvisionerToken } from "../middleware/provisioner-auth.js";
 import { cascadeDeleteOrg, cascadeDeleteUser } from "../cascade.js";
 import { buildAvailableScopes } from "../scope.js";
 import { validateBody } from "../validate.js";
@@ -72,7 +73,7 @@ function bindingPolicyTier(b: StateBinding): PolicyTier {
     return "owner_wide";
 }
 
-interface TierScope {
+export interface TierScope {
     owner_type: "user" | "org";
     owner_id: string;
     tier: PolicyTier;
@@ -87,7 +88,7 @@ function bindingMatchesScope(b: StateBinding, scope: TierScope): boolean {
 }
 
 /** Next rank slot for a new binding in the given specificity tier. Steps by 100. */
-function nextRankInTier(bindings: StateBinding[], scope: TierScope): number {
+export function nextRankInTier(bindings: StateBinding[], scope: TierScope): number {
     let max = 0;
     for (const b of bindings) {
         if (!bindingMatchesScope(b, scope)) continue;
@@ -746,6 +747,130 @@ export function registerOwnerRoutes(
             invite_id: inviteId,
             invite_token: inviteToken,
             expires_at: expiresAt,
+        };
+    });
+
+    // ─── Provisioners ──────────────────────────────────────────────────
+    //
+    // A provisioner is a machine principal (agent launchpad, CI pipeline)
+    // that enrolls agents on the owner's behalf via /v1/provisioner/*.
+    // The bearer token is returned exactly once at creation.
+
+    // POST /v1/owner/provisioners
+    app.post("/v1/owner/provisioners", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const body = (request.body ?? {}) as { name?: unknown };
+
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        if (!name) {
+            reply.code(400).send({
+                error: { code: "INVALID_REQUEST", message: "name is required" },
+            });
+            return;
+        }
+
+        const provisionerId = crypto.randomUUID();
+        const secret = crypto.randomBytes(32).toString("base64url");
+        const { hash, salt } = hashPassphrase(secret);
+        const createdAt = new Date().toISOString();
+
+        store.provisioners.write({
+            provisioner_id: provisionerId,
+            owner_type: "user",
+            owner_id: session.sub,
+            name,
+            token_hash: hash,
+            token_salt: salt,
+            status: "ACTIVE",
+            created_at: createdAt,
+            revoked_at: null,
+            last_used_at: null,
+        });
+
+        store.state.updateState((s) => {
+            if (!s.provisioners) s.provisioners = [];
+            s.provisioners.push({
+                provisioner_id: provisionerId,
+                owner_type: "user",
+                owner_id: session.sub,
+                name,
+                path: `./provisioners/${provisionerId}.json`,
+            });
+        });
+
+        store.audit.append("PROVISIONER_CREATED", {
+            user_principal_id: session.sub,
+            provisioner_id: provisionerId,
+            name,
+        });
+
+        return {
+            provisioner_id: provisionerId,
+            name,
+            token: formatProvisionerToken(provisionerId, secret),
+            created_at: createdAt,
+        };
+    });
+
+    // GET /v1/owner/provisioners
+    app.get("/v1/owner/provisioners", { preHandler: ownerAuth }, async (request) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const state = store.state.getState();
+        const provisioners = (state.provisioners ?? [])
+            .filter((p) => p.owner_type === "user" && p.owner_id === session.sub)
+            .map((entry) => {
+                const provisioner = store.provisioners.read(entry.provisioner_id);
+                return {
+                    provisioner_id: provisioner.provisioner_id,
+                    name: provisioner.name,
+                    status: provisioner.status,
+                    created_at: provisioner.created_at,
+                    revoked_at: provisioner.revoked_at,
+                    last_used_at: provisioner.last_used_at,
+                };
+            });
+        return { provisioners };
+    });
+
+    // DELETE /v1/owner/provisioners/:provisionerId — revoke
+    app.delete("/v1/owner/provisioners/:provisionerId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { provisionerId } = request.params as { provisionerId: string };
+
+        let provisioner;
+        try {
+            provisioner = store.provisioners.read(provisionerId);
+        } catch {
+            reply.code(404).send({
+                error: { code: "PROVISIONER_NOT_FOUND", message: "Provisioner not found" },
+            });
+            return;
+        }
+        if (provisioner.owner_type !== "user" || provisioner.owner_id !== session.sub) {
+            reply.code(403).send({
+                error: { code: "FORBIDDEN", message: "Provisioner belongs to a different owner" },
+            });
+            return;
+        }
+
+        if (provisioner.status !== "REVOKED") {
+            provisioner.status = "REVOKED";
+            provisioner.revoked_at = new Date().toISOString();
+            store.provisioners.write(provisioner);
+        }
+
+        store.audit.append("PROVISIONER_REVOKED", {
+            user_principal_id: session.sub,
+            provisioner_id: provisionerId,
+        });
+
+        return {
+            provisioner_id: provisionerId,
+            status: provisioner.status,
+            revoked_at: provisioner.revoked_at,
         };
     });
 

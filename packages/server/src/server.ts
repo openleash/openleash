@@ -14,6 +14,7 @@ import { registerAuthorizeRoutes } from './routes/authorize.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerOwnerRoutes } from './routes/owner.js';
 import { registerAgentSelfRoutes } from './routes/agent-self.js';
+import { registerProvisionerRoutes } from './routes/provisioner.js';
 import { registerPlaygroundRoutes } from './routes/playground.js';
 import { registerGuiRoutes } from './routes/gui.js';
 import { registerReferenceRoutes } from './routes/reference.js';
@@ -121,6 +122,7 @@ export async function createServer(options: CreateServerOptions) {
   registerAuthorizeRoutes(app, store, config, nonceCache);
   registerOwnerRoutes(app, store, config, events, pluginManifest);
   registerAgentSelfRoutes(app, store, config, nonceCache, events);
+  registerProvisionerRoutes(app, store);
   registerAdminRoutes(app, store, config, events, pluginManifest);
   if (config.instance?.mode !== 'hosted') {
     registerPlaygroundRoutes(app, config);

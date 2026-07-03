@@ -10,6 +10,7 @@ import type {
   PolicyGroupFrontmatter,
   ServerKeyFile,
   OrgInvite,
+  Provisioner,
   SetupInvite,
   StateApprovalRequestEntry,
   StateData,
@@ -94,6 +95,14 @@ export interface AgentInviteRepository {
   read(inviteId: string): AgentInvite;
   write(invite: AgentInvite): void;
   delete(inviteId: string): void;
+  /** All invites on disk. Used to list a provisioner's enrollments. */
+  list(): AgentInvite[];
+}
+
+export interface ProvisionerRepository {
+  read(provisionerId: string): Provisioner;
+  write(provisioner: Provisioner): void;
+  delete(provisionerId: string): void;
 }
 
 export interface OrgInviteRepository {
@@ -136,6 +145,7 @@ export interface DataStore {
   setupInvites: SetupInviteRepository;
   agentInvites: AgentInviteRepository;
   orgInvites: OrgInviteRepository;
+  provisioners: ProvisionerRepository;
   keys: KeyRepository;
   state: StateRepository;
   audit: AuditStore;

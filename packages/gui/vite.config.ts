@@ -106,6 +106,10 @@ export default defineConfig({
                     __dirname,
                     "src/pages/owner-policy-group-detail/client.ts",
                 ),
+                "pages/owner-provisioners/client": resolve(
+                    __dirname,
+                    "src/pages/owner-provisioners/client.ts",
+                ),
             },
         },
     },

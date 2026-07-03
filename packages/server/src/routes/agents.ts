@@ -6,6 +6,7 @@ import {
   ACTION_TAXONOMY,
 } from '@openleash/core';
 import type { DataStore, RegistrationChallenge } from '@openleash/core';
+import { nextRankInTier } from './owner.js';
 
 // In-memory challenge store
 const challenges = new Map<string, RegistrationChallenge>();
@@ -492,6 +493,11 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
     const agentPrincipalId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
+    const attributes: Record<string, unknown> = {};
+    if (invite.provisioner_id) {
+      attributes.enrolled_by_provisioner_id = invite.provisioner_id;
+    }
+
     store.agents.write({
       agent_principal_id: agentPrincipalId,
       agent_id: body.agent_id,
@@ -499,13 +505,26 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
       owner_id: invite.owner_id,
       public_key_b64: body.agent_pubkey_b64,
       status: 'ACTIVE',
-      attributes: {},
+      attributes,
       created_at: createdAt,
       revoked_at: null,
       webhook_url: body.webhook_url,
       webhook_secret: body.webhook_secret,
       webhook_auth_token: body.webhook_auth_token,
     });
+
+    // Provisioner enrollments may carry a policy to bind to the new agent.
+    // Verify the policy still exists and belongs to the invite's owner —
+    // it may have been deleted between enrollment and redemption.
+    const bindPolicyId = invite.bind_policy_id
+      && store.state.getState().policies.some(
+        (p) =>
+          p.policy_id === invite.bind_policy_id
+          && p.owner_type === invite.owner_type
+          && p.owner_id === invite.owner_id,
+      )
+      ? invite.bind_policy_id
+      : null;
 
     // Update state
     store.state.updateState((s) => {
@@ -516,11 +535,27 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
         owner_id: invite.owner_id,
         path: `./agents/${agentPrincipalId}.md`,
       });
+      if (bindPolicyId) {
+        const rank = nextRankInTier(s.bindings, {
+          owner_type: invite.owner_type,
+          owner_id: invite.owner_id,
+          tier: 'agent',
+        });
+        s.bindings.push({
+          owner_type: invite.owner_type,
+          owner_id: invite.owner_id,
+          policy_id: bindPolicyId,
+          applies_to_agent_principal_id: agentPrincipalId,
+          applies_to_group_id: null,
+          rank,
+        });
+      }
     });
 
     // Mark invite as used
     invite.used = true;
     invite.used_at = createdAt;
+    invite.agent_principal_id = agentPrincipalId;
     store.agentInvites.write(invite);
 
     store.audit.append('AGENT_REGISTERED_VIA_INVITE', {
@@ -530,6 +565,8 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
       owner_id: invite.owner_id,
       invite_id: inviteId,
       webhook_url: body.webhook_url,
+      ...(invite.provisioner_id ? { provisioner_id: invite.provisioner_id } : {}),
+      ...(bindPolicyId ? { bound_policy_id: bindPolicyId } : {}),
     });
 
     // Derive the base URL from the request
