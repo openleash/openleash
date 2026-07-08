@@ -29,6 +29,11 @@ export type {
     OwnerPolicyDraftEntry,
     OwnerPoliciesOptions,
 } from "./pages/owner-policies/render.js";
+export { renderOwnerTransformations } from "./pages/owner-transformations/render.js";
+export type {
+    OwnerTransformationEntry,
+    OwnerTransformationsOptions,
+} from "./pages/owner-transformations/render.js";
 export { renderOwnerPolicyCreate } from "./pages/owner-policy-create/render.js";
 export { renderOwnerPolicyEdit } from "./pages/owner-policy-edit/render.js";
 export { renderOwnerPolicyGroups } from "./pages/owner-policy-groups/render.js";

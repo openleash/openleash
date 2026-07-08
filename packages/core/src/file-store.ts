@@ -40,6 +40,9 @@ import {
   writeProvisionerFile,
   readProvisionerFile,
   deleteProvisionerFile,
+  writeTransformationFile,
+  readTransformationFile,
+  deleteTransformationFile,
   StateIndex,
 } from './state.js';
 import {
@@ -65,6 +68,7 @@ import type {
   SetupInvite,
   StateApprovalRequestEntry,
   StateData,
+  TransformationFrontmatter,
 } from './types.js';
 import type {
   DataStore,
@@ -77,6 +81,7 @@ import type {
   PolicyDraftRepository,
   PolicyGroupRepository,
   AgentGroupMembershipRepository,
+  TransformationRepository,
   SetupInviteRepository,
   AgentInviteRepository,
   OrgInviteRepository,
@@ -431,6 +436,42 @@ class FileOrgInviteRepository implements OrgInviteRepository {
   }
 }
 
+class FileTransformationRepository implements TransformationRepository {
+  private cache: TransformationFrontmatter[] | null = null;
+
+  constructor(private readonly dataDir: string) {}
+
+  private get dir() { return path.join(this.dataDir, 'transformations'); }
+
+  private loadAll(): TransformationFrontmatter[] {
+    if (this.cache) return this.cache;
+    const dir = this.dir;
+    if (!fs.existsSync(dir)) { this.cache = []; return this.cache; }
+    this.cache = fs.readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as TransformationFrontmatter);
+    return this.cache;
+  }
+
+  read(transformationId: string): TransformationFrontmatter {
+    return readTransformationFile(this.dataDir, transformationId);
+  }
+
+  write(transformation: TransformationFrontmatter): void {
+    writeTransformationFile(this.dataDir, transformation);
+    this.cache = null;
+  }
+
+  delete(transformationId: string): void {
+    deleteTransformationFile(this.dataDir, transformationId);
+    this.cache = null;
+  }
+
+  listByOwner(ownerType: 'user' | 'org', ownerId: string): TransformationFrontmatter[] {
+    return this.loadAll().filter((t) => t.owner_type === ownerType && t.owner_id === ownerId);
+  }
+}
+
 class FileKeyRepository implements KeyRepository {
   constructor(private readonly dataDir: string) {}
 
@@ -488,6 +529,7 @@ export class FileDataStore implements DataStore {
   readonly policyDrafts: PolicyDraftRepository;
   readonly policyGroups: PolicyGroupRepository;
   readonly agentGroupMemberships: AgentGroupMembershipRepository;
+  readonly transformations: TransformationRepository;
   readonly setupInvites: SetupInviteRepository;
   readonly agentInvites: AgentInviteRepository;
   readonly orgInvites: OrgInviteRepository;
@@ -509,6 +551,7 @@ export class FileDataStore implements DataStore {
     this.policyDrafts = new FilePolicyDraftRepository(dataDir);
     this.policyGroups = new FilePolicyGroupRepository(dataDir);
     this.agentGroupMemberships = new FileAgentGroupMembershipRepository(dataDir);
+    this.transformations = new FileTransformationRepository(dataDir);
     this.setupInvites = new FileSetupInviteRepository(dataDir);
     this.agentInvites = new FileAgentInviteRepository(dataDir);
     this.orgInvites = new FileOrgInviteRepository(dataDir);
@@ -532,6 +575,7 @@ export class FileDataStore implements DataStore {
     fs.mkdirSync(path.join(this.dataDir, 'policy-groups'), { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'agent-group-memberships'), { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'provisioners'), { recursive: true });
+    fs.mkdirSync(path.join(this.dataDir, 'transformations'), { recursive: true });
 
     // Ensure audit log
     const auditPath = path.join(this.dataDir, 'audit.log.jsonl');

@@ -38,6 +38,10 @@ export default defineConfig({
                     __dirname,
                     "src/pages/owner-policies/client.ts",
                 ),
+                "pages/owner-transformations/client": resolve(
+                    __dirname,
+                    "src/pages/owner-transformations/client.ts",
+                ),
                 "pages/owner-policy-create/client": resolve(
                     __dirname,
                     "src/pages/owner-policy-create/client.ts",
