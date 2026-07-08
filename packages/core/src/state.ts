@@ -14,6 +14,7 @@ import type {
   SetupInvite,
   StateApprovalRequestEntry,
   StateData,
+  TransformationFrontmatter,
 } from './types.js';
 
 const STATE_HEADER = '# openleash state\n\n```yaml\n';
@@ -213,6 +214,25 @@ export function readPolicyGroupFile(dataDir: string, groupId: string): PolicyGro
 
 export function deletePolicyGroupFile(dataDir: string, groupId: string): void {
   const filePath = path.join(dataDir, 'policy-groups', `${groupId}.json`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
+// ─── Transformation files ───────────────────────────────────────────
+
+export function writeTransformationFile(dataDir: string, t: TransformationFrontmatter): void {
+  const dir = path.join(dataDir, 'transformations');
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${t.transformation_id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(t, null, 2), 'utf-8');
+}
+
+export function readTransformationFile(dataDir: string, transformationId: string): TransformationFrontmatter {
+  const filePath = path.join(dataDir, 'transformations', `${transformationId}.json`);
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+export function deleteTransformationFile(dataDir: string, transformationId: string): void {
+  const filePath = path.join(dataDir, 'transformations', `${transformationId}.json`);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 

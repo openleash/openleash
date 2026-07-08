@@ -1,0 +1,106 @@
+.otr-intro {
+    margin-bottom: 16px;
+}
+
+.otr-section-desc {
+    margin: 0;
+    color: var(--text-secondary, #555);
+    line-height: 1.5;
+}
+
+.otr-card {
+    margin-bottom: 16px;
+}
+
+.otr-card-heading {
+    margin-top: 0;
+}
+
+.otr-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.otr-table th,
+.otr-table td {
+    text-align: left;
+    padding: 10px 8px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--border-color, #e5e5e5);
+}
+
+.otr-center {
+    text-align: center;
+}
+
+.otr-name {
+    margin-top: 4px;
+    font-weight: 600;
+}
+
+.otr-id-line {
+    margin-top: 4px;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.otr-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.otr-hidden {
+    display: none;
+}
+
+.otr-field {
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    gap: 4px;
+    font-weight: 600;
+}
+
+.otr-field-wide {
+    flex: 1 1 240px;
+}
+
+.otr-input {
+    font-size: 14px;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 6px;
+    font-weight: 400;
+}
+
+.otr-mono {
+    font-family: var(--font-mono, monospace);
+}
+
+.otr-create {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+}
+
+.otr-btn-action {
+    font-size: 13px;
+    padding: 6px 12px;
+}
+
+.otr-btn-ml {
+    margin-left: 8px;
+}
+
+.otr-btn-danger-outline {
+    border: 1px solid var(--color-danger, #c0392b);
+    color: var(--color-danger, #c0392b);
+}
+
+.otr-empty-cell {
+    text-align: center;
+    opacity: 0.6;
+    padding: 24px !important;
+}

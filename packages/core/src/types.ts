@@ -277,6 +277,7 @@ export interface StateData {
   agents: StateAgentEntry[];
   policies: StatePolicyEntry[];
   bindings: StateBinding[];
+  transformations?: StateTransformationEntry[];
   approval_requests?: StateApprovalRequestEntry[];
   policy_drafts?: StatePolicyDraftEntry[];
   /** Org-scoped policy groups. Optional for backward compatibility with pre-groups data. */
@@ -714,4 +715,61 @@ export interface OrgVerificationRecord {
   evidence: VerificationEvidence[];
   verified_at?: string;
   expires_at?: string;
+}
+
+// ─── Output transformations ──────────────────────────────────────────
+// Owner-configured rules applied client-side by a post-tool-call hook to a
+// tool's OUTPUT (not evaluated by the policy engine). Fetched by agents via
+// GET /v1/agent/transformations. Two rule types are supported.
+
+export const TransformationType = z.enum(['cap_output_length', 'regex_replace']);
+export type TransformationType = z.infer<typeof TransformationType>;
+
+/** Cap output to a maximum number of characters and/or lines. */
+export const CapOutputLengthRule = z.object({
+  type: z.literal('cap_output_length'),
+  max_characters: z.number().int().positive().nullable().optional(),
+  max_lines: z.number().int().positive().nullable().optional(),
+});
+export type CapOutputLengthRule = z.infer<typeof CapOutputLengthRule>;
+
+/** Replace every regex match in the output with a replacement string. */
+export const RegexReplaceRule = z.object({
+  type: z.literal('regex_replace'),
+  from_pattern: z.string().min(1),
+  to_pattern: z.string(),
+});
+export type RegexReplaceRule = z.infer<typeof RegexReplaceRule>;
+
+export const TransformationRule = z.discriminatedUnion('type', [
+  CapOutputLengthRule,
+  RegexReplaceRule,
+]);
+export type TransformationRule = z.infer<typeof TransformationRule>;
+
+/** A stored transformation (file: data/transformations/<id>.json). */
+export interface TransformationFrontmatter {
+  transformation_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
+  /** null = applies to every agent the owner controls. */
+  applies_to_agent_principal_id: string | null;
+  name: string | null;
+  description: string | null;
+  enabled: boolean;
+  /** Lower runs first when several transformations apply. */
+  rank: number;
+  rule: TransformationRule;
+  created_at: string;
+}
+
+/** state.md index entry for a transformation. */
+export interface StateTransformationEntry {
+  transformation_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
+  applies_to_agent_principal_id: string | null;
+  name: string | null;
+  rank: number;
+  path: string;
 }
