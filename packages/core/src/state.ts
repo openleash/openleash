@@ -11,6 +11,7 @@ import type {
   OrgMembership,
   PolicyDraftFrontmatter,
   PolicyGroupFrontmatter,
+  Provisioner,
   SetupInvite,
   StateApprovalRequestEntry,
   StateData,
@@ -292,6 +293,34 @@ export function readAgentInviteFile(dataDir: string, inviteId: string): AgentInv
 
 export function deleteAgentInviteFile(dataDir: string, inviteId: string): void {
   const filePath = path.join(dataDir, 'agent-invites', `${inviteId}.json`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
+export function listAgentInviteFiles(dataDir: string): AgentInvite[] {
+  const dir = path.join(dataDir, 'agent-invites');
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as AgentInvite);
+}
+
+// ─── Provisioner files ──────────────────────────────────────────────
+
+export function writeProvisionerFile(dataDir: string, provisioner: Provisioner): void {
+  const dir = path.join(dataDir, 'provisioners');
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${provisioner.provisioner_id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(provisioner, null, 2), 'utf-8');
+}
+
+export function readProvisionerFile(dataDir: string, provisionerId: string): Provisioner {
+  const filePath = path.join(dataDir, 'provisioners', `${provisionerId}.json`);
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+export function deleteProvisionerFile(dataDir: string, provisionerId: string): void {
+  const filePath = path.join(dataDir, 'provisioners', `${provisionerId}.json`);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 

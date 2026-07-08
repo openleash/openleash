@@ -62,6 +62,8 @@ tags:
     description: Organization management endpoints for multi-user workspaces with role-based membership.
   - name: Playground
     description: Sandbox endpoint for testing policy evaluation without real agents or state.
+  - name: Provisioner
+    description: Endpoints for machine principals (agent launchpads, CI pipelines) that enroll agents on an owner's behalf. Authenticated via an owner-minted provisioner bearer token.
 
 paths:
   # ── Public ──────────────────────────────────────────────────────────
@@ -2114,6 +2116,318 @@ paths:
         "403":
           description: Caller is not a member of the organization.
 
+  /v1/owner/provisioners:
+    post:
+      summary: Create provisioner
+      operationId: createProvisioner
+      tags: [Owner]
+      description: |
+        Creates a provisioner — a machine principal (agent launchpad, CI
+        pipeline) allowed to enroll agents on the owner's behalf via the
+        `/v1/provisioner/*` endpoints. The bearer token is returned exactly
+        once and only its hash is stored.
+      security:
+        - OwnerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: Human-readable label, e.g. "claw-controller-office".
+      responses:
+        "200":
+          description: Provisioner created. Save the token now — it is shown only once.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provisioner_id, name, token, created_at]
+                properties:
+                  provisioner_id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  token:
+                    type: string
+                    description: Bearer token `olp_<provisioner_id>.<secret>`. Shown only once.
+                  created_at:
+                    type: string
+                    format: date-time
+    get:
+      summary: List provisioners
+      operationId: listProvisioners
+      tags: [Owner]
+      description: Lists the owner's provisioners. Tokens are never returned.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: Provisioner list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provisioners]
+                properties:
+                  provisioners:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        provisioner_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        status:
+                          type: string
+                          enum: [ACTIVE, REVOKED]
+                        created_at:
+                          type: string
+                          format: date-time
+                        revoked_at:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        last_used_at:
+                          type: string
+                          format: date-time
+                          nullable: true
+
+  /v1/owner/provisioners/{provisionerId}:
+    delete:
+      summary: Revoke provisioner
+      operationId: revokeProvisioner
+      tags: [Owner]
+      description: |
+        Revokes the provisioner. Its token stops authenticating immediately;
+        agents it already enrolled are unaffected.
+      security:
+        - OwnerSession: []
+      parameters:
+        - name: provisionerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Provisioner revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provisioner_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [REVOKED]
+                  revoked_at:
+                    type: string
+                    format: date-time
+
+  /v1/provisioner/self:
+    get:
+      summary: Provisioner identity probe
+      operationId: getProvisionerSelf
+      tags: [Provisioner]
+      description: Returns the authenticated provisioner's identity. Use as a connection test.
+      security:
+        - ProvisionerToken: []
+      responses:
+        "200":
+          description: Provisioner identity.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provisioner_id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  owner_type:
+                    type: string
+                    enum: [user, org]
+                  owner_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [ACTIVE]
+                  created_at:
+                    type: string
+                    format: date-time
+        "401":
+          description: Missing, malformed, invalid, or revoked token.
+
+  /v1/provisioner/policies:
+    get:
+      summary: List owner policies (provisioner view)
+      operationId: listProvisionerPolicies
+      tags: [Provisioner]
+      description: |
+        Lists the owner's policies (id, name, description, scope) so the
+        provisioning platform can offer a policy choice at enrollment time.
+        Policy YAML content is not exposed to provisioners.
+      security:
+        - ProvisionerToken: []
+      responses:
+        "200":
+          description: Policy list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policies]
+                properties:
+                  policies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        policy_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                          nullable: true
+                        description:
+                          type: string
+                          nullable: true
+                        applies_to_agent_principal_id:
+                          type: string
+                          format: uuid
+                          nullable: true
+                        applies_to_group_id:
+                          type: string
+                          format: uuid
+                          nullable: true
+
+  /v1/provisioner/enrollments:
+    post:
+      summary: Create agent enrollment
+      operationId: createProvisionerEnrollment
+      tags: [Provisioner]
+      description: |
+        Mints a single-use agent invite on the owner's behalf. The agent
+        redeems it at `POST /v1/agents/register-with-invite` exactly like an
+        owner-created invite. If `policy_id` references one of the owner's
+        policies, an agent-specific binding to that policy is created
+        automatically when the invite is redeemed.
+      security:
+        - ProvisionerToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_name]
+              properties:
+                agent_name:
+                  type: string
+                  description: Intended agent name (informational; the agent supplies its own agent_id at redemption).
+                policy_id:
+                  type: string
+                  format: uuid
+                  description: Optional policy of the same owner to bind to the agent at redemption.
+      responses:
+        "200":
+          description: Enrollment created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enrollment_id, invite_id, invite_token, invite_url, expires_at]
+                properties:
+                  enrollment_id:
+                    type: string
+                    format: uuid
+                  invite_id:
+                    type: string
+                    format: uuid
+                  invite_token:
+                    type: string
+                    description: Plaintext invite token (one-time use).
+                  invite_url:
+                    type: string
+                    description: Convenience URL for SDK `redeemAgentInvite()`.
+                  expires_at:
+                    type: string
+                    format: date-time
+                  agent_name:
+                    type: string
+                  policy_id:
+                    type: string
+                    format: uuid
+                    nullable: true
+        "400":
+          description: Missing agent_name or policy_id not owned by this owner.
+    get:
+      summary: List enrollments
+      operationId: listProvisionerEnrollments
+      tags: [Provisioner]
+      description: Lists enrollments created by this provisioner with their status and resulting agent.
+      security:
+        - ProvisionerToken: []
+      responses:
+        "200":
+          description: Enrollment list, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enrollments]
+                properties:
+                  enrollments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        enrollment_id:
+                          type: string
+                          format: uuid
+                        agent_name:
+                          type: string
+                          nullable: true
+                        policy_id:
+                          type: string
+                          format: uuid
+                          nullable: true
+                        status:
+                          type: string
+                          enum: [pending, used, expired]
+                        created_at:
+                          type: string
+                          format: date-time
+                        expires_at:
+                          type: string
+                          format: date-time
+                        used_at:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        agent:
+                          type: object
+                          nullable: true
+                          properties:
+                            agent_principal_id:
+                              type: string
+                              format: uuid
+                            agent_id:
+                              type: string
+
   /v1/owner/organizations/{orgId}/agent-invites:
     post:
       summary: Create agent invite for organization
@@ -3295,6 +3609,15 @@ components:
         Contains `purpose: 'user_session'` claim to distinguish from
         proof tokens. Default TTL is 8 hours (configurable via
         `sessions.ttl_seconds` in `config.yaml`).
+
+    ProvisionerToken:
+      type: http
+      scheme: bearer
+      description: |
+        Provisioner bearer token of the form `olp_<provisioner_id>.<secret>`,
+        minted once by `POST /v1/owner/provisioners`. Grants only the
+        provisioner scope: creating and listing agent enrollments and
+        listing the owner's policies by id/name.
 
   parameters:
     OwnerId:

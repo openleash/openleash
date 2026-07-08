@@ -35,6 +35,7 @@ import {
     renderOwnerTransformations,
     renderOwnerPolicyGroups,
     renderOwnerPolicyGroupDetail,
+    renderOwnerProvisioners,
     renderOwnerPolicyCreate,
     renderOwnerPolicyEdit,
     renderOwnerProfile,
@@ -1145,6 +1146,47 @@ export function registerGuiRoutes(
         reply.type("text/html").send(html);
     };
     registerScopedOwnerRoute("agents", agentsListHandler);
+
+    // Owner provisioners — personal scope only (v1: provisioners are
+    // user-owned). The legacy unscoped path redirects to the personal one.
+    const provisionersHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const state = store.state.getState();
+        const usedInvitesByProvisioner = new Map<string, number>();
+        for (const invite of store.agentInvites.list()) {
+            if (invite.provisioner_id && invite.used) {
+                usedInvitesByProvisioner.set(
+                    invite.provisioner_id,
+                    (usedInvitesByProvisioner.get(invite.provisioner_id) ?? 0) + 1,
+                );
+            }
+        }
+        const provisioners = (state.provisioners ?? [])
+            .filter((p) => p.owner_type === "user" && p.owner_id === session.sub)
+            .map((entry) => {
+                const provisioner = store.provisioners.read(entry.provisioner_id);
+                return {
+                    provisioner_id: provisioner.provisioner_id,
+                    name: provisioner.name,
+                    status: provisioner.status,
+                    created_at: provisioner.created_at,
+                    revoked_at: provisioner.revoked_at,
+                    last_used_at: provisioner.last_used_at,
+                    enrolled_agent_count:
+                        usedInvitesByProvisioner.get(provisioner.provisioner_id) ?? 0,
+                };
+            });
+        const html = renderOwnerProvisioners(
+            provisioners,
+            ownerRenderOptionsFor(session, request, reply),
+        );
+        reply.type("text/html").send(html);
+    };
+    app.get("/gui/personal/provisioners", { preHandler: ownerAuth }, provisionersHandler);
+    app.get("/gui/provisioners", { preHandler: ownerAuth }, async (_request, reply) => {
+        reply.redirect("/gui/personal/provisioners");
+    });
 
     // Owner agent detail
     const agentDetailHandler = async (request: FastifyRequest, reply: FastifyReply) => {
