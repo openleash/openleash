@@ -530,6 +530,8 @@ export interface AgentInvite {
   provisioner_id?: string | null;
   agent_name?: string | null;
   bind_policy_id?: string | null;
+  /** Org-owned enrollments may add the new agent to a policy group. */
+  bind_group_id?: string | null;
   /** Stamped at redemption so enrollments can be traced to the agent. */
   agent_principal_id?: string | null;
 }

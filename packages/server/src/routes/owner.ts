@@ -874,6 +874,135 @@ export function registerOwnerRoutes(
         };
     });
 
+    // Org-owned provisioners — same lifecycle as personal ones, but the
+    // provisioner acts for the organization (org agents, org policies and
+    // policy groups). Managed by org admins.
+
+    // POST /v1/owner/organizations/:orgId/provisioners
+    app.post("/v1/owner/organizations/:orgId/provisioners", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+        const body = (request.body ?? {}) as { name?: unknown };
+
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        if (!name) {
+            reply.code(400).send({
+                error: { code: "INVALID_REQUEST", message: "name is required" },
+            });
+            return;
+        }
+
+        const provisionerId = crypto.randomUUID();
+        const secret = crypto.randomBytes(32).toString("base64url");
+        const { hash, salt } = hashPassphrase(secret);
+        const createdAt = new Date().toISOString();
+
+        store.provisioners.write({
+            provisioner_id: provisionerId,
+            owner_type: "org",
+            owner_id: orgId,
+            name,
+            token_hash: hash,
+            token_salt: salt,
+            status: "ACTIVE",
+            created_at: createdAt,
+            revoked_at: null,
+            last_used_at: null,
+        });
+
+        store.state.updateState((s) => {
+            if (!s.provisioners) s.provisioners = [];
+            s.provisioners.push({
+                provisioner_id: provisionerId,
+                owner_type: "org",
+                owner_id: orgId,
+                name,
+                path: `./provisioners/${provisionerId}.json`,
+            });
+        });
+
+        store.audit.append("PROVISIONER_CREATED", {
+            org_id: orgId,
+            provisioner_id: provisionerId,
+            name,
+            created_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return {
+            provisioner_id: provisionerId,
+            name,
+            token: formatProvisionerToken(provisionerId, secret),
+            created_at: createdAt,
+        };
+    });
+
+    // GET /v1/owner/organizations/:orgId/provisioners
+    app.get("/v1/owner/organizations/:orgId/provisioners", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId } = request.params as { orgId: string };
+        if (!requireOrgRole(session, orgId, "org_viewer", reply)) return;
+        const state = store.state.getState();
+        const provisioners = (state.provisioners ?? [])
+            .filter((p) => p.owner_type === "org" && p.owner_id === orgId)
+            .map((entry) => {
+                const provisioner = store.provisioners.read(entry.provisioner_id);
+                return {
+                    provisioner_id: provisioner.provisioner_id,
+                    name: provisioner.name,
+                    status: provisioner.status,
+                    created_at: provisioner.created_at,
+                    revoked_at: provisioner.revoked_at,
+                    last_used_at: provisioner.last_used_at,
+                };
+            });
+        return { provisioners };
+    });
+
+    // DELETE /v1/owner/organizations/:orgId/provisioners/:provisionerId — revoke
+    app.delete("/v1/owner/organizations/:orgId/provisioners/:provisionerId", { preHandler: ownerAuth }, async (request, reply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const { orgId, provisionerId } = request.params as { orgId: string; provisionerId: string };
+        if (!requireOrgRole(session, orgId, "org_admin", reply)) return;
+
+        let provisioner;
+        try {
+            provisioner = store.provisioners.read(provisionerId);
+        } catch {
+            reply.code(404).send({
+                error: { code: "PROVISIONER_NOT_FOUND", message: "Provisioner not found" },
+            });
+            return;
+        }
+        if (provisioner.owner_type !== "org" || provisioner.owner_id !== orgId) {
+            reply.code(404).send({
+                error: { code: "PROVISIONER_NOT_FOUND", message: "Provisioner not found" },
+            });
+            return;
+        }
+
+        if (provisioner.status !== "REVOKED") {
+            provisioner.status = "REVOKED";
+            provisioner.revoked_at = new Date().toISOString();
+            store.provisioners.write(provisioner);
+        }
+
+        store.audit.append("PROVISIONER_REVOKED", {
+            org_id: orgId,
+            provisioner_id: provisionerId,
+            revoked_by: session.sub,
+        }, { principal_id: session.sub });
+
+        return {
+            provisioner_id: provisionerId,
+            status: provisioner.status,
+            revoked_at: provisioner.revoked_at,
+        };
+    });
+
     // ─── Organizations ─────────────────────────────────────────────────
 
     const ORG_ROLE_LEVEL: Record<OrgRole, number> = { org_admin: 3, org_member: 2, org_viewer: 1 };

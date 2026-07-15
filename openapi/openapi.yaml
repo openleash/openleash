@@ -40,7 +40,7 @@ info:
        and the agent re-authorizes with the approval token.
     7. A counterparty verifies the proof token via `/v1/verify-proof` or
        offline using the public keys from `/v1/public-keys`.
-  version: 0.6.0
+  version: 0.7.0
   license:
     name: Apache-2.0
     url: https://github.com/openleash/openleash/blob/main/LICENSE
@@ -2324,7 +2324,9 @@ paths:
         redeems it at `POST /v1/agents/register-with-invite` exactly like an
         owner-created invite. If `policy_id` references one of the owner's
         policies, an agent-specific binding to that policy is created
-        automatically when the invite is redeemed.
+        automatically when the invite is redeemed. If `group_id` references
+        one of the owner's policy groups (org owners only), the agent is
+        added to that group at redemption.
       security:
         - ProvisionerToken: []
       requestBody:
@@ -2342,6 +2344,10 @@ paths:
                   type: string
                   format: uuid
                   description: Optional policy of the same owner to bind to the agent at redemption.
+                group_id:
+                  type: string
+                  format: uuid
+                  description: Optional policy group of the same owner (org-owned provisioners only) the agent joins at redemption.
       responses:
         "200":
           description: Enrollment created.
@@ -2372,8 +2378,12 @@ paths:
                     type: string
                     format: uuid
                     nullable: true
+                  group_id:
+                    type: string
+                    format: uuid
+                    nullable: true
         "400":
-          description: Missing agent_name or policy_id not owned by this owner.
+          description: Missing agent_name, or policy_id/group_id not owned by this owner.
     get:
       summary: List enrollments
       operationId: listProvisionerEnrollments
@@ -2405,6 +2415,10 @@ paths:
                           type: string
                           format: uuid
                           nullable: true
+                        group_id:
+                          type: string
+                          format: uuid
+                          nullable: true
                         status:
                           type: string
                           enum: [pending, used, expired]
@@ -2427,6 +2441,417 @@ paths:
                               format: uuid
                             agent_id:
                               type: string
+
+  /v1/provisioner/agents:
+    get:
+      summary: List the owner's agents (provisioner view)
+      operationId: listProvisionerAgents
+      tags: [Provisioner]
+      description: Lists the owner's agents so the provisioning platform can manage policies and group memberships on existing agents.
+      security:
+        - ProvisionerToken: []
+      responses:
+        "200":
+          description: Agent list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agents]
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        agent_principal_id:
+                          type: string
+                          format: uuid
+                        agent_id:
+                          type: string
+                        status:
+                          type: string
+                          nullable: true
+                          enum: [ACTIVE, REVOKED, null]
+                        created_at:
+                          type: string
+                          format: date-time
+                          nullable: true
+
+  /v1/provisioner/groups:
+    get:
+      summary: List the owner's policy groups (provisioner view)
+      operationId: listProvisionerGroups
+      tags: [Provisioner]
+      description: |
+        Lists the owner's policy groups with member counts. Policy groups are
+        org-scoped, so user-owned provisioners always receive an empty list.
+      security:
+        - ProvisionerToken: []
+      responses:
+        "200":
+          description: Group list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [groups]
+                properties:
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        group_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        slug:
+                          type: string
+                        description:
+                          type: string
+                          nullable: true
+                        created_at:
+                          type: string
+                          format: date-time
+                        member_count:
+                          type: integer
+
+  /v1/provisioner/groups/{groupId}/agents/{agentPrincipalId}:
+    post:
+      summary: Add agent to policy group (provisioner)
+      operationId: provisionerAddAgentToGroup
+      tags: [Provisioner]
+      description: Adds one of the owner's agents to one of the owner's policy groups. Idempotent — adding an existing member returns `already_member`.
+      security:
+        - ProvisionerToken: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: agentPrincipalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Membership created (or already present).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [membership_id, status]
+                properties:
+                  membership_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [added, already_member]
+        "404":
+          description: Group or agent not found for this owner.
+    delete:
+      summary: Remove agent from policy group (provisioner)
+      operationId: provisionerRemoveAgentFromGroup
+      tags: [Provisioner]
+      description: Removes the agent's membership in the policy group.
+      security:
+        - ProvisionerToken: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: agentPrincipalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Membership removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [membership_id, status]
+                properties:
+                  membership_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [removed]
+        "404":
+          description: Group not found for this owner, or agent is not a member.
+
+  /v1/provisioner/agents/{agentPrincipalId}/policies:
+    get:
+      summary: List an agent's policy bindings and groups (provisioner)
+      operationId: getProvisionerAgentPolicies
+      tags: [Provisioner]
+      description: Returns the agent's agent-tier policy bindings and its policy-group memberships.
+      security:
+        - ProvisionerToken: []
+      parameters:
+        - name: agentPrincipalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Bindings and memberships.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agent_principal_id, policies, groups]
+                properties:
+                  agent_principal_id:
+                    type: string
+                    format: uuid
+                  policies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        policy_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                          nullable: true
+                        rank:
+                          type: integer
+                          nullable: true
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        group_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                          nullable: true
+                        membership_id:
+                          type: string
+                          format: uuid
+        "404":
+          description: Agent not found for this owner.
+    post:
+      summary: Bind a policy to an agent (provisioner)
+      operationId: provisionerBindPolicy
+      tags: [Provisioner]
+      description: |
+        Creates an agent-tier binding of an existing owner policy to the
+        agent — the same binding an enrollment's `policy_id` creates at
+        redemption. Idempotent.
+      security:
+        - ProvisionerToken: []
+      parameters:
+        - name: agentPrincipalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy_id]
+              properties:
+                policy_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Policy bound (or already bound).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy_id, agent_principal_id, status]
+                properties:
+                  policy_id:
+                    type: string
+                    format: uuid
+                  agent_principal_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [bound, already_bound]
+        "400":
+          description: Missing policy_id, or policy not owned by this owner.
+        "404":
+          description: Agent not found for this owner.
+
+  /v1/provisioner/agents/{agentPrincipalId}/policies/{policyId}:
+    delete:
+      summary: Unbind a policy from an agent (provisioner)
+      operationId: provisionerUnbindPolicy
+      tags: [Provisioner]
+      description: Removes the agent-tier binding. The policy itself is untouched.
+      security:
+        - ProvisionerToken: []
+      parameters:
+        - name: agentPrincipalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: policyId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Binding removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy_id, agent_principal_id, status]
+                properties:
+                  policy_id:
+                    type: string
+                    format: uuid
+                  agent_principal_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [unbound]
+        "404":
+          description: Agent not found for this owner, or policy not bound to it.
+
+  /v1/owner/organizations/{orgId}/provisioners:
+    post:
+      summary: Create organization provisioner
+      operationId: createOrgProvisioner
+      tags: [Organization, Owner]
+      description: |
+        Creates an org-owned provisioner. It acts for the organization —
+        enrolling org agents and managing org policies and policy groups via
+        `/v1/provisioner/*`. Requires `org_admin`. The bearer token is
+        returned exactly once.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: Provisioner created; token shown only once.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provisioner_id, name, token, created_at]
+                properties:
+                  provisioner_id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  token:
+                    type: string
+                    description: Bearer token `olp_<provisioner_id>.<secret>`. Shown only once.
+                  created_at:
+                    type: string
+                    format: date-time
+        "403":
+          description: Caller is not an org_admin of this organization.
+    get:
+      summary: List organization provisioners
+      operationId: listOrgProvisioners
+      tags: [Organization, Owner]
+      description: Lists the organization's provisioners (no secrets). Requires `org_viewer`.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Provisioner list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provisioners]
+                properties:
+                  provisioners:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        provisioner_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        status:
+                          type: string
+                          enum: [ACTIVE, REVOKED]
+                        created_at:
+                          type: string
+                          format: date-time
+                        revoked_at:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        last_used_at:
+                          type: string
+                          format: date-time
+                          nullable: true
+
+  /v1/owner/organizations/{orgId}/provisioners/{provisionerId}:
+    delete:
+      summary: Revoke organization provisioner
+      operationId: revokeOrgProvisioner
+      tags: [Organization, Owner]
+      description: Revokes the provisioner's token permanently. Requires `org_admin`.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - name: provisionerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Provisioner revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provisioner_id, status]
+                properties:
+                  provisioner_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [REVOKED]
+                  revoked_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+        "404":
+          description: Provisioner not found in this organization.
 
   /v1/owner/organizations/{orgId}/agent-invites:
     post:

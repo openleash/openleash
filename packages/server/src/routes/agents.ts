@@ -526,6 +526,19 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
       ? invite.bind_policy_id
       : null;
 
+    // Likewise for a policy group — it may have been deleted since enrollment.
+    let bindGroupId: string | null = null;
+    if (invite.bind_group_id) {
+      try {
+        const group = store.policyGroups.read(invite.bind_group_id);
+        if (group.owner_type === invite.owner_type && group.owner_id === invite.owner_id) {
+          bindGroupId = group.group_id;
+        }
+      } catch {
+        // group gone — register the agent without the membership
+      }
+    }
+
     // Update state
     store.state.updateState((s) => {
       s.agents.push({
@@ -552,6 +565,26 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
       }
     });
 
+    if (bindGroupId) {
+      const membershipId = crypto.randomUUID();
+      store.agentGroupMemberships.write({
+        membership_id: membershipId,
+        group_id: bindGroupId,
+        agent_principal_id: agentPrincipalId,
+        added_at: createdAt,
+        added_by_user_id: invite.provisioner_id ?? 'enrollment',
+      });
+      store.state.updateState((s) => {
+        if (!s.agent_group_memberships) s.agent_group_memberships = [];
+        s.agent_group_memberships.push({
+          membership_id: membershipId,
+          group_id: bindGroupId,
+          agent_principal_id: agentPrincipalId,
+          path: `./agent-group-memberships/${membershipId}.json`,
+        });
+      });
+    }
+
     // Mark invite as used
     invite.used = true;
     invite.used_at = createdAt;
@@ -567,6 +600,7 @@ export function registerAgentRoutes(app: FastifyInstance, store: DataStore) {
       webhook_url: body.webhook_url,
       ...(invite.provisioner_id ? { provisioner_id: invite.provisioner_id } : {}),
       ...(bindPolicyId ? { bound_policy_id: bindPolicyId } : {}),
+      ...(bindGroupId ? { bound_group_id: bindGroupId } : {}),
     });
 
     // Derive the base URL from the request
