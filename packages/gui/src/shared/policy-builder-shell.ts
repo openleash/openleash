@@ -37,7 +37,7 @@ export function renderPolicyBuilderShell(initialYaml: string): string {
       <div class="pb-panel hidden" id="pb-yaml-panel">
         <label class="pb-section-label">Policy YAML</label>
         <textarea id="policy-yaml" class="yaml-editor pb-yaml">${escapeHtml(initialYaml)}</textarea>
-        <p class="form-help">Edit raw YAML directly. Advanced fields such as <code>when</code> conditions and <code>proof</code> live here and are preserved when you switch back to the visual builder.</p>
+        <p class="form-help">Edit raw YAML directly. Everything here is also editable in the visual builder — switching modes keeps the two in sync.</p>
       </div>
     </div>`;
 }

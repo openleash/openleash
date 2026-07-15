@@ -34,6 +34,11 @@ document.querySelectorAll<HTMLInputElement>("input[name='applies-to']").forEach(
 async function createPolicy() {
     const name = (document.getElementById("policy-name") as HTMLInputElement).value.trim() || null;
     const desc = (document.getElementById("policy-desc") as HTMLInputElement).value.trim() || null;
+    const problems = builder.validate();
+    if (problems.length > 0) {
+        olToast(problems[0] + (problems.length > 1 ? ` (+${problems.length - 1} more)` : ""), "error");
+        return;
+    }
     const yaml = builder.getYaml();
 
     // Determine scope: explicit in org mode, agent-or-all in personal mode.

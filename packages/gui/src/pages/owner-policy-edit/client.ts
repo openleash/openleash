@@ -27,6 +27,11 @@ const policyUrl = orgId
 async function savePolicy() {
     const name = (document.getElementById("policy-name") as HTMLInputElement).value.trim() || null;
     const desc = (document.getElementById("policy-desc") as HTMLInputElement).value.trim() || null;
+    const problems = builder.validate();
+    if (problems.length > 0) {
+        olToast(problems[0] + (problems.length > 1 ? ` (+${problems.length - 1} more)` : ""), "error");
+        return;
+    }
     const yaml = builder.getYaml();
 
     const res = await fetch(policyUrl, {

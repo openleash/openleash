@@ -161,3 +161,141 @@
 .pb-yaml {
     width: 100%;
 }
+
+/* Small buttons used inside rule cards */
+.pb-btn-sm {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+}
+.pb-field-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+.pb-input-error {
+    border-color: var(--danger, #dc2626) !important;
+}
+
+/* `when` condition tree */
+.pb-when {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.pb-when-empty {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pb-when-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.pb-expr-match {
+    display: grid;
+    grid-template-columns: minmax(140px, 2fr) minmax(110px, 1fr) minmax(120px, 2fr) auto;
+    gap: 6px;
+    align-items: center;
+}
+.pb-expr-match .pb-expr-path,
+.pb-expr-regex {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.85rem;
+}
+.pb-expr-remove {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+    line-height: 1;
+    border-radius: 6px;
+}
+.pb-expr-remove:hover {
+    color: var(--danger, #dc2626);
+}
+.pb-expr-remove .material-symbols-outlined {
+    font-size: 18px;
+    vertical-align: middle;
+}
+.pb-expr-group {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent, #4f46e5);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.pb-expr-not {
+    border-left-color: var(--danger, #dc2626);
+}
+.pb-expr-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pb-expr-group-head .pb-expr-kind {
+    width: auto;
+    font-size: 0.82rem;
+    padding: 3px 8px;
+}
+.pb-expr-group-head .pb-expr-remove {
+    margin-left: auto;
+}
+.pb-expr-not-label {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--danger, #dc2626);
+}
+.pb-expr-children {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.pb-expr-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.pb-expr-unknown {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.pb-expr-raw {
+    font-size: 0.75rem;
+    overflow-x: auto;
+    background: var(--bg-elevated, rgba(0, 0, 0, 0.04));
+    border-radius: 6px;
+    padding: 6px 8px;
+    margin: 0;
+}
+
+/* Obligation blocks (checkbox + params editor) */
+.pb-obligations {
+    flex-direction: column;
+    gap: 8px;
+}
+.pb-obligation-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.pb-obligation-params {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.8rem;
+    max-width: 480px;
+    resize: vertical;
+}
+.pb-obligation-note {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+.pb-obligation-unknown {
+    margin-top: 4px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
