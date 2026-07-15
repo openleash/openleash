@@ -1,6 +1,6 @@
 {
   "name": "@openleash/server",
-  "version": "0.26.0",
+  "version": "0.27.0",
   "description": "HTTP server for openleash",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,8 +14,8 @@
   "dependencies": {
     "@fastify/helmet": "^13.1.0",
     "@fastify/static": "^10.1.0",
-    "@openleash/core": "0.26.0",
-    "@openleash/gui": "0.26.0",
+    "@openleash/core": "0.27.0",
+    "@openleash/gui": "0.27.0",
     "@scalar/fastify-api-reference": "^1.62.5",
     "fastify": "^5.10.0",
     "yaml": "^2.9.0",
