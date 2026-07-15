@@ -35,7 +35,8 @@ export async function testvectorsCommand() {
     format: 'der',
     type: 'pkcs8',
   });
-  const publicKey = crypto.createPublicKey(privateKey);
+  // @types/node 26 no longer types createPublicKey(KeyObject); go via PEM
+  const publicKey = crypto.createPublicKey(privateKey.export({ type: 'pkcs8', format: 'pem' }));
 
   const privateKeyDer = privateKey.export({ type: 'pkcs8', format: 'der' });
   const publicKeyDer = publicKey.export({ type: 'spki', format: 'der' });
