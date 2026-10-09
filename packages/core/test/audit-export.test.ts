@@ -7,6 +7,7 @@ import {
   AuditCursorNotFoundError,
   FileAuditStore,
   decodeAuditCursor,
+  isAuditCursorNotFoundError,
   encodeAuditCursor,
   readAuditAfter,
 } from '../src/audit.js';
@@ -255,7 +256,15 @@ describe('readByPrincipalsAfter', () => {
     ).toThrow(AuditCursorNotFoundError);
   });
 
-  it('readAuditAfter fallback matches the native implementation', () => {
+  it('recognises cursor errors thrown by plugins by name', () => {
+    const pluginError = new Error('gone');
+    pluginError.name = 'AuditCursorNotFoundError';
+    expect(isAuditCursorNotFoundError(pluginError)).toBe(true);
+    expect(isAuditCursorNotFoundError(new AuditCursorNotFoundError('x'))).toBe(true);
+    expect(isAuditCursorNotFoundError(new Error('other'))).toBe(false);
+  });
+
+  it('readAuditAfter fallback matches the native implementation', async () => {
     // A store without readByPrincipalsAfter (e.g. an older plugin).
     const legacy: AuditStore = {
       append: store.append.bind(store),
@@ -271,7 +280,7 @@ describe('readByPrincipalsAfter', () => {
       { since: events[6].timestamp, limit: 10 },
     ]) {
       const native = store.readByPrincipalsAfter(principals, opts);
-      const fallback = readAuditAfter(legacy, principals, opts);
+      const fallback = await readAuditAfter(legacy, principals, opts);
       expect(seqs(fallback.items)).toEqual(seqs(native.items));
       expect(fallback.has_more).toBe(native.has_more);
     }

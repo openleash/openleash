@@ -220,6 +220,10 @@ The cursor is written only after the page has been appended, so a crash can at w
 - Exported events can contain action payloads that agents submitted for authorization (`AUTHORIZE_CALLED` → `unmapped.metadata.payload`). Apply the same handling rules to your SIEM index as to the data your agents process.
 - The export is read-only. An `audit:read` key cannot change policies, act as an agent, or read anything other than the owner's audit trail.
 
-## Self-hosted storage notes
+## Storage notes
 
-With the built-in file store, keys live in `data/api-keys/<api_key_id>.json` (hash only) and the export is served from an in-memory index of `data/audit.log.jsonl`. Store plugins may implement `AuditStore.readByPrincipalsAfter()` for efficient cursor reads; stores that don't are served by a slower fallback that scans newest-first back to the cursor.
+**File store (self-hosted default).** Keys live in `data/api-keys/<api_key_id>.json` (hash only) and the export is served from an in-memory index of `data/audit.log.jsonl`. New events are visible immediately.
+
+**Firestore store (hosted).** API keys are kept in sync across server instances with a live listener, so revocation takes effect everywhere within about a second. Export reads query Firestore directly, and events are held back for about **5 seconds** after they are written so that writes landing late from other instances are never skipped. An event can therefore take a few seconds to appear in the export.
+
+**Store plugins.** A `DataStore` plugin may implement `AuditStore.readByPrincipalsAfter()` (sync or async) for efficient cursor reads. A store that filters a shared collection in memory should return `scanned_to` so the cursor advances past events that belong to other owners. Stores without it are served by a slower fallback that scans newest-first back to the cursor.

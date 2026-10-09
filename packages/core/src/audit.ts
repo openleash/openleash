@@ -93,12 +93,16 @@ export interface AuditStore {
    *
    * Optional so older store plugins keep working — callers should go through
    * `readAuditAfter()`, which falls back to scanning `readByPrincipal()`.
-   * Throws `AuditCursorNotFoundError` when `afterEventId` is unknown.
+   * May be async, so stores backed by a remote database can query it
+   * directly instead of a local cache. Throws (or rejects with)
+   * `AuditCursorNotFoundError` when `afterEventId` is unknown; stores that
+   * can't share the class may throw an Error whose `name` is
+   * `'AuditCursorNotFoundError'`.
    */
   readByPrincipalsAfter?(
     principalIds: Set<string>,
     opts: AuditReadAfterOptions,
-  ): AuditReadAfterResult;
+  ): AuditReadAfterResult | Promise<AuditReadAfterResult>;
 }
 
 export interface AuditReadAfterOptions {
@@ -118,6 +122,13 @@ export interface AuditReadAfterResult {
   /** Oldest first. */
   items: AuditEvent[];
   has_more: boolean;
+  /**
+   * Position the store has read up to, when it scanned past events that
+   * didn't match (e.g. a shared collection filtered in memory). Callers
+   * resume after this instead of the last item, so non-matching stretches
+   * aren't re-scanned. Omitted means "the last item".
+   */
+  scanned_to?: AuditCursor | null;
 }
 
 export class AuditCursorNotFoundError extends Error {
@@ -125,6 +136,12 @@ export class AuditCursorNotFoundError extends Error {
     super(`Audit cursor event not found: ${eventId}`);
     this.name = 'AuditCursorNotFoundError';
   }
+}
+
+/** True for `AuditCursorNotFoundError`, including copies thrown by store plugins. */
+export function isAuditCursorNotFoundError(err: unknown): boolean {
+  return err instanceof AuditCursorNotFoundError ||
+    (err instanceof Error && err.name === 'AuditCursorNotFoundError');
 }
 
 // ─── Export cursors ───────────────────────────────────────────────────
@@ -165,11 +182,11 @@ const FALLBACK_SCAN_PAGE = 500;
  * pages newest-first back to the cursor (or `since`), which is correct but
  * costs O(events since the cursor).
  */
-export function readAuditAfter(
+export async function readAuditAfter(
   audit: AuditStore,
   principalIds: Set<string>,
   opts: AuditReadAfterOptions,
-): AuditReadAfterResult {
+): Promise<AuditReadAfterResult> {
   if (principalIds.size === 0) return { items: [], has_more: false };
   if (audit.readByPrincipalsAfter) return audit.readByPrincipalsAfter(principalIds, opts);
 

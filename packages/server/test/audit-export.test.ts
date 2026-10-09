@@ -456,6 +456,27 @@ describe("API keys + audit export", () => {
             expect(personal.body).toContain("/v1/owner/audit/export");
         });
 
+        it("advances the cursor past events a store scanned but filtered out", async () => {
+            const { token } = await createOrgKey();
+            const audit = store.audit as unknown as Record<string, unknown>;
+            const original = audit.readByPrincipalsAfter;
+            // A shared-collection store (e.g. Firestore) that scanned only
+            // other owners' events: no items, but it reports how far it read.
+            audit.readByPrincipalsAfter = async () => ({
+                items: [],
+                has_more: false,
+                scanned_to: { event_id: "scanned-id", timestamp: "2026-10-09T00:00:00.000Z" },
+            });
+            try {
+                const body = (await exportOrg(token)).json();
+                expect(body.items).toEqual([]);
+                const decoded = JSON.parse(Buffer.from(body.next_cursor, "base64url").toString("utf-8"));
+                expect(decoded.e).toBe("scanned-id");
+            } finally {
+                audit.readByPrincipalsAfter = original;
+            }
+        });
+
         it("rejects a tampered secret", async () => {
             const { token } = await createOrgKey();
             const res = await exportOrg(token.slice(0, -2) + "xx");

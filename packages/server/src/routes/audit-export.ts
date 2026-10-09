@@ -3,16 +3,17 @@ import { z } from 'zod';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
   API_KEY_SCOPES,
-  AuditCursorNotFoundError,
   auditEventInScope,
   decodeAuditCursor,
   encodeAuditCursor,
   hashPassphrase,
+  isAuditCursorNotFoundError,
   readAuditAfter,
   toOcsfEvent,
 } from '@openleash/core';
 import type {
   ApiKey,
+  AuditCursor,
   AuditEvent,
   AuditExportScope,
   DataStore,
@@ -269,7 +270,7 @@ export function registerAuditExportRoutes(
     return resolveScope(session(request).sub, null);
   }
 
-  function sendExport(
+  async function sendExport(
     request: FastifyRequest,
     reply: FastifyReply,
     scope: AuditExportScope,
@@ -327,26 +328,28 @@ export function registerAuditExportRoutes(
     const principalIds = new Set([scope.ownerId, ...agentIds]);
 
     const items: AuditEvent[] = [];
-    let lastScanned: AuditEvent | null = null;
+    // Where the next read resumes: the last event read, or further if the
+    // store reports it scanned past non-matching events.
+    let position: AuditCursor | null = cursor;
     let hasMore = false;
     try {
       for (let round = 0; round < MAX_SCAN_ROUNDS && items.length < limit; round++) {
-        const after = lastScanned ?? (cursor ? { event_id: cursor.event_id, timestamp: cursor.timestamp } : null);
-        const page = readAuditAfter(store.audit, principalIds, {
-          afterEventId: after?.event_id ?? null,
-          afterTimestamp: after?.timestamp ?? null,
-          since: after ? null : since,
+        const page = await readAuditAfter(store.audit, principalIds, {
+          afterEventId: position?.event_id ?? null,
+          afterTimestamp: position?.timestamp ?? null,
+          since: position ? null : since,
           limit: limit - items.length,
         });
         for (const event of page.items) {
-          lastScanned = event;
+          position = { event_id: event.event_id, timestamp: event.timestamp };
           if (auditEventInScope(event, scope, agentIds)) items.push(event);
         }
+        if (page.scanned_to) position = page.scanned_to;
         hasMore = page.has_more;
         if (!hasMore) break;
       }
     } catch (err) {
-      if (err instanceof AuditCursorNotFoundError) {
+      if (isAuditCursorNotFoundError(err)) {
         reply.code(410).send({
           error: { code: 'CURSOR_EXPIRED', message: 'Cursor no longer exists; restart from a since timestamp' },
         });
@@ -355,7 +358,7 @@ export function registerAuditExportRoutes(
       throw err;
     }
 
-    const nextCursor = lastScanned ? encodeAuditCursor(lastScanned) : query.cursor ?? null;
+    const nextCursor = position ? encodeAuditCursor(position) : null;
     const productVersion = getVersion();
     const out = format === 'ocsf' ? items.map((e) => toOcsfEvent(e, { productVersion })) : items;
 
