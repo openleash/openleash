@@ -680,6 +680,11 @@ export function registerOwnerRoutes(
         }
 
         const agent = store.agents.read(agentEntry.agent_principal_id);
+        if (store.transformations.listByOwner(agent.owner_type, agent.owner_id).some(t => t.applies_to_agent_principal_id === agent.agent_principal_id)) {
+            reply.code(409).send({ error: { code: 'AGENT_HAS_TRANSFORMATIONS', message: 'Remove or retarget agent-specific transformations before transfer' } });
+            return;
+        }
+        store.state.updateState(s => { s.transformation_bindings = (s.transformation_bindings ?? []).filter(b => b.agent_principal_id !== agent.agent_principal_id); });
         const fromOwner = { type: agent.owner_type, id: agent.owner_id };
 
         agent.owner_type = "org";
@@ -2433,6 +2438,10 @@ export function registerOwnerRoutes(
         }
 
         const state = store.state.getState();
+        if (store.transformations.listByOwner('org', orgId).some(t => t.applies_to_group_id === groupId)) {
+            reply.code(409).send({ error: { code: 'GROUP_HAS_TRANSFORMATIONS', message: 'Remove or retarget transformations before deleting this group' } });
+            return;
+        }
         const boundPolicies = state.policies.filter(
             (p) => p.owner_type === "org" && p.owner_id === orgId && p.applies_to_group_id === groupId,
         );

@@ -1,0 +1,9 @@
+[
+  {"name":"unicode code points", "input":"\ud83d\ude00abc", "rule":{"type":"cap_output_length","max_characters":2}, "output":"\ud83d\ude00a"},
+  {"name":"LF-only lines", "input":"a\rb\nc\nd", "rule":{"type":"cap_output_length","max_lines":1}, "output":"a\rb\n"},
+  {"name":"literal replacement", "input":"abc", "rule":{"type":"regex_replace","from_pattern":"(b)","to_pattern":"$1\\1"}, "output":"a$1\\1c"},
+  {"name":"ASCII digits", "input":"1\u0661", "rule":{"type":"regex_replace","from_pattern":"\\d","to_pattern":"X"}, "output":"X\u0661"},
+  {"name":"ASCII whitespace", "input":" \t\u00a0", "rule":{"type":"regex_replace","from_pattern":"\\s+","to_pattern":"X"}, "output":"X\u00a0"},
+  {"name":"absolute end", "input":"a\n", "rule":{"type":"regex_replace","from_pattern":"a$","to_pattern":"X"}, "output":"a\n"},
+  {"name":"dot excludes LF only", "input":"\r\n\u2028", "rule":{"type":"regex_replace","from_pattern":".","to_pattern":"X"}, "output":"X\nX"}
+]

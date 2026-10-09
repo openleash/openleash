@@ -20,6 +20,7 @@ import {
 // ─── Interfaces ───────────────────────────────────────────────────────
 
 export interface OwnerAgentDetailData {
+    transformations?: { transformation_id: string; name: string | null; rank: number; revision?: number; applies_to_agent_principal_id: string | null; applies_to_group_id?: string | null }[];
     agent: {
         agent_principal_id: string;
         agent_id: string;
@@ -238,6 +239,8 @@ export function renderOwnerAgentDetail(data: OwnerAgentDetailData, renderPageOpt
           <tbody>${policyRows}</tbody>
         </table>`}
     </div>
+    <div class="card"><h3>Effective transformation chain</h3><p>All enabled matching rules run in this order.</p><ol>${(data.transformations ?? []).map(t => `<li><a href="/gui/${data.orgSlug ? 'orgs/' + encodeURIComponent(data.orgSlug) : 'personal'}/transformations/${encodeURIComponent(t.transformation_id)}">${escapeHtml(t.name || t.transformation_id)}</a> (revision ${t.revision ?? 1}; ${t.applies_to_agent_principal_id ? 'agent' : t.applies_to_group_id ? 'group' : 'owner-wide'})</li>`).join('') || '<li>No applicable transformations.</li>'}</ol></div>
+
 
     <div class="card">
       <div class="card-title">Audit Log (${total} events)</div>

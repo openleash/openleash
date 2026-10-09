@@ -3,6 +3,10 @@
 __version__ = "0.2.0"
 
 from .client import (
+    get_transformations,
+    report_transformation_results,
+    create_transformation_draft,
+    list_transformation_drafts,
     authorize,
     create_approval_request,
     create_policy_draft,
@@ -21,6 +25,10 @@ from .client import (
 )
 
 __all__ = [
+    "get_transformations",
+    "report_transformation_results",
+    "create_transformation_draft",
+    "list_transformation_drafts",
     "authorize",
     "create_approval_request",
     "create_policy_draft",

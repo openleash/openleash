@@ -641,3 +641,51 @@ def _load_private_key(private_key_b64: str) -> Ed25519PrivateKey:
     key = load_der_private_key(der_bytes, password=None)
     assert isinstance(key, Ed25519PrivateKey)
     return key
+
+
+async def _transformation_request(
+    method: str, path: str, *, openleash_url: str, agent_id: str,
+    private_key_b64: str, payload: dict[str, Any] | None = None,
+    timeout_seconds: float = 10.0,
+) -> dict[str, Any]:
+    body = json.dumps(payload or {}, separators=(",", ":")).encode()
+    headers = sign_request(
+        method=method, path=path,
+        timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+        nonce=str(uuid.uuid4()), body_bytes=body, private_key_b64=private_key_b64,
+    )
+    headers.update({"Content-Type": "application/json", "X-Agent-Id": agent_id})
+    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+        response = await client.request(method, openleash_url.rstrip("/") + path,
+                                        headers=headers, content=body if method == "POST" else None)
+    response.raise_for_status()
+    return response.json()
+
+
+async def get_transformations(*, openleash_url: str, agent_id: str, private_key_b64: str,
+                              timeout_seconds: float = 10.0) -> dict[str, Any]:
+    """Fetch the ordered transformation plan and its reporting token."""
+    return await _transformation_request("GET", "/v1/agent/transformations", openleash_url=openleash_url,
+                                         agent_id=agent_id, private_key_b64=private_key_b64, timeout_seconds=timeout_seconds)
+
+
+async def report_transformation_results(*, report: dict[str, Any], openleash_url: str, agent_id: str,
+                                       private_key_b64: str, timeout_seconds: float = 10.0) -> dict[str, Any]:
+    """Report application metadata. Do not include raw or transformed tool output."""
+    return await _transformation_request("POST", "/v1/agent/transformation-results", payload=report,
+                                         openleash_url=openleash_url, agent_id=agent_id,
+                                         private_key_b64=private_key_b64, timeout_seconds=timeout_seconds)
+
+
+async def create_transformation_draft(*, rule: dict[str, Any], justification: str, openleash_url: str,
+                                      agent_id: str, private_key_b64: str, name: str | None = None,
+                                      description: str | None = None) -> dict[str, Any]:
+    """Propose a rule for this agent. Only owner approval activates it."""
+    return await _transformation_request("POST", "/v1/agent/transformation-drafts",
+                                         payload={"rule": rule, "justification": justification, "name": name, "description": description},
+                                         openleash_url=openleash_url, agent_id=agent_id, private_key_b64=private_key_b64)
+
+
+async def list_transformation_drafts(*, openleash_url: str, agent_id: str, private_key_b64: str) -> dict[str, Any]:
+    return await _transformation_request("GET", "/v1/agent/transformation-drafts", openleash_url=openleash_url,
+                                         agent_id=agent_id, private_key_b64=private_key_b64)

@@ -94,15 +94,15 @@ type PolicyDraftResponse struct {
 
 // PolicyDraftDetail is the full detail of a policy draft.
 type PolicyDraftDetail struct {
-	PolicyDraftID              string  `json:"policy_draft_id"`
-	Status                     string  `json:"status"`
-	PolicyYaml                 string  `json:"policy_yaml"`
-	AppliesToAgentPrincipalID  *string `json:"applies_to_agent_principal_id"`
-	Justification              *string `json:"justification"`
-	CreatedAt                  string  `json:"created_at"`
-	ResolvedAt                 *string `json:"resolved_at"`
-	DenialReason               *string `json:"denial_reason"`
-	ResultingPolicyID          *string `json:"resulting_policy_id"`
+	PolicyDraftID             string  `json:"policy_draft_id"`
+	Status                    string  `json:"status"`
+	PolicyYaml                string  `json:"policy_yaml"`
+	AppliesToAgentPrincipalID *string `json:"applies_to_agent_principal_id"`
+	Justification             *string `json:"justification"`
+	CreatedAt                 string  `json:"created_at"`
+	ResolvedAt                *string `json:"resolved_at"`
+	DenialReason              *string `json:"denial_reason"`
+	ResultingPolicyID         *string `json:"resulting_policy_id"`
 }
 
 // PolicyDraftListResponse is the response from listing policy drafts.
@@ -113,7 +113,7 @@ type PolicyDraftListResponse struct {
 // VerifyResult is the result of a proof verification.
 type VerifyResult struct {
 	Valid  bool                   `json:"valid"`
-	Reason string                `json:"reason,omitempty"`
+	Reason string                 `json:"reason,omitempty"`
 	Claims map[string]interface{} `json:"claims,omitempty"`
 }
 
@@ -190,14 +190,14 @@ func RegistrationChallenge(openleashURL, agentID, agentPubKeyB64 string, ownerTy
 // RegisterAgent registers an agent with the OpenLeash server.
 func RegisterAgent(openleashURL, challengeID, agentID, agentPubKeyB64, signatureB64, ownerType, ownerID, webhookURL, webhookSecret, webhookAuthToken string) (RegisterAgentResponse, error) {
 	body := map[string]interface{}{
-		"challenge_id":     challengeID,
-		"agent_id":         agentID,
-		"agent_pubkey_b64": agentPubKeyB64,
-		"signature_b64":    signatureB64,
-		"owner_type":       ownerType,
-		"owner_id":         ownerID,
-		"webhook_url":      webhookURL,
-		"webhook_secret":   webhookSecret,
+		"challenge_id":       challengeID,
+		"agent_id":           agentID,
+		"agent_pubkey_b64":   agentPubKeyB64,
+		"signature_b64":      signatureB64,
+		"owner_type":         ownerType,
+		"owner_id":           ownerID,
+		"webhook_url":        webhookURL,
+		"webhook_secret":     webhookSecret,
 		"webhook_auth_token": webhookAuthToken,
 	}
 
@@ -230,10 +230,10 @@ func RedeemAgentInvite(inviteURL, agentID, webhookURL, webhookSecret, webhookAut
 	}
 
 	body := map[string]interface{}{
-		"invite_id":        inviteID,
-		"invite_token":     inviteToken,
-		"agent_id":         agentID,
-		"agent_pubkey_b64": keypair.PublicKeyB64,
+		"invite_id":          inviteID,
+		"invite_token":       inviteToken,
+		"agent_id":           agentID,
+		"agent_pubkey_b64":   keypair.PublicKeyB64,
 		"webhook_url":        webhookURL,
 		"webhook_secret":     webhookSecret,
 		"webhook_auth_token": webhookAuthToken,
@@ -601,4 +601,67 @@ func doHTTP(req *http.Request, result interface{}) error {
 	}
 
 	return json.Unmarshal(respBody, result)
+}
+
+// Transformation is one ordered rule in the output transformation protocol.
+// Replacement text is literal; no backreference expansion is performed.
+type Transformation struct {
+	TransformationID string  `json:"transformation_id"`
+	Name             *string `json:"name"`
+	Rank             int     `json:"rank"`
+	Revision         int     `json:"revision"`
+	FailurePolicy    string  `json:"failure_policy"`
+	Type             string  `json:"type"`
+	MaxCharacters    *int    `json:"max_characters,omitempty"`
+	MaxLines         *int    `json:"max_lines,omitempty"`
+	FromPattern      string  `json:"from_pattern,omitempty"`
+	ToPattern        string  `json:"to_pattern,omitempty"`
+}
+type TransformationPlan struct {
+	ProtocolVersion int              `json:"protocol_version"`
+	Transformations []Transformation `json:"transformations"`
+	ReportToken     string           `json:"report_token"`
+}
+type TransformationExecution struct {
+	TransformationID string `json:"transformation_id"`
+	Revision         int    `json:"revision"`
+	Status           string `json:"status"`
+	CharsBefore      *int   `json:"chars_before,omitempty"`
+	CharsAfter       *int   `json:"chars_after,omitempty"`
+	Reason           string `json:"reason,omitempty"`
+}
+type TransformationReport struct {
+	ReportToken string                    `json:"report_token"`
+	ActionID    string                    `json:"action_id,omitempty"`
+	ToolCallID  string                    `json:"tool_call_id"`
+	Outcome     string                    `json:"outcome"`
+	Results     []TransformationExecution `json:"results"`
+}
+
+func GetTransformations(openleashURL, agentID, privateKeyB64 string) (TransformationPlan, error) {
+	var result TransformationPlan
+	err := signedGet(openleashURL, "/v1/agent/transformations", agentID, privateKeyB64, &result)
+	return result, err
+}
+func ReportTransformationResults(openleashURL, agentID, privateKeyB64 string, report TransformationReport) error {
+	raw, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+	var payload map[string]interface{}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return err
+	}
+	var result map[string]interface{}
+	return signedPost(openleashURL, "/v1/agent/transformation-results", agentID, privateKeyB64, payload, &result)
+}
+func CreateTransformationDraft(openleashURL, agentID, privateKeyB64 string, rule map[string]interface{}, justification string) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	err := signedPost(openleashURL, "/v1/agent/transformation-drafts", agentID, privateKeyB64, map[string]interface{}{"rule": rule, "justification": justification}, &result)
+	return result, err
+}
+func ListTransformationDrafts(openleashURL, agentID, privateKeyB64 string) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	err := signedGet(openleashURL, "/v1/agent/transformation-drafts", agentID, privateKeyB64, &result)
+	return result, err
 }

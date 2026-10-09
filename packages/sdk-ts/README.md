@@ -103,3 +103,8 @@ See the [OpenLeash README](https://github.com/openleash/openleash) for full docu
 ## License
 
 [Apache-2.0](https://github.com/openleash/openleash/blob/main/LICENSE)
+
+## Output transformations
+
+See the [transformation protocol and integration guide](../../docs/transformations.md) for ordered
+rules, draft review, failure handling and metadata-only execution reporting.
