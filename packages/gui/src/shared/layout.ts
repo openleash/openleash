@@ -196,6 +196,28 @@ export const INFO_VERIFICATION_LEVEL = `
     <dd>The ID has been fully verified against an authoritative source.</dd>
   </dl>`;
 
+export const INFO_OUTPUT_TRANSFORMATIONS = `
+  <div class="info-title">Output Transformations</div>
+  <dl>
+    <dt>Execution order</dt>
+    <dd>Enabled rules run from top to bottom. Drag the handles to reorder, or focus a handle and use the arrow keys.</dd>
+    <dt>Scope</dt>
+    <dd>Every matching owner, group and agent rule runs. More specific rules do not override other rules.</dd>
+    <dt>Limits and failures</dt>
+    <dd>Length caps also constrain the final output. Failed transformations block output unless you explicitly choose to continue.</dd>
+  </dl>`;
+
+export const INFO_TRANSFORMATION_DRAFTS = `
+  <div class="info-title">Transformation Drafts</div>
+  <dl>
+    <dt>Proposed by agents</dt>
+    <dd>Agents can suggest transformations for their own output. Pending drafts do not run.</dd>
+    <dt>Approve</dt>
+    <dd>Approval adds an enabled transformation to the end of the chain, with output blocking on failure.</dd>
+    <dt>Deny</dt>
+    <dd>Denial keeps the transformation inactive. You can give the agent a reason.</dd>
+  </dl>`;
+
 export const INFO_POLICY_DRAFTS = `
   <div class="info-title">Policy Drafts</div>
   <p style="margin-bottom:8px">Agents can propose new policies when they need access to action types not yet covered by existing rules. These proposals appear here for your review.</p>

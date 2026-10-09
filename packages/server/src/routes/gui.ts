@@ -1480,23 +1480,30 @@ export function registerGuiRoutes(
         const resolved = resolveCurrentScope(store, session, request);
         const owner = resolved ? currentOwner(resolved) : { ownerType: 'user' as const, ownerId: session.sub };
         const all = store.transformations.listByOwner(owner.ownerType, owner.ownerId);
+        const create = request.url.split('?')[0].endsWith('/create');
         const id = (request.params as { id?: string }).id;
         const records = all.filter(t => activeTransformation(t) && (!id || t.transformation_id === id)).sort(compareTransformations);
         if (id && !records.length) { reply.code(404).send('Transformation not found'); return; }
         const membership = owner.ownerType === 'org' ? store.memberships.listByUser(session.sub).find(m => m.org_id === owner.ownerId && m.status === 'active') : null;
+        const canManage = owner.ownerType === 'user' || membership?.role === 'org_admin';
+        if (!canManage && (create || request.url.split('?')[0].endsWith('/edit'))) {
+            reply.code(403).send('An organization admin can make changes.'); return;
+        }
         const user = store.users.read(session.sub);
         const state = store.state.getState();
         const html = renderOwnerTransformations(records, {
             org_id: owner.ownerType === 'org' ? owner.ownerId : null,
-            can_manage: owner.ownerType === 'user' || membership?.role === 'org_admin',
+            can_manage: canManage,
             totp_enabled: !!user.totp_enabled, require_totp: !!config.security.require_totp,
             agents: state.agents.filter(a => a.owner_type === owner.ownerType && a.owner_id === owner.ownerId).map(a => ({ id: a.agent_principal_id, name: a.agent_id })),
             groups: store.policyGroups.listByOwner(owner.ownerType, owner.ownerId).map(g => ({ id: g.group_id, name: g.name })),
-            drafts: all.filter(t => t.draft), detail: !!id,
+            drafts: all.filter(t => t.draft), detail: !!id, create,
         }, ownerRenderOptionsFor(session, request, reply));
         reply.type('text/html').send(html);
     };
     registerScopedOwnerRoute('transformations', transformationsListHandler);
+    registerScopedOwnerRoute('transformations/create', transformationsListHandler);
+    registerScopedOwnerRoute('transformations/:id/edit', transformationsListHandler);
     registerScopedOwnerRoute('transformations/:id', transformationsListHandler);
     const adminTransformationsHandler = async (request: FastifyRequest, reply: FastifyReply) => {
         const state = store.state.getState();

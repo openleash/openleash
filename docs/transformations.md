@@ -7,10 +7,14 @@ ALLOW decision does not mean that output transformations have already run.
 ## Managing rules
 
 Use **Transformations** in your personal or organization workspace. Owners and
-organization admins can create, edit, enable, disable, reorder, preview and
+organization admins can create, edit, enable, disable, reorder and
 delete rules. Organization viewers have read access. The Admin tab is a
 read-only view across owners, matching the policy administration model.
 Agent details show the effective ordered chain.
+
+Use **Create Transformation** or a row's **Edit** button to open the editor.
+Drag rows by their handles to change the execution order; focused handles also
+support the arrow keys. The info bubbles explain execution and draft review.
 
 Each rule has a name, description, enabled flag, failure policy and a target:
 all agents of the owner, one agent, or one organization policy group. Agent and
@@ -54,7 +58,7 @@ The portable regex subset supports literals, character classes, quantifiers,
 alternation, capturing groups and noncapturing `(?:...)` groups. Lookaround,
 backreferences, named groups, inline flags, Unicode properties/escapes, word
 boundaries, `\S`, possessive quantifiers and patterns matching empty input are
-rejected. Use the preview to verify a rule against synthetic examples.
+rejected. Use the preview API to verify a rule against synthetic examples.
 
 The LibreMock runtime limits input and intermediate output to 1,048,576 code
 points. Each regex runs in a separate process with a one-second default deadline
