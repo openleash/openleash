@@ -73,8 +73,9 @@ failure prevents output reaching the agent. `continue` explicitly permits
 skipping that failed rule. Fetch failures block by default in the LibreMock
 runtime; its `transformation_failure_policy: continue` is an explicit opt-out.
 Callers must honor the hook's `blocked` result and stop the success continuation.
-Only strings are supported; adapt structured output before calling the hook.
-Shadow mode fetches rules under its existing short deadline but does not apply
+Enforcement supports only strings; adapt structured output before calling the
+hook. Shadow mode returns the original output unchanged, including non-text
+values. It fetches rules under its existing short deadline but does not apply
 or report execution of them.
 
 ## Proposals and provisioning
