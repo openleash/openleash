@@ -259,6 +259,9 @@ export function registerAuthorizeRoutes(
       store.audit.append('PROOF_ISSUED', {
         decision_id: response.decision_id,
         agent_id: action.principal.agent_id,
+        agent_principal_id: agentEntry.agent_principal_id,
+        owner_type: agentEntry.owner_type,
+        owner_id: agentEntry.owner_id,
         action_type: action.action_type,
         action_hash: response.action_hash,
         ttl_seconds: ttl,

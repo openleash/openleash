@@ -62,6 +62,8 @@ tags:
     description: Organization management endpoints for multi-user workspaces with role-based membership.
   - name: Playground
     description: Sandbox endpoint for testing policy evaluation without real agents or state.
+  - name: Audit Export
+    description: Incremental audit log export for SIEMs and log collectors, in OCSF 1.3.0 or the native format. Authenticated via an owner-minted API key (`audit:read` scope) or an owner session.
   - name: Provisioner
     description: Endpoints for machine principals (agent launchpads, CI pipelines) that enroll agents on an owner's behalf. Authenticated via an owner-minted provisioner bearer token.
 
@@ -2235,6 +2237,230 @@ paths:
                     type: string
                     format: date-time
 
+  /v1/owner/api-keys:
+    post:
+      summary: Create personal API key
+      operationId: createApiKey
+      tags: [Owner, Audit Export]
+      description: |
+        Creates a long-lived API key owned by the caller, for integrations
+        such as a SIEM. The token is returned exactly once and only its hash
+        is stored. Scopes default to `["audit:read"]`.
+      security:
+        - OwnerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "200":
+          description: API key created. Save the token now — it is shown only once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedApiKey"
+        "400":
+          description: Missing name or unknown scope.
+    get:
+      summary: List personal API keys
+      operationId: listApiKeys
+      tags: [Owner, Audit Export]
+      description: Lists the caller's API keys, newest first. Tokens are never returned.
+      security:
+        - OwnerSession: []
+      responses:
+        "200":
+          description: API key list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [api_keys]
+                properties:
+                  api_keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKey"
+
+  /v1/owner/api-keys/{apiKeyId}:
+    delete:
+      summary: Revoke personal API key
+      operationId: revokeApiKey
+      tags: [Owner, Audit Export]
+      description: Revokes the key. It stops authenticating immediately.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyId"
+      responses:
+        "200":
+          description: API key revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        "404":
+          description: No such key for this owner.
+
+  /v1/owner/organizations/{orgId}/api-keys:
+    post:
+      summary: Create organization API key
+      operationId: createOrgApiKey
+      tags: [Organization, Audit Export]
+      description: |
+        Creates an API key owned by the organization. Requires `org_admin`.
+        The key keeps working if its creator leaves the organization; admins
+        revoke it when it is no longer needed.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "200":
+          description: API key created. Save the token now — it is shown only once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedApiKey"
+        "403":
+          description: Caller is not an admin of the organization.
+    get:
+      summary: List organization API keys
+      operationId: listOrgApiKeys
+      tags: [Organization, Audit Export]
+      description: Lists the organization's API keys. Any active member may list them.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: API key list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [api_keys]
+                properties:
+                  api_keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKey"
+
+  /v1/owner/organizations/{orgId}/api-keys/{apiKeyId}:
+    delete:
+      summary: Revoke organization API key
+      operationId: revokeOrgApiKey
+      tags: [Organization, Audit Export]
+      description: Revokes the key. Requires `org_admin`.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/ApiKeyId"
+      responses:
+        "200":
+          description: API key revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        "404":
+          description: No such key for this organization.
+
+  /v1/owner/audit/export:
+    get:
+      summary: Export personal audit log
+      operationId: exportAudit
+      tags: [Owner, Audit Export]
+      description: |
+        Incremental, oldest-first feed of the caller's audit trail: their
+        own events plus events about agents they owned when each event was
+        written. Authenticate with a personal API key (`audit:read`) or an
+        owner session. See `GET /v1/owner/organizations/{orgId}/audit/export`
+        for paging semantics.
+      security:
+        - ApiKey: []
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/AuditExportCursor"
+        - $ref: "#/components/parameters/AuditExportSince"
+        - $ref: "#/components/parameters/AuditExportLimit"
+        - $ref: "#/components/parameters/AuditExportFormat"
+        - $ref: "#/components/parameters/AuditExportOutput"
+      responses:
+        "200":
+          $ref: "#/components/responses/AuditExportPage"
+        "400":
+          description: Malformed cursor, `since`, `format` or `output`.
+        "401":
+          description: Missing, invalid or revoked credentials.
+        "403":
+          description: The API key belongs to an organization, not this user.
+        "410":
+          description: The cursor's event no longer exists (`CURSOR_EXPIRED`); restart from `since`.
+
+  /v1/owner/organizations/{orgId}/audit/export:
+    get:
+      summary: Export organization audit log
+      operationId: exportOrgAudit
+      tags: [Organization, Audit Export]
+      description: |
+        Incremental, oldest-first feed of the organization's audit trail:
+        events attributed to the org principal plus events about agents the
+        org owned when each event was written (an agent's history before it
+        was transferred in stays with its previous owner).
+
+        Authenticate with an API key owned by this organization
+        (`audit:read`), or an owner session of any active member.
+
+        **Paging.** Start with no cursor (optionally `since`), then pass the
+        returned `next_cursor` as `cursor`. The cursor points at an event,
+        so new appends never shift it, and `next_cursor` is returned even
+        when a page is empty — store it and poll again later. `has_more`
+        says whether to fetch again immediately. A page may hold fewer than
+        `limit` items while `has_more` is true.
+
+        **Formats.** `format=ocsf` (default) maps each event to an OCSF
+        1.3.0 class (Authentication, Account Change, Entity Management,
+        Group Management, API Activity; authorization decisions carry the
+        Security Control profile's `action_id`/`disposition_id`). The
+        native event is kept whole under `unmapped`. `format=native`
+        returns OpenLeash's own `AuditEvent`.
+
+        **Output.** JSON envelope by default; `output=ndjson` (or
+        `Accept: application/x-ndjson`) streams one event per line with the
+        cursor in the `OpenLeash-Next-Cursor` header and `OpenLeash-Has-More`.
+      security:
+        - ApiKey: []
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/AuditExportCursor"
+        - $ref: "#/components/parameters/AuditExportSince"
+        - $ref: "#/components/parameters/AuditExportLimit"
+        - $ref: "#/components/parameters/AuditExportFormat"
+        - $ref: "#/components/parameters/AuditExportOutput"
+      responses:
+        "200":
+          $ref: "#/components/responses/AuditExportPage"
+        "400":
+          description: Malformed cursor, `since`, `format` or `output`.
+        "401":
+          description: Missing, invalid or revoked credentials.
+        "403":
+          description: Not a member, or the API key belongs to a different owner.
+        "410":
+          description: The cursor's event no longer exists (`CURSOR_EXPIRED`); restart from `since`.
+
   /v1/provisioner/self:
     get:
       summary: Provisioner identity probe
@@ -4044,6 +4270,54 @@ components:
         provisioner scope: creating and listing agent enrollments and
         listing the owner's policies by id/name.
 
+    ApiKey:
+      type: http
+      scheme: bearer
+      description: |
+        API key of the form `ola_<api_key_id>.<secret>`, minted once by
+        `POST /v1/owner/api-keys` or
+        `POST /v1/owner/organizations/{orgId}/api-keys`. Grants only its
+        scopes (`audit:read`: the audit export endpoints) for its owner.
+
+  responses:
+    AuditExportPage:
+      description: A page of audit events, oldest first.
+      headers:
+        OpenLeash-Next-Cursor:
+          description: NDJSON output only — cursor to pass back as `cursor`.
+          schema:
+            type: string
+        OpenLeash-Has-More:
+          description: NDJSON output only — `true` if more events are available now.
+          schema:
+            type: string
+            enum: ["true", "false"]
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [format, items, next_cursor, has_more]
+            properties:
+              format:
+                type: string
+                enum: [ocsf, native]
+              items:
+                type: array
+                description: OCSF 1.3.0 events, or `AuditEvent`s with `format=native`.
+                items:
+                  type: object
+                  additionalProperties: true
+              next_cursor:
+                type: string
+                nullable: true
+                description: Opaque. Null only when nothing has been read yet (empty log, no cursor given).
+              has_more:
+                type: boolean
+        application/x-ndjson:
+          schema:
+            type: string
+            description: One JSON event per line.
+
   parameters:
     OwnerId:
       name: ownerId
@@ -4053,6 +4327,48 @@ components:
         type: string
         format: uuid
       description: UUID of the owner principal.
+    ApiKeyId:
+      name: apiKeyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AuditExportCursor:
+      name: cursor
+      in: query
+      description: Opaque cursor from a previous page's `next_cursor`.
+      schema:
+        type: string
+    AuditExportSince:
+      name: since
+      in: query
+      description: Without a cursor, start at the first event at or after this time.
+      schema:
+        type: string
+        format: date-time
+    AuditExportLimit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 500
+        minimum: 1
+        maximum: 1000
+    AuditExportFormat:
+      name: format
+      in: query
+      schema:
+        type: string
+        enum: [ocsf, native]
+        default: ocsf
+    AuditExportOutput:
+      name: output
+      in: query
+      schema:
+        type: string
+        enum: [json, ndjson]
+        default: json
     PolicyId:
       name: policyId
       in: path
@@ -4713,6 +5029,59 @@ components:
           type: string
           format: date-time
 
+    CreateApiKeyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          description: Human-readable label, e.g. "splunk-prod".
+        scopes:
+          type: array
+          items:
+            type: string
+            enum: ["audit:read"]
+          default: ["audit:read"]
+    ApiKey:
+      type: object
+      properties:
+        api_key_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+            enum: ["audit:read"]
+        status:
+          type: string
+          enum: [ACTIVE, REVOKED]
+        created_at:
+          type: string
+          format: date-time
+        created_by_user_id:
+          type: string
+          format: uuid
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+    CreatedApiKey:
+      allOf:
+        - $ref: "#/components/schemas/ApiKey"
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              description: Bearer token `ola_<api_key_id>.<secret>`. Shown only once.
     AuditEvent:
       type: object
       description: |

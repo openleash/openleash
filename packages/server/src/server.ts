@@ -16,6 +16,7 @@ import { registerOwnerRoutes } from './routes/owner.js';
 import { registerAgentSelfRoutes } from './routes/agent-self.js';
 import { registerProvisionerRoutes } from './routes/provisioner.js';
 import { registerTransformationRoutes } from './routes/transformations.js';
+import { registerAuditExportRoutes } from './routes/audit-export.js';
 import { registerPlaygroundRoutes } from './routes/playground.js';
 import { registerGuiRoutes } from './routes/gui.js';
 import { registerReferenceRoutes } from './routes/reference.js';
@@ -30,6 +31,23 @@ export interface CreateServerOptions {
   dataDir: string;
   store: DataStore;
   openapiSpec?: Record<string, unknown>;
+}
+
+/**
+ * Record the owning user/org on events about an agent, as of write time. The
+ * audit export scopes on this so an agent's history stays with the owner it
+ * had when each event happened, even after the agent is transferred.
+ */
+function withAgentOwner(store: DataStore, metadata: Record<string, unknown>): Record<string, unknown> {
+  const agentPrincipalId = metadata.agent_principal_id;
+  if (typeof agentPrincipalId !== 'string' || metadata.owner_type !== undefined) return metadata;
+  try {
+    const agent = store.state.getState().agents.find((a) => a.agent_principal_id === agentPrincipalId);
+    if (!agent) return metadata;
+    return { ...metadata, owner_type: agent.owner_type, owner_id: agent.owner_id };
+  } catch {
+    return metadata;
+  }
 }
 
 export async function createServer(options: CreateServerOptions) {
@@ -71,7 +89,7 @@ export async function createServer(options: CreateServerOptions) {
     metadata: Record<string, unknown> = {},
     opts?: { principal_id?: string | null; action_id?: string | null; decision_id?: string | null },
   ) => {
-    const event = originalAuditAppend(eventType, metadata, opts);
+    const event = originalAuditAppend(eventType, withAgentOwner(store, metadata), opts);
     try {
       const meta = (event.metadata_json ?? {}) as Record<string, unknown>;
       events.emit('audit.appended', {
@@ -125,6 +143,7 @@ export async function createServer(options: CreateServerOptions) {
   registerAgentSelfRoutes(app, store, config, nonceCache, events);
   registerProvisionerRoutes(app, store);
   registerTransformationRoutes(app, store, config, nonceCache, pluginManifest);
+  registerAuditExportRoutes(app, store, config, pluginManifest);
   registerAdminRoutes(app, store, config, events, pluginManifest);
   if (config.instance?.mode !== 'hosted') {
     registerPlaygroundRoutes(app, config);

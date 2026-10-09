@@ -40,6 +40,8 @@ export { renderOwnerPolicyGroups } from "./pages/owner-policy-groups/render.js";
 export type { OwnerPolicyGroupListEntry, OwnerPolicyGroupsOptions } from "./pages/owner-policy-groups/render.js";
 export { renderOwnerProvisioners } from "./pages/owner-provisioners/render.js";
 export type { OwnerProvisionerListEntry } from "./pages/owner-provisioners/render.js";
+export { renderOwnerApiKeys } from "./pages/owner-api-keys/render.js";
+export type { OwnerApiKeyListEntry, OwnerApiKeysOptions } from "./pages/owner-api-keys/render.js";
 export { renderOwnerPolicyGroupDetail } from "./pages/owner-policy-group-detail/render.js";
 export type {
     OwnerPolicyGroupDetailData,

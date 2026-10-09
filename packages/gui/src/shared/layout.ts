@@ -89,6 +89,7 @@ function buildOwnerNavItems(scope?: ScopeContext, pendingTotal?: number): OwnerN
             { path: `${prefix}/policy-groups`, label: "Policy Groups", icon: "group_work" },
             inboxItem,
             { path: `${prefix}/audit`, label: "Audit Log", icon: "receipt_long" },
+            { path: `${prefix}/api-keys`, label: "API Keys", icon: "key" },
             // The org detail page at /gui/orgs/:slug serves as the Settings page
             // (member list, slug editor, contacts, company IDs, etc.).
             { path: prefix, label: "Settings", icon: "settings" },
@@ -105,6 +106,7 @@ function buildOwnerNavItems(scope?: ScopeContext, pendingTotal?: number): OwnerN
         { path: "/gui/personal/provisioners", label: "Provisioners", icon: "rocket_launch" },
         inboxItem,
         { path: "/gui/personal/audit", label: "Audit Log", icon: "receipt_long" },
+        { path: "/gui/personal/api-keys", label: "API Keys", icon: "key" },
     ];
 }
 

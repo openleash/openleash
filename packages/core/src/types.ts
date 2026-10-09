@@ -555,6 +555,31 @@ export interface Provisioner {
   last_used_at: string | null;
 }
 
+/** Permissions an API key can carry. */
+export const API_KEY_SCOPES = ['audit:read'] as const;
+export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];
+
+/**
+ * A long-lived machine credential owned by a user or an organization, used by
+ * integrations such as SIEM log collectors. It authenticates with a bearer
+ * token of the form `ola_<api_key_id>.<secret>`; only the scrypt hash of the
+ * secret is stored. What the key may do is limited to its `scopes`.
+ */
+export interface ApiKey {
+  api_key_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
+  name: string;
+  scopes: ApiKeyScope[];
+  token_hash: string;
+  token_salt: string;
+  status: 'ACTIVE' | 'REVOKED';
+  created_at: string;
+  created_by_user_id: string;
+  revoked_at: string | null;
+  last_used_at: string | null;
+}
+
 export interface OrgInvite {
   invite_id: string;
   org_id: string;

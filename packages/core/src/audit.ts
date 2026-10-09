@@ -84,6 +84,120 @@ export interface AuditStore {
   ): { items: AuditEvent[]; total: number };
 
   getTotal(): number;
+
+  /**
+   * Incremental, oldest-first read for export consumers: events touching any
+   * of `principalIds` that were appended after `afterEventId` (or, without a
+   * cursor, at or after `since`). Unlike the offset-based reads above, the
+   * position is anchored to an event, so new appends never shift it.
+   *
+   * Optional so older store plugins keep working — callers should go through
+   * `readAuditAfter()`, which falls back to scanning `readByPrincipal()`.
+   * Throws `AuditCursorNotFoundError` when `afterEventId` is unknown.
+   */
+  readByPrincipalsAfter?(
+    principalIds: Set<string>,
+    opts: AuditReadAfterOptions,
+  ): AuditReadAfterResult;
+}
+
+export interface AuditReadAfterOptions {
+  /** Return events appended strictly after this event. */
+  afterEventId?: string | null;
+  /**
+   * Timestamp of `afterEventId`. Lets scanning fallbacks stop even when the
+   * cursor event is no longer among the scanned principals' events.
+   */
+  afterTimestamp?: string | null;
+  /** Without a cursor: inclusive lower bound on `timestamp` (ISO 8601). */
+  since?: string | null;
+  limit: number;
+}
+
+export interface AuditReadAfterResult {
+  /** Oldest first. */
+  items: AuditEvent[];
+  has_more: boolean;
+}
+
+export class AuditCursorNotFoundError extends Error {
+  constructor(eventId: string) {
+    super(`Audit cursor event not found: ${eventId}`);
+    this.name = 'AuditCursorNotFoundError';
+  }
+}
+
+// ─── Export cursors ───────────────────────────────────────────────────
+
+export interface AuditCursor {
+  event_id: string;
+  timestamp: string;
+}
+
+/** Opaque, URL-safe cursor pointing just past `event`. */
+export function encodeAuditCursor(event: Pick<AuditEvent, 'event_id' | 'timestamp'>): string {
+  return Buffer.from(
+    JSON.stringify({ v: 1, e: event.event_id, t: event.timestamp }),
+    'utf-8',
+  ).toString('base64url');
+}
+
+export function decodeAuditCursor(cursor: string): AuditCursor | null {
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf-8')) as {
+      v?: unknown;
+      e?: unknown;
+      t?: unknown;
+    };
+    if (parsed.v !== 1 || typeof parsed.e !== 'string' || typeof parsed.t !== 'string') return null;
+    return { event_id: parsed.e, timestamp: parsed.t };
+  } catch {
+    return null;
+  }
+}
+
+/** Page size used when `readAuditAfter` has to scan newest-first. */
+const FALLBACK_SCAN_PAGE = 500;
+
+/**
+ * Oldest-first read of events after a cursor. Uses the store's native
+ * `readByPrincipalsAfter` when available; otherwise scans `readByPrincipal`
+ * pages newest-first back to the cursor (or `since`), which is correct but
+ * costs O(events since the cursor).
+ */
+export function readAuditAfter(
+  audit: AuditStore,
+  principalIds: Set<string>,
+  opts: AuditReadAfterOptions,
+): AuditReadAfterResult {
+  if (principalIds.size === 0) return { items: [], has_more: false };
+  if (audit.readByPrincipalsAfter) return audit.readByPrincipalsAfter(principalIds, opts);
+
+  const [first, ...rest] = principalIds;
+  const related = new Set(rest);
+  const stopBeforeMs = opts.afterEventId
+    ? opts.afterTimestamp ? Date.parse(opts.afterTimestamp) : NaN
+    : opts.since ? Date.parse(opts.since) : NaN;
+
+  const newestFirst: AuditEvent[] = [];
+  let offset = 0;
+  scan: for (;;) {
+    const page = audit.readByPrincipal(first, related, FALLBACK_SCAN_PAGE, offset);
+    for (const event of page.items) {
+      if (opts.afterEventId && event.event_id === opts.afterEventId) break scan;
+      const ts = Date.parse(event.timestamp);
+      if (!Number.isNaN(stopBeforeMs) && ts < stopBeforeMs) break scan;
+      newestFirst.push(event);
+    }
+    offset += page.items.length;
+    if (page.items.length === 0 || offset >= page.total) break;
+  }
+
+  const oldestFirst = newestFirst.reverse();
+  return {
+    items: oldestFirst.slice(0, opts.limit),
+    has_more: oldestFirst.length > opts.limit,
+  };
 }
 
 // ─── FileAuditStore ───────────────────────────────────────────────────
@@ -95,6 +209,8 @@ interface LineIndex {
   fileSize: number;
   /** principal ID → set of line numbers */
   principalLines: Map<string, Set<number>>;
+  /** event_id → line number (export cursors) */
+  eventLines: Map<string, number>;
 }
 
 export class FileAuditStore implements AuditStore {
@@ -180,6 +296,43 @@ export class FileAuditStore implements AuditStore {
     return this.index!.offsets.length;
   }
 
+  readByPrincipalsAfter(
+    principalIds: Set<string>,
+    opts: AuditReadAfterOptions,
+  ): AuditReadAfterResult {
+    this.ensureIndex();
+    const idx = this.index!;
+
+    const lineSet = new Set<number>();
+    for (const pid of principalIds) {
+      const lines = idx.principalLines.get(pid);
+      if (lines) for (const ln of lines) lineSet.add(ln);
+    }
+    const sorted = [...lineSet].sort((a, b) => a - b);
+
+    let start = 0;
+    if (opts.afterEventId) {
+      const cursorLine = idx.eventLines.get(opts.afterEventId);
+      if (cursorLine === undefined) throw new AuditCursorNotFoundError(opts.afterEventId);
+      start = lowerBound(sorted, (ln) => ln > cursorLine);
+    } else if (opts.since) {
+      const sinceMs = Date.parse(opts.since);
+      if (!Number.isNaN(sinceMs)) {
+        // The log is append-only, so timestamps ascend with line number.
+        start = lowerBound(sorted, (ln) => {
+          const [event] = this.readSpecificLines([ln]);
+          return !!event && Date.parse(event.timestamp) >= sinceMs;
+        });
+      }
+    }
+
+    const page = sorted.slice(start, start + opts.limit);
+    return {
+      items: this.readSpecificLines(page),
+      has_more: start + opts.limit < sorted.length,
+    };
+  }
+
   // ─── Internal ─────────────────────────────────────────────────────
 
   private ensureIndex(): void {
@@ -188,7 +341,7 @@ export class FileAuditStore implements AuditStore {
       stat = fs.statSync(this.filePath);
     } catch {
       // File missing — empty index
-      this.index = { offsets: [], fileSize: 0, principalLines: new Map() };
+      this.index = { offsets: [], fileSize: 0, principalLines: new Map(), eventLines: new Map() };
       return;
     }
 
@@ -204,7 +357,7 @@ export class FileAuditStore implements AuditStore {
   }
 
   private rebuildIndex(fileSize: number): void {
-    this.index = { offsets: [], fileSize, principalLines: new Map() };
+    this.index = { offsets: [], fileSize, principalLines: new Map(), eventLines: new Map() };
     if (fileSize === 0) return;
 
     const content = fs.readFileSync(this.filePath, 'utf-8');
@@ -274,6 +427,7 @@ export class FileAuditStore implements AuditStore {
 
   private indexPrincipalIds(event: AuditEvent, lineNum: number): void {
     const idx = this.index!;
+    if (event.event_id) idx.eventLines.set(event.event_id, lineNum);
     const addPrincipal = (pid: string | null | undefined) => {
       if (!pid) return;
       let set = idx.principalLines.get(pid);
@@ -290,8 +444,14 @@ export class FileAuditStore implements AuditStore {
     addPrincipal(meta.owner_principal_id as string | undefined); // backward compat with old audit logs
     addPrincipal(meta.agent_principal_id as string | undefined);
     addPrincipal(meta.org_id as string | undefined);
-    // Index owner_id for org-owned agent/policy events
-    if (meta.owner_type === 'org') addPrincipal(meta.owner_id as string | undefined);
+    // Index the owner recorded at write time (agent/policy events), so an
+    // owner's history stays reachable after an agent is transferred away.
+    if (meta.owner_type === 'org' || meta.owner_type === 'user') {
+      addPrincipal(meta.owner_id as string | undefined);
+    }
+    // Transfers belong to both the previous and the new owner.
+    addPrincipal(meta.from_owner_id as string | undefined);
+    addPrincipal(meta.to_owner_id as string | undefined);
   }
 
   private readLines(start: number, end: number): AuditEvent[] {
@@ -347,4 +507,16 @@ export class FileAuditStore implements AuditStore {
     }
     return items;
   }
+}
+
+/** First index in `arr` for which `pred` holds, assuming `pred` is monotonic (false…true). */
+function lowerBound<T>(arr: T[], pred: (x: T) => boolean): number {
+  let lo = 0;
+  let hi = arr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (pred(arr[mid])) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
 }

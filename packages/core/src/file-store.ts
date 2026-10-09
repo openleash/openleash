@@ -40,6 +40,10 @@ import {
   writeProvisionerFile,
   readProvisionerFile,
   deleteProvisionerFile,
+  writeApiKeyFile,
+  readApiKeyFile,
+  deleteApiKeyFile,
+  listApiKeyFiles,
   writeTransformationFile,
   readTransformationFile,
   deleteTransformationFile,
@@ -65,6 +69,7 @@ import type {
   ServerKeyFile,
   OrgInvite,
   Provisioner,
+  ApiKey,
   SetupInvite,
   StateApprovalRequestEntry,
   StateData,
@@ -86,6 +91,7 @@ import type {
   AgentInviteRepository,
   OrgInviteRepository,
   ProvisionerRepository,
+  ApiKeyRepository,
   KeyRepository,
   StateRepository,
 } from './store.js';
@@ -436,6 +442,28 @@ class FileOrgInviteRepository implements OrgInviteRepository {
   }
 }
 
+class FileApiKeyRepository implements ApiKeyRepository {
+  constructor(private readonly dataDir: string) {}
+
+  read(apiKeyId: string): ApiKey {
+    return readApiKeyFile(this.dataDir, apiKeyId);
+  }
+
+  write(apiKey: ApiKey): void {
+    writeApiKeyFile(this.dataDir, apiKey);
+  }
+
+  delete(apiKeyId: string): void {
+    deleteApiKeyFile(this.dataDir, apiKeyId);
+  }
+
+  listByOwner(ownerType: 'user' | 'org', ownerId: string): ApiKey[] {
+    return listApiKeyFiles(this.dataDir).filter(
+      (k) => k.owner_type === ownerType && k.owner_id === ownerId,
+    );
+  }
+}
+
 class FileTransformationRepository implements TransformationRepository {
   private cache: TransformationFrontmatter[] | null = null;
 
@@ -534,6 +562,7 @@ export class FileDataStore implements DataStore {
   readonly agentInvites: AgentInviteRepository;
   readonly orgInvites: OrgInviteRepository;
   readonly provisioners: ProvisionerRepository;
+  readonly apiKeys: ApiKeyRepository;
   readonly keys: KeyRepository;
   readonly state: StateRepository;
   readonly audit: AuditStore;
@@ -556,6 +585,7 @@ export class FileDataStore implements DataStore {
     this.agentInvites = new FileAgentInviteRepository(dataDir);
     this.orgInvites = new FileOrgInviteRepository(dataDir);
     this.provisioners = new FileProvisionerRepository(dataDir);
+    this.apiKeys = new FileApiKeyRepository(dataDir);
     this.keys = new FileKeyRepository(dataDir);
     this.state = new FileStateRepository(dataDir);
     this.audit = new FileAuditStore(dataDir);
@@ -575,6 +605,7 @@ export class FileDataStore implements DataStore {
     fs.mkdirSync(path.join(this.dataDir, 'policy-groups'), { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'agent-group-memberships'), { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'provisioners'), { recursive: true });
+    fs.mkdirSync(path.join(this.dataDir, 'api-keys'), { recursive: true });
     fs.mkdirSync(path.join(this.dataDir, 'transformations'), { recursive: true });
 
     // Ensure audit log

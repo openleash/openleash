@@ -40,14 +40,14 @@ npx openleash playground run <scenario>
 ### Packages
 
 - **`packages/core`** — Authorization engine, policy parser, expression evaluator, constraints, obligations, PASETO token issuance/verification (proof, session, approval), Ed25519 request signing, passphrase hashing (scrypt), file-based state management (`./data/`), append-only audit log, typed event system (`OpenleashEvents`) for server plugin integration. Key deps: `paseto`, `zod`, `ajv`, `yaml`, `json-canonicalize`.
-- **`packages/server`** — Fastify HTTP server. Four API scopes: Public (`/v1/health`, `/v1/public-keys`, `/v1/verify-proof`), Agent (`/v1/authorize`, `/v1/agent/*`), Owner (`/v1/owner/*`), Admin (`/v1/admin/*`), plus playground and GUI. Three auth middlewares: `agent-auth` (Ed25519 signatures), `owner-auth` (PASETO session tokens), `admin-auth` (RBAC: PASETO session with admin role, legacy Bearer token fallback, localhost bypass). Key dep: `fastify`.
+- **`packages/server`** — Fastify HTTP server. Four API scopes: Public (`/v1/health`, `/v1/public-keys`, `/v1/verify-proof`), Agent (`/v1/authorize`, `/v1/agent/*`), Owner (`/v1/owner/*`), Admin (`/v1/admin/*`), plus playground and GUI. Owner/org API keys (`ola_` bearer tokens, `audit:read` scope) authenticate the audit export endpoints (`GET /v1/owner[/organizations/:orgId]/audit/export`, OCSF 1.3.0 or native, cursor-paged). Three auth middlewares: `agent-auth` (Ed25519 signatures), `owner-auth` (PASETO session tokens), `admin-auth` (RBAC: PASETO session with admin role, legacy Bearer token fallback, localhost bypass). Key dep: `fastify`.
 - **`packages/gui`** — Server-rendered HTML GUI with Vite-bundled client assets. Two contexts: owner portal (`/gui/*`, default) and admin dashboard (`/gui/admin/*`). Each page is a directory under `src/pages/` containing `render.ts` (server HTML), `client.ts` (browser JS), and `style.css` (page-specific styles). Shared code lives in `src/shared/` (layout, common utilities, manifest resolver, global CSS). Built with `tsc -b` (server) + `vite build` (client). Key dep: `vite`.
 - **`packages/sdk-ts`** — Lightweight TypeScript SDK for agents and counterparties. Functions: `authorize()`, `signRequest()`, `registerAgent()`, `verifyProofOffline()`, `verifyProofOnline()`, `generateEd25519Keypair()`, `createApprovalRequest()`, `getApprovalRequest()`, `pollApprovalRequest()`. Minimal deps (`paseto`, `json-canonicalize`).
 - **`packages/cli`** — CLI commands: `start`, `wizard`, `policy`, `playground`, `keys`, `testvectors`. Entry point: `packages/cli/src/index.ts`.
 
 ### State storage (`./data/`)
 
-File-based with a `state.md` index (YAML frontmatter). Subdirectories: `users/`, `organizations/`, `memberships/`, `agents/`, `policies/`, `keys/`, `approval-requests/`, `invites/`. Audit log: `audit.log.jsonl` (JSONL append-only).
+File-based with a `state.md` index (YAML frontmatter). Subdirectories: `users/`, `organizations/`, `memberships/`, `agents/`, `policies/`, `keys/`, `approval-requests/`, `invites/`, `api-keys/`. Audit log: `audit.log.jsonl` (JSONL append-only).
 
 ### Domain concepts
 

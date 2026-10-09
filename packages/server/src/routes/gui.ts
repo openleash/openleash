@@ -36,6 +36,7 @@ import {
     renderOwnerPolicyGroups,
     renderOwnerPolicyGroupDetail,
     renderOwnerProvisioners,
+    renderOwnerApiKeys,
     renderOwnerPolicyCreate,
     renderOwnerPolicyEdit,
     renderOwnerProfile,
@@ -1187,6 +1188,41 @@ export function registerGuiRoutes(
     app.get("/gui/provisioners", { preHandler: ownerAuth }, async (_request, reply) => {
         reply.redirect("/gui/personal/provisioners");
     });
+
+    // Owner API keys — personal and org scope. Org members can see the
+    // org's keys; only org admins can create or revoke them.
+    const apiKeysHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const session = (request as unknown as Record<string, unknown>)
+            .ownerSession as SessionClaims;
+        const scope = resolveCurrentScope(store, session, request);
+        const { ownerType, ownerId } = scope ? currentOwner(scope) : { ownerType: "user" as const, ownerId: session.sub };
+        const isOrg = ownerType === "org" && scope?.current.type === "org";
+        const apiKeys = store.apiKeys
+            .listByOwner(ownerType, ownerId)
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
+            .map((k) => ({
+                api_key_id: k.api_key_id,
+                name: k.name,
+                scopes: k.scopes,
+                status: k.status,
+                created_at: k.created_at,
+                revoked_at: k.revoked_at,
+                last_used_at: k.last_used_at,
+            }));
+        const html = renderOwnerApiKeys(
+            apiKeys,
+            {
+                apiBase: isOrg ? `/v1/owner/organizations/${encodeURIComponent(ownerId)}` : "/v1/owner",
+                activePath: isOrg && scope?.current.type === "org"
+                    ? `/gui/orgs/${encodeURIComponent(scope.current.slug)}/api-keys`
+                    : "/gui/personal/api-keys",
+                canManage: !isOrg || (scope?.current.type === "org" && scope.current.role === "org_admin"),
+            },
+            ownerRenderOptionsFor(session, request, reply),
+        );
+        reply.type("text/html").send(html);
+    };
+    registerScopedOwnerRoute("api-keys", apiKeysHandler);
 
     // Owner agent detail
     const agentDetailHandler = async (request: FastifyRequest, reply: FastifyReply) => {

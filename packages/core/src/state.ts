@@ -5,6 +5,7 @@ import type {
   AgentFrontmatter,
   AgentGroupMembership,
   AgentInvite,
+  ApiKey,
   ApprovalRequestFrontmatter,
   UserFrontmatter,
   OrganizationFrontmatter,
@@ -322,6 +323,34 @@ export function readProvisionerFile(dataDir: string, provisionerId: string): Pro
 export function deleteProvisionerFile(dataDir: string, provisionerId: string): void {
   const filePath = path.join(dataDir, 'provisioners', `${provisionerId}.json`);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
+// ─── API key files ──────────────────────────────────────────────────
+
+export function writeApiKeyFile(dataDir: string, apiKey: ApiKey): void {
+  const dir = path.join(dataDir, 'api-keys');
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${apiKey.api_key_id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(apiKey, null, 2), 'utf-8');
+}
+
+export function readApiKeyFile(dataDir: string, apiKeyId: string): ApiKey {
+  const filePath = path.join(dataDir, 'api-keys', `${apiKeyId}.json`);
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+export function deleteApiKeyFile(dataDir: string, apiKeyId: string): void {
+  const filePath = path.join(dataDir, 'api-keys', `${apiKeyId}.json`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
+export function listApiKeyFiles(dataDir: string): ApiKey[] {
+  const dir = path.join(dataDir, 'api-keys');
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as ApiKey);
 }
 
 // ─── StateIndex ─────────────────────────────────────────────────────

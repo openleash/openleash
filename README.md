@@ -199,6 +199,7 @@ All state is stored in human-readable files:
 - `./data/policy-drafts/` — agent-proposed policy drafts
 - `./data/invites/` — owner setup invites
 - `./data/agent-invites/` — agent registration invites
+- `./data/api-keys/` — owner/org API keys (hashed)
 - `./data/audit.log.jsonl` — append-only audit log
 
 ## 🔑 Approval Workflow
@@ -226,6 +227,17 @@ Agent → GET  /v1/agent/policy-drafts/:id   → Sees APPROVED + resulting_polic
 ```
 
 This lets agents self-serve within the owner's control — the owner always has the final say. See [docs/protocol.md](docs/protocol.md#policy-drafts) for the full specification.
+
+## 📤 Audit Log Export
+
+Users and organizations can stream their audit trail into a SIEM or data lake. Create a scoped API key (`ola_…`, `audit:read`) under **API Keys** in the owner portal, then poll the cursor-based export endpoint:
+
+```
+GET /v1/owner/audit/export                         → personal audit trail
+GET /v1/owner/organizations/:orgId/audit/export    → organization audit trail
+```
+
+Events come oldest first in [OCSF 1.3.0](https://schema.ocsf.io/1.3.0) (or OpenLeash's native format), as JSON or NDJSON. Each response includes a `next_cursor` that returns only new events on the next poll. See [docs/audit-export.md](docs/audit-export.md).
 
 ## 👤 Owner Portal
 

@@ -1,0 +1,56 @@
+.oak-help {
+    color: var(--text-muted);
+    max-width: 46rem;
+    margin-bottom: 16px;
+}
+
+.oak-panel {
+    margin-bottom: 16px;
+}
+
+.oak-list-card {
+    margin-bottom: 16px;
+}
+
+.oak-muted {
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.oak-title-icon {
+    font-size: 18px;
+    vertical-align: -3px;
+    margin-right: 6px;
+}
+
+.oak-token-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.oak-token-value {
+    flex: 1;
+    padding: 8px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    overflow-wrap: anywhere;
+    user-select: all;
+}
+
+.oak-snippet {
+    padding: 10px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    margin: 0;
+}
+
+.oak-empty-row {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 24px 0;
+}

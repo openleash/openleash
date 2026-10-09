@@ -2,6 +2,7 @@ import type {
   AgentFrontmatter,
   AgentGroupMembership,
   AgentInvite,
+  ApiKey,
   ApprovalRequestFrontmatter,
   UserFrontmatter,
   OrganizationFrontmatter,
@@ -106,6 +107,13 @@ export interface ProvisionerRepository {
   delete(provisionerId: string): void;
 }
 
+export interface ApiKeyRepository {
+  read(apiKeyId: string): ApiKey;
+  write(apiKey: ApiKey): void;
+  delete(apiKeyId: string): void;
+  listByOwner(ownerType: 'user' | 'org', ownerId: string): ApiKey[];
+}
+
 export interface OrgInviteRepository {
   read(inviteId: string): OrgInvite;
   write(invite: OrgInvite): void;
@@ -155,6 +163,7 @@ export interface DataStore {
   agentInvites: AgentInviteRepository;
   orgInvites: OrgInviteRepository;
   provisioners: ProvisionerRepository;
+  apiKeys: ApiKeyRepository;
   keys: KeyRepository;
   state: StateRepository;
   audit: AuditStore;

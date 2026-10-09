@@ -114,6 +114,10 @@ export default defineConfig({
                     __dirname,
                     "src/pages/owner-provisioners/client.ts",
                 ),
+                "pages/owner-api-keys/client": resolve(
+                    __dirname,
+                    "src/pages/owner-api-keys/client.ts",
+                ),
             },
         },
     },
