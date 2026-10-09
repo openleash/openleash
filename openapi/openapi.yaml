@@ -40,7 +40,7 @@ info:
        and the agent re-authorizes with the approval token.
     7. A counterparty verifies the proof token via `/v1/verify-proof` or
        offline using the public keys from `/v1/public-keys`.
-  version: 0.7.0
+  version: 0.8.0
   license:
     name: Apache-2.0
     url: https://github.com/openleash/openleash/blob/main/LICENSE
