@@ -683,7 +683,7 @@ export interface TransformationResultReport {
 interface TransformationAgent { openleashUrl: string; agentId: string; privateKeyB64: string; timeoutMs?: number }
 async function transformationRequest<T>(params: TransformationAgent, method: 'GET' | 'POST', path: string, body: unknown = {}): Promise<T> {
   const bytes = Buffer.from(JSON.stringify(body));
-  const headers = signRequest({ method, path, timestamp: new Date().toISOString(), nonce: crypto.randomUUID(), bodyBytes: bytes, privateKeyB64: params.privateKeyB64 });
+  const headers = signRequest({ method, path: path.split('?')[0], timestamp: new Date().toISOString(), nonce: crypto.randomUUID(), bodyBytes: bytes, privateKeyB64: params.privateKeyB64 });
   const response = await fetch(params.openleashUrl.replace(/\/$/, '') + path, {
     method, headers: { ...headers, 'Content-Type': 'application/json', 'X-Agent-Id': params.agentId },
     body: method === 'POST' ? bytes.toString() : undefined, signal: AbortSignal.timeout(params.timeoutMs ?? 10000),
@@ -697,9 +697,27 @@ export function getTransformations(params: TransformationAgent): Promise<Transfo
 export function reportTransformationResults(params: TransformationAgent & { report: TransformationResultReport }): Promise<{ status: string }> {
   return transformationRequest(params, 'POST', '/v1/agent/transformation-results', params.report);
 }
-export function createTransformationDraft(params: TransformationAgent & { rule: OutputTransformationRule; justification: string; name?: string; description?: string }): Promise<{ transformation_id: string; status: string }> {
+export type TransformationDraftStatus = 'PENDING' | 'APPROVED' | 'DENIED';
+export interface TransformationDraft {
+  transformation_draft_id: string;
+  status: TransformationDraftStatus;
+  name: string | null;
+  description: string | null;
+  rule: OutputTransformationRule;
+  applies_to_agent_principal_id: string | null;
+  justification: string;
+  created_at: string;
+  resolved_at: string | null;
+  denial_reason: string | null;
+  resulting_transformation_id: string | null;
+}
+export function createTransformationDraft(params: TransformationAgent & { rule: OutputTransformationRule; justification: string; name?: string; description?: string }): Promise<{ transformation_draft_id: string; status: 'PENDING'; created_at: string }> {
   return transformationRequest(params, 'POST', '/v1/agent/transformation-drafts', { rule: params.rule, justification: params.justification, name: params.name, description: params.description });
 }
-export function listTransformationDrafts(params: TransformationAgent): Promise<{ drafts: Array<{ transformation_id: string; draft: { status: 'PENDING' | 'APPROVED' | 'DENIED' } }> }> {
-  return transformationRequest(params, 'GET', '/v1/agent/transformation-drafts');
+export function listTransformationDrafts(params: TransformationAgent & { status?: TransformationDraftStatus }): Promise<{ transformation_drafts: TransformationDraft[] }> {
+  const path = '/v1/agent/transformation-drafts' + (params.status ? '?status=' + encodeURIComponent(params.status) : '');
+  return transformationRequest(params, 'GET', path);
+}
+export function getTransformationDraft(params: TransformationAgent & { transformationDraftId: string }): Promise<TransformationDraft> {
+  return transformationRequest(params, 'GET', '/v1/agent/transformation-drafts/' + encodeURIComponent(params.transformationDraftId));
 }

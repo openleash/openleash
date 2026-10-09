@@ -655,13 +655,54 @@ func ReportTransformationResults(openleashURL, agentID, privateKeyB64 string, re
 	var result map[string]interface{}
 	return signedPost(openleashURL, "/v1/agent/transformation-results", agentID, privateKeyB64, payload, &result)
 }
-func CreateTransformationDraft(openleashURL, agentID, privateKeyB64 string, rule map[string]interface{}, justification string) (map[string]interface{}, error) {
-	var result map[string]interface{}
+
+type TransformationDraftResponse struct {
+	TransformationDraftID string `json:"transformation_draft_id"`
+	Status                string `json:"status"`
+	CreatedAt             string `json:"created_at"`
+}
+
+type TransformationDraftDetail struct {
+	TransformationDraftResponse
+	Name                      *string                `json:"name"`
+	Description               *string                `json:"description"`
+	Rule                      map[string]interface{} `json:"rule"`
+	AppliesToAgentPrincipalID *string                `json:"applies_to_agent_principal_id"`
+	Justification             string                 `json:"justification"`
+	ResolvedAt                *string                `json:"resolved_at"`
+	DenialReason              *string                `json:"denial_reason"`
+	ResultingTransformationID *string                `json:"resulting_transformation_id"`
+}
+
+type TransformationDraftListResponse struct {
+	TransformationDrafts []TransformationDraftDetail `json:"transformation_drafts"`
+}
+
+// CreateTransformationDraft proposes a rule for owner review.
+func CreateTransformationDraft(openleashURL, agentID, privateKeyB64 string, rule map[string]interface{}, justification string) (TransformationDraftResponse, error) {
+	var result TransformationDraftResponse
 	err := signedPost(openleashURL, "/v1/agent/transformation-drafts", agentID, privateKeyB64, map[string]interface{}{"rule": rule, "justification": justification}, &result)
 	return result, err
 }
-func ListTransformationDrafts(openleashURL, agentID, privateKeyB64 string) (map[string]interface{}, error) {
-	var result map[string]interface{}
-	err := signedGet(openleashURL, "/v1/agent/transformation-drafts", agentID, privateKeyB64, &result)
+
+// ListTransformationDrafts lists submitted drafts. Pass an empty status to list all.
+func ListTransformationDrafts(openleashURL, agentID, privateKeyB64, status string) (TransformationDraftListResponse, error) {
+	path := "/v1/agent/transformation-drafts"
+	if status != "" {
+		path += "?status=" + url.QueryEscape(status)
+	}
+	var result TransformationDraftListResponse
+	headers, err := signedHeaders("GET", "/v1/agent/transformation-drafts", agentID, privateKeyB64, []byte("{}"))
+	if err != nil {
+		return result, err
+	}
+	err = doGet(openleashURL+path, headers, &result)
+	return result, err
+}
+
+// GetTransformationDraft gets a draft's status and resolution details.
+func GetTransformationDraft(openleashURL, agentID, privateKeyB64, transformationDraftID string) (TransformationDraftDetail, error) {
+	var result TransformationDraftDetail
+	err := signedGet(openleashURL, "/v1/agent/transformation-drafts/"+url.PathEscape(transformationDraftID), agentID, privateKeyB64, &result)
 	return result, err
 }

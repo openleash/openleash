@@ -82,14 +82,38 @@ or report execution of them.
 Agents may POST a rule, name/description and justification to
 `/v1/agent/transformation-drafts`. Proposals target that agent only and do not
 execute until owner approval. At most 20 pending proposals per agent are
-allowed. GET the same path to see status and denial reasons. Owners review them
-in Transformations or via `/v1/owner[/organizations/{orgId}]/transformation-drafts`;
-POST `/{id}/approve` or `/{id}/deny`. Approval appends an enabled, blocking rule
-to the chain. A resolved proposal cannot be resolved twice.
+allowed. Creation returns `transformation_draft_id`, `status` and `created_at`.
+GET the same path to list `transformation_drafts`, optionally filtered with
+`?status=PENDING`, `APPROVED` or `DENIED`. GET `/{transformationDraftId}` to
+retrieve one draft. Agents can read only drafts they submitted.
 
-Provisioner tokens can GET `/v1/provisioner/transformations` and POST/DELETE
-`/v1/provisioner/agents/{agentId}/transformations/{id}`. These operations are
-restricted to their owner; pending or denied drafts cannot be bound.
+Owners have the same list, filter and detail operations at
+`/v1/owner[/organizations/{orgId}]/transformation-drafts`. Draft views expose
+`status`, `justification`, `resolved_at`, `denial_reason` and
+`resulting_transformation_id` as top-level fields. Owner views also identify the
+submitting agent and reviewer. Organization reads require active membership;
+review requires `org_admin`.
+
+POST `/{transformationDraftId}/approve` or `/{transformationDraftId}/deny` to
+review a draft. Approval enables the existing record and appends it to the
+chain: `resulting_transformation_id` is the same UUID as the draft ID. Pending
+and denied drafts have no resulting transformation. A resolved draft cannot be
+resolved twice; another approval or denial returns 400, as for policy drafts.
+
+Provisioner tokens can GET `/v1/provisioner/transformations` to list their owner's
+transformations. Agent bindings follow the policy API conventions:
+
+- GET `/v1/provisioner/agents/{agentPrincipalId}/transformations` returns
+  `agent_principal_id`, explicit `transformations` bindings and `groups`.
+  Bindings include ID, name and rank; rules that match only through targeting
+  are not included. Fetch the signed agent plan for the effective chain.
+- POST that collection with `{ "transformation_id": "<uuid>" }` to bind a rule.
+  Returns both IDs and `status: bound` or `already_bound`.
+- DELETE `/{transformationId}` to remove the explicit binding. Returns both
+  IDs and `status: unbound`; an absent binding returns 404.
+
+These operations are restricted to the provisioner's owner. Pending and denied
+drafts cannot be bound. Repeating a bind does not create duplicate audit events.
 
 ## Audit and SDKs
 
@@ -113,10 +137,14 @@ tool call. A report failure does not restore unredacted output; the hook exposes
 `report_error` for the caller to surface and monitor.
 
 TypeScript exports `getTransformations`, `reportTransformationResults`,
-`createTransformationDraft`, `listTransformationDrafts`. Python uses snake_case
+`createTransformationDraft`, `listTransformationDrafts`, `getTransformationDraft`.
+Lists accept an optional status filter; Go takes an empty status string to list
+all drafts, matching `ListPolicyDrafts`. Python uses snake_case
 names; Go uses the corresponding exported CamelCase names. These SDK helpers
 handle signed transport; only the runtime kit implements enforcement.
 See the [OpenAPI reference](../openapi/openapi.yaml) for complete request shapes.
+Signed requests use the URL path without the query string, including when
+filtering drafts.
 
 ## Upgrading
 
@@ -128,3 +156,10 @@ patterns relying on language-specific regex behavior before enabling them.
 Upgrade the server, SDK and runtime together to get execution reporting and the
 new failure semantics. Older runtimes can fetch the flat rule list but do not
 provide the new enforcement and audit guarantees.
+
+Draft clients must read `transformation_draft_id` and `transformation_drafts`
+instead of the former `transformation_id` and `drafts` envelope, and read draft
+status and resolution fields directly rather than under `draft`. Provisioner
+clients must POST bindings to the collection with a `transformation_id` body;
+the former member POST is no longer supported. These API changes require no
+record migration and do not change the runtime plan or reporting protocol.

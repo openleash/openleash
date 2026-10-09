@@ -833,9 +833,11 @@ export interface TransformationFrontmatter {
   updated_at?: string;
   draft?: {
     agent_principal_id: string;
+    agent_id?: string;
     status: 'PENDING' | 'APPROVED' | 'DENIED';
     justification: string;
     resolved_at?: string;
+    resolved_by?: string;
     denial_reason?: string;
   };
   name: string | null;

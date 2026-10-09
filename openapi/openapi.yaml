@@ -4244,179 +4244,146 @@ paths:
 
   /v1/owner/transformations:
     get:
-      tags:
-        - Owner
-      summary: List transformations in execution order
-      operationId: transformation1
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user.
+      summary: List owner's transformations
+      operationId: listOwnerTransformations
+      tags: [Owner]
+      description: |
+        Returns transformations belonging to the authenticated owner in
+        execution order, including disabled rules. Pending and denied drafts
+        are excluded.
       security:
         - OwnerSession: []
       responses:
         "200":
-          description: Success
+          description: Transformation list.
           content:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
+                required: [transformations]
                 properties:
                   transformations:
                     type: array
                     items:
                       $ref: "#/components/schemas/OutputTransformation"
-                required:
-                  - transformations
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
     post:
-      tags:
-        - Owner
-      summary: Create a transformation
-      operationId: transformation2
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user. At most 500 active records per owner. Select either an
-        agent or a group, or neither for owner-wide.
+      summary: Create transformation
+      operationId: createOwnerTransformation
+      tags: [Owner]
+      description: |
+        Creates a transformation owned by the authenticated owner. Optionally
+        targets one agent; omit the target for an owner-wide rule. At most 500
+        active transformations are allowed per owner.
       security:
         - OwnerSession: []
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/TransformationWrite"
-  /v1/owner/transformations/{id}:
-    get:
-      tags:
-        - Owner
-      summary: Read transformation details
-      operationId: transformation3
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user.
-      security:
-        - OwnerSession: []
       responses:
         "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OutputTransformation"
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-            format: uuid
-    put:
-      tags:
-        - Owner
-      summary: Update a transformation
-      operationId: transformation4
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user. Each change increments revision.
-      security:
-        - OwnerSession: []
-      responses:
-        "200":
-          description: Success
+          description: Transformation created.
           content:
             application/json:
               schema:
                 type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
+                required: [transformation_id, revision, status]
+                properties:
+                  transformation_id:
+                    type: string
+                    format: uuid
+                  revision:
+                    type: integer
+                    minimum: 1
+                  status:
+                    type: string
+                    enum: [created]
         "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+          description: The owner already has 500 active transformations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/transformations/{transformationId}:
+    get:
+      summary: Get transformation
+      operationId: getOwnerTransformation
+      tags: [Owner]
+      description: Returns a transformation owned by the authenticated owner. Pending and denied drafts are excluded.
+      security:
+        - OwnerSession: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/TransformationId"
+      responses:
+        "200":
+          description: Transformation details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutputTransformation"
+        "404":
+          description: Transformation not found, outside this owner scope, or still a pending or denied draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Update transformation
+      operationId: updateOwnerTransformation
+      tags: [Owner]
+      description: |
+        Updates the supplied transformation fields; omitted fields retain their
+        values. Each update increments the revision. Include the current
+        revision to detect concurrent changes.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/TransformationId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/TransformationUpdate"
-    delete:
-      tags:
-        - Owner
-      summary: Delete a transformation
-      operationId: transformation5
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user. Requires TOTP or an unused backup code when enabled;
-        require_totp requires setup.
-      security:
-        - OwnerSession: []
       responses:
         "200":
-          description: Success
+          description: Transformation updated.
           content:
             application/json:
               schema:
                 type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
+                required: [transformation_id, revision, status]
+                properties:
+                  transformation_id:
+                    type: string
+                    format: uuid
+                  revision:
+                    type: integer
+                    minimum: 1
+                  status:
+                    type: string
+                    enum: [updated]
         "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+          description: The supplied revision is stale, or the transformation is a pending or denied draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Delete transformation
+      operationId: deleteOwnerTransformation
+      tags: [Owner]
+      description: |
+        Deletes the transformation and its bindings. Requires a TOTP code or an
+        unused backup code when two-factor authentication is enabled.
+        Two-factor setup is required when enforced by the server.
+      security:
+        - OwnerSession: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/TransformationId"
       requestBody:
         required: false
         content:
@@ -4427,33 +4394,30 @@ paths:
               properties:
                 totp_code:
                   type: string
+      responses:
+        "200":
+          description: Transformation deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [deleted]
+
   /v1/owner/transformations/order:
     put:
-      tags:
-        - Owner
-      summary: Reorder the complete chain
-      operationId: transformation6
-      description: Supply every active record, including disabled ones, exactly once. The request updates
-        ranks and revisions.
+      summary: Reorder transformations
+      operationId: reorderOwnerTransformations
+      tags: [Owner]
+      description: |
+        Sets execution order across the owner scope. Include every active
+        transformation exactly once, including disabled rules. Reordering
+        increments each transformation's revision.
       security:
         - OwnerSession: []
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
       requestBody:
         required: true
         content:
@@ -4469,46 +4433,46 @@ paths:
                   items:
                     type: string
                     format: uuid
-              required:
-                - ordered_transformation_ids
-  /v1/owner/transformations/preview:
-    post:
-      tags:
-        - Owner
-      summary: Preview a single rule with sample text
-      operationId: transformation7
-      description: Sample text is sent to the server, never written to audit. Execution is bounded;
-        failures return 422.
-      security:
-        - OwnerSession: []
+              required: [ordered_transformation_ids]
       responses:
         "200":
-          description: Success
+          description: Transformations reordered.
           content:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
+                required: [reordered]
                 properties:
-                  output:
-                    type: string
-                  modified:
-                    type: boolean
-                required:
-                  - output
-                  - modified
+                  reordered:
+                    type: integer
+                    minimum: 0
+                    description: Number of transformations reordered.
         "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
+          description: Invalid ordered_transformation_ids.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-        "422":
-          description: Execution deadline or output limit exceeded.
+          description: |
+            The list must contain every active transformation in this owner scope
+            exactly once. Reload before reordering.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/transformations/preview:
+    post:
+      summary: Preview transformation
+      operationId: previewOwnerTransformation
+      tags: [Owner]
+      description: |
+        Applies a single rule to sample text without saving it. Sample text is
+        never written to the audit log. Execution time and output size are
+        bounded.
+      security:
+        - OwnerSession: []
       requestBody:
         required: true
         content:
@@ -4522,81 +4486,101 @@ paths:
                 input:
                   type: string
                   maxLength: 65536
-              required:
-                - rule
-                - input
+              required: [rule, input]
+      responses:
+        "200":
+          description: Transformation preview.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [output, modified]
+                properties:
+                  output:
+                    type: string
+                  modified:
+                    type: boolean
+        "400":
+          description: Invalid transformation rule or sample text.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Transformation execution failed, exceeded its deadline, or exceeded the output limit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v1/owner/transformation-drafts:
     get:
-      tags:
-        - Owner
-      summary: List transformation proposals and resolutions
-      operationId: transformation8
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user.
+      summary: List owner's transformation drafts
+      operationId: listOwnerTransformationDrafts
+      tags: [Owner]
+      description: |
+        Lists transformation drafts belonging to the authenticated owner.
+        Optionally filter by status. Draft status and resolution fields are
+        returned at the top level of each entry.
       security:
         - OwnerSession: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, DENIED]
+          description: Filter by status.
       responses:
         "200":
-          description: Success
+          description: Transformation draft list.
           content:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
+                required: [transformation_drafts]
                 properties:
-                  drafts:
+                  transformation_drafts:
                     type: array
                     items:
-                      $ref: "#/components/schemas/OutputTransformation"
-                required:
-                  - drafts
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-  /v1/owner/transformation-drafts/{id}/approve:
-    post:
-      tags:
-        - Owner
-      summary: approve a transformation proposal
-      operationId: transformation9
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user. Requires two-factor confirmation when enabled. Approval
-        activates the rule at the end of the chain.
+                      $ref: "#/components/schemas/TransformationDraftOwnerView"
+
+  /v1/owner/transformation-drafts/{transformationDraftId}:
+    get:
+      summary: Get transformation draft
+      operationId: getOwnerTransformationDraft
+      tags: [Owner]
+      description: |
+        Returns full draft details, including the proposed rule and submitting
+        agent. The draft must belong to the authenticated owner.
       security:
         - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/TransformationDraftId"
       responses:
         "200":
-          description: Success
+          description: Transformation draft details.
           content:
             application/json:
               schema:
-                type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+                $ref: "#/components/schemas/TransformationDraftOwnerView"
+
+  /v1/owner/transformation-drafts/{transformationDraftId}/approve:
+    post:
+      summary: Approve transformation draft
+      operationId: approveTransformationDraft
+      tags: [Owner]
+      description: |
+        Approves a pending transformation draft, enables it and places it at
+        the end of the execution chain. The transformation retains its ID.
+        Requires a TOTP code or an unused backup code when two-factor
+        authentication is enabled. Two-factor setup is required when enforced
+        by the server.
+      security:
+        - OwnerSession: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/TransformationDraftId"
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -4605,46 +4589,54 @@ paths:
               properties:
                 totp_code:
                   type: string
-                reason:
-                  type: string
-                  maxLength: 500
-  /v1/owner/transformation-drafts/{id}/deny:
-    post:
-      tags:
-        - Owner
-      summary: deny a transformation proposal
-      operationId: transformation10
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user. Requires two-factor confirmation when enabled. Approval
-        activates the rule at the end of the chain.
-      security:
-        - OwnerSession: []
+                  description: TOTP code or unused backup code if two-factor authentication is enabled.
       responses:
         "200":
-          description: Success
+          description: Transformation draft approved and enabled.
           content:
             application/json:
               schema:
                 type: object
+                required: [transformation_draft_id, status, resulting_transformation_id]
+                properties:
+                  transformation_draft_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [APPROVED]
+                  resulting_transformation_id:
+                    type: string
+                    format: uuid
+                    description: ID of the enabled transformation, identical to the draft ID.
         "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
+          description: Draft already resolved, or invalid request body or transformation target.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+          description: The owner already has 500 active transformations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/transformation-drafts/{transformationDraftId}/deny:
+    post:
+      summary: Deny transformation draft
+      operationId: denyTransformationDraft
+      tags: [Owner]
+      description: |
+        Denies a pending transformation draft and leaves it disabled. An
+        optional reason can be provided for the agent. Requires a TOTP code or
+        an unused backup code when two-factor authentication is enabled.
+        Two-factor setup is required when enforced by the server.
+      security:
+        - OwnerSession: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/TransformationDraftId"
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -4653,212 +4645,198 @@ paths:
               properties:
                 totp_code:
                   type: string
+                  description: TOTP code or unused backup code if two-factor authentication is enabled.
                 reason:
                   type: string
                   maxLength: 500
+                  description: Optional reason for denial.
+      responses:
+        "200":
+          description: Transformation draft denied.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transformation_draft_id, status]
+                properties:
+                  transformation_draft_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [DENIED]
+        "400":
+          description: Draft already resolved or invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v1/owner/organizations/{orgId}/transformations:
     get:
-      tags:
-        - Owner
-      summary: List transformations in execution order
-      operationId: transformation11
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user.
+      summary: List organization transformations
+      operationId: listOrgTransformations
+      tags: [Organization, Owner]
+      description: |
+        Returns transformations belonging to the organization in execution
+        order, including disabled rules. Pending and denied drafts are
+        excluded. Requires active organization membership.
       security:
         - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
       responses:
         "200":
-          description: Success
+          description: Transformation list.
           content:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
+                required: [transformations]
                 properties:
                   transformations:
                     type: array
                     items:
                       $ref: "#/components/schemas/OutputTransformation"
-                required:
-                  - transformations
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-      parameters:
-        - in: path
-          name: orgId
-          required: true
-          schema:
-            type: string
-            format: uuid
     post:
-      tags:
-        - Owner
-      summary: Create a transformation
-      operationId: transformation12
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user. At most 500 active records per owner. Select either an
-        agent or a group, or neither for owner-wide.
+      summary: Create organization transformation
+      operationId: createOrgTransformation
+      tags: [Organization, Owner]
+      description: |
+        Creates a transformation owned by the organization. Optionally targets
+        one agent or one group; omit both for an owner-wide rule. At most 500
+        active transformations are allowed per owner. Requires the org_admin
+        role.
       security:
         - OwnerSession: []
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
       parameters:
-        - in: path
-          name: orgId
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/OrgId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/TransformationWrite"
-  /v1/owner/organizations/{orgId}/transformations/{id}:
-    get:
-      tags:
-        - Owner
-      summary: Read transformation details
-      operationId: transformation13
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user.
-      security:
-        - OwnerSession: []
       responses:
         "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OutputTransformation"
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-      parameters:
-        - in: path
-          name: orgId
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-            format: uuid
-    put:
-      tags:
-        - Owner
-      summary: Update a transformation
-      operationId: transformation14
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user. Each change increments revision.
-      security:
-        - OwnerSession: []
-      responses:
-        "200":
-          description: Success
+          description: Transformation created.
           content:
             application/json:
               schema:
                 type: object
+                required: [transformation_id, revision, status]
+                properties:
+                  transformation_id:
+                    type: string
+                    format: uuid
+                  revision:
+                    type: integer
+                    minimum: 1
+                  status:
+                    type: string
+                    enum: [created]
         "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
+          description: Invalid transformation rule or target.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+          description: The owner already has 500 active transformations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/organizations/{orgId}/transformations/{transformationId}:
+    get:
+      summary: Get organization transformation
+      operationId: getOrgTransformation
+      tags: [Organization, Owner]
+      description: |
+        Returns a transformation owned by the organization. Pending and denied
+        drafts are excluded. Requires active organization membership.
+      security:
+        - OwnerSession: []
       parameters:
-        - in: path
-          name: orgId
-          required: true
-          schema: &a1
-            type: string
-            format: uuid
-        - in: path
-          name: id
-          required: true
-          schema: *a1
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/TransformationId"
+      responses:
+        "200":
+          description: Transformation details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutputTransformation"
+        "404":
+          description: Transformation not found, outside this owner scope, or still a pending or denied draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Update organization transformation
+      operationId: updateOrgTransformation
+      tags: [Organization, Owner]
+      description: |
+        Updates the supplied transformation fields; omitted fields retain their
+        values. Each update increments the revision. Include the current
+        revision to detect concurrent changes. Requires the org_admin role.
+      security:
+        - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/TransformationId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/TransformationUpdate"
-    delete:
-      tags:
-        - Owner
-      summary: Delete a transformation
-      operationId: transformation15
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user. Requires TOTP or an unused backup code when enabled;
-        require_totp requires setup.
-      security:
-        - OwnerSession: []
       responses:
         "200":
-          description: Success
+          description: Transformation updated.
           content:
             application/json:
               schema:
                 type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
+                required: [transformation_id, revision, status]
+                properties:
+                  transformation_id:
+                    type: string
+                    format: uuid
+                  revision:
+                    type: integer
+                    minimum: 1
+                  status:
+                    type: string
+                    enum: [updated]
         "404":
-          description: Resource not found in this owner scope.
+          description: Transformation not found or not owned by this organization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+          description: The supplied revision is stale, or the transformation is a pending or denied draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Delete organization transformation
+      operationId: deleteOrgTransformation
+      tags: [Organization, Owner]
+      description: |
+        Deletes the transformation and its bindings. Requires a TOTP code or an
+        unused backup code when two-factor authentication is enabled.
+        Two-factor setup is required when enforced by the server. Requires the
+        org_admin role.
+      security:
+        - OwnerSession: []
       parameters:
-        - in: path
-          name: orgId
-          required: true
-          schema: &a2
-            type: string
-            format: uuid
-        - in: path
-          name: id
-          required: true
-          schema: *a2
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/TransformationId"
       requestBody:
         required: false
         content:
@@ -4869,40 +4847,32 @@ paths:
               properties:
                 totp_code:
                   type: string
-  /v1/owner/organizations/{orgId}/transformations/order:
-    put:
-      tags:
-        - Owner
-      summary: Reorder the complete chain
-      operationId: transformation16
-      description: Supply every active record, including disabled ones, exactly once. The request updates
-        ranks and revisions.
-      security:
-        - OwnerSession: []
       responses:
         "200":
-          description: Success
+          description: Transformation deleted.
           content:
             application/json:
               schema:
                 type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [deleted]
+
+  /v1/owner/organizations/{orgId}/transformations/order:
+    put:
+      summary: Reorder organization transformations
+      operationId: reorderOrgTransformations
+      tags: [Organization, Owner]
+      description: |
+        Sets execution order across the owner scope. Include every active
+        transformation exactly once, including disabled rules. Reordering
+        increments each transformation's revision. Requires the org_admin role.
+      security:
+        - OwnerSession: []
       parameters:
-        - in: path
-          name: orgId
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/OrgId"
       requestBody:
         required: true
         content:
@@ -4918,53 +4888,48 @@ paths:
                   items:
                     type: string
                     format: uuid
-              required:
-                - ordered_transformation_ids
-  /v1/owner/organizations/{orgId}/transformations/preview:
-    post:
-      tags:
-        - Owner
-      summary: Preview a single rule with sample text
-      operationId: transformation17
-      description: Sample text is sent to the server, never written to audit. Execution is bounded;
-        failures return 422.
-      security:
-        - OwnerSession: []
+              required: [ordered_transformation_ids]
       responses:
         "200":
-          description: Success
+          description: Transformations reordered.
           content:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
+                required: [reordered]
                 properties:
-                  output:
-                    type: string
-                  modified:
-                    type: boolean
-                required:
-                  - output
-                  - modified
+                  reordered:
+                    type: integer
+                    minimum: 0
+                    description: Number of transformations reordered.
         "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
+          description: Invalid ordered_transformation_ids.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-        "422":
-          description: Execution deadline or output limit exceeded.
+          description: |
+            The list must contain every active transformation in this owner scope
+            exactly once. Reload before reordering.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/organizations/{orgId}/transformations/preview:
+    post:
+      summary: Preview organization transformation
+      operationId: previewOrgTransformation
+      tags: [Organization, Owner]
+      description: |
+        Applies a single rule to sample text without saving it. Sample text is
+        never written to the audit log. Execution time and output size are
+        bounded. Requires active organization membership.
+      security:
+        - OwnerSession: []
       parameters:
-        - in: path
-          name: orgId
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/OrgId"
       requestBody:
         required: true
         content:
@@ -4978,94 +4943,105 @@ paths:
                 input:
                   type: string
                   maxLength: 65536
-              required:
-                - rule
-                - input
+              required: [rule, input]
+      responses:
+        "200":
+          description: Transformation preview.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [output, modified]
+                properties:
+                  output:
+                    type: string
+                  modified:
+                    type: boolean
+        "400":
+          description: Invalid transformation rule or sample text.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Transformation execution failed, exceeded its deadline, or exceeded the output limit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v1/owner/organizations/{orgId}/transformation-drafts:
     get:
-      tags:
-        - Owner
-      summary: List transformation proposals and resolutions
-      operationId: transformation18
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user.
+      summary: List organization transformation drafts
+      operationId: listOrgTransformationDrafts
+      tags: [Organization, Owner]
+      description: |
+        Lists transformation drafts belonging to the organization. Requires
+        active organization membership. Optionally filter by status. Draft
+        status and resolution fields are returned at the top level of each
+        entry.
       security:
         - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, DENIED]
+          description: Filter by status.
       responses:
         "200":
-          description: Success
+          description: Transformation draft list.
           content:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
+                required: [transformation_drafts]
                 properties:
-                  drafts:
+                  transformation_drafts:
                     type: array
                     items:
-                      $ref: "#/components/schemas/OutputTransformation"
-                required:
-                  - drafts
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-      parameters:
-        - in: path
-          name: orgId
-          required: true
-          schema:
-            type: string
-            format: uuid
-  /v1/owner/organizations/{orgId}/transformation-drafts/{id}/approve:
-    post:
-      tags:
-        - Owner
-      summary: approve a transformation proposal
-      operationId: transformation19
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user. Requires two-factor confirmation when enabled. Approval
-        activates the rule at the end of the chain.
+                      $ref: "#/components/schemas/TransformationDraftOwnerView"
+
+  /v1/owner/organizations/{orgId}/transformation-drafts/{transformationDraftId}:
+    get:
+      summary: Get organization transformation draft
+      operationId: getOrgTransformationDraft
+      tags: [Organization, Owner]
+      description: |
+        Returns full draft details, including the proposed rule and submitting
+        agent. Requires active organization membership.
       security:
         - OwnerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/TransformationDraftId"
       responses:
         "200":
-          description: Success
+          description: Transformation draft details.
           content:
             application/json:
               schema:
-                type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+                $ref: "#/components/schemas/TransformationDraftOwnerView"
+
+  /v1/owner/organizations/{orgId}/transformation-drafts/{transformationDraftId}/approve:
+    post:
+      summary: Approve organization transformation draft
+      operationId: approveOrgTransformationDraft
+      tags: [Organization, Owner]
+      description: |
+        Approves a pending transformation draft, enables it and places it at
+        the end of the execution chain. The transformation retains its ID.
+        Requires a TOTP code or an unused backup code when two-factor
+        authentication is enabled. Two-factor setup is required when enforced
+        by the server. Requires the org_admin role.
+      security:
+        - OwnerSession: []
       parameters:
-        - in: path
-          name: orgId
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/TransformationDraftId"
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -5074,52 +5050,56 @@ paths:
               properties:
                 totp_code:
                   type: string
-                reason:
-                  type: string
-                  maxLength: 500
-  /v1/owner/organizations/{orgId}/transformation-drafts/{id}/deny:
-    post:
-      tags:
-        - Owner
-      summary: deny a transformation proposal
-      operationId: transformation20
-      description: Organization reads require active membership; mutations require org_admin. Personal
-        routes act only on the session user. Requires two-factor confirmation when enabled. Approval
-        activates the rule at the end of the chain.
-      security:
-        - OwnerSession: []
+                  description: TOTP code or unused backup code if two-factor authentication is enabled.
       responses:
         "200":
-          description: Success
+          description: Transformation draft approved and enabled.
           content:
             application/json:
               schema:
                 type: object
+                required: [transformation_draft_id, status, resulting_transformation_id]
+                properties:
+                  transformation_draft_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [APPROVED]
+                  resulting_transformation_id:
+                    type: string
+                    format: uuid
+                    description: ID of the enabled transformation, identical to the draft ID.
         "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
+          description: Draft already resolved, or invalid request body or transformation target.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+          description: The owner already has 500 active transformations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/owner/organizations/{orgId}/transformation-drafts/{transformationDraftId}/deny:
+    post:
+      summary: Deny organization transformation draft
+      operationId: denyOrgTransformationDraft
+      tags: [Organization, Owner]
+      description: |
+        Denies a pending transformation draft and leaves it disabled. An
+        optional reason can be provided for the agent. Requires a TOTP code or
+        an unused backup code when two-factor authentication is enabled.
+        Two-factor setup is required when enforced by the server. Requires the
+        org_admin role.
+      security:
+        - OwnerSession: []
       parameters:
-        - in: path
-          name: orgId
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/TransformationDraftId"
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -5128,84 +5108,89 @@ paths:
               properties:
                 totp_code:
                   type: string
+                  description: TOTP code or unused backup code if two-factor authentication is enabled.
                 reason:
                   type: string
                   maxLength: 500
+                  description: Optional reason for denial.
+      responses:
+        "200":
+          description: Transformation draft denied.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transformation_draft_id, status]
+                properties:
+                  transformation_draft_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [DENIED]
+        "400":
+          description: Draft already resolved or invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v1/admin/transformations:
     get:
-      tags:
-        - Admin
-      summary: Read transformations across all owners
-      operationId: transformation21
-      description: Read only, including pending and denied drafts.
+      summary: List all transformations
+      operationId: listTransformations
+      tags: [Admin]
+      description: Returns transformations across all owners in execution order, including pending and denied drafts.
       security:
         - BearerAuth: []
       responses:
         "200":
-          description: Success
+          description: Transformation list.
           content:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
+                required: [transformations]
                 properties:
                   transformations:
                     type: array
                     items:
                       $ref: "#/components/schemas/OutputTransformation"
-                required:
-                  - transformations
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-  /v1/admin/transformations/{id}:
+
+  /v1/admin/transformations/{transformationId}:
     get:
-      tags:
-        - Admin
-      summary: Read any transformation
-      operationId: transformation22
-      description: ""
+      summary: Get transformation
+      operationId: getTransformation
+      tags: [Admin]
+      description: Returns a transformation from any owner scope, including draft metadata when present.
       security:
         - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TransformationId"
       responses:
         "200":
-          description: Success
+          description: Transformation details.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/OutputTransformation"
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
         "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-            format: uuid
+          description: Transformation not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v1/agent/transformations:
     get:
-      tags:
-        - Agent
-      summary: Fetch the effective ordered transformation chain
-      operationId: transformation23
-      description: Ed25519 signed GET over body {}. All matching enabled owner, group, agent and explicit
-        binding rules compose in rank/ID order.
+      summary: Get effective agent transformations
+      operationId: getAgentTransformations
+      tags: [Agent]
+      description: |
+        Returns the effective execution chain and a report token. All matching
+        enabled owner, group, agent and explicitly bound rules compose in
+        rank/ID order. Requires Ed25519 signed headers; GET requests are signed
+        over {}.
       parameters:
         - in: header
           name: X-Agent-Id
@@ -5217,6 +5202,7 @@ paths:
           required: true
           schema:
             type: string
+            format: date-time
         - in: header
           name: X-Nonce
           required: true
@@ -5234,30 +5220,23 @@ paths:
             type: string
       responses:
         "200":
-          description: Success
+          description: Effective transformation plan.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/TransformationPlan"
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+
   /v1/agent/transformation-results:
     post:
-      tags:
-        - Agent
-      summary: Report runtime transformation outcomes
-      operationId: transformation24
-      description: Metadata only. Every fetched ID/revision must occur exactly once. Snapshot tokens
-        expire after 10 minutes; reports are runtime claims, not server attestation. Repeated
-        reports may be recorded; correlate by tool_call_id.
+      summary: Report transformation results
+      operationId: reportTransformationResults
+      tags: [Agent]
+      description: |
+        Records runtime-reported metadata without output text. Every fetched
+        transformation ID and revision must occur exactly once. Report tokens
+        expire after 10 minutes. Reports are runtime claims, not server
+        attestation; repeated reports may be recorded and can be correlated by
+        tool_call_id. Requires Ed25519 signed headers.
       parameters:
         - in: header
           name: X-Agent-Id
@@ -5269,6 +5248,7 @@ paths:
           required: true
           schema:
             type: string
+            format: date-time
         - in: header
           name: X-Nonce
           required: true
@@ -5284,36 +5264,43 @@ paths:
           required: true
           schema:
             type: string
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/TransformationReport"
+      responses:
+        "200":
+          description: Transformation results recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [recorded]
+        "400":
+          description: |
+            Invalid report, expired or invalid report token, or results that do not
+            match the fetched rule revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v1/agent/transformation-drafts:
     get:
-      tags:
-        - Agent
-      summary: List this agent transformation proposals
-      operationId: transformation25
-      description: ""
+      summary: List agent's transformation drafts
+      operationId: listAgentTransformationDrafts
+      tags: [Agent]
+      description: |
+        Lists transformation drafts submitted by the authenticated agent.
+        Requires Ed25519 signed headers; GET requests sign {} and the path
+        without query parameters. Optionally filter by status. Draft status and
+        resolution fields are returned at the top level of each entry.
       parameters:
         - in: header
           name: X-Agent-Id
@@ -5325,6 +5312,7 @@ paths:
           required: true
           schema:
             type: string
+            format: date-time
         - in: header
           name: X-Nonce
           required: true
@@ -5340,38 +5328,33 @@ paths:
           required: true
           schema:
             type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, DENIED]
+          description: Filter by status.
       responses:
         "200":
-          description: Success
+          description: Transformation draft list.
           content:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
+                required: [transformation_drafts]
                 properties:
-                  drafts:
+                  transformation_drafts:
                     type: array
                     items:
-                      $ref: "#/components/schemas/OutputTransformation"
-                required:
-                  - drafts
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
+                      $ref: "#/components/schemas/TransformationDraftAgentView"
     post:
-      tags:
-        - Agent
-      summary: Propose a transformation for this agent
-      operationId: transformation26
-      description: Pending proposals never execute. At most 20 pending proposals per agent (429). Only the
-        owner can approve.
+      summary: Create transformation draft
+      operationId: createTransformationDraft
+      tags: [Agent]
+      description: |
+        Submits a transformation for owner review. The draft targets only the
+        authenticated agent and remains disabled until approved. At most 20
+        pending drafts are allowed per agent. Requires Ed25519 signed headers.
       parameters:
         - in: header
           name: X-Agent-Id
@@ -5383,6 +5366,7 @@ paths:
           required: true
           schema:
             type: string
+            format: date-time
         - in: header
           name: X-Nonce
           required: true
@@ -5398,140 +5382,284 @@ paths:
           required: true
           schema:
             type: string
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
-        "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/TransformationDraftRequest"
-  /v1/provisioner/transformations:
-    get:
-      tags:
-        - Provisioner
-      summary: List owner transformations for provisioning
-      operationId: transformation27
-      description: ""
-      security:
-        - ProvisionerToken: []
       responses:
         "200":
-          description: Success
+          description: Transformation draft created.
           content:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
+                required: [transformation_draft_id, status, created_at]
+                properties:
+                  transformation_draft_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [PENDING]
+                  created_at:
+                    type: string
+                    format: date-time
+        "400":
+          description: Invalid transformation rule or draft fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: The agent already has 20 pending transformation drafts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/agent/transformation-drafts/{transformationDraftId}:
+    get:
+      summary: Get transformation draft
+      operationId: getAgentTransformationDraft
+      tags: [Agent]
+      description: |
+        Returns a draft submitted by the authenticated agent, including its
+        rule, status and resolution fields. Requires Ed25519 signed headers.
+      parameters:
+        - in: header
+          name: X-Agent-Id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Timestamp
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: header
+          name: X-Nonce
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Body-Sha256
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Signature
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/TransformationDraftId"
+      responses:
+        "200":
+          description: Transformation draft details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransformationDraftAgentView"
+
+  /v1/provisioner/transformations:
+    get:
+      summary: List owner transformations (provisioner)
+      operationId: listProvisionerTransformations
+      tags: [Provisioner]
+      description: |
+        Returns transformations belonging to the provisioner's owner in
+        execution order, including disabled rules. Pending and denied drafts
+        are excluded.
+      security:
+        - ProvisionerToken: []
+      responses:
+        "200":
+          description: Transformation list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transformations]
                 properties:
                   transformations:
                     type: array
                     items:
                       $ref: "#/components/schemas/OutputTransformation"
-                required:
-                  - transformations
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
+
+  /v1/provisioner/agents/{agentPrincipalId}/transformations:
+    get:
+      summary: List an agent's transformation bindings and groups (provisioner)
+      operationId: getProvisionerAgentTransformations
+      tags: [Provisioner]
+      description: |
+        Returns the agent's explicit transformation bindings and group
+        memberships. Rules that apply only through owner, agent or group
+        targeting are not included in the bindings list. The agent must belong
+        to the provisioner's owner.
+      security:
+        - ProvisionerToken: []
+      parameters:
+        - name: agentPrincipalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Bindings and memberships.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agent_principal_id, transformations, groups]
+                properties:
+                  agent_principal_id:
+                    type: string
+                    format: uuid
+                  transformations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        transformation_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: [string, "null"]
+                        rank:
+                          type: [number, "null"]
+                      required: [transformation_id, name, rank]
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        group_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: [string, "null"]
+                        membership_id:
+                          type: string
+                          format: uuid
+                      required: [group_id, name, membership_id]
         "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-  /v1/provisioner/agents/{agentId}/transformations/{id}:
+          description: Agent not found for this owner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     post:
-      tags:
-        - Provisioner
-      summary: Bind a transformation to an agent
-      operationId: transformation28
-      description: Both resources must belong to the provisioner owner. Removing an explicit binding does
-        not remove applicability through owner-wide, group or direct targets.
+      summary: Bind transformation to agent (provisioner)
+      operationId: provisionerBindTransformation
+      tags: [Provisioner]
+      description: |
+        Creates an explicit binding between an existing transformation and
+        agent owned by the provisioner's owner. Idempotent; repeated requests
+        return already_bound. The transformation's other targets are unchanged.
       security:
         - ProvisionerToken: []
+      parameters:
+        - name: agentPrincipalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transformation_id]
+              properties:
+                transformation_id:
+                  type: string
+                  format: uuid
       responses:
         "200":
-          description: Success
+          description: Transformation bound (or already bound).
           content:
             application/json:
               schema:
                 type: object
+                required: [transformation_id, agent_principal_id, status]
+                properties:
+                  transformation_id:
+                    type: string
+                    format: uuid
+                  agent_principal_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [bound, already_bound]
         "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
+          description: Missing or invalid transformation_id, or transformation not owned by this owner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
-          description: Resource not found in this owner scope.
+          description: Agent not found for this owner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-      parameters:
-        - in: path
-          name: agentId
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-            format: uuid
+          description: Pending and denied transformation drafts cannot be bound.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/provisioner/agents/{agentPrincipalId}/transformations/{transformationId}:
     delete:
-      tags:
-        - Provisioner
-      summary: Remove an explicit transformation binding
-      operationId: transformation29
-      description: Both resources must belong to the provisioner owner. Removing an explicit binding does
-        not remove applicability through owner-wide, group or direct targets.
+      summary: Unbind transformation from agent (provisioner)
+      operationId: provisionerUnbindTransformation
+      tags: [Provisioner]
+      description: |
+        Removes an explicit binding between a transformation and agent owned by
+        the provisioner's owner. The transformation and its other targets are
+        unchanged. Returns 404 if the binding does not exist.
       security:
         - ProvisionerToken: []
+      parameters:
+        - name: agentPrincipalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/TransformationId"
       responses:
         "200":
-          description: Success
+          description: Transformation unbound.
           content:
             application/json:
               schema:
                 type: object
-        "400":
-          description: Invalid fields, rule, target or report.
-        "401":
-          description: Authentication required.
-        "403":
-          description: Insufficient permissions or two-factor authentication required.
+                required: [transformation_id, agent_principal_id, status]
+                properties:
+                  transformation_id:
+                    type: string
+                    format: uuid
+                  agent_principal_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [unbound]
         "404":
-          description: Resource not found in this owner scope.
-        "409":
-          description: Revision/order conflict, resolved draft or owner rule limit.
-      parameters:
-        - in: path
-          name: agentId
-          required: true
-          schema: &a3
-            type: string
-            format: uuid
-        - in: path
-          name: id
-          required: true
-          schema: *a3
+          description: Agent not found for this owner, or transformation is not explicitly bound to this agent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   securitySchemes:
@@ -5701,117 +5829,123 @@ components:
         format: uuid
       description: UUID of the user principal to manage within the organization.
 
+    TransformationId:
+      name: transformationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID of the transformation.
+    TransformationDraftId:
+      name: transformationDraftId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID of the transformation proposed in the draft. Retained when approved.
+
   schemas:
     TransformationRule:
       oneOf:
         - type: object
           additionalProperties: false
+          required: [type]
           properties:
             type:
+              type: string
               const: cap_output_length
             max_characters:
-              type:
-                - integer
-                - "null"
+              type: [integer, "null"]
               minimum: 1
               maximum: 1048576
             max_lines:
-              type:
-                - integer
-                - "null"
+              type: [integer, "null"]
               minimum: 1
               maximum: 1048576
-          required:
-            - type
           anyOf:
-            - required:
-                - max_characters
+            - required: [max_characters]
               properties:
-                max_characters: &a1
+                max_characters:
                   type: integer
                   minimum: 1
                   maximum: 1048576
-            - required:
-                - max_lines
+            - required: [max_lines]
               properties:
-                max_lines: *a1
+                max_lines:
+                  type: integer
+                  minimum: 1
+                  maximum: 1048576
         - type: object
           additionalProperties: false
+          required: [type, from_pattern, to_pattern]
           properties:
             type:
+              type: string
               const: regex_replace
             from_pattern:
               type: string
               minLength: 1
               maxLength: 2048
-              description: Portable regex subset; no lookaround, backreferences, inline flags, nullable
-                expressions or Unicode properties. See docs/transformations.md.
+              description: |
+                Portable regex subset; no lookaround, backreferences, inline flags,
+                nullable expressions or Unicode properties. See
+                docs/transformations.md.
             to_pattern:
               type: string
               maxLength: 4096
               description: Literal replacement text, without backreference expansion.
-          required:
-            - type
-            - from_pattern
-            - to_pattern
+
     TransformationWrite:
       type: object
       additionalProperties: false
+      required: [rule]
       properties:
         rule:
           $ref: "#/components/schemas/TransformationRule"
         name:
-          type:
-            - string
-            - "null"
+          type: [string, "null"]
           maxLength: 120
         description:
-          type:
-            - string
-            - "null"
+          type: [string, "null"]
           maxLength: 500
-        applies_to_agent_principal_id: &a2
-          type:
-            - string
-            - "null"
+        applies_to_agent_principal_id:
+          type: [string, "null"]
           format: uuid
-        applies_to_group_id: *a2
+        applies_to_group_id:
+          type: [string, "null"]
+          format: uuid
         enabled:
           type: boolean
           default: true
         failure_policy:
-          enum:
-            - block
-            - continue
+          type: string
+          enum: [block, continue]
           default: block
-      required:
-        - rule
+
     TransformationDraftRequest:
       type: object
       additionalProperties: false
+      required: [rule, justification]
       properties:
         rule:
           $ref: "#/components/schemas/TransformationRule"
         name:
-          type:
-            - string
-            - "null"
+          type: [string, "null"]
           maxLength: 120
         description:
-          type:
-            - string
-            - "null"
+          type: [string, "null"]
           maxLength: 500
         justification:
           type: string
           minLength: 1
           maxLength: 2000
-      required:
-        - rule
-        - justification
+
     TransformationExecution:
       type: object
       additionalProperties: false
+      required: [transformation_id, revision, status]
       properties:
         transformation_id:
           type: string
@@ -5820,11 +5954,8 @@ components:
           type: integer
           minimum: 1
         status:
-          enum:
-            - applied
-            - unchanged
-            - skipped
-            - failed
+          type: string
+          enum: [applied, unchanged, skipped, failed]
         chars_before:
           type: integer
           minimum: 0
@@ -5834,43 +5965,32 @@ components:
           minimum: 0
           maximum: 1048576
         reason:
-          enum:
-            - invalid_rule
-            - execution_timeout
-            - output_limit
-            - execution_error
-            - shadow_mode
-            - previous_failure
-      required:
-        - transformation_id
-        - revision
-        - status
+          type: string
+          enum: [invalid_rule, execution_timeout, output_limit, execution_error, shadow_mode, previous_failure]
+
     TransformationReport:
       type: object
       additionalProperties: false
+      required: [report_token, tool_call_id, outcome, results]
       properties:
         report_token:
           type: string
           maxLength: 100000
-        tool_call_id: &a3
+        tool_call_id:
           type: string
           format: uuid
-        action_id: *a3
+        action_id:
+          type: string
+          format: uuid
         outcome:
-          enum:
-            - completed
-            - blocked
-            - shadow
+          type: string
+          enum: [completed, blocked, shadow]
         results:
           type: array
           maxItems: 500
           items:
             $ref: "#/components/schemas/TransformationExecution"
-      required:
-        - report_token
-        - tool_call_id
-        - outcome
-        - results
+
     TransformationUpdate:
       type: object
       additionalProperties: false
@@ -5878,71 +5998,62 @@ components:
         rule:
           $ref: "#/components/schemas/TransformationRule"
         name:
-          type:
-            - string
-            - "null"
+          type: [string, "null"]
           maxLength: 120
         description:
-          type:
-            - string
-            - "null"
+          type: [string, "null"]
           maxLength: 500
-        applies_to_agent_principal_id: &a4
-          type:
-            - string
-            - "null"
+        applies_to_agent_principal_id:
+          type: [string, "null"]
           format: uuid
-        applies_to_group_id: *a4
+        applies_to_group_id:
+          type: [string, "null"]
+          format: uuid
         enabled:
           type: boolean
-          default: true
         failure_policy:
-          enum:
-            - block
-            - continue
-          default: block
+          type: string
+          enum: [block, continue]
         revision:
           type: integer
           minimum: 1
           description: Expected current revision; mismatches return 409.
+
     OutputTransformation:
       type: object
       additionalProperties: false
+      required: [transformation_id, owner_type, owner_id, rule, enabled, rank, revision, failure_policy, created_at]
       properties:
         rule:
           $ref: "#/components/schemas/TransformationRule"
         name:
-          type:
-            - string
-            - "null"
+          type: [string, "null"]
           maxLength: 120
         description:
-          type:
-            - string
-            - "null"
+          type: [string, "null"]
           maxLength: 500
-        applies_to_agent_principal_id: &a5
-          type:
-            - string
-            - "null"
+        applies_to_agent_principal_id:
+          type: [string, "null"]
           format: uuid
-        applies_to_group_id: *a5
+        applies_to_group_id:
+          type: [string, "null"]
+          format: uuid
         enabled:
           type: boolean
           default: true
         failure_policy:
-          enum:
-            - block
-            - continue
+          type: string
+          enum: [block, continue]
           default: block
-        transformation_id: &a6
+        transformation_id:
           type: string
           format: uuid
         owner_type:
-          enum:
-            - user
-            - org
-        owner_id: *a6
+          type: string
+          enum: [user, org]
+        owner_id:
+          type: string
+          format: uuid
         rank:
           type: number
         revision:
@@ -5957,13 +6068,14 @@ components:
         draft:
           type: object
           additionalProperties: false
+          required: [agent_principal_id, status, justification]
           properties:
-            agent_principal_id: *a6
+            agent_principal_id:
+              type: string
+              format: uuid
             status:
-              enum:
-                - PENDING
-                - APPROVED
-                - DENIED
+              type: string
+              enum: [PENDING, APPROVED, DENIED]
             justification:
               type: string
             resolved_at:
@@ -5971,25 +6083,21 @@ components:
               format: date-time
             denial_reason:
               type: string
-          required:
-            - agent_principal_id
-            - status
-            - justification
-      required:
-        - transformation_id
-        - owner_type
-        - owner_id
-        - rule
-        - enabled
-        - rank
-        - revision
-        - failure_policy
-        - created_at
+            agent_id:
+              type: string
+              description: Submitting agent label, when recorded.
+            resolved_by:
+              type: string
+              format: uuid
+          description: Proposal metadata. Approval activates this transformation without changing its ID.
+
     TransformationPlan:
       type: object
       additionalProperties: false
+      required: [protocol_version, report_token, transformations]
       properties:
         protocol_version:
+          type: integer
           const: 1
         report_token:
           type: string
@@ -6001,96 +6109,163 @@ components:
             oneOf:
               - type: object
                 additionalProperties: false
+                required: [type, transformation_id, rank, revision, failure_policy]
                 properties:
                   type:
+                    type: string
                     const: cap_output_length
                   max_characters:
-                    type:
-                      - integer
-                      - "null"
+                    type: [integer, "null"]
                     minimum: 1
                     maximum: 1048576
                   max_lines:
-                    type:
-                      - integer
-                      - "null"
+                    type: [integer, "null"]
                     minimum: 1
                     maximum: 1048576
-                  transformation_id: &a8
+                  transformation_id:
                     type: string
                     format: uuid
                   name:
-                    type:
-                      - string
-                      - "null"
+                    type: [string, "null"]
                   rank:
                     type: number
                   revision:
                     type: integer
                     minimum: 1
                   failure_policy:
-                    enum:
-                      - block
-                      - continue
-                required:
-                  - type
-                  - transformation_id
-                  - rank
-                  - revision
-                  - failure_policy
+                    type: string
+                    enum: [block, continue]
                 anyOf:
-                  - required:
-                      - max_characters
+                  - required: [max_characters]
                     properties:
-                      max_characters: &a7
+                      max_characters:
                         type: integer
                         minimum: 1
                         maximum: 1048576
-                  - required:
-                      - max_lines
+                  - required: [max_lines]
                     properties:
-                      max_lines: *a7
+                      max_lines:
+                        type: integer
+                        minimum: 1
+                        maximum: 1048576
               - type: object
                 additionalProperties: false
+                required: [type, from_pattern, to_pattern, transformation_id, rank, revision, failure_policy]
                 properties:
                   type:
+                    type: string
                     const: regex_replace
                   from_pattern:
                     type: string
                     minLength: 1
                     maxLength: 2048
-                    description: Portable regex subset; no lookaround, backreferences, inline flags, nullable
-                      expressions or Unicode properties. See docs/transformations.md.
+                    description: |
+                      Portable regex subset; no lookaround, backreferences, inline flags,
+                      nullable expressions or Unicode properties. See
+                      docs/transformations.md.
                   to_pattern:
                     type: string
                     maxLength: 4096
                     description: Literal replacement text, without backreference expansion.
-                  transformation_id: *a8
+                  transformation_id:
+                    type: string
+                    format: uuid
                   name:
-                    type:
-                      - string
-                      - "null"
+                    type: [string, "null"]
                   rank:
                     type: number
                   revision:
                     type: integer
                     minimum: 1
                   failure_policy:
-                    enum:
-                      - block
-                      - continue
-                required:
-                  - type
-                  - from_pattern
-                  - to_pattern
-                  - transformation_id
-                  - rank
-                  - revision
-                  - failure_policy
-      required:
-        - protocol_version
-        - report_token
-        - transformations
+                    type: string
+                    enum: [block, continue]
+
+    TransformationDraftAgentView:
+      type: object
+      required: [transformation_draft_id, status, name, description, rule, applies_to_agent_principal_id, justification, resulting_transformation_id, denial_reason, created_at, resolved_at]
+      properties:
+        transformation_draft_id:
+          type: string
+          format: uuid
+          description: Draft ID, retained as the transformation ID after approval.
+        status:
+          type: string
+          enum: [PENDING, APPROVED, DENIED]
+        name:
+          type: [string, "null"]
+        description:
+          type: [string, "null"]
+        rule:
+          $ref: "#/components/schemas/TransformationRule"
+        applies_to_agent_principal_id:
+          type: [string, "null"]
+          format: uuid
+        justification:
+          type: string
+        resulting_transformation_id:
+          type: [string, "null"]
+          format: uuid
+          description: The same ID as transformation_draft_id when approved; otherwise null.
+        denial_reason:
+          type: [string, "null"]
+        created_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: [string, "null"]
+          format: date-time
+      description: Agent-facing view of a submitted transformation draft.
+
+    TransformationDraftOwnerView:
+      type: object
+      required: [transformation_draft_id, status, name, description, rule, applies_to_agent_principal_id, justification, resulting_transformation_id, denial_reason, created_at, resolved_at, agent_principal_id, agent_id, owner_type, owner_id, resolved_by]
+      properties:
+        transformation_draft_id:
+          type: string
+          format: uuid
+          description: Draft ID, retained as the transformation ID after approval.
+        status:
+          type: string
+          enum: [PENDING, APPROVED, DENIED]
+        name:
+          type: [string, "null"]
+        description:
+          type: [string, "null"]
+        rule:
+          $ref: "#/components/schemas/TransformationRule"
+        applies_to_agent_principal_id:
+          type: [string, "null"]
+          format: uuid
+        justification:
+          type: string
+        resulting_transformation_id:
+          type: [string, "null"]
+          format: uuid
+          description: The same ID as transformation_draft_id when approved; otherwise null.
+        denial_reason:
+          type: [string, "null"]
+        created_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: [string, "null"]
+          format: date-time
+        agent_principal_id:
+          type: string
+          format: uuid
+        agent_id:
+          type: [string, "null"]
+        owner_type:
+          type: string
+          enum: [user, org]
+        owner_id:
+          type: string
+          format: uuid
+        resolved_by:
+          type: [string, "null"]
+          format: uuid
+      description: Owner-facing view of a transformation draft with submitting agent and reviewer details.
 
     Error:
       type: object

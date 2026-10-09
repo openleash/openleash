@@ -28,6 +28,7 @@ const Order = z.object({ ordered_transformation_ids: z.array(z.string().uuid()).
 const Preview = z.object({ rule: TransformationRule, input: z.string().max(65536) }).strict();
 const Draft = z.object({ rule: TransformationRule, name: fields.name, description: fields.description, justification: z.string().trim().min(1).max(2000) }).strict();
 const Resolution = z.object({ totp_code: z.string().optional(), reason: z.string().max(500).optional() }).strict();
+const Bind = z.object({ transformation_id: z.string().uuid() }).strict();
 const Report = z.object({
   report_token: z.string().max(100000), action_id: z.string().uuid().optional(), tool_call_id: z.string().uuid(),
   outcome: z.enum(['completed', 'blocked', 'shadow']),
@@ -111,6 +112,46 @@ export function registerTransformationRoutes(app: FastifyInstance, store: DataSt
   }
   function bump(t: TransformationFrontmatter) { t.revision = (t.revision ?? 1) + 1; t.updated_at = new Date().toISOString(); }
 
+  function draftView(record: TransformationFrontmatter, includeOwnerDetails = false) {
+    const draft = record.draft!;
+    return {
+      transformation_draft_id: record.transformation_id,
+      status: draft.status,
+      name: record.name,
+      description: record.description,
+      rule: record.rule,
+      applies_to_agent_principal_id: record.applies_to_agent_principal_id,
+      justification: draft.justification,
+      created_at: record.created_at,
+      resolved_at: draft.resolved_at ?? null,
+      denial_reason: draft.denial_reason ?? null,
+      resulting_transformation_id: draft.status === 'APPROVED' ? record.transformation_id : null,
+      ...(includeOwnerDetails ? {
+        agent_principal_id: draft.agent_principal_id,
+        agent_id: draft.agent_id ?? store.state.getState().agents.find(a => a.agent_principal_id === draft.agent_principal_id && sameOwner(a, record))?.agent_id ?? null,
+        owner_type: record.owner_type,
+        owner_id: record.owner_id,
+        resolved_by: draft.resolved_by ?? null,
+      } : {}),
+    };
+  }
+  function listDrafts(request: FastifyRequest, owner: Scope, agentPrincipalId?: string) {
+    const { status } = request.query as { status?: string };
+    return store.transformations.listByOwner(owner.owner_type, owner.owner_id).filter(t =>
+      t.draft && (!status || t.draft.status === status) &&
+      (!agentPrincipalId || t.draft.agent_principal_id === agentPrincipalId),
+    );
+  }
+  function findDraft(request: FastifyRequest, owner: Scope, reply: FastifyReply, agentPrincipalId?: string) {
+    const record = find(params(request).transformationDraftId, owner, reply);
+    if (!record) return null;
+    if (!record.draft || (agentPrincipalId && record.draft.agent_principal_id !== agentPrincipalId)) {
+      fail(reply, 404, 'Transformation draft not found', 'NOT_FOUND');
+      return null;
+    }
+    return record;
+  }
+
   for (const base of ['/v1/owner', '/v1/owner/organizations/:orgId']) {
     app.get(base + '/transformations', { preHandler: ownerAuth }, async (r, reply) => {
       const owner = scope(r, reply); if (!owner) return;
@@ -173,14 +214,19 @@ export function registerTransformationRoutes(app: FastifyInstance, store: DataSt
     });
     app.get(base + '/transformation-drafts', { preHandler: ownerAuth }, async (r, reply) => {
       const owner = scope(r, reply); if (!owner) return;
-      return { drafts: store.transformations.listByOwner(owner.owner_type, owner.owner_id).filter(t => t.draft).map(normalized) };
+      return { transformation_drafts: listDrafts(r, owner).map(t => draftView(t, true)) };
+    });
+    app.get(base + '/transformation-drafts/:transformationDraftId', { preHandler: ownerAuth }, async (r, reply) => {
+      const owner = scope(r, reply); if (!owner) return;
+      const record = findDraft(r, owner, reply);
+      if (record) return draftView(record, true);
     });
     for (const action of ['approve', 'deny'] as const) {
-      app.post(base + '/transformation-drafts/:id/' + action, { preHandler: ownerAuth }, async (r, reply) => {
+      app.post(base + '/transformation-drafts/:transformationDraftId/' + action, { preHandler: ownerAuth }, async (r, reply) => {
         const owner = scope(r, reply, true); if (!owner) return;
         const body = validateBody(r.body ?? {}, Resolution, reply); if (!body) return;
-        const record = find(params(r).id, owner, reply); if (!record) return;
-        if (record.draft?.status !== 'PENDING') { fail(reply, 409, 'Draft has already been resolved', 'DRAFT_CONFLICT'); return; }
+        const record = findDraft(r, owner, reply); if (!record) return;
+        if (record.draft?.status !== 'PENDING') { fail(reply, 400, 'Draft has already been resolved', 'DRAFT_CONFLICT'); return; }
         if (!requireTotp(r, reply)) return;
         if (action === 'approve' && !checkTargets(record, reply)) return;
         if (action === 'approve') {
@@ -189,10 +235,15 @@ export function registerTransformationRoutes(app: FastifyInstance, store: DataSt
           record.rank = Math.max(0, ...active.map(t => t.rank)) + 100;
         }
         record.draft.status = action === 'approve' ? 'APPROVED' : 'DENIED';
+        record.draft.resolved_by = session(r).sub;
         record.draft.resolved_at = new Date().toISOString(); record.draft.denial_reason = action === 'deny' ? body.reason : undefined;
         record.enabled = action === 'approve'; bump(record); writeTransformation(store, record);
         audit('TRANSFORMATION_DRAFT_' + record.draft.status, owner, { transformation_id: record.transformation_id, agent_principal_id: record.draft.agent_principal_id, revision: record.revision, configuration: normalized(record) }, r);
-        return { transformation_id: record.transformation_id, status: record.draft.status };
+        return {
+          transformation_draft_id: record.transformation_id,
+          status: record.draft.status,
+          ...(action === 'approve' ? { resulting_transformation_id: record.transformation_id } : {}),
+        };
       });
     }
   }
@@ -207,7 +258,12 @@ export function registerTransformationRoutes(app: FastifyInstance, store: DataSt
   });
   app.get('/v1/agent/transformation-drafts', { preHandler: agentAuth }, async r => {
     const a = agent(r);
-    return { drafts: store.transformations.listByOwner(a.owner_type, a.owner_id).filter(t => t.draft?.agent_principal_id === a.agent_principal_id).map(normalized) };
+    return { transformation_drafts: listDrafts(r, a, a.agent_principal_id).map(t => draftView(t)) };
+  });
+  app.get('/v1/agent/transformation-drafts/:transformationDraftId', { preHandler: agentAuth }, async (r, reply) => {
+    const a = agent(r);
+    const record = findDraft(r, a, reply, a.agent_principal_id);
+    if (record) return draftView(record);
   });
   app.post('/v1/agent/transformation-drafts', { preHandler: agentAuth }, async (r, reply) => {
     const body = validateBody(r.body, Draft, reply); if (!body) return;
@@ -215,10 +271,10 @@ export function registerTransformationRoutes(app: FastifyInstance, store: DataSt
     const pending = store.transformations.listByOwner(a.owner_type, a.owner_id).filter(t => t.draft?.status === 'PENDING' && t.draft.agent_principal_id === a.agent_principal_id);
     if (pending.length >= 20) { fail(reply, 429, 'Resolve pending drafts before proposing more', 'DRAFT_LIMIT'); return; }
     const record = create(a, { rule: body.rule, name: body.name, description: body.description, applies_to_agent_principal_id: a.agent_principal_id, enabled: false });
-    record.draft = { status: 'PENDING', agent_principal_id: a.agent_principal_id, justification: body.justification };
+    record.draft = { status: 'PENDING', agent_principal_id: a.agent_principal_id, agent_id: a.agent_id, justification: body.justification };
     writeTransformation(store, record);
     audit('TRANSFORMATION_DRAFT_CREATED', a, { transformation_id: record.transformation_id, agent_principal_id: a.agent_principal_id });
-    return { transformation_id: record.transformation_id, status: 'PENDING' };
+    return { transformation_draft_id: record.transformation_id, status: 'PENDING', created_at: record.created_at };
   });
 
   // Signed report tokens bind the runtime's report to the rule revisions it fetched.
@@ -261,19 +317,49 @@ export function registerTransformationRoutes(app: FastifyInstance, store: DataSt
     const p = provisioner(r);
     return { transformations: store.transformations.listByOwner(p.owner_type, p.owner_id).filter(activeTransformation).sort(compareTransformations).map(normalized) };
   });
-  for (const method of ['POST', 'DELETE'] as const) {
-    app.route({ method, url: '/v1/provisioner/agents/:agentId/transformations/:id', preHandler: provisionerAuth, handler: async (r, reply) => {
-      const p = provisioner(r), aid = params(r).agentId;
-      const a = store.state.getState().agents.find(a => a.agent_principal_id === aid && sameOwner(a, p));
-      if (!a) { fail(reply, 404, 'Agent not found', 'NOT_FOUND'); return; }
-      const t = find(params(r).id, p, reply); if (!t) return;
-      if (!activeTransformation(t)) { fail(reply, 409, 'Drafts cannot be bound'); return; }
-      store.state.updateState(s => {
-        s.transformation_bindings = (s.transformation_bindings ?? []).filter(b => !(b.transformation_id === t.transformation_id && b.agent_principal_id === aid));
-        if (method === 'POST') s.transformation_bindings.push({ transformation_id: t.transformation_id, agent_principal_id: aid, owner_type: p.owner_type, owner_id: p.owner_id });
-      });
-      audit(method === 'POST' ? 'TRANSFORMATION_BOUND' : 'TRANSFORMATION_UNBOUND', p, { transformation_id: t.transformation_id, agent_principal_id: aid, provisioner_id: p.provisioner_id });
-      return { status: method === 'POST' ? 'bound' : 'unbound' };
-    } });
+  function ownedAgent(request: FastifyRequest, reply: FastifyReply) {
+    const p = provisioner(request);
+    const a = store.state.getState().agents.find(a => a.agent_principal_id === params(request).agentPrincipalId && sameOwner(a, p));
+    if (!a) fail(reply, 404, 'Agent not found', 'NOT_FOUND');
+    return a;
   }
+  const bindingsPath = '/v1/provisioner/agents/:agentPrincipalId/transformations';
+  app.get(bindingsPath, { preHandler: provisionerAuth }, async (r, reply) => {
+    const a = ownedAgent(r, reply); if (!a) return;
+    const p = provisioner(r);
+    const records = new Map(store.transformations.listByOwner(p.owner_type, p.owner_id).map(t => [t.transformation_id, t]));
+    const transformations = (store.state.getState().transformation_bindings ?? [])
+      .filter(b => sameOwner(b, p) && b.agent_principal_id === a.agent_principal_id)
+      .map(b => ({ transformation_id: b.transformation_id, name: records.get(b.transformation_id)?.name ?? null, rank: records.get(b.transformation_id)?.rank ?? null }));
+    const groupNames = new Map(store.policyGroups.listByOwner(p.owner_type, p.owner_id).map(g => [g.group_id, g.name]));
+    const groups = store.agentGroupMemberships.listByAgent(a.agent_principal_id).map(m => ({ group_id: m.group_id, name: groupNames.get(m.group_id) ?? null, membership_id: m.membership_id }));
+    return { agent_principal_id: a.agent_principal_id, transformations, groups };
+  });
+  app.post(bindingsPath, { preHandler: provisionerAuth }, async (r, reply) => {
+    const a = ownedAgent(r, reply); if (!a) return;
+    const body = validateBody(r.body ?? {}, Bind, reply); if (!body) return;
+    const p = provisioner(r);
+    const record = store.transformations.listByOwner(p.owner_type, p.owner_id).find(t => t.transformation_id === body.transformation_id);
+    if (!record) { fail(reply, 400, 'transformation_id does not reference a transformation of this owner', 'INVALID_TRANSFORMATION'); return; }
+    if (!activeTransformation(record)) { fail(reply, 409, 'Pending and denied drafts cannot be bound', 'DRAFT_CONFLICT'); return; }
+    const ids = { transformation_id: record.transformation_id, agent_principal_id: a.agent_principal_id };
+    if ((store.state.getState().transformation_bindings ?? []).some(b => sameOwner(b, p) && b.transformation_id === ids.transformation_id && b.agent_principal_id === ids.agent_principal_id)) {
+      return { ...ids, status: 'already_bound' };
+    }
+    store.state.updateState(s => { s.transformation_bindings ??= []; s.transformation_bindings.push({ ...ids, owner_type: p.owner_type, owner_id: p.owner_id }); });
+    audit('TRANSFORMATION_BOUND', p, { ...ids, provisioner_id: p.provisioner_id });
+    return { ...ids, status: 'bound' };
+  });
+  app.delete(bindingsPath + '/:transformationId', { preHandler: provisionerAuth }, async (r, reply) => {
+    const a = ownedAgent(r, reply); if (!a) return;
+    const p = provisioner(r);
+    const ids = { transformation_id: params(r).transformationId, agent_principal_id: a.agent_principal_id };
+    const matches = (b: Scope & typeof ids) => sameOwner(b, p) && b.transformation_id === ids.transformation_id && b.agent_principal_id === ids.agent_principal_id;
+    if (!(store.state.getState().transformation_bindings ?? []).some(matches)) {
+      fail(reply, 404, 'Transformation is not bound to this agent', 'NOT_FOUND'); return;
+    }
+    store.state.updateState(s => { s.transformation_bindings = (s.transformation_bindings ?? []).filter(b => !matches(b)); });
+    audit('TRANSFORMATION_UNBOUND', p, { ...ids, provisioner_id: p.provisioner_id });
+    return { ...ids, status: 'unbound' };
+  });
 }

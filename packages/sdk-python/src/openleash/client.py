@@ -650,7 +650,7 @@ async def _transformation_request(
 ) -> dict[str, Any]:
     body = json.dumps(payload or {}, separators=(",", ":")).encode()
     headers = sign_request(
-        method=method, path=path,
+        method=method, path=path.split("?", 1)[0],
         timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
         nonce=str(uuid.uuid4()), body_bytes=body, private_key_b64=private_key_b64,
     )
@@ -686,6 +686,23 @@ async def create_transformation_draft(*, rule: dict[str, Any], justification: st
                                          openleash_url=openleash_url, agent_id=agent_id, private_key_b64=private_key_b64)
 
 
-async def list_transformation_drafts(*, openleash_url: str, agent_id: str, private_key_b64: str) -> dict[str, Any]:
-    return await _transformation_request("GET", "/v1/agent/transformation-drafts", openleash_url=openleash_url,
+async def list_transformation_drafts(*, openleash_url: str, agent_id: str, private_key_b64: str,
+                                     status: str | None = None) -> dict[str, Any]:
+    """Return transformation_drafts, optionally filtered by PENDING, APPROVED or DENIED."""
+    from urllib.parse import quote
+
+    path = "/v1/agent/transformation-drafts"
+    if status:
+        path += "?status=" + quote(status, safe="")
+    return await _transformation_request("GET", path, openleash_url=openleash_url,
+                                         agent_id=agent_id, private_key_b64=private_key_b64)
+
+
+async def get_transformation_draft(*, transformation_draft_id: str, openleash_url: str,
+                                   agent_id: str, private_key_b64: str) -> dict[str, Any]:
+    """Get a submitted draft, including its status and resolution fields."""
+    from urllib.parse import quote
+
+    path = "/v1/agent/transformation-drafts/" + quote(transformation_draft_id, safe="")
+    return await _transformation_request("GET", path, openleash_url=openleash_url,
                                          agent_id=agent_id, private_key_b64=private_key_b64)
