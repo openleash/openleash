@@ -34,6 +34,7 @@ export interface AdminAgentDetailData {
         attributes: Record<string, unknown>;
     };
     policies: { policy_id: string; name: string | null; applies_to_agent_principal_id: string | null }[];
+    transformations?: { transformation_id: string; name: string | null; revision?: number }[];
     audit: AuditData;
     auditPage: number;
     auditPageSize: number;
@@ -167,6 +168,8 @@ export function renderAdminAgentDetail(data: AdminAgentDetailData): string {
         </tbody>
       </table>
     </div>
+
+    <div class="card"><h3>Effective transformation chain</h3><p>All enabled matching rules run in this order.</p><ol>${(data.transformations ?? []).map(t => `<li><a href="/gui/admin/transformations/${encodeURIComponent(t.transformation_id)}">${escapeHtml(t.name || t.transformation_id)}</a> (revision ${t.revision ?? 1})</li>`).join('') || '<li>No applicable transformations.</li>'}</ol></div>
 
     ${attrEntries.length > 0 ? `<div class="card">
       <div class="card-title">Attributes</div>

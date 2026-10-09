@@ -665,3 +665,59 @@ export async function pollApprovalRequest(params: {
 
   throw new Error(`Approval request polling timed out after ${timeout}ms`);
 }
+
+// Output transformation protocol v1. Runtime implementations apply the returned
+// chain locally and report metadata, never raw tool output.
+export type OutputTransformationRule =
+  | { type: 'cap_output_length'; max_characters?: number | null; max_lines?: number | null }
+  | { type: 'regex_replace'; from_pattern: string; to_pattern: string };
+export type OutputTransformation = OutputTransformationRule & {
+  transformation_id: string; name: string | null; rank: number; revision: number;
+  failure_policy: 'block' | 'continue';
+};
+export interface TransformationPlan { protocol_version: 1; transformations: OutputTransformation[]; report_token: string }
+export interface TransformationResultReport {
+  report_token: string; action_id?: string; tool_call_id: string; outcome: 'completed' | 'blocked' | 'shadow';
+  results: Array<{ transformation_id: string; revision: number; status: 'applied' | 'unchanged' | 'skipped' | 'failed'; chars_before?: number; chars_after?: number; reason?: 'invalid_rule' | 'execution_timeout' | 'output_limit' | 'execution_error' | 'shadow_mode' | 'previous_failure' }>;
+}
+interface TransformationAgent { openleashUrl: string; agentId: string; privateKeyB64: string; timeoutMs?: number }
+async function transformationRequest<T>(params: TransformationAgent, method: 'GET' | 'POST', path: string, body: unknown = {}): Promise<T> {
+  const bytes = Buffer.from(JSON.stringify(body));
+  const headers = signRequest({ method, path: path.split('?')[0], timestamp: new Date().toISOString(), nonce: crypto.randomUUID(), bodyBytes: bytes, privateKeyB64: params.privateKeyB64 });
+  const response = await fetch(params.openleashUrl.replace(/\/$/, '') + path, {
+    method, headers: { ...headers, 'Content-Type': 'application/json', 'X-Agent-Id': params.agentId },
+    body: method === 'POST' ? bytes.toString() : undefined, signal: AbortSignal.timeout(params.timeoutMs ?? 10000),
+  });
+  if (!response.ok) throw new Error('Transformation API request failed: ' + response.status + ' ' + await response.text());
+  return response.json() as Promise<T>;
+}
+export function getTransformations(params: TransformationAgent): Promise<TransformationPlan> {
+  return transformationRequest(params, 'GET', '/v1/agent/transformations');
+}
+export function reportTransformationResults(params: TransformationAgent & { report: TransformationResultReport }): Promise<{ status: string }> {
+  return transformationRequest(params, 'POST', '/v1/agent/transformation-results', params.report);
+}
+export type TransformationDraftStatus = 'PENDING' | 'APPROVED' | 'DENIED';
+export interface TransformationDraft {
+  transformation_draft_id: string;
+  status: TransformationDraftStatus;
+  name: string | null;
+  description: string | null;
+  rule: OutputTransformationRule;
+  applies_to_agent_principal_id: string | null;
+  justification: string;
+  created_at: string;
+  resolved_at: string | null;
+  denial_reason: string | null;
+  resulting_transformation_id: string | null;
+}
+export function createTransformationDraft(params: TransformationAgent & { rule: OutputTransformationRule; justification: string; name?: string; description?: string }): Promise<{ transformation_draft_id: string; status: 'PENDING'; created_at: string }> {
+  return transformationRequest(params, 'POST', '/v1/agent/transformation-drafts', { rule: params.rule, justification: params.justification, name: params.name, description: params.description });
+}
+export function listTransformationDrafts(params: TransformationAgent & { status?: TransformationDraftStatus }): Promise<{ transformation_drafts: TransformationDraft[] }> {
+  const path = '/v1/agent/transformation-drafts' + (params.status ? '?status=' + encodeURIComponent(params.status) : '');
+  return transformationRequest(params, 'GET', path);
+}
+export function getTransformationDraft(params: TransformationAgent & { transformationDraftId: string }): Promise<TransformationDraft> {
+  return transformationRequest(params, 'GET', '/v1/agent/transformation-drafts/' + encodeURIComponent(params.transformationDraftId));
+}

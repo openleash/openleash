@@ -1,151 +1,173 @@
-/**
- * Client-side logic for the owner output-transformations page.
- */
-import "./style.css";
-import { olToast, olConfirm, olApiError } from "../../shared/common";
+import './style.css';
+import { olToast, olConfirm, olPrompt, ol2FA, olApiError } from '../../shared/common';
 
 interface OwnerTransformationsPageData {
-    orgId: string | null;
+  orgId: string | null;
+  canManage: boolean;
+  totpEnabled: boolean;
+  listPath: string;
+  transformationId: string | null;
+  revision: number;
 }
-
-declare global {
-    interface Window {
-        __PAGE_DATA__: OwnerTransformationsPageData;
-    }
+declare global { interface Window { __PAGE_DATA__: OwnerTransformationsPageData } }
+const { orgId, canManage, totpEnabled, listPath, transformationId, revision } = window.__PAGE_DATA__;
+const base = orgId ? '/v1/owner/organizations/' + encodeURIComponent(orgId) : '/v1/owner';
+let reordering = false;
+function field(root: Element, name: string) { return (root.querySelector('[data-field="' + name + '"]') as HTMLInputElement).value; }
+function rule(root: Element) {
+  if (field(root, 'type') === 'regex_replace') return { type: 'regex_replace', from_pattern: field(root, 'from_pattern'), to_pattern: field(root, 'to_pattern') };
+  const chars = field(root, 'max_characters'), lines = field(root, 'max_lines');
+  if (!chars && !lines) throw new Error('Set a character or line limit');
+  for (const value of [chars, lines]) if (value && (!Number.isInteger(Number(value)) || Number(value) < 1 || Number(value) > 1048576)) throw new Error('Limits must be whole numbers from 1 to 1048576');
+  return { type: 'cap_output_length', max_characters: chars ? Number(chars) : null, max_lines: lines ? Number(lines) : null };
 }
-
-const { orgId } = window.__PAGE_DATA__;
-
-// Org-scoped transformations are not supported in this PoC; warn rather than
-// silently hitting the user-scoped endpoints under an org URL.
-if (orgId) {
-    olToast("Transformations are personal-scope only in this demo.", "error");
+function body(root: Element) {
+  const target = field(root, 'target');
+  return { name: field(root, 'name') || null, description: field(root, 'description') || null,
+    applies_to_agent_principal_id: target.startsWith('agent:') ? target.slice(6) : null,
+    applies_to_group_id: target.startsWith('group:') ? target.slice(6) : null,
+    failure_policy: field(root, 'failure_policy'), rule: rule(root) };
 }
-
-const baseUrl = "/v1/owner/transformations";
-
-function ruleFromFields(typeEl: string, fields: HTMLElement): Record<string, unknown> | string {
-    if (typeEl === "cap_output_length") {
-        const chars = (fields.querySelector('[data-field="max_characters"]') as HTMLInputElement | null)?.value.trim();
-        const lines = (fields.querySelector('[data-field="max_lines"]') as HTMLInputElement | null)?.value.trim();
-        const rule: Record<string, unknown> = { type: "cap_output_length" };
-        if (chars) rule.max_characters = Number(chars);
-        if (lines) rule.max_lines = Number(lines);
-        if (!chars && !lines) return "Set max_characters and/or max_lines";
-        return rule;
-    }
-    const from = (fields.querySelector('[data-field="from_pattern"]') as HTMLInputElement | null)?.value ?? "";
-    const to = (fields.querySelector('[data-field="to_pattern"]') as HTMLInputElement | null)?.value ?? "";
-    if (!from) return "from_pattern is required";
-    return { type: "regex_replace", from_pattern: from, to_pattern: to };
+async function api(path: string, method: string, payload?: unknown) {
+  const response = await fetch(base + path, { method, headers: payload ? { 'Content-Type': 'application/json' } : {}, body: payload ? JSON.stringify(payload) : undefined });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(olApiError(result, 'Request failed'));
+  return result;
 }
-
-async function saveTransformation(id: string, row: HTMLElement) {
-    const type = row.dataset.type!;
-    const fields = row.querySelector<HTMLElement>(".otr-fields");
-    if (!fields) return;
-    const rule = ruleFromFields(type, fields);
-    if (typeof rule === "string") { olToast(rule, "error"); return; }
-
-    const res = await fetch(`${baseUrl}/${encodeURIComponent(id)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rule }),
+async function protectedAction(path: string, method: string, payload: Record<string, unknown> = {}) {
+  if (totpEnabled) {
+    return ol2FA(async code => {
+      try { await api(path, method, { ...payload, totp_code: code }); return null; }
+      catch (e) { return (e as Error).message; }
     });
-    if (!res.ok) {
-        olToast(olApiError(await res.json().catch(() => ({})), "Failed to save"), "error");
-        return;
+  }
+  await api(path, method, payload); return true;
+}
+async function action(target: HTMLElement) {
+  if (target.hasAttribute('data-delete-transformation')) {
+    if (await olConfirm('Delete this transformation?', 'Delete transformation')) {
+      if (await protectedAction('/transformations/' + target.dataset.deleteTransformation, 'DELETE')) window.location.href = listPath;
     }
-    olToast("Saved", "success");
+  } else if (target.dataset.resolve) {
+    const reason = target.dataset.resolve === 'deny' ? await olPrompt('Reason for denial (optional)', 'Reason', 'Deny draft') : '';
+    if (reason === null) return;
+    if (await protectedAction('/transformation-drafts/' + target.dataset.draftId + '/' + target.dataset.resolve, 'POST', { reason })) window.location.reload();
+  }
 }
 
-async function setEnabled(id: string, enabled: boolean) {
-    const res = await fetch(`${baseUrl}/${encodeURIComponent(id)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
-    });
-    if (!res.ok) {
-        olToast(olApiError(await res.json().catch(() => ({})), "Failed to update"), "error");
-        return;
-    }
-    olToast(enabled ? "Enabled" : "Disabled", "success");
+const rows = () => [...document.querySelectorAll<HTMLTableRowElement>('#otr-rows .otr-row')];
+let dragRow: HTMLTableRowElement | null = null;
+let dragSnapshot: HTMLTableRowElement[] = [];
+function clearDrag() {
+  document.querySelectorAll('.otr-row-dragging, .otr-drop-before, .otr-drop-after').forEach(row => row.classList.remove('otr-row-dragging', 'otr-drop-before', 'otr-drop-after'));
+  dragRow = null;
+  dragSnapshot = [];
 }
-
-async function deleteTransformation(id: string) {
-    if (!(await olConfirm("Delete this transformation?", "Delete Transformation"))) return;
-    const res = await fetch(`${baseUrl}/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (!res.ok) {
-        olToast(olApiError(await res.json().catch(() => ({})), "Failed to delete"), "error");
-        return;
-    }
+function dropAfter(event: DragEvent, row: HTMLTableRowElement) {
+  const rect = row.getBoundingClientRect();
+  return event.clientY > rect.top + rect.height / 2;
+}
+async function saveOrder(snapshot: HTMLTableRowElement[]) {
+  const current = rows();
+  if (current.every((row, i) => row === snapshot[i])) return;
+  reordering = true;
+  const tbody = document.getElementById('otr-rows')!;
+  const controls = [...tbody.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input')].map(control => ({ control, disabled: control.disabled }));
+  controls.forEach(({ control }) => { control.disabled = true; });
+  tbody.setAttribute('aria-busy', 'true');
+  try {
+    await api('/transformations/order', 'PUT', { ordered_transformation_ids: current.map(row => row.dataset.transformationId!) });
+    // Reordering increments every revision; reload before any further edits.
     window.location.reload();
+  } catch (error) {
+    snapshot.forEach(row => tbody.appendChild(row));
+    controls.forEach(({ control, disabled }) => { control.disabled = disabled; });
+    reordering = false;
+    tbody.removeAttribute('aria-busy');
+    olToast((error as Error).message, 'error');
+  }
 }
 
-async function createTransformation() {
-    const type = (document.getElementById("otr-new-type") as HTMLSelectElement).value;
-    const name = (document.getElementById("otr-new-name") as HTMLInputElement).value.trim();
-
-    let rule: Record<string, unknown> | string;
-    if (type === "cap_output_length") {
-        const chars = (document.getElementById("otr-new-max-characters") as HTMLInputElement).value.trim();
-        const lines = (document.getElementById("otr-new-max-lines") as HTMLInputElement).value.trim();
-        if (!chars && !lines) { olToast("Set max_characters and/or max_lines", "error"); return; }
-        rule = { type: "cap_output_length" };
-        if (chars) (rule as Record<string, unknown>).max_characters = Number(chars);
-        if (lines) (rule as Record<string, unknown>).max_lines = Number(lines);
-    } else {
-        const from = (document.getElementById("otr-new-from") as HTMLInputElement).value;
-        const to = (document.getElementById("otr-new-to") as HTMLInputElement).value;
-        if (!from) { olToast("from_pattern is required", "error"); return; }
-        rule = { type: "regex_replace", from_pattern: from, to_pattern: to };
+if (canManage) {
+  document.getElementById('otr-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const form = e.currentTarget as HTMLFormElement;
+    const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    if (submit.disabled) return;
+    submit.disabled = true;
+    try {
+      const payload = body(form);
+      if (transformationId) await api('/transformations/' + transformationId, 'PUT', { ...payload, revision });
+      else await api('/transformations', 'POST', payload);
+      window.location.href = listPath;
+    } catch (error) {
+      olToast((error as Error).message, 'error');
+      submit.disabled = false;
     }
-
-    const body: Record<string, unknown> = { rule };
-    if (name) body.name = name;
-
-    const res = await fetch(baseUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-        olToast(olApiError(await res.json().catch(() => ({})), "Failed to create"), "error");
-        return;
+  });
+  document.addEventListener('click', async e => {
+    const target = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
+    if (!target || target.disabled || reordering || !['data-delete-transformation', 'data-resolve'].some(a => target.hasAttribute(a))) return;
+    target.disabled = true;
+    try { await action(target); } catch (error) { olToast((error as Error).message, 'error'); }
+    finally { target.disabled = false; }
+  });
+  document.addEventListener('change', async e => {
+    const input = e.target as HTMLInputElement;
+    if (input.dataset.field === 'type') {
+      const editor = input.closest('.otr-editor')!;
+      editor.querySelector('.otr-cap')!.classList.toggle('hidden', input.value !== 'cap_output_length');
+      editor.querySelector('.otr-regex')!.classList.toggle('hidden', input.value !== 'regex_replace');
     }
-    window.location.reload();
-}
-
-// ─── Wiring ─────────────────────────────────────────────────────────
-
-// Toggle the create form's field group based on the selected type.
-const typeSelect = document.getElementById("otr-new-type") as HTMLSelectElement | null;
-function syncCreateFields() {
-    const isCap = typeSelect?.value === "cap_output_length";
-    document.getElementById("otr-new-fields-cap")?.classList.toggle("otr-hidden", !isCap);
-    document.getElementById("otr-new-fields-regex")?.classList.toggle("otr-hidden", isCap);
-}
-typeSelect?.addEventListener("change", syncCreateFields);
-syncCreateFields();
-
-document.getElementById("otr-create-btn")?.addEventListener("click", createTransformation);
-
-document.addEventListener("click", (e) => {
+    if (input.classList.contains('otr-enabled')) {
+      if (reordering) { input.checked = !input.checked; return; }
+      const row = input.closest<HTMLElement>('.otr-row')!;
+      input.disabled = true;
+      try {
+        const result = await api('/transformations/' + row.dataset.transformationId, 'PUT', { enabled: input.checked, revision: Number(row.dataset.revision) });
+        row.dataset.revision = String(result.revision); olToast('Saved', 'success');
+      } catch (error) { input.checked = !input.checked; olToast((error as Error).message, 'error'); }
+      finally { input.disabled = false; }
+    }
+  });
+  document.addEventListener('dragstart', e => {
     const target = e.target as HTMLElement;
-    const save = target.closest<HTMLElement>("[data-save-transformation]");
-    if (save) {
-        const row = save.closest<HTMLElement>(".otr-row");
-        if (row) saveTransformation(save.dataset.saveTransformation!, row);
-        return;
-    }
-    const del = target.closest<HTMLElement>("[data-delete-transformation]");
-    if (del) { deleteTransformation(del.dataset.deleteTransformation!); return; }
-});
-
-document.addEventListener("change", (e) => {
-    const target = e.target as HTMLElement;
-    if (target.classList.contains("otr-enabled")) {
-        const cb = target as HTMLInputElement;
-        setEnabled(cb.dataset.transformationId!, cb.checked);
-    }
-});
+    const row = target.closest<HTMLTableRowElement>('#otr-rows .otr-row');
+    if (!row) return;
+    if (reordering || document.querySelector('#otr-rows .otr-enabled:disabled') || (target.closest('a, input, button') && !target.closest('.otr-drag-handle'))) { e.preventDefault(); return; }
+    dragRow = row;
+    dragSnapshot = rows();
+    row.classList.add('otr-row-dragging');
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', row.dataset.transformationId!); }
+  });
+  document.addEventListener('dragend', clearDrag);
+  document.addEventListener('dragover', e => {
+    if (!dragRow) return;
+    const target = (e.target as HTMLElement).closest<HTMLTableRowElement>('#otr-rows .otr-row');
+    if (!target || target === dragRow) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.otr-drop-before, .otr-drop-after').forEach(row => row.classList.remove('otr-drop-before', 'otr-drop-after'));
+    target.classList.add(dropAfter(e, target) ? 'otr-drop-after' : 'otr-drop-before');
+  });
+  document.addEventListener('drop', async e => {
+    if (!dragRow) return;
+    const target = (e.target as HTMLElement).closest<HTMLTableRowElement>('#otr-rows .otr-row');
+    if (!target || target === dragRow) return;
+    e.preventDefault();
+    const snapshot = dragSnapshot;
+    target.parentElement!.insertBefore(dragRow, dropAfter(e, target) ? target.nextSibling : target);
+    clearDrag();
+    await saveOrder(snapshot);
+  });
+  document.addEventListener('keydown', async e => {
+    if (reordering || document.querySelector('#otr-rows .otr-enabled:disabled') || !['ArrowUp', 'ArrowDown'].includes(e.key) || !(e.target as HTMLElement).closest('.otr-drag-handle')) return;
+    e.preventDefault();
+    const row = (e.target as HTMLElement).closest<HTMLTableRowElement>('.otr-row')!;
+    const snapshot = rows(), index = snapshot.indexOf(row);
+    const target = snapshot[index + (e.key === 'ArrowUp' ? -1 : 1)];
+    if (!target) return;
+    row.parentElement!.insertBefore(row, e.key === 'ArrowUp' ? target : target.nextSibling);
+    await saveOrder(snapshot);
+  });
+}

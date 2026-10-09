@@ -135,6 +135,7 @@ const ENTITY_PREFIXES: Array<[prefix: string, type: string, uidField: string]> =
   ['AGENT_', 'Agent', 'agent_principal_id'],
   ['PROVISIONER_', 'Provisioner', 'provisioner_id'],
   ['TRANSFORMATION_', 'Output Transformation', 'transformation_id'],
+  ['TRANSFORMATIONS_', 'Output Transformations', 'owner_id'],
   ['API_KEY_', 'API Key', 'api_key_id'],
   ['APPROVAL_REQUEST_', 'Approval Request', 'approval_request_id'],
   ['KEY_', 'Server Key', 'kid'],

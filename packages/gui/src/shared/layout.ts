@@ -50,6 +50,7 @@ const NAV_ITEMS = [
     { path: "/gui/admin/users", label: "Users", icon: "group" },
     { path: "/gui/admin/organizations", label: "Organizations", icon: "corporate_fare" },
     { path: "/gui/admin/agents", label: "Agents", icon: "smart_toy" },
+    { path: "/gui/admin/transformations", label: "Transformations", icon: "transform" },
     { path: "/gui/admin/policies", label: "Policies", icon: "policy" },
     { path: "/gui/admin/config", label: "Config", icon: "settings" },
     { path: "/gui/admin/audit", label: "Audit Log", icon: "receipt_long" },
@@ -86,6 +87,7 @@ function buildOwnerNavItems(scope?: ScopeContext, pendingTotal?: number): OwnerN
             { path: `${prefix}/dashboard`, label: "Dashboard", icon: "dashboard" },
             { path: `${prefix}/agents`, label: "Agents", icon: "smart_toy" },
             { path: `${prefix}/policies`, label: "Policies", icon: "policy" },
+            { path: `${prefix}/transformations`, label: "Transformations", icon: "transform" },
             { path: `${prefix}/policy-groups`, label: "Policy Groups", icon: "group_work" },
             inboxItem,
             { path: `${prefix}/audit`, label: "Audit Log", icon: "receipt_long" },
@@ -192,6 +194,28 @@ export const INFO_VERIFICATION_LEVEL = `
     <dd>The ID value passes format validation (e.g. correct length, check digit) but has not been independently verified.</dd>
     <dt><span class="badge badge-green">VERIFIED</span></dt>
     <dd>The ID has been fully verified against an authoritative source.</dd>
+  </dl>`;
+
+export const INFO_OUTPUT_TRANSFORMATIONS = `
+  <div class="info-title">Output Transformations</div>
+  <dl>
+    <dt>Execution order</dt>
+    <dd>Enabled rules run from top to bottom. Drag the handles to reorder, or focus a handle and use the arrow keys.</dd>
+    <dt>Scope</dt>
+    <dd>Every matching owner, group and agent rule runs. More specific rules do not override other rules.</dd>
+    <dt>Limits and failures</dt>
+    <dd>Length caps also constrain the final output. Failed transformations block output unless you explicitly choose to continue.</dd>
+  </dl>`;
+
+export const INFO_TRANSFORMATION_DRAFTS = `
+  <div class="info-title">Transformation Drafts</div>
+  <dl>
+    <dt>Proposed by agents</dt>
+    <dd>Agents can suggest transformations for their own output. Pending drafts do not run.</dd>
+    <dt>Approve</dt>
+    <dd>Approval adds an enabled transformation to the end of the chain, with output blocking on failure.</dd>
+    <dt>Deny</dt>
+    <dd>Denial keeps the transformation inactive. You can give the agent a reason.</dd>
   </dl>`;
 
 export const INFO_POLICY_DRAFTS = `

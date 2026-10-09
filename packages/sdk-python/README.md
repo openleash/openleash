@@ -77,3 +77,8 @@ verification = verify_proof_offline(
 ## License
 
 Apache-2.0
+
+## Output transformations
+
+See the [transformation protocol and integration guide](../../docs/transformations.md) for ordered
+rules, draft review, failure handling and metadata-only execution reporting.

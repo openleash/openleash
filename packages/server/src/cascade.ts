@@ -4,9 +4,11 @@
  * Each function deletes the target entity and all dependent entities,
  * returning a summary of what was removed for audit logging.
  */
+import { removeTransformation } from '@openleash/core';
 import type { DataStore } from "@openleash/core";
 
 export interface CascadeSummary {
+  transformations_removed: number;
   agents_removed: number;
   policies_removed: number;
   bindings_removed: number;
@@ -18,6 +20,7 @@ export interface CascadeSummary {
 
 function emptySummary(): CascadeSummary {
   return {
+    transformations_removed: 0,
     agents_removed: 0,
     policies_removed: 0,
     bindings_removed: 0,
@@ -39,6 +42,14 @@ function emptySummary(): CascadeSummary {
 export function cascadeDeleteAgent(store: DataStore, agentPrincipalId: string): CascadeSummary {
   const summary = emptySummary();
   const state = store.state.getState();
+
+  for (const t of store.state.getState().transformations ?? []) {
+    const record = store.transformations.read(t.transformation_id);
+    if (t.applies_to_agent_principal_id === agentPrincipalId || record.draft?.agent_principal_id === agentPrincipalId) {
+      removeTransformation(store, t.transformation_id); summary.transformations_removed++;
+    }
+  }
+  store.state.updateState(s => { s.transformation_bindings = (s.transformation_bindings ?? []).filter(b => b.agent_principal_id !== agentPrincipalId); });
 
   // Delete policies specifically targeting this agent
   const targetedPolicies = state.policies.filter(
@@ -114,6 +125,7 @@ export function cascadeDeleteOrg(store: DataStore, orgId: string): CascadeSummar
   for (const a of orgAgents) {
     const agentSummary = cascadeDeleteAgent(store, a.agent_principal_id);
     summary.agents_removed++;
+    summary.transformations_removed += agentSummary.transformations_removed;
     summary.policies_removed += agentSummary.policies_removed;
     summary.bindings_removed += agentSummary.bindings_removed;
     summary.approval_requests_removed += agentSummary.approval_requests_removed;
@@ -122,6 +134,10 @@ export function cascadeDeleteOrg(store: DataStore, orgId: string): CascadeSummar
 
   // Re-read state after agent cascades
   const freshState = store.state.getState();
+
+  for (const t of store.transformations.listByOwner('org', orgId)) {
+    removeTransformation(store, t.transformation_id); summary.transformations_removed++;
+  }
 
   // Delete remaining org policies (not already removed by agent cascade)
   const orgPolicies = freshState.policies.filter(
@@ -212,6 +228,7 @@ export function cascadeDeleteUser(store: DataStore, userId: string): CascadeSumm
   for (const a of userAgents) {
     const agentSummary = cascadeDeleteAgent(store, a.agent_principal_id);
     summary.agents_removed++;
+    summary.transformations_removed += agentSummary.transformations_removed;
     summary.policies_removed += agentSummary.policies_removed;
     summary.bindings_removed += agentSummary.bindings_removed;
     summary.approval_requests_removed += agentSummary.approval_requests_removed;
@@ -220,6 +237,10 @@ export function cascadeDeleteUser(store: DataStore, userId: string): CascadeSumm
 
   // Re-read state after agent cascades
   const freshState = store.state.getState();
+
+  for (const t of store.transformations.listByOwner('user', userId)) {
+    removeTransformation(store, t.transformation_id); summary.transformations_removed++;
+  }
 
   // Delete remaining user policies (not already removed by agent cascade)
   const userPolicies = freshState.policies.filter(

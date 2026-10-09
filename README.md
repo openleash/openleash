@@ -316,3 +316,8 @@ Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md)
 ## 📄 License
 
 [Apache-2.0](LICENSE)
+
+## Output transformations
+
+See the [transformation protocol and integration guide](docs/transformations.md) for ordered
+rules, draft review, failure handling and metadata-only execution reporting.

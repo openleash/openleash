@@ -286,6 +286,7 @@ export interface StateData {
   policies: StatePolicyEntry[];
   bindings: StateBinding[];
   transformations?: StateTransformationEntry[];
+  transformation_bindings?: { transformation_id: string; agent_principal_id: string; owner_type: OwnerType; owner_id: string }[];
   approval_requests?: StateApprovalRequestEntry[];
   policy_drafts?: StatePolicyDraftEntry[];
   /** Org-scoped policy groups. Optional for backward compatibility with pre-groups data. */
@@ -795,20 +796,25 @@ export type TransformationType = z.infer<typeof TransformationType>;
 /** Cap output to a maximum number of characters and/or lines. */
 export const CapOutputLengthRule = z.object({
   type: z.literal('cap_output_length'),
-  max_characters: z.number().int().positive().nullable().optional(),
-  max_lines: z.number().int().positive().nullable().optional(),
-});
+  max_characters: z.number().int().positive().max(1048576).nullable().optional(),
+  max_lines: z.number().int().positive().max(1048576).nullable().optional(),
+}).strict().refine(r => r.max_characters != null || r.max_lines != null, 'Set a character or line limit');
 export type CapOutputLengthRule = z.infer<typeof CapOutputLengthRule>;
 
 /** Replace every regex match in the output with a replacement string. */
 export const RegexReplaceRule = z.object({
   type: z.literal('regex_replace'),
-  from_pattern: z.string().min(1),
-  to_pattern: z.string(),
-});
+  from_pattern: z.string().min(1).max(2048).refine(pattern => {
+    // Portable subset: no lookaround, inline flags, named groups or backreferences.
+    if (/\(\?(?!:)|\\[1-9bBAZzupPkKcS]|\(\*|[+*?}]\+/.test(pattern)) return false;
+    try { const regex = new RegExp(pattern, 'u'); return !regex.test(''); } catch { return false; }
+  }, 'Invalid or unsupported portable regular expression'),
+  // Replacements are literal text, never replacement expressions.
+  to_pattern: z.string().max(4096),
+}).strict();
 export type RegexReplaceRule = z.infer<typeof RegexReplaceRule>;
 
-export const TransformationRule = z.discriminatedUnion('type', [
+export const TransformationRule = z.union([
   CapOutputLengthRule,
   RegexReplaceRule,
 ]);
@@ -821,6 +827,19 @@ export interface TransformationFrontmatter {
   owner_id: string;
   /** null = applies to every agent the owner controls. */
   applies_to_agent_principal_id: string | null;
+  applies_to_group_id?: string | null;
+  failure_policy?: 'block' | 'continue';
+  revision?: number;
+  updated_at?: string;
+  draft?: {
+    agent_principal_id: string;
+    agent_id?: string;
+    status: 'PENDING' | 'APPROVED' | 'DENIED';
+    justification: string;
+    resolved_at?: string;
+    resolved_by?: string;
+    denial_reason?: string;
+  };
   name: string | null;
   description: string | null;
   enabled: boolean;
@@ -836,6 +855,7 @@ export interface StateTransformationEntry {
   owner_type: OwnerType;
   owner_id: string;
   applies_to_agent_principal_id: string | null;
+  applies_to_group_id?: string | null;
   name: string | null;
   rank: number;
   path: string;

@@ -13,7 +13,7 @@ import {
     buildAvailableScopes,
 } from "../scope.js";
 import type { Scope } from "../scope.js";
-import { resolveSystemRoles, comparePoliciesForListing } from "@openleash/core";
+import { resolveSystemRoles, comparePoliciesForListing, activeTransformation, compareTransformations, effectiveTransformations } from "@openleash/core";
 import type { OpenleashConfig, SessionClaims, DataStore, ServerPluginManifest } from "@openleash/core";
 import {
     renderDashboard,
@@ -637,6 +637,7 @@ export function registerGuiRoutes(
                 },
                 policies,
                 audit: { items: auditData.items, next_cursor: nextCursor, total: auditData.total },
+                transformations: effectiveTransformations(store, entry),
                 auditPage,
                 auditPageSize,
             });
@@ -1364,6 +1365,7 @@ export function registerGuiRoutes(
                 availableGroups,
                 orgSlug,
                 canManageGroups,
+                transformations: effectiveTransformations(store, entry),
             }, ownerRenderOptionsFor(session, request, reply));
             reply.type("text/html").send(html);
         } catch {
@@ -1472,29 +1474,52 @@ export function registerGuiRoutes(
     };
     registerScopedOwnerRoute("policies", policiesListHandler);
 
-    // Owner output transformations (personal scope only in this PoC)
+    // Transformation routes use the same owner scope as the surrounding console.
     const transformationsListHandler = async (request: FastifyRequest, reply: FastifyReply) => {
-        const session = (request as unknown as Record<string, unknown>)
-            .ownerSession as SessionClaims;
-        const transformations = store.transformations
-            .listByOwner("user", session.sub)
-            .map((t) => ({
-                transformation_id: t.transformation_id,
-                applies_to_agent_principal_id: t.applies_to_agent_principal_id,
-                name: t.name,
-                description: t.description,
-                enabled: t.enabled,
-                rank: t.rank,
-                rule: t.rule,
-            }));
-        const html = renderOwnerTransformations(
-            transformations,
-            { org_id: null },
-            ownerRenderOptionsFor(session, request, reply),
-        );
-        reply.type("text/html").send(html);
+        const session = (request as unknown as { ownerSession: SessionClaims }).ownerSession;
+        const resolved = resolveCurrentScope(store, session, request);
+        const owner = resolved ? currentOwner(resolved) : { ownerType: 'user' as const, ownerId: session.sub };
+        const all = store.transformations.listByOwner(owner.ownerType, owner.ownerId);
+        const create = request.url.split('?')[0].endsWith('/create');
+        const id = (request.params as { id?: string }).id;
+        const records = all.filter(t => activeTransformation(t) && (!id || t.transformation_id === id)).sort(compareTransformations);
+        if (id && !records.length) { reply.code(404).send('Transformation not found'); return; }
+        const membership = owner.ownerType === 'org' ? store.memberships.listByUser(session.sub).find(m => m.org_id === owner.ownerId && m.status === 'active') : null;
+        const canManage = owner.ownerType === 'user' || membership?.role === 'org_admin';
+        if (!canManage && (create || request.url.split('?')[0].endsWith('/edit'))) {
+            reply.code(403).send('An organization admin can make changes.'); return;
+        }
+        const user = store.users.read(session.sub);
+        const state = store.state.getState();
+        const html = renderOwnerTransformations(records, {
+            org_id: owner.ownerType === 'org' ? owner.ownerId : null,
+            can_manage: canManage,
+            totp_enabled: !!user.totp_enabled, require_totp: !!config.security.require_totp,
+            agents: state.agents.filter(a => a.owner_type === owner.ownerType && a.owner_id === owner.ownerId).map(a => ({ id: a.agent_principal_id, name: a.agent_id })),
+            groups: store.policyGroups.listByOwner(owner.ownerType, owner.ownerId).map(g => ({ id: g.group_id, name: g.name })),
+            drafts: all.filter(t => t.draft), detail: !!id, create,
+        }, ownerRenderOptionsFor(session, request, reply));
+        reply.type('text/html').send(html);
     };
-    registerScopedOwnerRoute("transformations", transformationsListHandler);
+    registerScopedOwnerRoute('transformations', transformationsListHandler);
+    registerScopedOwnerRoute('transformations/create', transformationsListHandler);
+    registerScopedOwnerRoute('transformations/:id/edit', transformationsListHandler);
+    registerScopedOwnerRoute('transformations/:id', transformationsListHandler);
+    const adminTransformationsHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const state = store.state.getState();
+        const id = (request.params as { id?: string }).id;
+        const records = (state.transformations ?? []).filter(t => !id || t.transformation_id === id).flatMap(t => {
+            try { return [store.transformations.read(t.transformation_id)]; } catch { return []; }
+        }).sort(compareTransformations);
+        if (id && !records.length) { reply.code(404).send('Transformation not found'); return; }
+        const names = new Map<string, string>();
+        for (const user of state.users) { try { names.set(user.user_principal_id, store.users.read(user.user_principal_id).display_name); } catch { /* Missing record. */ } }
+        for (const org of state.organizations) { try { names.set(org.org_id, store.organizations.read(org.org_id).display_name); } catch { /* Missing record. */ } }
+        const groups = state.organizations.flatMap(o => store.policyGroups.listByOwner('org', o.org_id).map(g => ({ id: g.group_id, name: g.name })));
+        reply.type('text/html').send(renderOwnerTransformations(records, { admin: true, detail: !!id, owner_names: names, groups, agents: state.agents.map(a => ({ id: a.agent_principal_id, name: a.agent_id })) }, baseRenderOptions));
+    };
+    app.get('/gui/admin/transformations', { preHandler: adminAuth }, adminTransformationsHandler);
+    app.get('/gui/admin/transformations/:id', { preHandler: adminAuth }, adminTransformationsHandler);
 
     // Owner create policy
     const policyCreateHandler = async (request: FastifyRequest, reply: FastifyReply) => {

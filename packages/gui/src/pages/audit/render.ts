@@ -76,6 +76,19 @@ export function eventSummary(
     policyBasePath = "/gui/admin/policies",
 ): string {
     const meta = entry.metadata_json;
+    if (entry.event_type === 'TRANSFORMATION_EXECUTION_REPORTED') {
+        const results = Array.isArray(meta.results) ? meta.results : [];
+        return `${escapeHtml(String(meta.outcome ?? 'reported'))}: ${results.length} rule(s) <span class="text-muted">(runtime reported)</span>`;
+    }
+    if (entry.event_type === 'TRANSFORMATIONS_REORDERED') return 'Transformation order changed';
+    if (entry.event_type.startsWith('TRANSFORMATION_')) {
+        const id = String(meta.transformation_id ?? '');
+        const label = escapeHtml(String(meta.name || id.slice(0, 8) || 'Transformation'));
+        const suffix = meta.revision ? ` (revision ${escapeHtml(String(meta.revision))})` : '';
+        if (entry.event_type === 'TRANSFORMATION_DELETED' || entry.event_type.includes('DRAFT_')) return label + suffix;
+        const base = policyBasePath.replace(/policies$/, 'transformations');
+        return `<a href="${escapeHtml(base)}/${encodeURIComponent(id)}">${label}</a>${suffix}`;
+    }
     switch (entry.event_type) {
         case "USER_CREATED":
         case "OWNER_CREATED":
